@@ -55,7 +55,7 @@ fn main() {
     let protocol_id: u64 = 0;
 
     // Private key
-    let private_key_input = prompt("Private key (base64): ");
+    let private_key_input = prompt("Passcode: ");
     let private_key = parse_private_key(&private_key_input).expect("Invalid private key");
 
     // Generate connect token on the client side
@@ -106,7 +106,6 @@ fn main() {
             break;
         }
 
-        // Check connection status
         if client.is_connected() {
             // Send a test message every 2 seconds (120 frames at 60fps)
             if message_count % 120 == 0 {
@@ -130,8 +129,18 @@ fn main() {
                 println!("Still connecting...");
             }
             message_count += 1;
+        } else if client.is_disconnected() {
+            match client.disconnect_reason() {
+                Some(reason) => {
+                    println!("Disconnected: {:?}", reason);
+                }
+                None => {
+                    println!("Disconnected (no reason given).");
+                }
+            }
+            break;
         } else {
-            println!("Disconnected from server");
+            println!("Client in unknown state, neither connected nor disconnected.");
             break;
         }
 

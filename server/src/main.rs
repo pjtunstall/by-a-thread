@@ -1,9 +1,8 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use base64;
-use base64::Engine;
-use rand::rngs::ThreadRng;
+use base64::{self, Engine};
+use rand::Rng;
 use renet::{ConnectionConfig, DefaultChannel, RenetServer, ServerEvent};
 use renet_netcode::{NetcodeServerTransport, ServerAuthentication, ServerConfig};
 
@@ -11,23 +10,27 @@ fn main() {
     let server_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000);
     let socket = UdpSocket::bind(server_addr).expect("Failed to bind socket");
 
-    // Generate random 32-byte passcode for the server
-    let mut rng = rand::rng();
-    let passcode = generate_random_passcode(&mut rng);
+    let passcode = fill_32_random_bytes();
 
     let current_time = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Your system clock appears to be incorrect--it's set to a date before 1970! Please open your system's date and time settings and enable automatic time synchronization (NTP). On most Linux systems, try `timedatectl set-ntp true`. On non-systemd distros (like Alpine or Gentoo), use `rc-service ntpd start` or `rc-service chronyd start` instead.");
 
     // Derive protocol ID from game version. Update this when making breaking changes.
-    let version = env!("CARGO_PKG_VERSION");
-    let protocol_id = version.split('.').next().unwrap().parse().unwrap();
+    // Since Renet doesn't provide a DisconnectReason to let the client know that they got the version wrong,
+    // keep the protocol ID at 0 until I've impremented a suitable error message.
+    let version = env!("CARGO_PKG_VERSION")
+        .split('.')
+        .next()
+        .unwrap()
+        .parse()
+        .unwrap();
 
     // Configure the server transport.
     let server_config = ServerConfig {
         current_time,
         max_clients: 10,
-        protocol_id: protocol_id,
+        protocol_id: version,
         public_addresses: vec![server_addr],
         authentication: ServerAuthentication::Secure {
             private_key: passcode,
@@ -41,15 +44,12 @@ fn main() {
     let connection_config = ConnectionConfig::default();
     let mut server = RenetServer::new(connection_config);
 
+    println!("  Game version: {}", version);
     println!("  Server address: {}", server_addr);
-    println!("  Protocol ID: {}", protocol_id);
     println!(
         "  Passcode: {}",
         base64::engine::general_purpose::STANDARD.encode(passcode)
     );
-    println!();
-    println!("Clients will generate their own connect tokens using these values.");
-    println!();
 
     // Main game loop.
     let mut last_updated = Instant::now();
@@ -107,16 +107,8 @@ fn main() {
     }
 }
 
-fn generate_random_passcode(rng: &mut ThreadRng) -> [u8; 32] {
-    use rand::Rng;
-    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
-                             abcdefghijklmnopqrstuvwxyz\
-                             0123456789";
-    const PASSCODE_LEN: usize = 32;
-    let mut passcode = [0u8; 32];
-    for i in 0..PASSCODE_LEN {
-        let idx = rng.random_range(0..CHARSET.len());
-        passcode[i] = CHARSET[idx];
-    }
-    passcode
+fn fill_32_random_bytes() -> [u8; 32] {
+    let mut bytes = [0u8; 32];
+    rand::rng().fill(&mut bytes[..]);
+    bytes
 }
