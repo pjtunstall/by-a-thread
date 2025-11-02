@@ -1,7 +1,10 @@
+// Add this import at the top
+use std::collections::HashSet;
+
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use renet::{ConnectionConfig, DefaultChannel, RenetServer, ServerEvent};
+use renet::{Bytes, ConnectionConfig, DefaultChannel, RenetServer, ServerEvent};
 use renet_netcode::{NetcodeServerTransport, ServerAuthentication, ServerConfig};
 
 fn main() {
@@ -17,9 +20,6 @@ fn main() {
         .duration_since(UNIX_EPOCH)
         .expect("Your system clock appears to be incorrect--it's set to a date before 1970! Please open your system's date and time settings and enable automatic time synchronization (NTP). On most Linux systems, try `timedatectl set-ntp true`. On non-systemd distros (like Alpine or Gentoo), use `rc-service ntpd start` or `rc-service chronyd start` instead.");
 
-    // Derive protocol ID from game version. Update this when making breaking changes.
-    // Since Renet doesn't provide a DisconnectReason to let the client know that they got the version wrong,
-    // keep the protocol ID at 0 until I've impremented a suitable error message.
     let version = env!("CARGO_PKG_VERSION")
         .split('.')
         .next()
@@ -27,7 +27,6 @@ fn main() {
         .parse()
         .unwrap();
 
-    // Configure the server transport.
     let server_config = ServerConfig {
         current_time,
         max_clients: 10,
@@ -39,18 +38,20 @@ fn main() {
     let mut transport =
         NetcodeServerTransport::new(server_config, socket).expect("Failed to create transport");
 
-    // Configure the renet server with channels, etc.
     let connection_config = ConnectionConfig::default();
     let mut server = RenetServer::new(connection_config);
 
-    let passcode = get_passcode();
+    let mut passcode: [u8; 6] = [0; 6];
+    passcode.fill_with(|| rand::random::<u8>() % 10);
+    let passcode = Bytes::copy_from_slice(&passcode);
     let passcode_as_string: String = passcode.iter().map(|d| d.to_string()).collect();
 
     println!("  Game version: {}", version);
     println!("  Server address: {}", server_addr);
     println!("  Passcode: {}", passcode_as_string);
 
-    // Main game loop.
+    // NEW: Set to track unauthenticated clients
+    let mut unauthenticated_clients: HashSet<u64> = HashSet::new();
     let mut last_updated = Instant::now();
 
     loop {
@@ -58,56 +59,72 @@ fn main() {
         let duration = now - last_updated;
         last_updated = now;
 
-        // Receive messages from clients, i.e. process raw packets from the transport layer (socket).
-        // This handles decryption/authentication and feeds valid data into the server's queues.
-        server.update(duration); // Updates internal renet state, handles message queues, timeouts, etc.
-        transport.update(duration, &mut server).unwrap(); // Reads incoming UDP packets, decrypts them, validates connections, and passes messages to the renet server.
+        server.update(duration);
+        transport.update(duration, &mut server).unwrap();
 
-        // Handle server events: connections and disconnections.
         while let Some(event) = server.get_event() {
             match event {
                 ServerEvent::ClientConnected { client_id } => {
                     println!("Client {} connected", client_id);
+                    // NEW: Add new clients to the unauthenticated list
+                    unauthenticated_clients.insert(client_id);
                 }
                 ServerEvent::ClientDisconnected { client_id, reason } => {
                     println!("Client {} disconnected: {}", client_id, reason);
+                    // NEW: Clean up the set on disconnect
+                    unauthenticated_clients.remove(&client_id);
                 }
             }
         }
 
-        // Consume application-level messages from the server's internal queues.
-        // This dequeues reassembled, ordered messages from a specific channel.
+        // Consume application-level messages
         for client_id in server.clients_id() {
             while let Some(message) =
                 server.receive_message(client_id, DefaultChannel::ReliableOrdered)
             {
-                let text = String::from_utf8_lossy(&message);
-                println!("Client {}: {}", client_id, text);
+                // NEW: Check if the client is in the unauthenticated set
+                if unauthenticated_clients.contains(&client_id) {
+                    // This is their auth message. Check it.
+                    if message == passcode {
+                        // Passcode is correct
+                        println!("Client {} authenticated successfully.", client_id);
+                        unauthenticated_clients.remove(&client_id); // Remove from set
 
-                // Echo back
-                let response = format!("Server received: {}", text);
-                server.send_message(
-                    client_id,
-                    DefaultChannel::ReliableOrdered,
-                    response.as_bytes().to_vec(),
-                );
+                        // Send a welcome message
+                        let welcome_msg = "Welcome! You are connected.".as_bytes().to_vec();
+                        server.send_message(
+                            client_id,
+                            DefaultChannel::ReliableOrdered,
+                            welcome_msg,
+                        );
+                    } else {
+                        // Passcode is incorrect
+                        println!("Client {} sent wrong passcode. Disconnecting.", client_id);
+                        let error_msg = "Incorrect passcode. Disconnecting.".as_bytes().to_vec();
 
-                // Other options:
-                // server.broadcast_message(channel, bytes): Send to all clients
-                // server.broadcast_message_except(client_id, channel, bytes): Send to all except one
+                        // Send the error message *before* disconnecting
+                        server.send_message(client_id, DefaultChannel::ReliableOrdered, error_msg);
+
+                        // Disconnect the client
+                        server.disconnect(client_id);
+                    }
+                } else {
+                    // Client is already authenticated, process normal messages
+                    let text = String::from_utf8_lossy(&message);
+                    println!("Client {}: {}", client_id, text);
+
+                    // Echo back
+                    let response = format!("Server received: {}", text);
+                    server.send_message(
+                        client_id,
+                        DefaultChannel::ReliableOrdered,
+                        response.as_bytes().to_vec(),
+                    );
+                }
             }
         }
 
-        // Send packets to clients using the transport layer.
         transport.send_packets(&mut server);
-
-        // Sleep to avoid busy-waiting (~60 FPS).
         std::thread::sleep(Duration::from_millis(16));
     }
-}
-
-fn get_passcode() -> [u8; 6] {
-    let mut passcode: [u8; 6] = [0; 6];
-    passcode.fill_with(|| rand::random::<u8>() % 10);
-    passcode
 }

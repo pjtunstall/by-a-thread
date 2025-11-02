@@ -2,8 +2,6 @@ use std::io::{self, Write};
 use std::net::{SocketAddr, UdpSocket};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use base64;
-use base64::Engine;
 use renet::{ConnectionConfig, DefaultChannel, RenetClient};
 use renet_netcode::{ClientAuthentication, ConnectToken, NetcodeClientTransport};
 
@@ -58,7 +56,7 @@ fn main() {
 
     // Private key
     let passcode_as_string = prompt("Passcode: ");
-    let _passcode = parse_passcode(&passcode_as_string).expect("Invalid passcode");
+    let passcode = parse_passcode(&passcode_as_string).expect("Invalid passcode");
 
     // Generate connect token on the client side
     let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
@@ -91,6 +89,83 @@ fn main() {
         server_addr, client_id
     );
 
+    // Send passcode
+    client.send_message(DefaultChannel::ReliableOrdered, passcode.to_vec());
+
+    println!("Sent passcode: {}", passcode_as_string);
+    println!("Waiting for server response...");
+
+    let mut authenticated = false;
+    let auth_timeout = Instant::now() + Duration::from_secs(10);
+
+    // This loop handles authentication
+    loop {
+        client.update(Duration::from_millis(16));
+        transport
+            .update(Duration::from_millis(16), &mut client)
+            .unwrap();
+
+        // Check for messages from the server
+        while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
+            let text = String::from_utf8_lossy(&message);
+            println!("Server: {}", text); // Always print server messages
+
+            if text == "Welcome! You are connected." {
+                authenticated = true;
+                println!("Authenticated successfully!");
+                break; // Break from the 'while let Some(message)'
+            }
+
+            if text == "Incorrect passcode. Disconnecting." {
+                // Server sent the error message. We can exit now.
+                println!("Passcode was wrong. Exiting.");
+                return; // Exit main
+            }
+        }
+
+        if authenticated {
+            // CRITICAL: Send any pending packets/acknowledgments before exiting auth loop
+            transport.send_packets(&mut client).unwrap();
+
+            // Wait until client.is_connected() returns true
+            if client.is_connected() {
+                break; // Break to the main game loop
+            }
+            // Otherwise continue looping until fully connected
+        }
+
+        // Check for disconnect state
+        if client.is_disconnected() {
+            println!("Failed to authenticate.");
+            match client.disconnect_reason() {
+                Some(reason) => {
+                    println!("Disconnected: {:?}", reason);
+                }
+                None => {
+                    println!("Disconnected (no reason given)");
+                }
+            }
+            return; // Exit main
+        }
+
+        // Check for timeout
+        if Instant::now() > auth_timeout {
+            println!("Authentication timed out.");
+            transport.disconnect(); // Tell the transport to disconnect
+            return;
+        }
+
+        // Send queued packets
+        if client.is_connected() {
+            transport.send_packets(&mut client).unwrap();
+        }
+
+        // Sleep to avoid busy-waiting
+        std::thread::sleep(Duration::from_millis(16));
+    }
+
+    println!("Entering main game loop...");
+
     // Main game loop
     let mut last_updated = Instant::now();
     let mut message_count = 0;
@@ -100,7 +175,6 @@ fn main() {
         let duration = now - last_updated;
         last_updated = now;
 
-        // Receive new messages and update client
         client.update(duration);
 
         if let Err(e) = transport.update(duration, &mut client) {
@@ -126,23 +200,15 @@ fn main() {
                 let text = String::from_utf8_lossy(&message);
                 println!("Server: {}", text);
             }
-        } else if client.is_connecting() {
-            if message_count % 60 == 0 {
-                println!("Still connecting...");
-            }
-            message_count += 1;
         } else if client.is_disconnected() {
             match client.disconnect_reason() {
                 Some(reason) => {
                     println!("Disconnected: {:?}", reason);
                 }
                 None => {
-                    println!("Disconnected (no reason given).");
+                    println!("Disconnected (no reason given)");
                 }
             }
-            break;
-        } else {
-            println!("Client in unknown state, neither connected nor disconnected.");
             break;
         }
 
