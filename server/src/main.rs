@@ -50,7 +50,7 @@ fn main() {
     println!("  Server address: {}", server_addr);
     println!("  Passcode: {}", passcode_as_string);
 
-    // NEW: Set to track unauthenticated clients
+    // Set to track unauthenticated clients
     let mut unauthenticated_clients: HashSet<u64> = HashSet::new();
     let mut last_updated = Instant::now();
 
@@ -66,12 +66,12 @@ fn main() {
             match event {
                 ServerEvent::ClientConnected { client_id } => {
                     println!("Client {} connected", client_id);
-                    // NEW: Add new clients to the unauthenticated list
+                    // Add new clients to the unauthenticated list
                     unauthenticated_clients.insert(client_id);
                 }
                 ServerEvent::ClientDisconnected { client_id, reason } => {
                     println!("Client {} disconnected: {}", client_id, reason);
-                    // NEW: Clean up the set on disconnect
+                    // Clean up the set on disconnect
                     unauthenticated_clients.remove(&client_id);
                 }
             }
