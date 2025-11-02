@@ -51,12 +51,17 @@ fn main() {
         .parse()
         .expect("Failed to parse server address");
 
-    // Game version.
+    // Game version
     let protocol_id: u64 = 0;
 
-    // Private key
     let passcode_as_string = prompt("Passcode: ");
-    let passcode = parse_passcode(&passcode_as_string).expect("Invalid passcode");
+    let passcode = match parse_passcode(&passcode_as_string) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            return;
+        }
+    };
 
     // Generate connect token on the client side
     let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
