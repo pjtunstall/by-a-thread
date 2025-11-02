@@ -1,16 +1,17 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use base64::{self, Engine};
-use rand::Rng;
 use renet::{ConnectionConfig, DefaultChannel, RenetServer, ServerEvent};
 use renet_netcode::{NetcodeServerTransport, ServerAuthentication, ServerConfig};
 
 fn main() {
+    let private_key: [u8; 32] = [
+        211, 120, 2, 54, 202, 170, 80, 236, 225, 33, 220, 193, 223, 199, 20, 80, 202, 88, 77, 123,
+        88, 129, 160, 222, 33, 251, 99, 37, 145, 18, 199, 199,
+    ];
+
     let server_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000);
     let socket = UdpSocket::bind(server_addr).expect("Failed to bind socket");
-
-    let passcode = fill_32_random_bytes();
 
     let current_time = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -32,9 +33,7 @@ fn main() {
         max_clients: 10,
         protocol_id: version,
         public_addresses: vec![server_addr],
-        authentication: ServerAuthentication::Secure {
-            private_key: passcode,
-        },
+        authentication: ServerAuthentication::Secure { private_key },
     };
 
     let mut transport =
@@ -44,12 +43,12 @@ fn main() {
     let connection_config = ConnectionConfig::default();
     let mut server = RenetServer::new(connection_config);
 
+    let passcode = get_passcode();
+    let passcode_as_string: String = passcode.iter().map(|d| d.to_string()).collect();
+
     println!("  Game version: {}", version);
     println!("  Server address: {}", server_addr);
-    println!(
-        "  Passcode: {}",
-        base64::engine::general_purpose::STANDARD.encode(passcode)
-    );
+    println!("  Passcode: {}", passcode_as_string);
 
     // Main game loop.
     let mut last_updated = Instant::now();
@@ -107,8 +106,8 @@ fn main() {
     }
 }
 
-fn fill_32_random_bytes() -> [u8; 32] {
-    let mut bytes = [0u8; 32];
-    rand::rng().fill(&mut bytes[..]);
-    bytes
+fn get_passcode() -> [u8; 6] {
+    let mut passcode: [u8; 6] = [0; 6];
+    passcode.fill_with(|| rand::random::<u8>() % 10);
+    passcode
 }

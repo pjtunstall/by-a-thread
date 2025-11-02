@@ -9,18 +9,17 @@ use renet_netcode::{ClientAuthentication, ConnectToken, NetcodeClientTransport};
 
 // TODO: User-friendly error handling.
 fn main() {
-    // Get client ID from command line or generate one
-    let args: Vec<String> = std::env::args().collect();
-    let client_id: u64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or_else(|| {
-        let id = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64;
-        println!("No client ID provided, using generated ID: {}", id);
-        id
-    });
+    let private_key: [u8; 32] = [
+        211, 120, 2, 54, 202, 170, 80, 236, 225, 33, 220, 193, 223, 199, 20, 80, 202, 88, 77, 123,
+        88, 129, 160, 222, 33, 251, 99, 37, 145, 18, 199, 199,
+    ];
 
-    // Prompt user for server details
+    let client_id = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+
+    // Prompt user for server details.
     fn prompt(msg: &str) -> String {
         print!("{}", msg);
         io::stdout().flush().unwrap();
@@ -29,20 +28,23 @@ fn main() {
         s.trim().to_string()
     }
 
-    fn parse_private_key(input: &str) -> Result<[u8; 32], String> {
+    fn parse_passcode(input: &str) -> Result<[u8; 6], String> {
         let s = input.trim();
-        let bytes = base64::engine::general_purpose::STANDARD
-            .decode(s)
-            .map_err(|e| format!("Base64 decode error: {}", e))?;
-        if bytes.len() != 32 {
-            return Err(format!(
-                "Decoded passcode must be 32 bytes, got {}",
-                bytes.len()
-            ));
+
+        if s.len() != 6 {
+            return Err(format!("Passcode must be 6 digits, got {}", s.len()));
         }
-        let mut key = [0u8; 32];
-        key.copy_from_slice(&bytes);
-        Ok(key)
+
+        let mut bytes = [0u8; 6];
+        for (i, ch) in s.chars().enumerate() {
+            if let Some(d) = ch.to_digit(10) {
+                bytes[i] = d as u8;
+            } else {
+                return Err(format!("Invalid character in passcode: '{}'", ch));
+            }
+        }
+
+        Ok(bytes)
     }
 
     // Server address
@@ -55,8 +57,8 @@ fn main() {
     let protocol_id: u64 = 0;
 
     // Private key
-    let private_key_input = prompt("Passcode: ");
-    let private_key = parse_private_key(&private_key_input).expect("Invalid private key");
+    let passcode_as_string = prompt("Passcode: ");
+    let _passcode = parse_passcode(&passcode_as_string).expect("Invalid passcode");
 
     // Generate connect token on the client side
     let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
