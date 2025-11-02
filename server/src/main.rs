@@ -82,7 +82,7 @@ fn main() {
             while let Some(message) =
                 server.receive_message(client_id, DefaultChannel::ReliableOrdered)
             {
-                // NEW: Check if the client is in the unauthenticated set
+                // Check if the client is in the unauthenticated set
                 if unauthenticated_clients.contains(&client_id) {
                     // This is their auth message. Check it.
                     if message == passcode {
