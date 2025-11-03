@@ -45,14 +45,17 @@ fn main() {
         Ok(bytes)
     }
 
-    // Server address
     let server_addr_input = prompt("Server address (e.g. 127.0.0.1:5000): ");
     let server_addr: SocketAddr = server_addr_input
         .parse()
         .expect("Failed to parse server address");
 
-    // Game version
-    let protocol_id: u64 = 0;
+    let version = env!("CARGO_PKG_VERSION")
+        .split('.')
+        .next()
+        .unwrap()
+        .parse()
+        .unwrap();
 
     let passcode_as_string = prompt("Passcode: ");
     let passcode = match parse_passcode(&passcode_as_string) {
@@ -68,24 +71,21 @@ fn main() {
 
     let connect_token = ConnectToken::generate(
         current_time,
-        protocol_id,
-        3600, // Valid for 1 hour
+        version,
+        3600, // Valid for 1 hour.
         client_id,
-        15, // 15 second connection timeout
+        15, // 15 second connection timeout.
         vec![server_addr],
-        None, // No user data
+        None, // No user data.
         &private_key,
     )
     .expect("Failed to generate token");
 
-    // Client setup - bind to any available port
+    // Bind to any available port.
     let socket = UdpSocket::bind("127.0.0.1:0").expect("Failed to bind socket");
-
     let authentication = ClientAuthentication::Secure { connect_token };
-
     let mut transport = NetcodeClientTransport::new(current_time, authentication, socket)
         .expect("Failed to create transport");
-
     let connection_config = ConnectionConfig::default();
     let mut client = RenetClient::new(connection_config);
 
@@ -94,7 +94,6 @@ fn main() {
         server_addr, client_id
     );
 
-    // Send passcode
     client.send_message(DefaultChannel::ReliableOrdered, passcode.to_vec());
 
     println!("Sent passcode: {}", passcode_as_string);
@@ -103,40 +102,39 @@ fn main() {
     let mut authenticated = false;
     let auth_timeout = Instant::now() + Duration::from_secs(10);
 
-    // This loop handles authentication
+    // Authentication loop.
     loop {
         client.update(Duration::from_millis(16));
         transport
             .update(Duration::from_millis(16), &mut client)
             .unwrap();
 
-        // Check for messages from the server
+        // Check for messages from the server.
         while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
             let text = String::from_utf8_lossy(&message);
-            println!("Server: {}", text); // Always print server messages
+            println!("Server: {}", text); // Always print server messages.
 
             if text == "Welcome! You are connected." {
                 authenticated = true;
                 println!("Authenticated successfully!");
-                break; // Break from the 'while let Some(message)'
+                break;
             }
 
             if text == "Incorrect passcode. Disconnecting." {
                 // Server sent the error message. We can exit now.
                 println!("Passcode was wrong. Exiting.");
-                return; // Exit main
+                return; // Exit main.
             }
         }
 
         if authenticated {
-            // CRITICAL: Send any pending packets/acknowledgments before exiting auth loop
+            // CRITICAL: Send any pending packets/acknowledgments before exiting auth loop!
             transport.send_packets(&mut client).unwrap();
 
-            // Wait until client.is_connected() returns true
             if client.is_connected() {
-                break; // Break to the main game loop
+                break; // Break from auth loop. After that the main game loop will begin.
             }
-            // Otherwise continue looping until fully connected
+            // Otherwise continue looping until authenticated or timeout.
         }
 
         // Check for disconnect state
@@ -150,28 +148,28 @@ fn main() {
                     println!("Disconnected (no reason given)");
                 }
             }
-            return; // Exit main
+            return; // Exit main.
         }
 
-        // Check for timeout
+        // If there is no response from the server within the timeout, exit.
         if Instant::now() > auth_timeout {
             println!("Authentication timed out.");
-            transport.disconnect(); // Tell the transport to disconnect
+            transport.disconnect(); // Tell the transport to disconnect.
             return;
         }
 
-        // Send queued packets
+        // Send queued packets.
         if client.is_connected() {
             transport.send_packets(&mut client).unwrap();
         }
 
-        // Sleep to avoid busy-waiting
+        // Sleep to avoid busy-waiting.
         std::thread::sleep(Duration::from_millis(16));
     }
 
     println!("Entering main game loop...");
 
-    // Main game loop
+    // Main game loop.
     let mut last_updated = Instant::now();
     let mut message_count = 0;
 
@@ -188,7 +186,7 @@ fn main() {
         }
 
         if client.is_connected() {
-            // Send a test message every 2 seconds (120 frames at 60fps)
+            // Send a test message every 2 seconds (120 frames at 60fps).
             if message_count % 120 == 0 {
                 let message = format!(
                     "Hello from client {}! (message {})",
@@ -200,7 +198,7 @@ fn main() {
             }
             message_count += 1;
 
-            // Receive messages from server
+            // Receive messages from server.
             while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
                 let text = String::from_utf8_lossy(&message);
                 println!("Server: {}", text);
@@ -217,10 +215,9 @@ fn main() {
             break;
         }
 
-        // Send packets to server using the transport layer
+        // Send packets to server using the transport layer.
         transport.send_packets(&mut client).unwrap();
 
-        // Sleep to avoid busy-waiting (~60 FPS)
         std::thread::sleep(Duration::from_millis(16));
     }
 

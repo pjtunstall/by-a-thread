@@ -1,4 +1,3 @@
-// Add this import at the top
 use std::collections::HashSet;
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
@@ -50,7 +49,6 @@ fn main() {
     println!("  Server address: {}", server_addr);
     println!("  Passcode: {}", passcode_as_string);
 
-    // Set to track unauthenticated clients
     let mut unauthenticated_clients: HashSet<u64> = HashSet::new();
     let mut last_updated = Instant::now();
 
@@ -60,37 +58,35 @@ fn main() {
         last_updated = now;
 
         server.update(duration);
-        transport.update(duration, &mut server).unwrap();
+        transport
+            .update(duration, &mut server)
+            .expect("Failed to update transport");
 
         while let Some(event) = server.get_event() {
             match event {
                 ServerEvent::ClientConnected { client_id } => {
                     println!("Client {} connected", client_id);
-                    // Add new clients to the unauthenticated list
                     unauthenticated_clients.insert(client_id);
                 }
                 ServerEvent::ClientDisconnected { client_id, reason } => {
                     println!("Client {} disconnected: {}", client_id, reason);
-                    // Clean up the set on disconnect
                     unauthenticated_clients.remove(&client_id);
                 }
             }
         }
 
-        // Consume application-level messages
+        // Consume application-level messages.
         for client_id in server.clients_id() {
             while let Some(message) =
                 server.receive_message(client_id, DefaultChannel::ReliableOrdered)
             {
-                // Check if the client is in the unauthenticated set
+                // Check if the client is in the unauthenticated set. If so, treat the message as a potential passcode.
                 if unauthenticated_clients.contains(&client_id) {
-                    // This is their auth message. Check it.
                     if message == passcode {
-                        // Passcode is correct
+                        // Passcode is right.
                         println!("Client {} authenticated successfully.", client_id);
-                        unauthenticated_clients.remove(&client_id); // Remove from set
+                        unauthenticated_clients.remove(&client_id);
 
-                        // Send a welcome message
                         let welcome_msg = "Welcome! You are connected.".as_bytes().to_vec();
                         server.send_message(
                             client_id,
@@ -98,18 +94,14 @@ fn main() {
                             welcome_msg,
                         );
                     } else {
-                        // Passcode is incorrect
+                        // Passcode is wrong.
                         println!("Client {} sent wrong passcode. Disconnecting.", client_id);
                         let error_msg = "Incorrect passcode. Disconnecting.".as_bytes().to_vec();
-
-                        // Send the error message *before* disconnecting
                         server.send_message(client_id, DefaultChannel::ReliableOrdered, error_msg);
-
-                        // Disconnect the client
                         server.disconnect(client_id);
                     }
                 } else {
-                    // Client is already authenticated, process normal messages
+                    // Client is already authenticated, process normal messages.
                     let text = String::from_utf8_lossy(&message);
                     println!("Client {}: {}", client_id, text);
 
