@@ -165,4 +165,19 @@ mod tests {
         assert_eq!(session.tick_message_counter(), u64::MAX);
         assert_eq!(session.message_count, u64::MAX);
     }
+
+    #[test]
+    fn session_transition_switches_state() {
+        let mut session = ClientSession::new();
+        session.transition(ClientState::Connecting);
+        assert!(matches!(session.state(), ClientState::Connecting));
+
+        session.transition(ClientState::Disconnected {
+            message: "done".to_string(),
+        });
+        assert!(matches!(
+            session.state(),
+            ClientState::Disconnected { message } if message == "done"
+        ));
+    }
 }

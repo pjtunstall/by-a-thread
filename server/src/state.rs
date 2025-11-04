@@ -118,4 +118,20 @@ mod tests {
         assert!(!state.is_authenticating(42));
         assert!(state.authentication_attempts(42).is_none());
     }
+
+    #[test]
+    fn register_connection_resets_existing_attempts() {
+        let mut state = ServerState::new();
+        state.register_connection(7);
+        *state
+            .authentication_attempts(7)
+            .expect("client should be tracked") = 2;
+
+        state.register_connection(7);
+
+        let attempts = state
+            .authentication_attempts(7)
+            .expect("client should still be tracked");
+        assert_eq!(*attempts, 0);
+    }
 }
