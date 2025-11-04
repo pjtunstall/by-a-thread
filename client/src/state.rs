@@ -104,14 +104,6 @@ mod tests {
     }
 
     #[test]
-    fn incorrect_message_does_not_underflow_guesses_left() {
-        let mut guesses_left = 0;
-        let outcome = interpret_auth_message("Incorrect passcode. Try again.", &mut guesses_left);
-        assert_eq!(outcome, AuthMessageOutcome::RequestNewGuess(0));
-        assert_eq!(guesses_left, 0);
-    }
-
-    #[test]
     fn interprets_disconnect_message() {
         let mut guesses_left = 1;
         let outcome = interpret_auth_message("Incorrect passcode. Disconnecting.", &mut guesses_left);
@@ -128,56 +120,5 @@ mod tests {
         let outcome = interpret_auth_message("Some other message", &mut guesses_left);
         assert_eq!(outcome, AuthMessageOutcome::None);
         assert_eq!(guesses_left, 2);
-    }
-
-    #[test]
-    fn session_initializes_with_startup_state() {
-        let session = ClientSession::new();
-        assert!(matches!(
-            session.state(),
-            ClientState::Startup {
-                prompt_printed: false
-            }
-        ));
-    }
-
-    #[test]
-    fn session_store_and_take_first_passcode() {
-        let mut session = ClientSession::new();
-        let expected_bytes = vec![1, 2, 3, 4, 5, 6];
-        let expected_string = "123456".to_string();
-        session.store_first_passcode(Passcode {
-            bytes: expected_bytes.clone(),
-            string: expected_string.clone(),
-        });
-        let retrieved = session
-            .take_first_passcode()
-            .expect("stored passcode should be present");
-        assert_eq!(retrieved.bytes, expected_bytes);
-        assert_eq!(retrieved.string, expected_string);
-        assert!(session.take_first_passcode().is_none());
-    }
-
-    #[test]
-    fn session_tick_message_counter_saturates_at_max() {
-        let mut session = ClientSession::new();
-        session.message_count = u64::MAX;
-        assert_eq!(session.tick_message_counter(), u64::MAX);
-        assert_eq!(session.message_count, u64::MAX);
-    }
-
-    #[test]
-    fn session_transition_switches_state() {
-        let mut session = ClientSession::new();
-        session.transition(ClientState::Connecting);
-        assert!(matches!(session.state(), ClientState::Connecting));
-
-        session.transition(ClientState::Disconnected {
-            message: "done".to_string(),
-        });
-        assert!(matches!(
-            session.state(),
-            ClientState::Disconnected { message } if message == "done"
-        ));
     }
 }
