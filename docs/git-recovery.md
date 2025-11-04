@@ -68,3 +68,11 @@ GitHub shows “Update branch” when a PR branch is behind the target branch. I
 does not mean the code lives on some other branch—it just needs to be rebased or
 merged with the current `main`. By resetting to `origin/main` you’re guaranteed
 to have the same content that was merged.
+
+## Why not?
+
+To delete all remote branches but main:
+
+```sh
+git branch -r | grep origin | grep -v "origin/main" | sed 's/origin\///' | xargs -I {} git push origin --delete {}
+```
