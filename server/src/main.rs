@@ -19,17 +19,17 @@ fn main() {
         .duration_since(UNIX_EPOCH)
         .expect("Your system clock appears to be incorrect--it's set to a date before 1970! Please open your system's date and time settings and enable automatic time synchronization (NTP). On most Linux systems, try `timedatectl set-ntp true`. On non-systemd distros (like Alpine or Gentoo), use `rc-service ntpd start` or `rc-service chronyd start` instead.");
 
-    let version = env!("CARGO_PKG_VERSION")
+    let protocol_id = env!("CARGO_PKG_VERSION")
         .split('.')
         .next()
-        .unwrap()
+        .expect("Failed to get major version")
         .parse()
-        .unwrap();
+        .expect("Failed to parse major version");
 
     let server_config = ServerConfig {
         current_time,
         max_clients: 10,
-        protocol_id: version,
+        protocol_id,
         public_addresses: vec![server_addr],
         authentication: ServerAuthentication::Secure { private_key },
     };
@@ -43,7 +43,7 @@ fn main() {
     let Passcode { bytes, string } = Passcode::generate(6);
     let passcode = Bytes::copy_from_slice(&bytes);
 
-    println!("  Game version: {}", version);
+    println!("  Game version: {}", protocol_id);
     println!("  Server address: {}", server_addr);
     println!("  Passcode: {}", string);
 

@@ -76,7 +76,7 @@ fn main() {
         .next()
         .expect("Failed to get major version")
         .parse()
-        .unwrap();
+        .expect("Failed to parse major version");
 
     let mut first_passcode: Option<Passcode> = None;
 
