@@ -1,5 +1,4 @@
-use std::collections::HashSet;
-
+use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -49,43 +48,41 @@ fn main() {
     println!("  Server address: {}", server_addr);
     println!("  Passcode: {}", passcode_as_string);
 
-    let mut unauthenticated_clients: HashSet<u64> = HashSet::new();
+    let mut auth_attempts: HashMap<u64, u8> = HashMap::new();
     let mut last_updated = Instant::now();
+    const MAX_AUTH_ATTEMPTS: u8 = 3;
 
     loop {
         let now = Instant::now();
         let duration = now - last_updated;
         last_updated = now;
 
-        server.update(duration);
         transport
             .update(duration, &mut server)
             .expect("Failed to update transport");
+        server.update(duration);
 
         while let Some(event) = server.get_event() {
             match event {
                 ServerEvent::ClientConnected { client_id } => {
                     println!("Client {} connected", client_id);
-                    unauthenticated_clients.insert(client_id);
+                    auth_attempts.insert(client_id, 0);
                 }
                 ServerEvent::ClientDisconnected { client_id, reason } => {
                     println!("Client {} disconnected: {}", client_id, reason);
-                    unauthenticated_clients.remove(&client_id);
+                    auth_attempts.remove(&client_id);
                 }
             }
         }
 
-        // Consume application-level messages.
         for client_id in server.clients_id() {
             while let Some(message) =
                 server.receive_message(client_id, DefaultChannel::ReliableOrdered)
             {
-                // Check if the client is in the unauthenticated set. If so, treat the message as a potential passcode.
-                if unauthenticated_clients.contains(&client_id) {
+                if let Some(attempts) = auth_attempts.get_mut(&client_id) {
                     if message == passcode {
-                        // Passcode is right.
                         println!("Client {} authenticated successfully.", client_id);
-                        unauthenticated_clients.remove(&client_id);
+                        auth_attempts.remove(&client_id);
 
                         let welcome_msg = "Welcome! You are connected.".as_bytes().to_vec();
                         server.send_message(
@@ -94,18 +91,36 @@ fn main() {
                             welcome_msg,
                         );
                     } else {
-                        // Passcode is wrong.
-                        println!("Client {} sent wrong passcode. Disconnecting.", client_id);
-                        let error_msg = "Incorrect passcode. Disconnecting.".as_bytes().to_vec();
-                        server.send_message(client_id, DefaultChannel::ReliableOrdered, error_msg);
-                        server.disconnect(client_id);
+                        *attempts += 1;
+                        println!(
+                            "Client {} sent wrong passcode (Attempt {}).",
+                            client_id, *attempts
+                        );
+
+                        if *attempts >= MAX_AUTH_ATTEMPTS {
+                            println!("Client {} failed authentication. Disconnecting.", client_id);
+                            let error_msg =
+                                "Incorrect passcode. Disconnecting.".as_bytes().to_vec();
+                            server.send_message(
+                                client_id,
+                                DefaultChannel::ReliableOrdered,
+                                error_msg,
+                            );
+                            server.disconnect(client_id);
+                        } else {
+                            let try_again_msg =
+                                "Incorrect passcode. Try again.".as_bytes().to_vec();
+                            server.send_message(
+                                client_id,
+                                DefaultChannel::ReliableOrdered,
+                                try_again_msg,
+                            );
+                        }
                     }
                 } else {
-                    // Client is already authenticated, process normal messages.
                     let text = String::from_utf8_lossy(&message);
                     println!("Client {}: {}", client_id, text);
 
-                    // Echo back.
                     let response = format!("Server received: {}", text);
                     server.send_message(
                         client_id,
