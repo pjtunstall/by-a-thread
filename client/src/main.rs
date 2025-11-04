@@ -1,4 +1,7 @@
-use std::io::{Write, stdin, stdout};
+mod state;
+
+use crate::state::{interpret_auth_message, AuthMessageOutcome, ClientSession, ClientState, MAX_ATTEMPTS};
+use std::io::{stdin, stdout, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::sync::mpsc;
 use std::thread;
@@ -10,41 +13,363 @@ use renet_netcode::{ClientAuthentication, ConnectToken, NetcodeClientTransport};
 
 use shared::auth::Passcode;
 
-enum ClientState {
-    Startup {
-        prompt_printed: bool,
-    },
-    Connecting,
-    Authenticating {
-        waiting_for_input: bool,
-        guesses_left: u8,
-    },
-    InGame,
-    Disconnected {
-        message: String,
-    },
+fn main() {
+    run_client();
 }
 
-#[derive(Debug, PartialEq)]
-enum AuthMessageOutcome {
-    Authenticated,
-    RequestNewGuess(u8),
-    Disconnect(String),
-    None,
+fn run_client() {
+    let rx = spawn_input_thread();
+
+    let private_key = client_private_key();
+    let client_id = rand::random::<u64>();
+    let server_addr = default_server_addr();
+    let protocol_id = protocol_version();
+    let current_time = current_time();
+    let connect_token = create_connect_token(current_time, protocol_id, client_id, server_addr, &private_key);
+
+    let socket = UdpSocket::bind("127.0.0.1:0").expect("Failed to bind socket");
+    let authentication = ClientAuthentication::Secure { connect_token };
+    let mut transport =
+        NetcodeClientTransport::new(current_time, authentication, socket).expect("Failed to create transport");
+    let connection_config = ConnectionConfig::default();
+    let mut client = RenetClient::new(connection_config);
+
+    println!(
+        "Connecting to {} with client ID: {}",
+        server_addr, client_id
+    );
+
+    let mut session = ClientSession::new();
+
+    main_loop(
+        &mut session,
+        &rx,
+        &mut client,
+        &mut transport,
+        client_id,
+    );
+
+    println!("Client shutting down");
 }
 
-fn interpret_auth_message(text: &str, guesses_left: &mut u8) -> AuthMessageOutcome {
-    match text {
-        "Welcome! You are connected." => AuthMessageOutcome::Authenticated,
-        "Incorrect passcode. Try again." => {
-            *guesses_left = guesses_left.saturating_sub(1);
-            AuthMessageOutcome::RequestNewGuess(*guesses_left)
+fn spawn_input_thread() -> mpsc::Receiver<String> {
+    let (tx, rx) = mpsc::channel::<String>();
+
+    thread::spawn(move || loop {
+        let mut buffer = String::new();
+        match stdin().read_line(&mut buffer) {
+            Ok(_) => {
+                if tx.send(buffer.trim().to_string()).is_err() {
+                    break;
+                }
+            }
+            Err(e) => {
+                eprintln!("Input thread error: {}", e);
+                break;
+            }
         }
-        "Incorrect passcode. Disconnecting." => {
-            AuthMessageOutcome::Disconnect("Incorrect passcode (final attempt failed).".to_string())
+    });
+
+    rx
+}
+
+fn client_private_key() -> [u8; 32] {
+    [
+        211, 120, 2, 54, 202, 170, 80, 236, 225, 33, 220, 193, 223, 199, 20, 80, 202, 88, 77, 123, 88, 129, 160,
+        222, 33, 251, 99, 37, 145, 18, 199, 199,
+    ]
+}
+
+fn default_server_addr() -> SocketAddr {
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000)
+}
+
+fn protocol_version() -> u64 {
+    env!("CARGO_PKG_VERSION")
+        .split('.')
+        .next()
+        .expect("Failed to get major version")
+        .parse()
+        .expect("Failed to parse major version")
+}
+
+fn current_time() -> Duration {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect(
+            "Your system clock appears to be incorrect--it's set to a date before 1970!",
+        )
+}
+
+fn create_connect_token(
+    current_time: Duration,
+    protocol_id: u64,
+    client_id: u64,
+    server_addr: SocketAddr,
+    private_key: &[u8; 32],
+) -> ConnectToken {
+    ConnectToken::generate(
+        current_time,
+        protocol_id,
+        3600,
+        client_id,
+        15,
+        vec![server_addr],
+        None,
+        private_key,
+    )
+    .expect("Failed to generate token")
+}
+
+fn main_loop(
+    session: &mut ClientSession,
+    rx: &mpsc::Receiver<String>,
+    client: &mut RenetClient,
+    transport: &mut NetcodeClientTransport,
+    client_id: u64,
+) {
+    let mut last_updated = Instant::now();
+
+    loop {
+        let now = Instant::now();
+        let duration = now - last_updated;
+        last_updated = now;
+
+        if let Err(e) = transport.update(duration, client) {
+            if apply_transition(
+                session,
+                ClientState::Disconnected {
+                    message: format!("Transport error: {}", e),
+                },
+            ) {
+                break;
+            }
+            continue;
         }
-        _ => AuthMessageOutcome::None,
+
+        client.update(duration);
+
+        let next_state = match session.state() {
+            ClientState::Startup { .. } => process_startup(session, rx),
+            ClientState::Connecting => process_connecting(session, client, transport),
+            ClientState::Authenticating { .. } => process_authenticating(session, rx, client, transport),
+            ClientState::InGame => process_in_game(session, client, transport, client_id),
+            ClientState::Disconnected { .. } => None,
+        };
+
+        if let Some(new_state) = next_state {
+            if apply_transition(session, new_state) {
+                break;
+            }
+            continue;
+        }
+
+        if let Err(e) = transport.send_packets(client) {
+            if apply_transition(
+                session,
+                ClientState::Disconnected {
+                    message: format!("Error sending packets: {}", e),
+                },
+            ) {
+                break;
+            }
+        }
+
+        thread::sleep(Duration::from_millis(16));
     }
+}
+
+fn process_startup(session: &mut ClientSession, rx: &mpsc::Receiver<String>) -> Option<ClientState> {
+    if let ClientState::Startup { prompt_printed } = session.state_mut() {
+        if !*prompt_printed {
+            print!("Passcode ({} guesses): ", MAX_ATTEMPTS);
+            stdout().flush().unwrap();
+            *prompt_printed = true;
+        }
+
+        match rx.try_recv() {
+            Ok(input_string) => {
+                if let Some(passcode) = parse_passcode_input(&input_string) {
+                    session.store_first_passcode(passcode);
+                    Some(ClientState::Connecting)
+                } else {
+                    eprintln!("Invalid format. Please enter a 6-digit number.");
+                    print!("Passcode ({} guesses): ", MAX_ATTEMPTS);
+                    stdout().flush().unwrap();
+                    None
+                }
+            }
+            Err(mpsc::TryRecvError::Empty) => None,
+            Err(mpsc::TryRecvError::Disconnected) => Some(ClientState::Disconnected {
+                message: "Input thread disconnected.".to_string(),
+            }),
+        }
+    } else {
+        None
+    }
+}
+
+fn process_connecting(
+    session: &mut ClientSession,
+    client: &mut RenetClient,
+    transport: &NetcodeClientTransport,
+) -> Option<ClientState> {
+    if client.is_connected() {
+        if let Some(passcode) = session.take_first_passcode() {
+            println!("Transport connected. Sending passcode: {}", passcode.string);
+            client.send_message(DefaultChannel::ReliableOrdered, passcode.bytes);
+            Some(ClientState::Authenticating {
+                waiting_for_input: false,
+                guesses_left: MAX_ATTEMPTS,
+            })
+        } else {
+            Some(ClientState::Disconnected {
+                message: "Internal error: No passcode to send.".to_string(),
+            })
+        }
+    } else if client.is_disconnected() {
+        Some(ClientState::Disconnected {
+            message: format!(
+                "Connection failed: {}",
+                get_disconnect_reason(client, transport)
+            ),
+        })
+    } else {
+        None
+    }
+}
+
+fn process_authenticating(
+    session: &mut ClientSession,
+    rx: &mpsc::Receiver<String>,
+    client: &mut RenetClient,
+    transport: &NetcodeClientTransport,
+) -> Option<ClientState> {
+    if let ClientState::Authenticating {
+        waiting_for_input,
+        guesses_left,
+    } = session.state_mut()
+    {
+        while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
+            let text = String::from_utf8_lossy(&message);
+            println!("Server: {}", text);
+
+            match interpret_auth_message(&text, guesses_left) {
+                AuthMessageOutcome::Authenticated => {
+                    println!("Authenticated successfully!");
+                    println!("Entering main game loop...");
+                    return Some(ClientState::InGame);
+                }
+                AuthMessageOutcome::RequestNewGuess(remaining) => {
+                    print!(
+                        "Please enter new 6-digit passcode. ({} guesses remaining): ",
+                        remaining
+                    );
+                    stdout().flush().expect("Failed to flush stdout");
+                    *waiting_for_input = true;
+                }
+                AuthMessageOutcome::Disconnect(message) => {
+                    return Some(ClientState::Disconnected { message });
+                }
+                AuthMessageOutcome::None => {}
+            }
+        }
+
+        if *waiting_for_input {
+            match rx.try_recv() {
+                Ok(input_string) => {
+                    if let Some(passcode) = parse_passcode_input(&input_string) {
+                        println!("Sending new guess...");
+                        client.send_message(DefaultChannel::ReliableOrdered, passcode.bytes);
+                        *waiting_for_input = false;
+                    } else {
+                        eprintln!(
+                            "Invalid format: {}. Please enter a 6-digit number.",
+                            input_string
+                        );
+                        println!(
+                            "Please type a new 6-digit passcode and press Enter. ({} guesses remaining)",
+                            *guesses_left
+                        );
+                    }
+                }
+                Err(mpsc::TryRecvError::Empty) => {}
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    return Some(ClientState::Disconnected {
+                        message: "Input thread disconnected.".to_string(),
+                    });
+                }
+            }
+        }
+
+        if client.is_disconnected() {
+            return Some(ClientState::Disconnected {
+                message: format!(
+                    "Disconnected while authenticating: {}",
+                    get_disconnect_reason(client, transport)
+                ),
+            });
+        }
+    }
+
+    None
+}
+
+fn process_in_game(
+    session: &mut ClientSession,
+    client: &mut RenetClient,
+    transport: &NetcodeClientTransport,
+    client_id: u64,
+) -> Option<ClientState> {
+    let message_count = session.tick_message_counter();
+
+    if message_count % 120 == 0 {
+        let message = format!(
+            "Hello from client {}! (message {})",
+            client_id,
+            message_count / 120
+        );
+        client.send_message(DefaultChannel::ReliableOrdered, message.as_bytes().to_vec());
+        println!("Sent: {}", message);
+    }
+
+    while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
+        let text = String::from_utf8_lossy(&message);
+        println!("Server: {}", text);
+    }
+
+    if client.is_disconnected() {
+        Some(ClientState::Disconnected {
+            message: format!(
+                "Disconnected from game: {}",
+                get_disconnect_reason(client, transport)
+            ),
+        })
+    } else {
+        None
+    }
+}
+
+fn apply_transition(session: &mut ClientSession, new_state: ClientState) -> bool {
+    session.transition(new_state);
+    if let ClientState::Disconnected { message } = session.state() {
+        println!("{}", message);
+        true
+    } else {
+        false
+    }
+}
+
+fn get_disconnect_reason(client: &RenetClient, transport: &NetcodeClientTransport) -> String {
+    client
+        .disconnect_reason()
+        .map(|reason| format!("Renet - {:?}", reason))
+        .or_else(|| {
+            transport
+                .disconnect_reason()
+                .map(|reason| format!("Transport - {:?}", reason))
+        })
+        .unwrap_or_else(|| "No reason given".to_string())
 }
 
 fn parse_passcode_input(input: &str) -> Option<Passcode> {
@@ -60,279 +385,6 @@ fn parse_passcode_input(input: &str) -> Option<Passcode> {
         });
     }
     None
-}
-
-fn main() {
-    const MAX_ATTEMPTS: u8 = 3;
-
-    let (tx, rx) = mpsc::channel::<String>();
-
-    thread::spawn(move || {
-        loop {
-            let mut buffer = String::new();
-            match stdin().read_line(&mut buffer) {
-                Ok(_) => {
-                    if tx.send(buffer.trim().to_string()).is_err() {
-                        break;
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Input thread error: {}", e);
-                    break;
-                }
-            }
-        }
-    });
-
-    let private_key: [u8; 32] = [
-        211, 120, 2, 54, 202, 170, 80, 236, 225, 33, 220, 193, 223, 199, 20, 80, 202, 88, 77, 123,
-        88, 129, 160, 222, 33, 251, 99, 37, 145, 18, 199, 199,
-    ];
-
-    let client_id = rand::random::<u64>();
-
-    let server_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000);
-
-    let protocol_id = env!("CARGO_PKG_VERSION")
-        .split('.')
-        .next()
-        .expect("Failed to get major version")
-        .parse()
-        .expect("Failed to parse major version");
-
-    let mut first_passcode: Option<Passcode> = None;
-
-    let current_time = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Your system clock appears to be incorrect--it's set to a date before 1970!");
-
-    let connect_token = ConnectToken::generate(
-        current_time,
-        protocol_id,
-        3600,
-        client_id,
-        15,
-        vec![server_addr],
-        None,
-        &private_key,
-    )
-    .expect("Failed to generate token");
-
-    let socket = UdpSocket::bind("127.0.0.1:0").expect("Failed to bind socket");
-    let authentication = ClientAuthentication::Secure { connect_token };
-    let mut transport = NetcodeClientTransport::new(current_time, authentication, socket)
-        .expect("Failed to create transport");
-    let connection_config = ConnectionConfig::default();
-    let mut client = RenetClient::new(connection_config);
-
-    println!(
-        "Connecting to {} with client ID: {}",
-        server_addr, client_id
-    );
-
-    let mut state = ClientState::Startup {
-        prompt_printed: false,
-    };
-    let mut last_updated = Instant::now();
-    let mut message_count = 0;
-
-    'main_loop: loop {
-        let now = Instant::now();
-        let duration = now - last_updated;
-        last_updated = now;
-
-        if let Err(e) = transport.update(duration, &mut client) {
-            state = ClientState::Disconnected {
-                message: format!("Transport error: {}", e),
-            };
-        }
-        client.update(duration);
-
-        let mut next_state = None;
-
-        match state {
-            ClientState::Startup {
-                ref mut prompt_printed,
-            } => {
-                if !*prompt_printed {
-                    print!("Passcode ({} guesses): ", MAX_ATTEMPTS);
-                    stdout().flush().unwrap();
-                    *prompt_printed = true;
-                }
-
-                match rx.try_recv() {
-                    Ok(input_string) => {
-                        if let Some(passcode) = parse_passcode_input(&input_string) {
-                            first_passcode = Some(passcode);
-                            next_state = Some(ClientState::Connecting);
-                        } else {
-                            eprintln!("Invalid format. Please enter a 6-digit number.");
-                            print!("Passcode ({} guesses): ", MAX_ATTEMPTS);
-                            stdout().flush().unwrap();
-                        }
-                    }
-                    Err(mpsc::TryRecvError::Empty) => {}
-                    Err(mpsc::TryRecvError::Disconnected) => {
-                        next_state = Some(ClientState::Disconnected {
-                            message: "Input thread disconnected.".to_string(),
-                        });
-                    }
-                }
-            }
-            ClientState::Connecting => {
-                if client.is_connected() {
-                    if let Some(passcode) = &first_passcode {
-                        println!("Transport connected. Sending passcode: {}", passcode.string);
-                        client
-                            .send_message(DefaultChannel::ReliableOrdered, passcode.bytes.clone());
-                        next_state = Some(ClientState::Authenticating {
-                            waiting_for_input: false,
-                            guesses_left: 3,
-                        });
-                    } else {
-                        next_state = Some(ClientState::Disconnected {
-                            message: "Internal error: No passcode to send.".to_string(),
-                        });
-                    }
-                } else if client.is_disconnected() {
-                    next_state = Some(ClientState::Disconnected {
-                        message: format!(
-                            "Connection failed: {}",
-                            get_disconnect_reason(&client, &transport)
-                        ),
-                    });
-                }
-            }
-            ClientState::Authenticating {
-                ref mut waiting_for_input,
-                ref mut guesses_left,
-            } => {
-                while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
-                    let text = String::from_utf8_lossy(&message);
-                    println!("Server: {}", text);
-
-                    match interpret_auth_message(&text, guesses_left) {
-                        AuthMessageOutcome::Authenticated => {
-                            println!("Authenticated successfully!");
-                            println!("Entering main game loop...");
-                            next_state = Some(ClientState::InGame);
-                            break;
-                        }
-                        AuthMessageOutcome::RequestNewGuess(remaining) => {
-                            print!(
-                                "Please enter new 6-digit passcode. ({} guesses remaining): ",
-                                remaining
-                            );
-                            stdout().flush().expect("Failed to flush stdout");
-                            *waiting_for_input = true;
-                        }
-                        AuthMessageOutcome::Disconnect(message) => {
-                            next_state = Some(ClientState::Disconnected { message });
-                            break;
-                        }
-                        AuthMessageOutcome::None => {}
-                    }
-                }
-
-                if *waiting_for_input {
-                    match rx.try_recv() {
-                        Ok(input_string) => {
-                            if let Some(passcode) = parse_passcode_input(&input_string) {
-                                println!("Sending new guess...");
-                                client
-                                    .send_message(DefaultChannel::ReliableOrdered, passcode.bytes);
-                                *waiting_for_input = false;
-                            } else {
-                                eprintln!(
-                                    "Invalid format: {}. Please enter a 6-digit number.",
-                                    input_string
-                                );
-                                println!(
-                                    "Please type a new 6-digit passcode and press Enter. ({} guesses remaining)",
-                                    *guesses_left
-                                );
-                            }
-                        }
-                        Err(mpsc::TryRecvError::Empty) => {}
-                        Err(mpsc::TryRecvError::Disconnected) => {
-                            next_state = Some(ClientState::Disconnected {
-                                message: "Input thread disconnected.".to_string(),
-                            });
-                        }
-                    }
-                }
-
-                if client.is_disconnected() {
-                    next_state = Some(ClientState::Disconnected {
-                        message: format!(
-                            "Disconnected while authenticating: {}",
-                            get_disconnect_reason(&client, &transport)
-                        ),
-                    });
-                }
-            }
-            ClientState::InGame => {
-                if message_count % 120 == 0 {
-                    let message = format!(
-                        "Hello from client {}! (message {})",
-                        client_id,
-                        message_count / 120
-                    );
-                    client
-                        .send_message(DefaultChannel::ReliableOrdered, message.as_bytes().to_vec());
-                    println!("Sent: {}", message);
-                }
-                message_count += 1;
-
-                while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
-                    let text = String::from_utf8_lossy(&message);
-                    println!("Server: {}", text);
-                }
-
-                if client.is_disconnected() {
-                    next_state = Some(ClientState::Disconnected {
-                        message: format!(
-                            "Disconnected from game: {}",
-                            get_disconnect_reason(&client, &transport)
-                        ),
-                    });
-                }
-            }
-            ClientState::Disconnected { ref message } => {
-                println!("{}", message);
-                break 'main_loop;
-            }
-        }
-
-        if let Some(new_state) = next_state {
-            state = new_state;
-            if matches!(state, ClientState::Disconnected { .. }) {
-                continue 'main_loop;
-            }
-        }
-
-        if let Err(e) = transport.send_packets(&mut client) {
-            state = ClientState::Disconnected {
-                message: format!("Error sending packets: {}", e),
-            };
-        }
-
-        std::thread::sleep(Duration::from_millis(16));
-    }
-
-    println!("Client shutting down");
-}
-
-fn get_disconnect_reason(client: &RenetClient, transport: &NetcodeClientTransport) -> String {
-    client
-        .disconnect_reason()
-        .map(|reason| format!("Renet - {:?}", reason))
-        .or_else(|| {
-            transport
-                .disconnect_reason()
-                .map(|reason| format!("Transport - {:?}", reason))
-        })
-        .unwrap_or_else(|| "No reason given".to_string())
 }
 
 #[cfg(test)]
@@ -351,43 +403,5 @@ mod tests {
     fn rejects_invalid_passcode_input() {
         assert!(parse_passcode_input("abc123").is_none());
         assert!(parse_passcode_input("12345").is_none());
-    }
-
-    #[test]
-    fn interprets_welcome_message() {
-        let mut guesses_left = 3;
-        let outcome = interpret_auth_message("Welcome! You are connected.", &mut guesses_left);
-        assert_eq!(outcome, AuthMessageOutcome::Authenticated);
-        assert_eq!(guesses_left, 3);
-    }
-
-    #[test]
-    fn interprets_try_again_message() {
-        let mut guesses_left = 3;
-        let outcome = interpret_auth_message("Incorrect passcode. Try again.", &mut guesses_left);
-        assert_eq!(outcome, AuthMessageOutcome::RequestNewGuess(2));
-        assert_eq!(guesses_left, 2);
-    }
-
-    #[test]
-    fn interprets_disconnect_message() {
-        let mut guesses_left = 1;
-        let outcome =
-            interpret_auth_message("Incorrect passcode. Disconnecting.", &mut guesses_left);
-        assert_eq!(guesses_left, 1);
-        assert_eq!(
-            outcome,
-            AuthMessageOutcome::Disconnect(
-                "Incorrect passcode (final attempt failed).".to_string()
-            )
-        );
-    }
-
-    #[test]
-    fn ignores_unexpected_message() {
-        let mut guesses_left = 2;
-        let outcome = interpret_auth_message("Some other message", &mut guesses_left);
-        assert_eq!(outcome, AuthMessageOutcome::None);
-        assert_eq!(guesses_left, 2);
     }
 }

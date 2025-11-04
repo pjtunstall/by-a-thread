@@ -1,0 +1,88 @@
+use std::collections::HashMap;
+
+pub const MAX_AUTH_ATTEMPTS: u8 = 3;
+
+#[derive(Debug, PartialEq)]
+pub enum AuthAttemptOutcome {
+    Authenticated,
+    TryAgain,
+    Disconnect,
+}
+
+pub fn evaluate_passcode_attempt(
+    passcode: &[u8],
+    attempts: &mut u8,
+    guess: &[u8],
+    max_attempts: u8,
+) -> AuthAttemptOutcome {
+    if guess == passcode {
+        AuthAttemptOutcome::Authenticated
+    } else {
+        *attempts = attempts.saturating_add(1);
+        if *attempts >= max_attempts {
+            AuthAttemptOutcome::Disconnect
+        } else {
+            AuthAttemptOutcome::TryAgain
+        }
+    }
+}
+
+pub struct ServerState {
+    auth_attempts: HashMap<u64, u8>,
+}
+
+impl ServerState {
+    pub fn new() -> Self {
+        Self {
+            auth_attempts: HashMap::new(),
+        }
+    }
+
+    pub fn register_connection(&mut self, client_id: u64) {
+        self.auth_attempts.insert(client_id, 0);
+    }
+
+    pub fn remove_client(&mut self, client_id: u64) {
+        self.auth_attempts.remove(&client_id);
+    }
+
+    pub fn authentication_attempts(&mut self, client_id: u64) -> Option<&mut u8> {
+        self.auth_attempts.get_mut(&client_id)
+    }
+
+    pub fn is_authenticating(&self, client_id: u64) -> bool {
+        self.auth_attempts.contains_key(&client_id)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn successful_authentication_does_not_increment_attempts() {
+        let passcode = [1, 2, 3, 4, 5, 6];
+        let mut attempts = 0;
+        let outcome = evaluate_passcode_attempt(&passcode, &mut attempts, &passcode, 3);
+        assert_eq!(outcome, AuthAttemptOutcome::Authenticated);
+        assert_eq!(attempts, 0);
+    }
+
+    #[test]
+    fn incorrect_attempt_requests_retry() {
+        let passcode = [1, 2, 3, 4, 5, 6];
+        let mut attempts = 0;
+        let outcome = evaluate_passcode_attempt(&passcode, &mut attempts, &[0, 0, 0, 0, 0, 0], 3);
+        assert_eq!(outcome, AuthAttemptOutcome::TryAgain);
+        assert_eq!(attempts, 1);
+    }
+
+    #[test]
+    fn max_attempts_triggers_disconnect() {
+        let passcode = [1, 2, 3, 4, 5, 6];
+        let mut attempts = 2;
+        let outcome = evaluate_passcode_attempt(&passcode, &mut attempts, &[0, 0, 0, 0, 0, 0], 3);
+        assert_eq!(outcome, AuthAttemptOutcome::Disconnect);
+        assert_eq!(attempts, 3);
+    }
+}
