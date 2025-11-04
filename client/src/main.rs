@@ -1,7 +1,8 @@
 use std::io::{self, Write};
-use std::net::{SocketAddr, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use rand;
 use renet::{ConnectionConfig, DefaultChannel, RenetClient};
 use renet_netcode::{ClientAuthentication, ConnectToken, NetcodeClientTransport};
 
@@ -12,70 +13,85 @@ enum ClientState {
     Disconnected { message: String },
 }
 
+struct Passcode {
+    bytes: Vec<u8>,
+    string: String,
+}
+
+impl Passcode {
+    /// Tries to get a valid 6-digit passcode from the user within 3 attempts.
+    /// Returns `Some(Passcode)` on success, or `None` if attempts are exhausted.
+    fn new() -> Option<Self> {
+        const MAX_ATTEMPTS: usize = 3;
+
+        for attempt in 0..MAX_ATTEMPTS {
+            let passcode_input = prompt("Passcode: ");
+
+            if passcode_input.len() == 6 && passcode_input.chars().all(|c| c.is_ascii_digit()) {
+                let mut bytes = vec![0u8; 6];
+                for (i, c) in passcode_input.chars().enumerate() {
+                    bytes[i] = c
+                        .to_digit(10)
+                        .expect("Character could not be parsed as digit")
+                        as u8;
+                }
+
+                return Some(Passcode {
+                    bytes,
+                    string: passcode_input,
+                });
+            } else {
+                let attempts_left = (MAX_ATTEMPTS - 1) - attempt;
+                if attempts_left > 0 {
+                    println!(
+                        "Invalid passcode. Please enter a 6-digit number. ({} attempts remaining)",
+                        attempts_left
+                    );
+                } else {
+                    println!("Invalid passcode. That was your last attempt.");
+                }
+            }
+        }
+
+        None
+    }
+}
+
 fn main() {
     let private_key: [u8; 32] = [
         211, 120, 2, 54, 202, 170, 80, 236, 225, 33, 220, 193, 223, 199, 20, 80, 202, 88, 77, 123,
         88, 129, 160, 222, 33, 251, 99, 37, 145, 18, 199, 199,
     ];
 
-    let client_id = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as u64;
+    let client_id = rand::random::<u64>();
 
-    fn prompt(msg: &str) -> String {
-        print!("{}", msg);
-        io::stdout().flush().unwrap();
-        let mut s = String::new();
-        io::stdin().read_line(&mut s).unwrap();
-        s.trim().to_string()
-    }
+    // let server_addr_input = prompt("Server address (e.g. 127.0.0.1:5000): ");
+    // let server_addr: SocketAddr = server_addr_input
+    //     .parse()
+    //     .expect("Failed to parse server address");
+    let server_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000);
 
-    fn parse_passcode(input: &str) -> Result<[u8; 6], String> {
-        let s = input.trim();
-
-        if s.len() != 6 {
-            return Err(format!("Passcode must be 6 digits, got {}", s.len()));
-        }
-
-        let mut bytes = [0u8; 6];
-        for (i, ch) in s.chars().enumerate() {
-            if let Some(d) = ch.to_digit(10) {
-                bytes[i] = d as u8;
-            } else {
-                return Err(format!("Invalid character in passcode: '{}'", ch));
-            }
-        }
-
-        Ok(bytes)
-    }
-
-    let server_addr_input = prompt("Server address (e.g. 127.0.0.1:5000): ");
-    let server_addr: SocketAddr = server_addr_input
-        .parse()
-        .expect("Failed to parse server address");
-
-    let version = env!("CARGO_PKG_VERSION")
+    let protocol_id = env!("CARGO_PKG_VERSION")
         .split('.')
         .next()
-        .unwrap()
+        .expect("Failed to get major version")
         .parse()
         .unwrap();
 
-    let passcode_as_string = prompt("Passcode: ");
-    let passcode = match parse_passcode(&passcode_as_string) {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!("Error: {}", e);
+    let passcode = match Passcode::new() {
+        Some(pc) => pc,
+        None => {
+            println!("Failed to provide a valid passcode. Exiting.");
             return;
         }
     };
-
-    let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+    let current_time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Your system clock appears to be incorrect--it's set to a date before 1970!");
 
     let connect_token = ConnectToken::generate(
         current_time,
-        version,
+        protocol_id,
         3600,
         client_id,
         15,
@@ -117,11 +133,8 @@ fn main() {
         match state {
             ClientState::Connecting => {
                 if client.is_connected() {
-                    println!(
-                        "Transport connected. Sending passcode: {}",
-                        passcode_as_string
-                    );
-                    client.send_message(DefaultChannel::ReliableOrdered, passcode.to_vec());
+                    println!("Transport connected. Sending passcode: {}", passcode.string);
+                    client.send_message(DefaultChannel::ReliableOrdered, passcode.bytes.clone());
                     state = ClientState::Authenticating;
                 } else if client.is_disconnected() {
                     state = ClientState::Disconnected {
@@ -223,4 +236,12 @@ fn get_disconnect_reason(client: &RenetClient, transport: &NetcodeClientTranspor
                 .map(|reason| format!("Transport - {:?}", reason))
         })
         .unwrap_or_else(|| "No reason given.".to_string())
+}
+
+fn prompt(msg: &str) -> String {
+    print!("{}", msg);
+    io::stdout().flush().unwrap();
+    let mut s = String::new();
+    io::stdin().read_line(&mut s).unwrap();
+    s.trim().to_string()
 }
