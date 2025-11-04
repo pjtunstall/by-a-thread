@@ -125,6 +125,18 @@ mod tests {
     }
 
     #[test]
+    fn removing_unknown_client_does_not_affect_other_entries() {
+        let mut state = ServerState::new();
+        state.register_connection(1);
+        state.register_connection(2);
+
+        state.remove_client(999);
+
+        assert!(state.is_authenticating(1));
+        assert!(state.is_authenticating(2));
+    }
+
+    #[test]
     fn re_registering_client_resets_attempt_counter() {
         let mut state = ServerState::new();
         state.register_connection(7);
