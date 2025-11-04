@@ -281,14 +281,17 @@ name = "server"
 version = "0.1.0"
 dependencies = [
  "base64",
- "rand",
  "renet",
  "renet_netcode",
+ "shared",
 ]
 
 [[package]]
 name = "shared"
 version = "0.1.0"
+dependencies = [
+ "rand",
+]
 
 [[package]]
 name = "subtle"

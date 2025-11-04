@@ -4,6 +4,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use renet::{Bytes, ConnectionConfig, DefaultChannel, RenetServer, ServerEvent};
 use renet_netcode::{NetcodeServerTransport, ServerAuthentication, ServerConfig};
+use shared::auth::Passcode;
 
 fn main() {
     let private_key: [u8; 32] = [
@@ -39,14 +40,12 @@ fn main() {
     let connection_config = ConnectionConfig::default();
     let mut server = RenetServer::new(connection_config);
 
-    let mut passcode: [u8; 6] = [0; 6];
-    passcode.fill_with(|| rand::random::<u8>() % 10);
-    let passcode = Bytes::copy_from_slice(&passcode);
-    let passcode_as_string: String = passcode.iter().map(|d| d.to_string()).collect();
+    let Passcode { bytes, string } = Passcode::generate(6);
+    let passcode = Bytes::copy_from_slice(&bytes);
 
     println!("  Game version: {}", version);
     println!("  Server address: {}", server_addr);
-    println!("  Passcode: {}", passcode_as_string);
+    println!("  Passcode: {}", string);
 
     let mut auth_attempts: HashMap<u64, u8> = HashMap::new();
     let mut last_updated = Instant::now();
