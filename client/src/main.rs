@@ -25,6 +25,28 @@ enum ClientState {
     },
 }
 
+#[derive(Debug, PartialEq)]
+enum AuthMessageOutcome {
+    Authenticated,
+    RequestNewGuess(u8),
+    Disconnect(String),
+    None,
+}
+
+fn interpret_auth_message(text: &str, guesses_left: &mut u8) -> AuthMessageOutcome {
+    match text {
+        "Welcome! You are connected." => AuthMessageOutcome::Authenticated,
+        "Incorrect passcode. Try again." => {
+            *guesses_left = guesses_left.saturating_sub(1);
+            AuthMessageOutcome::RequestNewGuess(*guesses_left)
+        }
+        "Incorrect passcode. Disconnecting." => {
+            AuthMessageOutcome::Disconnect("Incorrect passcode (final attempt failed).".to_string())
+        }
+        _ => AuthMessageOutcome::None,
+    }
+}
+
 fn parse_passcode_input(input: &str) -> Option<Passcode> {
     let s = input.trim();
     if s.len() == 6 && s.chars().all(|c| c.is_ascii_digit()) {
@@ -189,24 +211,26 @@ fn main() {
                     let text = String::from_utf8_lossy(&message);
                     println!("Server: {}", text);
 
-                    if text == "Welcome! You are connected." {
-                        println!("Authenticated successfully!");
-                        println!("Entering main game loop...");
-                        next_state = Some(ClientState::InGame);
-                        break;
-                    } else if text == "Incorrect passcode. Try again." {
-                        *guesses_left = guesses_left.saturating_sub(1);
-                        print!(
-                            "Please enter new 6-digit passcode. ({} guesses remaining): ",
-                            *guesses_left
-                        );
-                        stdout().flush().expect("Failed to flush stdout");
-                        *waiting_for_input = true;
-                    } else if text == "Incorrect passcode. Disconnecting." {
-                        next_state = Some(ClientState::Disconnected {
-                            message: "Incorrect passcode (final attempt failed).".to_string(),
-                        });
-                        break;
+                    match interpret_auth_message(&text, guesses_left) {
+                        AuthMessageOutcome::Authenticated => {
+                            println!("Authenticated successfully!");
+                            println!("Entering main game loop...");
+                            next_state = Some(ClientState::InGame);
+                            break;
+                        }
+                        AuthMessageOutcome::RequestNewGuess(remaining) => {
+                            print!(
+                                "Please enter new 6-digit passcode. ({} guesses remaining): ",
+                                remaining
+                            );
+                            stdout().flush().expect("Failed to flush stdout");
+                            *waiting_for_input = true;
+                        }
+                        AuthMessageOutcome::Disconnect(message) => {
+                            next_state = Some(ClientState::Disconnected { message });
+                            break;
+                        }
+                        AuthMessageOutcome::None => {}
                     }
                 }
 
@@ -309,4 +333,61 @@ fn get_disconnect_reason(client: &RenetClient, transport: &NetcodeClientTranspor
                 .map(|reason| format!("Transport - {:?}", reason))
         })
         .unwrap_or_else(|| "No reason given".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_valid_passcode_input() {
+        let input = "123456\n";
+        let passcode = parse_passcode_input(input).expect("Expected valid passcode");
+        assert_eq!(passcode.string, "123456");
+        assert_eq!(passcode.bytes, vec![1, 2, 3, 4, 5, 6]);
+    }
+
+    #[test]
+    fn rejects_invalid_passcode_input() {
+        assert!(parse_passcode_input("abc123").is_none());
+        assert!(parse_passcode_input("12345").is_none());
+    }
+
+    #[test]
+    fn interprets_welcome_message() {
+        let mut guesses_left = 3;
+        let outcome = interpret_auth_message("Welcome! You are connected.", &mut guesses_left);
+        assert_eq!(outcome, AuthMessageOutcome::Authenticated);
+        assert_eq!(guesses_left, 3);
+    }
+
+    #[test]
+    fn interprets_try_again_message() {
+        let mut guesses_left = 3;
+        let outcome = interpret_auth_message("Incorrect passcode. Try again.", &mut guesses_left);
+        assert_eq!(outcome, AuthMessageOutcome::RequestNewGuess(2));
+        assert_eq!(guesses_left, 2);
+    }
+
+    #[test]
+    fn interprets_disconnect_message() {
+        let mut guesses_left = 1;
+        let outcome =
+            interpret_auth_message("Incorrect passcode. Disconnecting.", &mut guesses_left);
+        assert_eq!(guesses_left, 1);
+        assert_eq!(
+            outcome,
+            AuthMessageOutcome::Disconnect(
+                "Incorrect passcode (final attempt failed).".to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn ignores_unexpected_message() {
+        let mut guesses_left = 2;
+        let outcome = interpret_auth_message("Some other message", &mut guesses_left);
+        assert_eq!(outcome, AuthMessageOutcome::None);
+        assert_eq!(guesses_left, 2);
+    }
 }
