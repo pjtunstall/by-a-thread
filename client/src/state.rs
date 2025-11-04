@@ -86,6 +86,7 @@ impl ClientSession {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use shared::auth::Passcode;
 
     #[test]
     fn interprets_welcome_message() {
@@ -120,5 +121,60 @@ mod tests {
         let outcome = interpret_auth_message("Some other message", &mut guesses_left);
         assert_eq!(outcome, AuthMessageOutcome::None);
         assert_eq!(guesses_left, 2);
+    }
+
+    #[test]
+    fn try_again_message_saturates_guesses_at_zero() {
+        let mut guesses_left = 0;
+        let outcome = interpret_auth_message("Incorrect passcode. Try again.", &mut guesses_left);
+        assert_eq!(outcome, AuthMessageOutcome::RequestNewGuess(0));
+        assert_eq!(guesses_left, 0);
+    }
+
+    #[test]
+    fn new_session_starts_in_startup_state() {
+        let session = ClientSession::new();
+        match session.state() {
+            ClientState::Startup { prompt_printed } => assert!(!prompt_printed),
+            _ => panic!("Unexpected initial state"),
+        }
+    }
+
+    #[test]
+    fn first_passcode_is_stored_and_cleared() {
+        let mut session = ClientSession::new();
+        let passcode = Passcode {
+            bytes: vec![1, 2, 3, 4, 5, 6],
+            string: "123456".to_string(),
+        };
+
+        session.store_first_passcode(passcode);
+        let retrieved = session
+            .take_first_passcode()
+            .expect("expected stored passcode");
+        assert_eq!(retrieved.string, "123456");
+        assert!(session.take_first_passcode().is_none());
+    }
+
+    #[test]
+    fn message_counter_returns_previous_value() {
+        let mut session = ClientSession::new();
+        assert_eq!(session.tick_message_counter(), 0);
+        assert_eq!(session.tick_message_counter(), 1);
+    }
+
+    #[test]
+    fn transition_updates_state() {
+        let mut session = ClientSession::new();
+        session.transition(ClientState::Connecting);
+        assert!(matches!(session.state(), ClientState::Connecting));
+        session.transition(ClientState::Disconnected {
+            message: "done".to_string(),
+        });
+
+        match session.state() {
+            ClientState::Disconnected { message } => assert_eq!(message, "done"),
+            _ => panic!("Unexpected state after transition"),
+        }
     }
 }

@@ -85,4 +85,35 @@ mod tests {
         assert_eq!(outcome, AuthAttemptOutcome::Disconnect);
         assert_eq!(attempts, 3);
     }
+
+    #[test]
+    fn attempts_do_not_overflow_past_u8_max() {
+        let passcode = [1, 2, 3, 4, 5, 6];
+        let mut attempts = u8::MAX - 1;
+        let outcome = evaluate_passcode_attempt(&passcode, &mut attempts, &[0, 0, 0, 0, 0, 0], u8::MAX);
+        assert_eq!(attempts, u8::MAX);
+        assert_eq!(outcome, AuthAttemptOutcome::Disconnect);
+    }
+
+    #[test]
+    fn register_connection_initializes_attempts() {
+        let mut state = ServerState::new();
+        state.register_connection(42);
+
+        let attempts = state
+            .authentication_attempts(42)
+            .expect("expected attempts entry");
+        assert_eq!(*attempts, 0);
+        assert!(state.is_authenticating(42));
+    }
+
+    #[test]
+    fn remove_client_clears_authentication_state() {
+        let mut state = ServerState::new();
+        state.register_connection(99);
+        state.remove_client(99);
+
+        assert!(!state.is_authenticating(99));
+        assert!(state.authentication_attempts(99).is_none());
+    }
 }
