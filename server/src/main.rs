@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use renet::{Bytes, ConnectionConfig, DefaultChannel, RenetServer, ServerEvent};
+use renet::{ConnectionConfig, DefaultChannel, RenetServer, ServerEvent};
 use renet_netcode::{NetcodeServerTransport, ServerAuthentication, ServerConfig};
 use shared::auth::Passcode;
 
@@ -40,12 +40,14 @@ fn main() {
     let connection_config = ConnectionConfig::default();
     let mut server = RenetServer::new(connection_config);
 
-    let Passcode { bytes, string } = Passcode::generate(6);
-    let passcode = Bytes::copy_from_slice(&bytes);
+    let Passcode {
+        bytes: passcode_bytes,
+        string: passcode_string,
+    } = Passcode::generate(6);
 
     println!("  Game version: {}", version);
     println!("  Server address: {}", server_addr);
-    println!("  Passcode: {}", string);
+    println!("  Passcode: {}", passcode_string);
 
     let mut auth_attempts: HashMap<u64, u8> = HashMap::new();
     let mut last_updated = Instant::now();
@@ -79,7 +81,7 @@ fn main() {
                 server.receive_message(client_id, DefaultChannel::ReliableOrdered)
             {
                 if let Some(attempts) = auth_attempts.get_mut(&client_id) {
-                    if message == passcode {
+                    if message.as_ref() == passcode_bytes.as_slice() {
                         println!("Client {} authenticated successfully.", client_id);
                         auth_attempts.remove(&client_id);
 
