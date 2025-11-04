@@ -105,7 +105,7 @@ fn main() {
                     let text = String::from_utf8_lossy(&message);
                     println!("Client {}: {}", client_id, text);
 
-                    // Echo back
+                    // Echo back.
                     let response = format!("Server received: {}", text);
                     server.send_message(
                         client_id,

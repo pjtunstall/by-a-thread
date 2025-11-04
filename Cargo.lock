@@ -73,6 +73,7 @@ dependencies = [
  "rand",
  "renet",
  "renet_netcode",
+ "shared",
 ]
 
 [[package]]

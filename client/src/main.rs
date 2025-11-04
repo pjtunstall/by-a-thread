@@ -6,6 +6,8 @@ use rand;
 use renet::{ConnectionConfig, DefaultChannel, RenetClient};
 use renet_netcode::{ClientAuthentication, ConnectToken, NetcodeClientTransport};
 
+use shared::auth::Passcode;
+
 enum ClientState {
     Connecting,
     Authenticating,
@@ -13,19 +15,20 @@ enum ClientState {
     Disconnected { message: String },
 }
 
-struct Passcode {
-    bytes: Vec<u8>,
-    string: String,
+trait PasscodeExt {
+    fn new() -> Option<Self>
+    where
+        Self: Sized;
 }
 
-impl Passcode {
-    /// Tries to get a valid 6-digit passcode from the user within 3 attempts.
-    /// Returns `Some(Passcode)` on success, or `None` if attempts are exhausted.
+impl PasscodeExt for Passcode {
+    // Tries to get a valid 6-digit passcode from the user within 3 attempts.
+    // Returns `Some(Passcode)` on success, or `None` if attempts are exhausted.
     fn new() -> Option<Self> {
         const MAX_ATTEMPTS: usize = 3;
 
         for attempt in 0..MAX_ATTEMPTS {
-            let passcode_input = prompt("Passcode: ");
+            let passcode_input = prompt("Passcode: ").expect("Failed to read passcode input");
 
             if passcode_input.len() == 6 && passcode_input.chars().all(|c| c.is_ascii_digit()) {
                 let mut bytes = vec![0u8; 6];
@@ -235,13 +238,13 @@ fn get_disconnect_reason(client: &RenetClient, transport: &NetcodeClientTranspor
                 .disconnect_reason()
                 .map(|reason| format!("Transport - {:?}", reason))
         })
-        .unwrap_or_else(|| "No reason given.".to_string())
+        .unwrap_or_else(|| "No reason given".to_string())
 }
 
-fn prompt(msg: &str) -> String {
+fn prompt(msg: &str) -> Result<String, io::Error> {
     print!("{}", msg);
-    io::stdout().flush().unwrap();
+    io::stdout().flush()?;
     let mut s = String::new();
     io::stdin().read_line(&mut s).unwrap();
-    s.trim().to_string()
+    Ok(s.trim().to_string())
 }
