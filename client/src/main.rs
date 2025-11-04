@@ -404,4 +404,18 @@ mod tests {
         assert!(parse_passcode_input("abc123").is_none());
         assert!(parse_passcode_input("12345").is_none());
     }
+
+    #[test]
+    fn trims_whitespace_around_passcode_input() {
+        let input = "  098765  \n";
+        let passcode = parse_passcode_input(input).expect("Expected passcode with whitespace trimmed");
+        assert_eq!(passcode.string, "098765");
+        assert_eq!(passcode.bytes, vec![0, 9, 8, 7, 6, 5]);
+    }
+
+    #[test]
+    fn rejects_passcode_with_internal_whitespace() {
+        assert!(parse_passcode_input("12 3456").is_none());
+        assert!(parse_passcode_input("1 234 56").is_none());
+    }
 }
