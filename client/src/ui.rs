@@ -64,7 +64,11 @@ impl ClientUi for TerminalUi {
     }
 
     fn show_prompt(&mut self, prompt: &str) {
-        print!("{}", prompt);
+        // Move the cursor to the start of the current line in case a previous prompt
+        // left a partial input indicator behind (such as "> ").
+        print!("\r");
+        println!("{}", prompt);
+        print!("> ");
         stdout().flush().expect("Failed to flush stdout");
     }
 
