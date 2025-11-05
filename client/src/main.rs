@@ -348,17 +348,27 @@ fn process_choosing_username(
                         message: "Input thread disconnected.".to_string(),
                     });
                 }
+                Err(err) => {
+                    ui.show_error(&err.to_string());
+                    *prompt_printed = false;
+                }
+            },
+            Ok(None) => {}
+            Err(UiInputError::Disconnected) => {
+                return Some(ClientState::Disconnected {
+                    message: "Input thread disconnected.".to_string(),
+                });
             }
         }
+    }
 
-        if client.is_disconnected() {
-            return Some(ClientState::Disconnected {
-                message: format!(
-                    "Disconnected while choosing username: {}",
-                    get_disconnect_reason(client, transport)
-                ),
-            });
-        }
+    if client.is_disconnected() {
+        return Some(ClientState::Disconnected {
+            message: format!(
+                "Disconnected while choosing username: {}",
+                get_disconnect_reason(client, transport)
+            ),
+        });
     }
 
     None
@@ -453,6 +463,64 @@ fn parse_passcode_input(input: &str) -> Option<Passcode> {
         });
     }
     None
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum UsernameMessageResult {
+    None,
+    TransitionToChat,
+}
+
+fn handle_username_server_message(
+    session: &mut ClientSession,
+    ui: &mut dyn ClientUi,
+    text: &str,
+) -> UsernameMessageResult {
+    if is_participant_announcement(text) {
+        return UsernameMessageResult::None;
+    }
+
+    let mut result = UsernameMessageResult::None;
+
+    let handled = session.with_choosing_username(|prompt_printed, awaiting_confirmation| {
+        ui.show_message(&format!("Server: {}", text));
+
+        if text.starts_with("Username error:") {
+            ui.show_message("Please try a different username.");
+            *awaiting_confirmation = false;
+            *prompt_printed = false;
+        } else if text.starts_with("Welcome, ") {
+            result = UsernameMessageResult::TransitionToChat;
+        }
+    });
+
+    if handled.is_none() {
+        ui.show_message(&format!("Server: {}", text));
+    }
+
+    result
+}
+
+fn handle_in_chat_server_message(session: &mut ClientSession, ui: &mut dyn ClientUi, text: &str) {
+    if session.awaiting_initial_roster() {
+        if is_roster_message(text) {
+            ui.show_message(text);
+            session.mark_initial_roster_received();
+        } else if !is_participant_announcement(text) {
+            ui.show_message(text);
+        }
+        return;
+    }
+
+    ui.show_message(text);
+}
+
+fn is_participant_announcement(text: &str) -> bool {
+    text.ends_with(" joined the chat.") || text.ends_with(" left the chat.")
+}
+
+fn is_roster_message(text: &str) -> bool {
+    text.starts_with("Players online: ") || text == "You are the first player online."
 }
 
 #[cfg(test)]

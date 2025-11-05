@@ -49,6 +49,7 @@ pub fn interpret_auth_message(text: &str, guesses_left: &mut u8) -> AuthMessageO
 pub struct ClientSession {
     state: ClientState,
     first_passcode: Option<Passcode>,
+    awaiting_initial_roster: bool,
 }
 
 impl ClientSession {
@@ -58,6 +59,7 @@ impl ClientSession {
                 prompt_printed: false,
             },
             first_passcode: None,
+            awaiting_initial_roster: false,
         }
     }
 
@@ -79,6 +81,31 @@ impl ClientSession {
 
     pub fn take_first_passcode(&mut self) -> Option<Passcode> {
         self.first_passcode.take()
+    }
+
+    pub fn expect_initial_roster(&mut self) {
+        self.awaiting_initial_roster = true;
+    }
+
+    pub fn awaiting_initial_roster(&self) -> bool {
+        self.awaiting_initial_roster
+    }
+
+    pub fn mark_initial_roster_received(&mut self) {
+        self.awaiting_initial_roster = false;
+    }
+
+    pub fn with_choosing_username<F, R>(&mut self, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut bool, &mut bool) -> R,
+    {
+        match &mut self.state {
+            ClientState::ChoosingUsername {
+                prompt_printed,
+                awaiting_confirmation,
+            } => Some(f(prompt_printed, awaiting_confirmation)),
+            _ => None,
+        }
     }
 }
 

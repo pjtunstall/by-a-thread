@@ -1,8 +1,6 @@
 pub mod state;
 
-use crate::state::{
-    AuthAttemptOutcome, ServerState, MAX_AUTH_ATTEMPTS, evaluate_passcode_attempt,
-};
+use crate::state::{AuthAttemptOutcome, MAX_AUTH_ATTEMPTS, ServerState, evaluate_passcode_attempt};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -10,7 +8,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use renet::{ConnectionConfig, DefaultChannel, RenetServer, ServerEvent};
 use renet_netcode::{NetcodeServerTransport, ServerAuthentication, ServerConfig};
 use shared::auth::Passcode;
-use shared::chat::{sanitize_username, UsernameError, MAX_USERNAME_LENGTH};
+use shared::chat::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username};
 
 pub fn run_server() {
     let private_key = server_private_key();
