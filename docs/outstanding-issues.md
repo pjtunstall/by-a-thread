@@ -1,0 +1,2 @@
+- Messages received by the client are printed in the middle of current prospective input.
+- Backspace fails to wrap back to previous line in terminal display (a standard feature of terminals), although chars are removed from the prospective input.
