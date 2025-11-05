@@ -77,7 +77,7 @@ fn run_client_internal(ui: &mut dyn ClientUi) {
 
     let mut session = ClientSession::new();
 
-    main_loop(&mut session, &mut ui, &mut client, &mut transport);
+    main_loop(&mut session, ui, &mut client, &mut transport);
 
     ui.show_message("Client shutting down");
 }
