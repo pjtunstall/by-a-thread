@@ -671,6 +671,55 @@ mod tests {
     }
 
     #[test]
+    fn choosing_username_retries_after_error_message() {
+        let mut session = ClientSession::new();
+        session.transition(ClientState::ChoosingUsername {
+            prompt_printed: true,
+            awaiting_confirmation: true,
+        });
+        let mut ui = MockUi::default();
+
+        let result = handle_username_server_message(
+            &mut session,
+            &mut ui,
+            "Username error: Username is already taken.",
+        );
+
+        assert_eq!(result, UsernameMessageResult::None);
+        assert_eq!(
+            ui.messages,
+            vec![
+                "Server: Username error: Username is already taken.".to_string(),
+                "Please try a different username.".to_string(),
+            ]
+        );
+
+        let (prompt_printed, awaiting_confirmation) = session
+            .with_choosing_username(|prompt_printed, awaiting_confirmation| {
+                (*prompt_printed, *awaiting_confirmation)
+            })
+            .expect("session should still be choosing a username");
+
+        assert!(!prompt_printed);
+        assert!(!awaiting_confirmation);
+    }
+
+    #[test]
+    fn choosing_username_transitions_after_welcome() {
+        let mut session = ClientSession::new();
+        session.transition(ClientState::ChoosingUsername {
+            prompt_printed: false,
+            awaiting_confirmation: true,
+        });
+        let mut ui = MockUi::default();
+
+        let result = handle_username_server_message(&mut session, &mut ui, "Welcome, Pat!");
+
+        assert_eq!(result, UsernameMessageResult::TransitionToChat);
+        assert_eq!(ui.messages, vec!["Server: Welcome, Pat!".to_string()]);
+    }
+
+    #[test]
     fn chat_discards_announcements_received_before_roster() {
         let mut session = ClientSession::new();
         session.transition(ClientState::InChat);
@@ -697,5 +746,25 @@ mod tests {
                 "Morgan joined the chat.".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn chat_surfaces_regular_messages_before_roster_arrives() {
+        let mut session = ClientSession::new();
+        session.transition(ClientState::InChat);
+        session.expect_initial_roster();
+        let mut ui = MockUi::default();
+
+        handle_in_chat_server_message(
+            &mut session,
+            &mut ui,
+            "Server: Maintenance starts in 5 minutes.",
+        );
+
+        assert_eq!(
+            ui.messages,
+            vec!["Server: Maintenance starts in 5 minutes.".to_string()]
+        );
+        assert!(session.awaiting_initial_roster());
     }
 }

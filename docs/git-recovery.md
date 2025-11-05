@@ -1,56 +1,33 @@
 # Git Recovery Playbook
 
-When a merge went sideways or you accepted the wrong side of a conflict, the
-steps below will restore the latest `main` branch (which already contains the
-state refactor and the expanded test suites) and let you try again.
+These are simple scripts and references to help recover in case something goes
+wrong with this repo.
 
-## 1. Re-run the merge so the conflict markers come back
-
-If you merged and accidentally picked the wrong side, the easiest way to get the
-conflicts back is to back out of the merge and try again:
+## Resetting your tree to match origin/main
 
 ```bash
-# abandon any in-progress merge and reset the working tree
-git merge --abort 2>/dev/null || true
-git reset --hard HEAD
+#!/bin/bash
+set -euxo pipefail
 
-# grab the latest `main` from the remote and redo the merge
-git fetch origin main
-# replace BRANCH with the branch you want to merge into main
-git checkout main
-git merge origin/BRANCH
-```
-
-At this point the conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`) will be
-recreated so you can choose the correct sections.
-
-## 2. Undo the merge entirely and restart from remote `main`
-
-If you just want to throw away the conflicted merge and start fresh from the
-remote `main`, run:
-
-```bash
 git fetch origin main
 git checkout main
 git reset --hard origin/main
 git clean -fd
 ```
 
-That gives you a clean checkout of the authoritative branch with all of the
-latest tests intact. Any local topic branches that you no longer need can be
-removed with:
+## Getting rid of branches you don't need
 
 ```bash
-git branch -D <branch-name>
-git remote prune origin
+#!/bin/bash
+for branch in $(git branch -r | grep <PATTERN-TO-DELETE>); do
+    git push origin --delete "${branch#origin/}"
+done
 ```
 
-## 3. Verify the expanded test suite is present
-
-Run the test listing to confirm you see the full client/server coverage:
+To remove a single branch, use:
 
 ```bash
-cargo test -- --list
+git push origin --delete <branch-name>
 ```
 
 You should see eleven client tests and six server tests (plus the shared crate’s
