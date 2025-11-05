@@ -5,8 +5,14 @@ use crate::state::{
     AuthMessageOutcome, ClientSession, ClientState, MAX_ATTEMPTS, interpret_auth_message,
     username_prompt, validate_username_input,
 };
-use crate::ui::{ClientUi, TerminalUi, UiInputError};
+#[cfg(not(feature = "macroquad-ui"))]
+use crate::ui::TerminalUi;
+use crate::ui::{ClientUi, UiInputError};
+#[cfg(feature = "macroquad-ui")]
+use crate::ui::{MacroquadUi, run_macroquad_ui};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+#[cfg(feature = "macroquad-ui")]
+use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -16,13 +22,34 @@ use renet_netcode::{ClientAuthentication, ConnectToken, NetcodeClientTransport};
 
 use shared::auth::Passcode;
 
+#[cfg(not(feature = "macroquad-ui"))]
 fn main() {
-    run_client();
+    run_client_with_ui(TerminalUi::new());
 }
 
-fn run_client() {
-    let mut ui = TerminalUi::new();
+#[cfg(feature = "macroquad-ui")]
+#[macroquad::main("FPS Client UI")]
+async fn main() {
+    let (ui, state, tx) = MacroquadUi::new();
+    let state_for_task = Arc::clone(&state);
 
+    let client_thread = thread::spawn(move || {
+        run_client_with_ui(ui);
+    });
+
+    run_macroquad_ui(state_for_task, tx).await;
+
+    let _ = client_thread.join();
+}
+
+fn run_client_with_ui<U>(mut ui: U)
+where
+    U: ClientUi,
+{
+    run_client_internal(&mut ui);
+}
+
+fn run_client_internal(ui: &mut dyn ClientUi) {
     let private_key = client_private_key();
     let client_id = rand::random::<u64>();
     let server_addr = default_server_addr();
@@ -50,7 +77,7 @@ fn run_client() {
 
     let mut session = ClientSession::new();
 
-    main_loop(&mut session, &mut ui, &mut client, &mut transport);
+    main_loop(&mut session, ui, &mut client, &mut transport);
 
     ui.show_message("Client shutting down");
 }
@@ -356,7 +383,7 @@ fn process_choosing_username(
                     }
                 }
             }
-            Ok(None) => {},
+            Ok(None) => {}
             Err(UiInputError::Disconnected) => {
                 return Some(ClientState::Disconnected {
                     message: "Input thread disconnected.".to_string(),
