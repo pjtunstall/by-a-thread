@@ -56,20 +56,22 @@ impl UiState {
 pub struct MacroquadUi {
     state: Arc<Mutex<UiState>>,
     rx: Receiver<String>,
+    tx: Sender<String>,
 }
 
 impl MacroquadUi {
-    pub fn new() -> (Self, Arc<Mutex<UiState>>, Sender<String>) {
+    pub fn new() -> Self {
         let state = Arc::new(Mutex::new(UiState::default()));
         let (tx, rx) = mpsc::channel();
-        (
-            Self {
-                state: Arc::clone(&state),
-                rx,
-            },
-            state,
-            tx,
-        )
+        Self { state, rx, tx }
+    }
+
+    pub fn state_handle(&self) -> Arc<Mutex<UiState>> {
+        Arc::clone(&self.state)
+    }
+
+    pub fn input_sender(&self) -> Sender<String> {
+        self.tx.clone()
     }
 }
 

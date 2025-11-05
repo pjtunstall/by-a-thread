@@ -6,10 +6,10 @@ use crate::state::{
     username_prompt, validate_username_input,
 };
 #[cfg(not(feature = "macroquad-ui"))]
-use crate::ui::TerminalUi;
-use crate::ui::{ClientUi, UiInputError};
+use crate::ui::ActiveUi;
 #[cfg(feature = "macroquad-ui")]
-use crate::ui::{MacroquadUi, run_macroquad_ui};
+use crate::ui::{ActiveUi, run_macroquad_ui};
+use crate::ui::{ClientUi, UiInputError};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 #[cfg(feature = "macroquad-ui")]
 use std::sync::Arc;
@@ -24,20 +24,21 @@ use shared::auth::Passcode;
 
 #[cfg(not(feature = "macroquad-ui"))]
 fn main() {
-    run_client_with_ui(TerminalUi::new());
+    run_client_with_ui(ActiveUi::new());
 }
 
 #[cfg(feature = "macroquad-ui")]
 #[macroquad::main("FPS Client UI")]
 async fn main() {
-    let (ui, state, tx) = MacroquadUi::new();
-    let state_for_task = Arc::clone(&state);
+    let ui = ActiveUi::new();
+    let state_for_task = ui.state_handle();
+    let input_sender = ui.input_sender();
 
     let client_thread = thread::spawn(move || {
         run_client_with_ui(ui);
     });
 
-    run_macroquad_ui(state_for_task, tx).await;
+    run_macroquad_ui(state_for_task, input_sender).await;
 
     let _ = client_thread.join();
 }
