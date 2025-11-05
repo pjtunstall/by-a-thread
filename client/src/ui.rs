@@ -23,6 +23,18 @@ pub trait ClientUi {
     fn poll_input(&mut self) -> Result<Option<String>, UiInputError>;
 }
 
+#[cfg(feature = "macroquad-ui")]
+mod macroquad;
+
+#[cfg(feature = "macroquad-ui")]
+pub use macroquad::{MacroquadUi, UiLogEntry, UiLogLevel, UiState, run_macroquad_ui};
+
+#[cfg(feature = "macroquad-ui")]
+pub type ActiveUi = MacroquadUi;
+
+#[cfg(not(feature = "macroquad-ui"))]
+pub type ActiveUi = TerminalUi;
+
 pub struct TerminalUi {
     rx: Receiver<String>,
 }
