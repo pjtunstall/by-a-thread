@@ -1,12 +1,12 @@
 mod state;
+mod ui;
 
 use crate::state::{
     AuthMessageOutcome, ClientSession, ClientState, MAX_ATTEMPTS, interpret_auth_message,
-    prompt_for_username, validate_username_input,
+    username_prompt, validate_username_input,
 };
-use std::io::{Write, stdin, stdout};
+use crate::ui::{ClientUi, TerminalUi, UiInputError};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
-use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -21,7 +21,7 @@ fn main() {
 }
 
 fn run_client() {
-    let rx = spawn_input_thread();
+    let mut ui = TerminalUi::new();
 
     let private_key = client_private_key();
     let client_id = rand::random::<u64>();
@@ -43,39 +43,16 @@ fn run_client() {
     let connection_config = ConnectionConfig::default();
     let mut client = RenetClient::new(connection_config);
 
-    println!(
+    ui.show_message(&format!(
         "Connecting to {} with client ID: {}",
         server_addr, client_id
-    );
+    ));
 
     let mut session = ClientSession::new();
 
-    main_loop(&mut session, &rx, &mut client, &mut transport);
+    main_loop(&mut session, &mut ui, &mut client, &mut transport);
 
-    println!("Client shutting down");
-}
-
-fn spawn_input_thread() -> mpsc::Receiver<String> {
-    let (tx, rx) = mpsc::channel::<String>();
-
-    thread::spawn(move || {
-        loop {
-            let mut buffer = String::new();
-            match stdin().read_line(&mut buffer) {
-                Ok(_) => {
-                    if tx.send(buffer.trim().to_string()).is_err() {
-                        break;
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Input thread error: {}", e);
-                    break;
-                }
-            }
-        }
-    });
-
-    rx
+    ui.show_message("Client shutting down");
 }
 
 fn client_private_key() -> [u8; 32] {
@@ -126,7 +103,7 @@ fn create_connect_token(
 
 fn main_loop(
     session: &mut ClientSession,
-    rx: &mpsc::Receiver<String>,
+    ui: &mut dyn ClientUi,
     client: &mut RenetClient,
     transport: &mut NetcodeClientTransport,
 ) {
@@ -140,6 +117,7 @@ fn main_loop(
         if let Err(e) = transport.update(duration, client) {
             if apply_transition(
                 session,
+                ui,
                 ClientState::Disconnected {
                     message: format!("Transport error: {}", e),
                 },
@@ -152,20 +130,20 @@ fn main_loop(
         client.update(duration);
 
         let next_state = match session.state() {
-            ClientState::Startup { .. } => process_startup(session, rx),
-            ClientState::Connecting => process_connecting(session, client, transport),
+            ClientState::Startup { .. } => process_startup(session, ui),
+            ClientState::Connecting => process_connecting(session, ui, client, transport),
             ClientState::Authenticating { .. } => {
-                process_authenticating(session, rx, client, transport)
+                process_authenticating(session, ui, client, transport)
             }
             ClientState::ChoosingUsername { .. } => {
-                process_choosing_username(session, rx, client, transport)
+                process_choosing_username(session, ui, client, transport)
             }
-            ClientState::InChat => process_in_chat(session, rx, client, transport),
+            ClientState::InChat => process_in_chat(session, ui, client, transport),
             ClientState::Disconnected { .. } => None,
         };
 
         if let Some(new_state) = next_state {
-            if apply_transition(session, new_state) {
+            if apply_transition(session, ui, new_state) {
                 break;
             }
             continue;
@@ -174,6 +152,7 @@ fn main_loop(
         if let Err(e) = transport.send_packets(client) {
             if apply_transition(
                 session,
+                ui,
                 ClientState::Disconnected {
                     message: format!("Error sending packets: {}", e),
                 },
@@ -186,31 +165,26 @@ fn main_loop(
     }
 }
 
-fn process_startup(
-    session: &mut ClientSession,
-    rx: &mpsc::Receiver<String>,
-) -> Option<ClientState> {
+fn process_startup(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<ClientState> {
     if let ClientState::Startup { prompt_printed } = session.state_mut() {
         if !*prompt_printed {
-            print!("Passcode ({} guesses): ", MAX_ATTEMPTS);
-            stdout().flush().unwrap();
+            ui.show_prompt(&passcode_prompt(MAX_ATTEMPTS));
             *prompt_printed = true;
         }
 
-        match rx.try_recv() {
-            Ok(input_string) => {
+        match ui.poll_input() {
+            Ok(Some(input_string)) => {
                 if let Some(passcode) = parse_passcode_input(&input_string) {
                     session.store_first_passcode(passcode);
                     Some(ClientState::Connecting)
                 } else {
-                    eprintln!("Invalid format. Please enter a 6-digit number.");
-                    print!("Passcode ({} guesses): ", MAX_ATTEMPTS);
-                    stdout().flush().unwrap();
+                    ui.show_error("Invalid format. Please enter a 6-digit number.");
+                    ui.show_prompt(&passcode_prompt(MAX_ATTEMPTS));
                     None
                 }
             }
-            Err(mpsc::TryRecvError::Empty) => None,
-            Err(mpsc::TryRecvError::Disconnected) => Some(ClientState::Disconnected {
+            Ok(None) => None,
+            Err(UiInputError::Disconnected) => Some(ClientState::Disconnected {
                 message: "Input thread disconnected.".to_string(),
             }),
         }
@@ -221,12 +195,16 @@ fn process_startup(
 
 fn process_connecting(
     session: &mut ClientSession,
+    ui: &mut dyn ClientUi,
     client: &mut RenetClient,
     transport: &NetcodeClientTransport,
 ) -> Option<ClientState> {
     if client.is_connected() {
         if let Some(passcode) = session.take_first_passcode() {
-            println!("Transport connected. Sending passcode: {}", passcode.string);
+            ui.show_message(&format!(
+                "Transport connected. Sending passcode: {}",
+                passcode.string
+            ));
             client.send_message(DefaultChannel::ReliableOrdered, passcode.bytes);
             Some(ClientState::Authenticating {
                 waiting_for_input: false,
@@ -251,7 +229,7 @@ fn process_connecting(
 
 fn process_authenticating(
     session: &mut ClientSession,
-    rx: &mpsc::Receiver<String>,
+    ui: &mut dyn ClientUi,
     client: &mut RenetClient,
     transport: &NetcodeClientTransport,
 ) -> Option<ClientState> {
@@ -262,22 +240,18 @@ fn process_authenticating(
     {
         while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
             let text = String::from_utf8_lossy(&message);
-            println!("Server: {}", text);
+            ui.show_message(&format!("Server: {}", text));
 
             match interpret_auth_message(&text, guesses_left) {
                 AuthMessageOutcome::Authenticated => {
-                    println!("Authenticated successfully!");
+                    ui.show_message("Authenticated successfully!");
                     return Some(ClientState::ChoosingUsername {
                         prompt_printed: false,
                         awaiting_confirmation: false,
                     });
                 }
                 AuthMessageOutcome::RequestNewGuess(remaining) => {
-                    print!(
-                        "Please enter new 6-digit passcode. ({} guesses remaining): ",
-                        remaining
-                    );
-                    stdout().flush().expect("Failed to flush stdout");
+                    ui.show_prompt(&passcode_prompt(remaining));
                     *waiting_for_input = true;
                 }
                 AuthMessageOutcome::Disconnect(message) => {
@@ -288,25 +262,25 @@ fn process_authenticating(
         }
 
         if *waiting_for_input {
-            match rx.try_recv() {
-                Ok(input_string) => {
+            match ui.poll_input() {
+                Ok(Some(input_string)) => {
                     if let Some(passcode) = parse_passcode_input(&input_string) {
-                        println!("Sending new guess...");
+                        ui.show_message("Sending new guess...");
                         client.send_message(DefaultChannel::ReliableOrdered, passcode.bytes);
                         *waiting_for_input = false;
                     } else {
-                        eprintln!(
+                        ui.show_error(&format!(
                             "Invalid format: {}. Please enter a 6-digit number.",
                             input_string
-                        );
-                        println!(
+                        ));
+                        ui.show_message(&format!(
                             "Please type a new 6-digit passcode and press Enter. ({} guesses remaining)",
                             *guesses_left
-                        );
+                        ));
                     }
                 }
-                Err(mpsc::TryRecvError::Empty) => {}
-                Err(mpsc::TryRecvError::Disconnected) => {
+                Ok(None) => {}
+                Err(UiInputError::Disconnected) => {
                     return Some(ClientState::Disconnected {
                         message: "Input thread disconnected.".to_string(),
                     });
@@ -329,87 +303,96 @@ fn process_authenticating(
 
 fn process_choosing_username(
     session: &mut ClientSession,
-    rx: &mpsc::Receiver<String>,
+    ui: &mut dyn ClientUi,
     client: &mut RenetClient,
     transport: &NetcodeClientTransport,
 ) -> Option<ClientState> {
-    if let ClientState::ChoosingUsername {
-        prompt_printed,
-        awaiting_confirmation,
-    } = session.state_mut()
-    {
-        while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
-            let text = String::from_utf8_lossy(&message);
-            println!("Server: {}", text);
+    if !matches!(session.state(), ClientState::ChoosingUsername { .. }) {
+        return None;
+    }
 
-            if text.starts_with("Username error:") {
-                println!("Please try a different username.");
-                *awaiting_confirmation = false;
-                *prompt_printed = false;
-            } else if text.starts_with("Welcome, ") {
-                return Some(ClientState::InChat);
-            }
+    while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
+        let text = String::from_utf8_lossy(&message).to_string();
+
+        if is_participant_announcement(&text) {
+            continue;
         }
 
-        if !*awaiting_confirmation {
-            if !*prompt_printed {
-                prompt_for_username();
-                *prompt_printed = true;
-            }
+        if matches!(
+            handle_username_server_message(session, ui, &text),
+            UsernameMessageResult::TransitionToChat
+        ) {
+            session.expect_initial_roster();
+            return Some(ClientState::InChat);
+        }
+    }
 
-            match rx.try_recv() {
-                Ok(input) => match validate_username_input(&input) {
-                    Ok(username) => {
-                        client.send_message(DefaultChannel::ReliableOrdered, username.into_bytes());
-                        *awaiting_confirmation = true;
-                    }
-                    Err(err) => {
-                        eprintln!("{}", err);
-                        *prompt_printed = false;
-                    }
-                },
-                Err(mpsc::TryRecvError::Empty) => {}
-                Err(mpsc::TryRecvError::Disconnected) => {
-                    return Some(ClientState::Disconnected {
-                        message: "Input thread disconnected.".to_string(),
-                    });
+    let (prompt_printed, awaiting_confirmation) = match session.state_mut() {
+        ClientState::ChoosingUsername {
+            prompt_printed,
+            awaiting_confirmation,
+        } => (prompt_printed, awaiting_confirmation),
+        _ => return None,
+    };
+
+    if !*awaiting_confirmation {
+        if !*prompt_printed {
+            ui.show_prompt(&username_prompt());
+            *prompt_printed = true;
+        }
+
+        match ui.poll_input() {
+            Ok(Some(input)) => match validate_username_input(&input) {
+                Ok(username) => {
+                    client.send_message(DefaultChannel::ReliableOrdered, username.into_bytes());
+                    *awaiting_confirmation = true;
                 }
+                Err(err) => {
+                    ui.show_error(&err.to_string());
+                    *prompt_printed = false;
+                }
+            },
+            Ok(None) => {}
+            Err(UiInputError::Disconnected) => {
+                return Some(ClientState::Disconnected {
+                    message: "Input thread disconnected.".to_string(),
+                });
             }
         }
+    }
 
-        if client.is_disconnected() {
-            return Some(ClientState::Disconnected {
-                message: format!(
-                    "Disconnected while choosing username: {}",
-                    get_disconnect_reason(client, transport)
-                ),
-            });
-        }
+    if client.is_disconnected() {
+        return Some(ClientState::Disconnected {
+            message: format!(
+                "Disconnected while choosing username: {}",
+                get_disconnect_reason(client, transport)
+            ),
+        });
     }
 
     None
 }
 
 fn process_in_chat(
-    _session: &mut ClientSession,
-    rx: &mpsc::Receiver<String>,
+    session: &mut ClientSession,
+    ui: &mut dyn ClientUi,
     client: &mut RenetClient,
     transport: &NetcodeClientTransport,
 ) -> Option<ClientState> {
     while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
-        let text = String::from_utf8_lossy(&message);
-        println!("{}", text);
+        let text = String::from_utf8_lossy(&message).to_string();
+        handle_in_chat_server_message(session, ui, &text);
     }
 
     loop {
-        match rx.try_recv() {
-            Ok(input) => {
+        match ui.poll_input() {
+            Ok(Some(input)) => {
                 if !input.trim().is_empty() {
                     client.send_message(DefaultChannel::ReliableOrdered, input.into_bytes());
                 }
             }
-            Err(mpsc::TryRecvError::Empty) => break,
-            Err(mpsc::TryRecvError::Disconnected) => {
+            Ok(None) => break,
+            Err(UiInputError::Disconnected) => {
                 return Some(ClientState::Disconnected {
                     message: "Input thread disconnected.".to_string(),
                 });
@@ -429,13 +412,28 @@ fn process_in_chat(
     }
 }
 
-fn apply_transition(session: &mut ClientSession, new_state: ClientState) -> bool {
+fn apply_transition(
+    session: &mut ClientSession,
+    ui: &mut dyn ClientUi,
+    new_state: ClientState,
+) -> bool {
     session.transition(new_state);
     if let ClientState::Disconnected { message } = session.state() {
-        println!("{}", message);
+        ui.show_message(message);
         true
     } else {
         false
+    }
+}
+
+fn passcode_prompt(remaining: u8) -> String {
+    if remaining == MAX_ATTEMPTS {
+        format!("Passcode ({} guesses): ", remaining)
+    } else {
+        format!(
+            "Please enter new 6-digit passcode. ({} guesses remaining): ",
+            remaining
+        )
     }
 }
 
@@ -466,9 +464,110 @@ fn parse_passcode_input(input: &str) -> Option<Passcode> {
     None
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum UsernameMessageResult {
+    None,
+    TransitionToChat,
+}
+
+fn handle_username_server_message(
+    session: &mut ClientSession,
+    ui: &mut dyn ClientUi,
+    text: &str,
+) -> UsernameMessageResult {
+    if is_participant_announcement(text) {
+        return UsernameMessageResult::None;
+    }
+
+    let mut result = UsernameMessageResult::None;
+
+    let handled = session.with_choosing_username(|prompt_printed, awaiting_confirmation| {
+        ui.show_message(&format!("Server: {}", text));
+
+        if text.starts_with("Username error:") {
+            ui.show_message("Please try a different username.");
+            *awaiting_confirmation = false;
+            *prompt_printed = false;
+        } else if text.starts_with("Welcome, ") {
+            result = UsernameMessageResult::TransitionToChat;
+        }
+    });
+
+    if handled.is_none() {
+        ui.show_message(&format!("Server: {}", text));
+    }
+
+    result
+}
+
+fn handle_in_chat_server_message(session: &mut ClientSession, ui: &mut dyn ClientUi, text: &str) {
+    if session.awaiting_initial_roster() {
+        if is_roster_message(text) {
+            ui.show_message(text);
+            session.mark_initial_roster_received();
+        } else if !is_participant_announcement(text) {
+            ui.show_message(text);
+        }
+        return;
+    }
+
+    ui.show_message(text);
+}
+
+fn is_participant_announcement(text: &str) -> bool {
+    text.ends_with(" joined the chat.") || text.ends_with(" left the chat.")
+}
+
+fn is_roster_message(text: &str) -> bool {
+    text.starts_with("Players online: ") || text == "You are the first player online."
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ui::{ClientUi, UiInputError};
+    use std::collections::VecDeque;
+
+    #[derive(Default)]
+    struct MockUi {
+        inputs: VecDeque<Result<Option<String>, UiInputError>>,
+        messages: Vec<String>,
+        errors: Vec<String>,
+        prompts: Vec<String>,
+    }
+
+    impl MockUi {
+        fn with_inputs<I>(inputs: I) -> Self
+        where
+            I: IntoIterator<Item = Result<Option<String>, UiInputError>>,
+        {
+            Self {
+                inputs: inputs.into_iter().collect(),
+                ..Default::default()
+            }
+        }
+    }
+
+    impl ClientUi for MockUi {
+        fn show_message(&mut self, message: &str) {
+            self.messages.push(message.to_string());
+        }
+
+        fn show_error(&mut self, message: &str) {
+            self.errors.push(message.to_string());
+        }
+
+        fn show_prompt(&mut self, prompt: &str) {
+            self.prompts.push(prompt.to_string());
+        }
+
+        fn poll_input(&mut self) -> Result<Option<String>, UiInputError> {
+            self.inputs
+                .pop_front()
+                .unwrap_or(Ok(None))
+                .map(|opt| opt.map(|s| s.to_string()))
+        }
+    }
 
     #[test]
     fn parses_valid_passcode_input() {
@@ -497,5 +596,102 @@ mod tests {
     fn rejects_passcode_with_internal_whitespace() {
         assert!(parse_passcode_input("12 3456").is_none());
         assert!(parse_passcode_input("1 234 56").is_none());
+    }
+
+    #[test]
+    fn startup_prompts_only_once_when_waiting_for_input() {
+        let mut session = ClientSession::new();
+        let mut ui = MockUi::default();
+
+        assert!(process_startup(&mut session, &mut ui).is_none());
+        assert_eq!(ui.prompts, vec![passcode_prompt(MAX_ATTEMPTS)]);
+
+        ui.messages.clear();
+        ui.errors.clear();
+
+        assert!(process_startup(&mut session, &mut ui).is_none());
+        assert_eq!(ui.prompts, vec![passcode_prompt(MAX_ATTEMPTS)]);
+    }
+
+    #[test]
+    fn startup_transitions_when_valid_passcode_received() {
+        let mut session = ClientSession::new();
+        let mut ui = MockUi::with_inputs([Ok(Some("123456".into()))]);
+
+        let next = process_startup(&mut session, &mut ui);
+        assert!(matches!(next, Some(ClientState::Connecting)));
+        assert_eq!(session.take_first_passcode().unwrap().string, "123456");
+    }
+
+    #[test]
+    fn startup_reprompts_after_invalid_passcode() {
+        let mut session = ClientSession::new();
+        let mut ui = MockUi::with_inputs([Ok(Some("abc".into()))]);
+
+        assert!(process_startup(&mut session, &mut ui).is_none());
+        assert_eq!(
+            ui.errors,
+            vec!["Invalid format. Please enter a 6-digit number.".to_string()]
+        );
+        assert_eq!(ui.prompts.len(), 2);
+    }
+
+    #[test]
+    fn startup_returns_disconnected_when_input_thread_stops() {
+        let mut session = ClientSession::new();
+        let mut ui = MockUi::with_inputs([Err(UiInputError::Disconnected)]);
+
+        let next = process_startup(&mut session, &mut ui);
+        match next {
+            Some(ClientState::Disconnected { message }) => {
+                assert_eq!(message, "Input thread disconnected.");
+            }
+            _ => panic!("Unexpected transition: expected disconnection"),
+        }
+    }
+
+    #[test]
+    fn choosing_username_discards_announcements() {
+        let mut session = ClientSession::new();
+        session.transition(ClientState::ChoosingUsername {
+            prompt_printed: false,
+            awaiting_confirmation: false,
+        });
+        let mut ui = MockUi::default();
+
+        handle_username_server_message(&mut session, &mut ui, "Riley joined the chat.");
+
+        assert!(ui.messages.is_empty());
+        assert!(ui.errors.is_empty());
+        assert!(ui.prompts.is_empty());
+    }
+
+    #[test]
+    fn chat_discards_announcements_received_before_roster() {
+        let mut session = ClientSession::new();
+        session.transition(ClientState::InChat);
+        session.expect_initial_roster();
+        let mut ui = MockUi::default();
+
+        handle_in_chat_server_message(&mut session, &mut ui, "Casey left the chat.");
+        assert!(ui.messages.is_empty());
+
+        handle_in_chat_server_message(&mut session, &mut ui, "You are the first player online.");
+
+        assert_eq!(
+            ui.messages,
+            vec!["You are the first player online.".to_string()]
+        );
+        assert!(!session.awaiting_initial_roster());
+
+        handle_in_chat_server_message(&mut session, &mut ui, "Morgan joined the chat.");
+
+        assert_eq!(
+            ui.messages,
+            vec![
+                "You are the first player online.".to_string(),
+                "Morgan joined the chat.".to_string(),
+            ]
+        );
     }
 }
