@@ -1,6 +1,5 @@
 use shared::auth::Passcode;
 use shared::chat::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username};
-use std::io::Write;
 
 pub const MAX_ATTEMPTS: u8 = 3;
 
@@ -50,6 +49,7 @@ pub fn interpret_auth_message(text: &str, guesses_left: &mut u8) -> AuthMessageO
 pub struct ClientSession {
     state: ClientState,
     first_passcode: Option<Passcode>,
+    awaiting_initial_roster: bool,
 }
 
 impl ClientSession {
@@ -59,6 +59,7 @@ impl ClientSession {
                 prompt_printed: false,
             },
             first_passcode: None,
+            awaiting_initial_roster: false,
         }
     }
 
@@ -81,16 +82,38 @@ impl ClientSession {
     pub fn take_first_passcode(&mut self) -> Option<Passcode> {
         self.first_passcode.take()
     }
+
+    pub fn expect_initial_roster(&mut self) {
+        self.awaiting_initial_roster = true;
+    }
+
+    pub fn awaiting_initial_roster(&self) -> bool {
+        self.awaiting_initial_roster
+    }
+
+    pub fn mark_initial_roster_received(&mut self) {
+        self.awaiting_initial_roster = false;
+    }
+
+    pub fn with_choosing_username<F, R>(&mut self, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut bool, &mut bool) -> R,
+    {
+        match &mut self.state {
+            ClientState::ChoosingUsername {
+                prompt_printed,
+                awaiting_confirmation,
+            } => Some(f(prompt_printed, awaiting_confirmation)),
+            _ => None,
+        }
+    }
 }
 
-pub fn prompt_for_username() {
-    print!(
+pub fn username_prompt() -> String {
+    format!(
         "Choose a username (1-{} characters, letters/numbers/_/- only): ",
         MAX_USERNAME_LENGTH
-    );
-    std::io::stdout()
-        .flush()
-        .expect("Failed to flush stdout while prompting for username");
+    )
 }
 
 pub fn validate_username_input(input: &str) -> Result<String, UsernameError> {
