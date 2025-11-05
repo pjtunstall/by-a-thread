@@ -1,4 +1,6 @@
 use shared::auth::Passcode;
+use shared::chat::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username};
+use std::io::Write;
 
 pub const MAX_ATTEMPTS: u8 = 3;
 
@@ -11,7 +13,11 @@ pub enum ClientState {
         waiting_for_input: bool,
         guesses_left: u8,
     },
-    InGame,
+    ChoosingUsername {
+        prompt_printed: bool,
+        awaiting_confirmation: bool,
+    },
+    InChat,
     Disconnected {
         message: String,
     },
@@ -27,7 +33,9 @@ pub enum AuthMessageOutcome {
 
 pub fn interpret_auth_message(text: &str, guesses_left: &mut u8) -> AuthMessageOutcome {
     match text {
-        "Welcome! You are connected." => AuthMessageOutcome::Authenticated,
+        "Authentication successful! Please enter a username (1-16 characters)." => {
+            AuthMessageOutcome::Authenticated
+        }
         "Incorrect passcode. Try again." => {
             *guesses_left = guesses_left.saturating_sub(1);
             AuthMessageOutcome::RequestNewGuess(*guesses_left)
@@ -42,7 +50,6 @@ pub fn interpret_auth_message(text: &str, guesses_left: &mut u8) -> AuthMessageO
 pub struct ClientSession {
     state: ClientState,
     first_passcode: Option<Passcode>,
-    message_count: u64,
 }
 
 impl ClientSession {
@@ -52,7 +59,6 @@ impl ClientSession {
                 prompt_printed: false,
             },
             first_passcode: None,
-            message_count: 0,
         }
     }
 
@@ -75,12 +81,20 @@ impl ClientSession {
     pub fn take_first_passcode(&mut self) -> Option<Passcode> {
         self.first_passcode.take()
     }
+}
 
-    pub fn tick_message_counter(&mut self) -> u64 {
-        let current = self.message_count;
-        self.message_count = self.message_count.saturating_add(1);
-        current
-    }
+pub fn prompt_for_username() {
+    print!(
+        "Choose a username (1-{} characters, letters/numbers/_/- only): ",
+        MAX_USERNAME_LENGTH
+    );
+    std::io::stdout()
+        .flush()
+        .expect("Failed to flush stdout while prompting for username");
+}
+
+pub fn validate_username_input(input: &str) -> Result<String, UsernameError> {
+    sanitize_username(input)
 }
 
 #[cfg(test)]
@@ -91,7 +105,10 @@ mod tests {
     #[test]
     fn interprets_welcome_message() {
         let mut guesses_left = 3;
-        let outcome = interpret_auth_message("Welcome! You are connected.", &mut guesses_left);
+        let outcome = interpret_auth_message(
+            "Authentication successful! Please enter a username (1-16 characters).",
+            &mut guesses_left,
+        );
         assert_eq!(outcome, AuthMessageOutcome::Authenticated);
         assert_eq!(guesses_left, 3);
     }
@@ -107,11 +124,14 @@ mod tests {
     #[test]
     fn interprets_disconnect_message() {
         let mut guesses_left = 1;
-        let outcome = interpret_auth_message("Incorrect passcode. Disconnecting.", &mut guesses_left);
+        let outcome =
+            interpret_auth_message("Incorrect passcode. Disconnecting.", &mut guesses_left);
         assert_eq!(guesses_left, 1);
         assert_eq!(
             outcome,
-            AuthMessageOutcome::Disconnect("Incorrect passcode (final attempt failed).".to_string())
+            AuthMessageOutcome::Disconnect(
+                "Incorrect passcode (final attempt failed).".to_string()
+            )
         );
     }
 
@@ -134,10 +154,12 @@ mod tests {
     #[test]
     fn new_session_starts_in_startup_state() {
         let session = ClientSession::new();
-        match session.state() {
-            ClientState::Startup { prompt_printed } => assert!(!prompt_printed),
-            _ => panic!("Unexpected initial state"),
-        }
+        assert!(matches!(
+            session.state(),
+            ClientState::Startup {
+                prompt_printed: false
+            }
+        ));
     }
 
     #[test]
@@ -157,13 +179,6 @@ mod tests {
     }
 
     #[test]
-    fn message_counter_returns_previous_value() {
-        let mut session = ClientSession::new();
-        assert_eq!(session.tick_message_counter(), 0);
-        assert_eq!(session.tick_message_counter(), 1);
-    }
-
-    #[test]
     fn transition_updates_state() {
         let mut session = ClientSession::new();
         session.transition(ClientState::Connecting);
@@ -176,5 +191,30 @@ mod tests {
             ClientState::Disconnected { message } => assert_eq!(message, "done"),
             _ => panic!("Unexpected state after transition"),
         }
+    }
+
+    #[test]
+    fn username_validation_rejects_invalid_values() {
+        assert_eq!(validate_username_input(""), Err(UsernameError::Empty));
+        assert_eq!(validate_username_input("    "), Err(UsernameError::Empty));
+        assert_eq!(
+            validate_username_input("user!"),
+            Err(UsernameError::InvalidCharacter('!'))
+        );
+    }
+
+    #[test]
+    fn username_validation_accepts_trimmed_valid_value() {
+        let validated = validate_username_input("  Player-1  ").expect("expected valid username");
+        assert_eq!(validated, "Player-1");
+    }
+
+    #[test]
+    fn username_validation_respects_length_limit() {
+        let too_long = "abcdefghijklmnopq";
+        assert_eq!(
+            validate_username_input(too_long),
+            Err(UsernameError::TooLong)
+        );
     }
 }

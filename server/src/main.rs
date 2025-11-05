@@ -1,6 +1,6 @@
 mod state;
 
-use crate::state::{evaluate_passcode_attempt, AuthAttemptOutcome, ServerState, MAX_AUTH_ATTEMPTS};
+use crate::state::{AuthAttemptOutcome, MAX_AUTH_ATTEMPTS, ServerState, evaluate_passcode_attempt};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -8,6 +8,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use renet::{ConnectionConfig, DefaultChannel, RenetServer, ServerEvent};
 use renet_netcode::{NetcodeServerTransport, ServerAuthentication, ServerConfig};
 use shared::auth::Passcode;
+use shared::chat::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username};
 
 fn main() {
     run_server();
@@ -38,8 +39,8 @@ fn run_server() {
 
 fn server_private_key() -> [u8; 32] {
     [
-        211, 120, 2, 54, 202, 170, 80, 236, 225, 33, 220, 193, 223, 199, 20, 80, 202, 88, 77, 123, 88, 129, 160,
-        222, 33, 251, 99, 37, 145, 18, 199, 199,
+        211, 120, 2, 54, 202, 170, 80, 236, 225, 33, 220, 193, 223, 199, 20, 80, 202, 88, 77, 123,
+        88, 129, 160, 222, 33, 251, 99, 37, 145, 18, 199, 199,
     ]
 }
 
@@ -124,7 +125,10 @@ fn process_events(server: &mut RenetServer, state: &mut ServerState) {
             }
             ServerEvent::ClientDisconnected { client_id, reason } => {
                 println!("Client {} disconnected: {}", client_id, reason);
-                state.remove_client(client_id);
+                if let Some(username) = state.remove_client(client_id) {
+                    let message = format!("{} left the chat.", username);
+                    broadcast_message(server, &message);
+                }
             }
         }
     }
@@ -132,7 +136,8 @@ fn process_events(server: &mut RenetServer, state: &mut ServerState) {
 
 fn handle_messages(server: &mut RenetServer, state: &mut ServerState, passcode: &Passcode) {
     for client_id in server.clients_id() {
-        while let Some(message) = server.receive_message(client_id, DefaultChannel::ReliableOrdered) {
+        while let Some(message) = server.receive_message(client_id, DefaultChannel::ReliableOrdered)
+        {
             if state.is_authenticating(client_id) {
                 let (outcome, attempts_count) = {
                     let attempts_entry = state
@@ -151,13 +156,16 @@ fn handle_messages(server: &mut RenetServer, state: &mut ServerState, passcode: 
                 match outcome {
                     AuthAttemptOutcome::Authenticated => {
                         println!("Client {} authenticated successfully.", client_id);
-                        state.remove_client(client_id);
+                        state.mark_authenticated(client_id);
 
-                        let welcome_msg = "Welcome! You are connected.".as_bytes().to_vec();
+                        let prompt = format!(
+                            "Authentication successful! Please enter a username (1-{} characters).",
+                            MAX_USERNAME_LENGTH
+                        );
                         server.send_message(
                             client_id,
                             DefaultChannel::ReliableOrdered,
-                            welcome_msg,
+                            prompt.as_bytes().to_vec(),
                         );
                     }
                     AuthAttemptOutcome::TryAgain => {
@@ -176,26 +184,89 @@ fn handle_messages(server: &mut RenetServer, state: &mut ServerState, passcode: 
                     AuthAttemptOutcome::Disconnect => {
                         println!("Client {} failed authentication. Disconnecting.", client_id);
                         let error_msg = "Incorrect passcode. Disconnecting.".as_bytes().to_vec();
-                        server.send_message(
-                            client_id,
-                            DefaultChannel::ReliableOrdered,
-                            error_msg,
-                        );
+                        server.send_message(client_id, DefaultChannel::ReliableOrdered, error_msg);
                         server.disconnect(client_id);
                         state.remove_client(client_id);
                     }
                 }
-            } else {
-                let text = String::from_utf8_lossy(&message);
-                println!("Client {}: {}", client_id, text);
+            } else if state.needs_username(client_id) {
+                let text = String::from_utf8_lossy(&message).to_string();
 
-                let response = format!("Server received: {}", text);
-                server.send_message(
-                    client_id,
-                    DefaultChannel::ReliableOrdered,
-                    response.as_bytes().to_vec(),
-                );
+                match sanitize_username(&text) {
+                    Ok(username) => {
+                        if state.is_username_taken(&username) {
+                            send_username_error(server, client_id, "Username is already taken.");
+                            continue;
+                        }
+
+                        state.register_username(client_id, &username);
+
+                        let welcome = format!("Welcome, {}!", username);
+                        server.send_message(
+                            client_id,
+                            DefaultChannel::ReliableOrdered,
+                            welcome.as_bytes().to_vec(),
+                        );
+
+                        let others = state.usernames_except(client_id);
+                        if others.is_empty() {
+                            server.send_message(
+                                client_id,
+                                DefaultChannel::ReliableOrdered,
+                                "You are the first player online.".as_bytes().to_vec(),
+                            );
+                        } else {
+                            let list = others.join(", ");
+                            let message = format!("Players online: {}", list);
+                            server.send_message(
+                                client_id,
+                                DefaultChannel::ReliableOrdered,
+                                message.as_bytes().to_vec(),
+                            );
+                        }
+
+                        let join_announcement = format!("{} joined the chat.", username);
+                        broadcast_message(server, &join_announcement);
+                    }
+                    Err(err) => {
+                        let error_text = match err {
+                            UsernameError::Empty => "Username must not be empty.",
+                            UsernameError::TooLong => "Username is too long.",
+                            UsernameError::InvalidCharacter(_) => {
+                                "Username contains invalid characters."
+                            }
+                        };
+                        send_username_error(server, client_id, error_text);
+                    }
+                }
+            } else {
+                let text = String::from_utf8_lossy(&message).trim().to_string();
+                if text.is_empty() {
+                    continue;
+                }
+
+                if let Some(username) = state.username(client_id) {
+                    println!("{}: {}", username, text);
+                    let chat_message = format!("{}: {}", username, text);
+                    broadcast_message(server, &chat_message);
+                }
             }
         }
+    }
+}
+
+fn send_username_error(server: &mut RenetServer, client_id: u64, message: &str) {
+    let payload = format!("Username error: {}", message);
+    server.send_message(
+        client_id,
+        DefaultChannel::ReliableOrdered,
+        payload.as_bytes().to_vec(),
+    );
+}
+
+fn broadcast_message(server: &mut RenetServer, message: &str) {
+    let payload = message.as_bytes().to_vec();
+    for recipient in server.clients_id() {
+        server.send_message(recipient, DefaultChannel::ReliableOrdered, payload.clone());
     }
 }
