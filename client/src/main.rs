@@ -356,7 +356,7 @@ fn process_choosing_username(
                     }
                 }
             }
-            Ok(None) => {},
+            Ok(None) => {}
             Err(UiInputError::Disconnected) => {
                 return Some(ClientState::Disconnected {
                     message: "Input thread disconnected.".to_string(),
