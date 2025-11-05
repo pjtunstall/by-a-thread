@@ -71,8 +71,23 @@ to have the same content that was merged.
 
 ## Why not?
 
-To delete all remote branches but main:
+### Deleting a single stale remote branch
 
-```sh
+If you only need to remove one remote branch (for example,
+`codex/evaluate-macroquad-ui`), run:
+
+```bash
+git push origin --delete codex/evaluate-macroquad-ui
+```
+
+GitHub will immediately drop the branch from the list of active branches. Any
+open pull requests that referenced it will automatically close.
+
+### Deleting all remote branches except `main`
+
+When you want to prune every remote branch except `main`, the following command
+will iterate over the remote list and delete them one by one:
+
+```bash
 git branch -r | grep origin | grep -v "origin/main" | sed 's/origin\///' | xargs -I {} git push origin --delete {}
 ```
