@@ -1,6 +1,5 @@
 use shared::auth::Passcode;
 use shared::chat::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username};
-use std::io::Write;
 
 pub const MAX_ATTEMPTS: u8 = 3;
 
@@ -83,14 +82,11 @@ impl ClientSession {
     }
 }
 
-pub fn prompt_for_username() {
-    print!(
+pub fn username_prompt() -> String {
+    format!(
         "Choose a username (1-{} characters, letters/numbers/_/- only): ",
         MAX_USERNAME_LENGTH
-    );
-    std::io::stdout()
-        .flush()
-        .expect("Failed to flush stdout while prompting for username");
+    )
 }
 
 pub fn validate_username_input(input: &str) -> Result<String, UsernameError> {
