@@ -11,6 +11,8 @@ use crate::ui::ActiveUi;
 use crate::ui::{ActiveUi, run_macroquad_ui};
 use crate::ui::{ClientUi, UiInputError};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+#[cfg(feature = "macroquad-ui")]
+use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
