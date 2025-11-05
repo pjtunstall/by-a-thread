@@ -1,7 +1,10 @@
 mod state;
 
-use crate::state::{interpret_auth_message, AuthMessageOutcome, ClientSession, ClientState, MAX_ATTEMPTS};
-use std::io::{stdin, stdout, Write};
+use crate::state::{
+    AuthMessageOutcome, ClientSession, ClientState, MAX_ATTEMPTS, interpret_auth_message,
+    prompt_for_username, validate_username_input,
+};
+use std::io::{Write, stdin, stdout};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::sync::mpsc;
 use std::thread;
@@ -25,12 +28,18 @@ fn run_client() {
     let server_addr = default_server_addr();
     let protocol_id = protocol_version();
     let current_time = current_time();
-    let connect_token = create_connect_token(current_time, protocol_id, client_id, server_addr, &private_key);
+    let connect_token = create_connect_token(
+        current_time,
+        protocol_id,
+        client_id,
+        server_addr,
+        &private_key,
+    );
 
     let socket = UdpSocket::bind("127.0.0.1:0").expect("Failed to bind socket");
     let authentication = ClientAuthentication::Secure { connect_token };
-    let mut transport =
-        NetcodeClientTransport::new(current_time, authentication, socket).expect("Failed to create transport");
+    let mut transport = NetcodeClientTransport::new(current_time, authentication, socket)
+        .expect("Failed to create transport");
     let connection_config = ConnectionConfig::default();
     let mut client = RenetClient::new(connection_config);
 
@@ -41,13 +50,7 @@ fn run_client() {
 
     let mut session = ClientSession::new();
 
-    main_loop(
-        &mut session,
-        &rx,
-        &mut client,
-        &mut transport,
-        client_id,
-    );
+    main_loop(&mut session, &rx, &mut client, &mut transport);
 
     println!("Client shutting down");
 }
@@ -55,17 +58,19 @@ fn run_client() {
 fn spawn_input_thread() -> mpsc::Receiver<String> {
     let (tx, rx) = mpsc::channel::<String>();
 
-    thread::spawn(move || loop {
-        let mut buffer = String::new();
-        match stdin().read_line(&mut buffer) {
-            Ok(_) => {
-                if tx.send(buffer.trim().to_string()).is_err() {
+    thread::spawn(move || {
+        loop {
+            let mut buffer = String::new();
+            match stdin().read_line(&mut buffer) {
+                Ok(_) => {
+                    if tx.send(buffer.trim().to_string()).is_err() {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Input thread error: {}", e);
                     break;
                 }
-            }
-            Err(e) => {
-                eprintln!("Input thread error: {}", e);
-                break;
             }
         }
     });
@@ -75,8 +80,8 @@ fn spawn_input_thread() -> mpsc::Receiver<String> {
 
 fn client_private_key() -> [u8; 32] {
     [
-        211, 120, 2, 54, 202, 170, 80, 236, 225, 33, 220, 193, 223, 199, 20, 80, 202, 88, 77, 123, 88, 129, 160,
-        222, 33, 251, 99, 37, 145, 18, 199, 199,
+        211, 120, 2, 54, 202, 170, 80, 236, 225, 33, 220, 193, 223, 199, 20, 80, 202, 88, 77, 123,
+        88, 129, 160, 222, 33, 251, 99, 37, 145, 18, 199, 199,
     ]
 }
 
@@ -96,9 +101,7 @@ fn protocol_version() -> u64 {
 fn current_time() -> Duration {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .expect(
-            "Your system clock appears to be incorrect--it's set to a date before 1970!",
-        )
+        .expect("Your system clock appears to be incorrect--it's set to a date before 1970!")
 }
 
 fn create_connect_token(
@@ -126,7 +129,6 @@ fn main_loop(
     rx: &mpsc::Receiver<String>,
     client: &mut RenetClient,
     transport: &mut NetcodeClientTransport,
-    client_id: u64,
 ) {
     let mut last_updated = Instant::now();
 
@@ -152,8 +154,13 @@ fn main_loop(
         let next_state = match session.state() {
             ClientState::Startup { .. } => process_startup(session, rx),
             ClientState::Connecting => process_connecting(session, client, transport),
-            ClientState::Authenticating { .. } => process_authenticating(session, rx, client, transport),
-            ClientState::InGame => process_in_game(session, client, transport, client_id),
+            ClientState::Authenticating { .. } => {
+                process_authenticating(session, rx, client, transport)
+            }
+            ClientState::ChoosingUsername { .. } => {
+                process_choosing_username(session, rx, client, transport)
+            }
+            ClientState::InChat => process_in_chat(session, rx, client, transport),
             ClientState::Disconnected { .. } => None,
         };
 
@@ -179,7 +186,10 @@ fn main_loop(
     }
 }
 
-fn process_startup(session: &mut ClientSession, rx: &mpsc::Receiver<String>) -> Option<ClientState> {
+fn process_startup(
+    session: &mut ClientSession,
+    rx: &mpsc::Receiver<String>,
+) -> Option<ClientState> {
     if let ClientState::Startup { prompt_printed } = session.state_mut() {
         if !*prompt_printed {
             print!("Passcode ({} guesses): ", MAX_ATTEMPTS);
@@ -257,8 +267,10 @@ fn process_authenticating(
             match interpret_auth_message(&text, guesses_left) {
                 AuthMessageOutcome::Authenticated => {
                     println!("Authenticated successfully!");
-                    println!("Entering main game loop...");
-                    return Some(ClientState::InGame);
+                    return Some(ClientState::ChoosingUsername {
+                        prompt_printed: false,
+                        awaiting_confirmation: false,
+                    });
                 }
                 AuthMessageOutcome::RequestNewGuess(remaining) => {
                     print!(
@@ -315,33 +327,100 @@ fn process_authenticating(
     None
 }
 
-fn process_in_game(
+fn process_choosing_username(
     session: &mut ClientSession,
+    rx: &mpsc::Receiver<String>,
     client: &mut RenetClient,
     transport: &NetcodeClientTransport,
-    client_id: u64,
 ) -> Option<ClientState> {
-    let message_count = session.tick_message_counter();
+    if let ClientState::ChoosingUsername {
+        prompt_printed,
+        awaiting_confirmation,
+    } = session.state_mut()
+    {
+        while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
+            let text = String::from_utf8_lossy(&message);
+            println!("Server: {}", text);
 
-    if message_count % 120 == 0 {
-        let message = format!(
-            "Hello from client {}! (message {})",
-            client_id,
-            message_count / 120
-        );
-        client.send_message(DefaultChannel::ReliableOrdered, message.as_bytes().to_vec());
-        println!("Sent: {}", message);
+            if text.starts_with("Username error:") {
+                println!("Please try a different username.");
+                *awaiting_confirmation = false;
+                *prompt_printed = false;
+            } else if text.starts_with("Welcome, ") {
+                return Some(ClientState::InChat);
+            }
+        }
+
+        if !*awaiting_confirmation {
+            if !*prompt_printed {
+                prompt_for_username();
+                *prompt_printed = true;
+            }
+
+            match rx.try_recv() {
+                Ok(input) => match validate_username_input(&input) {
+                    Ok(username) => {
+                        client.send_message(DefaultChannel::ReliableOrdered, username.into_bytes());
+                        *awaiting_confirmation = true;
+                    }
+                    Err(err) => {
+                        eprintln!("{}", err);
+                        *prompt_printed = false;
+                    }
+                },
+                Err(mpsc::TryRecvError::Empty) => {}
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    return Some(ClientState::Disconnected {
+                        message: "Input thread disconnected.".to_string(),
+                    });
+                }
+            }
+        }
+
+        if client.is_disconnected() {
+            return Some(ClientState::Disconnected {
+                message: format!(
+                    "Disconnected while choosing username: {}",
+                    get_disconnect_reason(client, transport)
+                ),
+            });
+        }
     }
 
+    None
+}
+
+fn process_in_chat(
+    _session: &mut ClientSession,
+    rx: &mpsc::Receiver<String>,
+    client: &mut RenetClient,
+    transport: &NetcodeClientTransport,
+) -> Option<ClientState> {
     while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
         let text = String::from_utf8_lossy(&message);
-        println!("Server: {}", text);
+        println!("{}", text);
+    }
+
+    loop {
+        match rx.try_recv() {
+            Ok(input) => {
+                if !input.trim().is_empty() {
+                    client.send_message(DefaultChannel::ReliableOrdered, input.into_bytes());
+                }
+            }
+            Err(mpsc::TryRecvError::Empty) => break,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                return Some(ClientState::Disconnected {
+                    message: "Input thread disconnected.".to_string(),
+                });
+            }
+        }
     }
 
     if client.is_disconnected() {
         Some(ClientState::Disconnected {
             message: format!(
-                "Disconnected from game: {}",
+                "Disconnected from chat: {}",
                 get_disconnect_reason(client, transport)
             ),
         })
@@ -408,7 +487,8 @@ mod tests {
     #[test]
     fn trims_whitespace_around_passcode_input() {
         let input = "  098765  \n";
-        let passcode = parse_passcode_input(input).expect("Expected passcode with whitespace trimmed");
+        let passcode =
+            parse_passcode_input(input).expect("Expected passcode with whitespace trimmed");
         assert_eq!(passcode.string, "098765");
         assert_eq!(passcode.bytes, vec![0, 9, 8, 7, 6, 5]);
     }
