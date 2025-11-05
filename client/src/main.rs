@@ -307,52 +307,53 @@ fn process_choosing_username(
     client: &mut RenetClient,
     transport: &NetcodeClientTransport,
 ) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::ChoosingUsername { .. }) {
-        return None;
-    }
+    if let ClientState::ChoosingUsername {
+        prompt_printed,
+        awaiting_confirmation,
+    } = session.state_mut()
+    {
+        while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
+            let text = String::from_utf8_lossy(&message);
+            ui.show_message(&format!("Server: {}", text));
 
-    while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
-        let text = String::from_utf8_lossy(&message).to_string();
-
-        if is_participant_announcement(&text) {
-            continue;
+            if text.starts_with("Username error:") {
+                ui.show_message("Please try a different username.");
+                *awaiting_confirmation = false;
+                *prompt_printed = false;
+            } else if text.starts_with("Welcome, ") {
+                return Some(ClientState::InChat);
+            }
         }
 
-        if matches!(
-            handle_username_server_message(session, ui, &text),
-            UsernameMessageResult::TransitionToChat
-        ) {
-            session.expect_initial_roster();
-            return Some(ClientState::InChat);
-        }
-    }
+        if !*awaiting_confirmation {
+            if !*prompt_printed {
+                ui.show_prompt(&username_prompt());
+                *prompt_printed = true;
+            }
 
-    let (prompt_printed, awaiting_confirmation) = match session.state_mut() {
-        ClientState::ChoosingUsername {
-            prompt_printed,
-            awaiting_confirmation,
-        } => (prompt_printed, awaiting_confirmation),
-        _ => return None,
-    };
-
-    if !*awaiting_confirmation {
-        if !*prompt_printed {
-            ui.show_prompt(&username_prompt());
-            *prompt_printed = true;
-        }
-
-        match ui.poll_input() {
-            Ok(Some(input)) => match validate_username_input(&input) {
-                Ok(username) => {
-                    client.send_message(DefaultChannel::ReliableOrdered, username.into_bytes());
-                    *awaiting_confirmation = true;
+            match ui.poll_input() {
+                Ok(Some(input)) => match validate_username_input(&input) {
+                    Ok(username) => {
+                        client.send_message(DefaultChannel::ReliableOrdered, username.into_bytes());
+                        *awaiting_confirmation = true;
+                    }
+                    Err(err) => {
+                        ui.show_error(&err.to_string());
+                        *prompt_printed = false;
+                    }
+                },
+                Ok(None) => {}
+                Err(UiInputError::Disconnected) => {
+                    return Some(ClientState::Disconnected {
+                        message: "Input thread disconnected.".to_string(),
+                    });
                 }
                 Err(err) => {
                     ui.show_error(&err.to_string());
                     *prompt_printed = false;
                 }
             },
-            Ok(None) => {},
+            Ok(None) => {}
             Err(UiInputError::Disconnected) => {
                 return Some(ClientState::Disconnected {
                     message: "Input thread disconnected.".to_string(),
@@ -374,14 +375,14 @@ fn process_choosing_username(
 }
 
 fn process_in_chat(
-    session: &mut ClientSession,
+    _session: &mut ClientSession,
     ui: &mut dyn ClientUi,
     client: &mut RenetClient,
     transport: &NetcodeClientTransport,
 ) -> Option<ClientState> {
     while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
-        let text = String::from_utf8_lossy(&message).to_string();
-        handle_in_chat_server_message(session, ui, &text);
+        let text = String::from_utf8_lossy(&message);
+        ui.show_message(&text);
     }
 
     loop {
@@ -648,50 +649,5 @@ mod tests {
             }
             _ => panic!("Unexpected transition: expected disconnection"),
         }
-    }
-
-    #[test]
-    fn choosing_username_discards_announcements() {
-        let mut session = ClientSession::new();
-        session.transition(ClientState::ChoosingUsername {
-            prompt_printed: false,
-            awaiting_confirmation: false,
-        });
-        let mut ui = MockUi::default();
-
-        handle_username_server_message(&mut session, &mut ui, "Riley joined the chat.");
-
-        assert!(ui.messages.is_empty());
-        assert!(ui.errors.is_empty());
-        assert!(ui.prompts.is_empty());
-    }
-
-    #[test]
-    fn chat_discards_announcements_received_before_roster() {
-        let mut session = ClientSession::new();
-        session.transition(ClientState::InChat);
-        session.expect_initial_roster();
-        let mut ui = MockUi::default();
-
-        handle_in_chat_server_message(&mut session, &mut ui, "Casey left the chat.");
-        assert!(ui.messages.is_empty());
-
-        handle_in_chat_server_message(&mut session, &mut ui, "You are the first player online.");
-
-        assert_eq!(
-            ui.messages,
-            vec!["You are the first player online.".to_string()]
-        );
-        assert!(!session.awaiting_initial_roster());
-
-        handle_in_chat_server_message(&mut session, &mut ui, "Morgan joined the chat.");
-
-        assert_eq!(
-            ui.messages,
-            vec![
-                "You are the first player online.".to_string(),
-                "Morgan joined the chat.".to_string(),
-            ]
-        );
     }
 }

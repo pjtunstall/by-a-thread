@@ -1,4 +1,3 @@
-use std::fmt;
 use std::io::{Write, stdin, stdout};
 use std::sync::mpsc::{self, Receiver};
 use std::thread;
@@ -6,14 +5,6 @@ use std::thread;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiInputError {
     Disconnected,
-}
-
-impl fmt::Display for UiInputError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            UiInputError::Disconnected => write!(f, "Input source disconnected"),
-        }
-    }
 }
 
 pub trait ClientUi {
