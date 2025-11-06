@@ -45,7 +45,7 @@ pub fn connecting(
     if client.is_connected() {
         if let Some(passcode) = session.take_first_passcode() {
             ui.show_message(&format!(
-                "Transport connected. Sending passcode: {}",
+                "Transport connected. Sending passcode: {}.",
                 passcode.string
             ));
             client.send_message(DefaultChannel::ReliableOrdered, passcode.bytes);
@@ -61,7 +61,7 @@ pub fn connecting(
     } else if client.is_disconnected() {
         Some(ClientState::Disconnected {
             message: format!(
-                "Connection failed: {}",
+                "Connection failed: {}.",
                 get_disconnect_reason(client, transport)
             ),
         })
@@ -117,7 +117,7 @@ pub fn authenticating(
                             input_string
                         ));
                         ui.show_message(&format!(
-                            "Please type a new 6-digit passcode and press Enter. ({} guesses remaining)",
+                            "Please type a new 6-digit passcode and press Enter. ({} guesses remaining.)",
                             *guesses_left
                         ));
                     }
@@ -134,7 +134,7 @@ pub fn authenticating(
         if client.is_disconnected() {
             return Some(ClientState::Disconnected {
                 message: format!(
-                    "Disconnected while authenticating: {}",
+                    "Disconnected while authenticating: {}.",
                     get_disconnect_reason(client, transport)
                 ),
             });
@@ -211,7 +211,7 @@ pub fn choosing_username(
     if client.is_disconnected() {
         return Some(ClientState::Disconnected {
             message: format!(
-                "Disconnected while choosing username: {}",
+                "Disconnected while choosing username: {}.",
                 get_disconnect_reason(client, transport)
             ),
         });
@@ -250,7 +250,7 @@ pub fn in_chat(
     if client.is_disconnected() {
         Some(ClientState::Disconnected {
             message: format!(
-                "Disconnected from chat: {}",
+                "Disconnected from chat: {}.",
                 get_disconnect_reason(client, transport)
             ),
         })
@@ -279,7 +279,7 @@ fn get_disconnect_reason(client: &RenetClient, transport: &NetcodeClientTranspor
                 .disconnect_reason()
                 .map(|reason| format!("Transport - {:?}", reason))
         })
-        .unwrap_or_else(|| "No reason given".to_string())
+        .unwrap_or_else(|| "no reason given".to_string())
 }
 
 fn parse_passcode_input(input: &str) -> Option<Passcode> {
@@ -406,7 +406,7 @@ mod tests {
     #[test]
     fn parses_valid_passcode_input() {
         let input = "123456\n";
-        let passcode = parse_passcode_input(input).expect("Expected valid passcode");
+        let passcode = parse_passcode_input(input).expect("valid passcode expected");
         assert_eq!(passcode.string, "123456");
         assert_eq!(passcode.bytes, vec![1, 2, 3, 4, 5, 6]);
     }
@@ -420,8 +420,7 @@ mod tests {
     #[test]
     fn trims_whitespace_around_passcode_input() {
         let input = "  098765  \n";
-        let passcode =
-            parse_passcode_input(input).expect("Expected passcode with whitespace trimmed");
+        let passcode = parse_passcode_input(input).expect("valid passcode expected after trimming");
         assert_eq!(passcode.string, "098765");
         assert_eq!(passcode.bytes, vec![0, 9, 8, 7, 6, 5]);
     }

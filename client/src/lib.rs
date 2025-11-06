@@ -29,10 +29,10 @@ pub fn run_client() {
         &private_key,
     );
 
-    let socket = UdpSocket::bind("127.0.0.1:0").expect("Failed to bind socket");
+    let socket = UdpSocket::bind("127.0.0.1:0").expect("failed to bind socket");
     let authentication = ClientAuthentication::Secure { connect_token };
     let mut transport = NetcodeClientTransport::new(current_time, authentication, socket)
-        .expect("Failed to create transport");
+        .expect("failed to create transport");
     let connection_config = ConnectionConfig::default();
     let mut client = RenetClient::new(connection_config);
 

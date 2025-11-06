@@ -196,7 +196,7 @@ mod tests {
         session.store_first_passcode(passcode);
         let retrieved = session
             .take_first_passcode()
-            .expect("expected stored passcode");
+            .expect("expected stored passcode to exist");
         assert_eq!(retrieved.string, "123456");
         assert!(session.take_first_passcode().is_none());
     }
@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn username_validation_accepts_trimmed_valid_value() {
-        let validated = validate_username_input("  Player-1  ").expect("expected valid username");
+        let validated = validate_username_input("  Player-1  ").expect("valid username expected");
         assert_eq!(validated, "Player-1");
     }
 

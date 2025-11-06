@@ -18,15 +18,15 @@ pub fn protocol_version() -> u64 {
     env!("CARGO_PKG_VERSION")
         .split('.')
         .next()
-        .expect("Failed to get major version")
+        .expect("failed to get major version")
         .parse()
-        .expect("Failed to parse major version")
+        .expect("failed to parse major version")
 }
 
 pub fn current_time() -> Duration {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .expect("Your system clock appears to be incorrect--it's set to a date before 1970!")
+        .expect("Your system clock appears to be incorrect--it's set to a date before 1970. Please check your system settings.")
 }
 
 pub fn create_connect_token(
@@ -46,5 +46,5 @@ pub fn create_connect_token(
         None,
         private_key,
     )
-    .expect("Failed to generate token")
+    .expect("failed to generate token")
 }
