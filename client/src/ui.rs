@@ -70,11 +70,11 @@ impl TerminalUi {
                 queue!(self.stdout, crossterm::cursor::MoveDown(1))?;
             }
         }
-        // After clearing, move cursor up to the first line
+        // Move back up to the first line
         if lines > 1 {
             queue!(self.stdout, crossterm::cursor::MoveUp(lines - 1))?;
         }
-        // Print prompt and buffer
+        // Print prompt and buffer in place
         queue!(
             self.stdout,
             MoveToColumn(0),
