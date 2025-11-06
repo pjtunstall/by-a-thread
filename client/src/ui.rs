@@ -33,6 +33,7 @@ pub trait ClientUi {
 pub struct TerminalUi {
     stdout: Stdout,
     buffer: String,
+    prompt_lines: u16,
 }
 
 impl TerminalUi {
@@ -49,72 +50,121 @@ impl TerminalUi {
         Ok(Self {
             stdout,
             buffer: String::new(),
+            prompt_lines: 1,
         })
     }
 
     fn redraw_prompt(&mut self) -> io::Result<()> {
-        // Calculate how many lines the prompt + buffer occupy
         let (cols, _) = terminal::size().unwrap_or((80, 24));
         let prompt = "> ";
-        let full = format!("{}{}", prompt, &self.buffer);
-        let lines = (full.len() as u16 + cols - 1) / cols;
 
-        // Move cursor up to the first line of the prompt
-        if lines > 1 {
-            queue!(self.stdout, crossterm::cursor::MoveUp(lines - 1))?;
+        // 1. Move cursor to the start of the *previous* prompt block
+        if self.prompt_lines > 1 {
+            queue!(
+                self.stdout,
+                crossterm::cursor::MoveUp(self.prompt_lines - 1)
+            )?;
         }
-        // Clear all lines the prompt occupies
-        for i in 0..lines {
+
+        // 2. Clear all *previous* lines
+        for i in 0..self.prompt_lines {
             queue!(self.stdout, MoveToColumn(0), Clear(ClearType::CurrentLine))?;
-            if i + 1 < lines {
+            if i + 1 < self.prompt_lines {
                 queue!(self.stdout, crossterm::cursor::MoveDown(1))?;
             }
         }
-        // Move back up to the first line
-        if lines > 1 {
-            queue!(self.stdout, crossterm::cursor::MoveUp(lines - 1))?;
+
+        // 3. Move back to the start
+        if self.prompt_lines > 1 {
+            queue!(
+                self.stdout,
+                crossterm::cursor::MoveUp(self.prompt_lines - 1)
+            )?;
         }
-        // Print prompt and buffer in place
-        queue!(
-            self.stdout,
-            MoveToColumn(0),
-            Print(prompt),
-            Print(&self.buffer)
-        )?;
+        queue!(self.stdout, MoveToColumn(0))?;
+
+        // 4. Calculate *new* line count
+        let full = format!("{}{}", prompt, &self.buffer);
+        let new_lines = (full.len().max(1) + cols as usize - 1) / cols as usize;
+        self.prompt_lines = new_lines as u16;
+
+        // 5. Print new prompt
+        queue!(self.stdout, Print(prompt), Print(&self.buffer))?;
+
         self.stdout.flush()
     }
 }
 
 impl ClientUi for TerminalUi {
     fn show_message(&mut self, message: &str) {
-        queue!(
-            self.stdout,
-            MoveToColumn(0),
-            Clear(ClearType::CurrentLine),
-            Print(message),
-            Print("\r\n"),
-            MoveToColumn(0),
-            Print("> "),
-            Print(&self.buffer)
-        )
-        .expect("failed to show message");
-        self.stdout.flush().expect("failed to flush stdout");
+        // 1. Clear the current prompt first
+        if self.prompt_lines > 1 {
+            queue!(
+                self.stdout,
+                crossterm::cursor::MoveUp(self.prompt_lines - 1)
+            )
+            .unwrap();
+        }
+        for i in 0..self.prompt_lines {
+            queue!(self.stdout, MoveToColumn(0), Clear(ClearType::CurrentLine)).unwrap();
+            if i + 1 < self.prompt_lines {
+                queue!(self.stdout, crossterm::cursor::MoveDown(1)).unwrap();
+            }
+        }
+        if self.prompt_lines > 1 {
+            queue!(
+                self.stdout,
+                crossterm::cursor::MoveUp(self.prompt_lines - 1)
+            )
+            .unwrap();
+        }
+
+        // 2. Print the message
+        queue!(self.stdout, MoveToColumn(0), Print(message), Print("\r\n"),)
+            .expect("failed to show message");
+
+        // 3. Redraw the prompt (which is still in the buffer) on the new line
+        self.prompt_lines = 1;
+        self.redraw_prompt().expect("failed to redraw prompt");
     }
 
     fn show_error(&mut self, message: &str) {
+        // 1. Clear the current prompt first
+        if self.prompt_lines > 1 {
+            queue!(
+                self.stdout,
+                crossterm::cursor::MoveUp(self.prompt_lines - 1)
+            )
+            .unwrap();
+        }
+        for i in 0..self.prompt_lines {
+            queue!(self.stdout, MoveToColumn(0), Clear(ClearType::CurrentLine)).unwrap();
+            if i + 1 < self.prompt_lines {
+                queue!(self.stdout, crossterm::cursor::MoveDown(1)).unwrap();
+            }
+        }
+        if self.prompt_lines > 1 {
+            queue!(
+                self.stdout,
+                crossterm::cursor::MoveUp(self.prompt_lines - 1)
+            )
+            .unwrap();
+        }
+
+        // 2. Print the error
         queue!(
             self.stdout,
             MoveToColumn(0),
-            Clear(ClearType::CurrentLine),
             Print("[ERROR] "),
             Print(message),
             Print("\r\n"),
-            MoveToColumn(0),
-            Print("> "),
-            Print(&self.buffer)
         )
         .expect("failed to show error");
+
+        // 3. Redraw the prompt (which is still in the buffer) on the new line
+        self.prompt_lines = 1;
         self.stdout.flush().expect("failed to flush stdout");
+        self.redraw_prompt().expect("failed to redraw prompt");
     }
 
     fn show_prompt(&mut self, prompt: &str) {
@@ -138,13 +188,13 @@ impl ClientUi for TerminalUi {
                     KeyCode::Enter => {
                         let line = self.buffer.drain(..).collect();
                         queue!(self.stdout, Print("\r\n")).unwrap();
+                        self.prompt_lines = 1;
                         self.redraw_prompt().unwrap();
                         Ok(Some(line))
                     }
                     KeyCode::Char(c) => {
                         self.buffer.push(c);
-                        queue!(self.stdout, Print(c)).unwrap();
-                        self.stdout.flush().unwrap();
+                        self.redraw_prompt().unwrap();
                         Ok(None)
                     }
                     KeyCode::Backspace => {
