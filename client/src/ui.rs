@@ -58,7 +58,7 @@ impl TerminalUi {
         let (cols, _) = terminal::size().unwrap_or((80, 24));
         let prompt = "> ";
 
-        // 1. Move cursor to the start of the *previous* prompt block
+        // 1. Move cursor to the start of the *previous* prompt block.
         if self.prompt_lines > 1 {
             queue!(
                 self.stdout,
@@ -66,7 +66,7 @@ impl TerminalUi {
             )?;
         }
 
-        // 2. Clear all *previous* lines
+        // 2. Clear all *previous* lines.
         for i in 0..self.prompt_lines {
             queue!(self.stdout, MoveToColumn(0), Clear(ClearType::CurrentLine))?;
             if i + 1 < self.prompt_lines {
@@ -74,7 +74,7 @@ impl TerminalUi {
             }
         }
 
-        // 3. Move back to the start
+        // 3. Move back to the start.
         if self.prompt_lines > 1 {
             queue!(
                 self.stdout,
@@ -83,12 +83,12 @@ impl TerminalUi {
         }
         queue!(self.stdout, MoveToColumn(0))?;
 
-        // 4. Calculate *new* line count
+        // 4. Calculate *new* line count.
         let full = format!("{}{}", prompt, &self.buffer);
         let new_lines = (full.len().max(1) + cols as usize - 1) / cols as usize;
         self.prompt_lines = new_lines as u16;
 
-        // 5. Print new prompt
+        // 5. Print new prompt.
         queue!(self.stdout, Print(prompt), Print(&self.buffer))?;
 
         self.stdout.flush()
@@ -97,7 +97,7 @@ impl TerminalUi {
 
 impl ClientUi for TerminalUi {
     fn show_message(&mut self, message: &str) {
-        // 1. Clear the current prompt first
+        // 1. Clear the current prompt first. (First before what?)
         if self.prompt_lines > 1 {
             queue!(
                 self.stdout,
@@ -119,7 +119,7 @@ impl ClientUi for TerminalUi {
             .unwrap();
         }
 
-        // 2. Print the message
+        // 2. Print the message. (Well, duh!)
         queue!(self.stdout, MoveToColumn(0), Print(message), Print("\r\n"),)
             .expect("failed to show message");
 
@@ -129,7 +129,7 @@ impl ClientUi for TerminalUi {
     }
 
     fn show_error(&mut self, message: &str) {
-        // 1. Clear the current prompt first
+        // 1. Clear the current prompt first.
         if self.prompt_lines > 1 {
             queue!(
                 self.stdout,
@@ -151,7 +151,7 @@ impl ClientUi for TerminalUi {
             .unwrap();
         }
 
-        // 2. Print the error
+        // 2. Print the error.
         queue!(
             self.stdout,
             MoveToColumn(0),
@@ -161,7 +161,7 @@ impl ClientUi for TerminalUi {
         )
         .expect("failed to show error");
 
-        // 3. Redraw the prompt (which is still in the buffer) on the new line
+        // 3. Redraw the prompt (which is still in the buffer) on the new line.
         self.prompt_lines = 1;
         self.stdout.flush().expect("failed to flush stdout");
         self.redraw_prompt().expect("failed to redraw prompt");

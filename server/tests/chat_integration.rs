@@ -140,7 +140,11 @@ fn newcomer_receives_roster_before_join_announcement() {
         received.push(String::from_utf8_lossy(&message).to_string());
     }
 
-    assert_eq!(received.len(), 3, "expected welcome, roster, and join messages");
+    assert_eq!(
+        received.len(),
+        3,
+        "expected welcome, roster, and join messages"
+    );
     assert_eq!(received[0], "Welcome, Bob!");
     assert!(
         received[1].starts_with("Players online: "),
@@ -152,12 +156,14 @@ fn newcomer_receives_roster_before_join_announcement() {
     );
     assert_eq!(received[2], "Bob joined the chat.");
 
-    // ensure existing players still learn about the newcomer
     server
         .process_local_client(alice_id, &mut alice)
         .expect("local client processing should succeed");
     let join_for_alice = alice
         .receive_message(DefaultChannel::ReliableOrdered)
         .expect("Alice should receive the join announcement");
-    assert_eq!(String::from_utf8_lossy(&join_for_alice), "Bob joined the chat.");
+    assert_eq!(
+        String::from_utf8_lossy(&join_for_alice),
+        "Bob joined the chat."
+    );
 }
