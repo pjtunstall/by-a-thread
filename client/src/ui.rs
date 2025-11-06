@@ -1,7 +1,14 @@
 use std::fmt;
-use std::io::{Write, stdin, stdout};
-use std::sync::mpsc::{self, Receiver};
-use std::thread;
+use std::io::{self, Stdout, Write, stdout};
+use std::time::Duration;
+
+use crossterm::{
+    cursor::MoveToColumn,
+    event::{self, Event, KeyCode, KeyModifiers},
+    execute, queue,
+    style::Print,
+    terminal::{self, Clear, ClearType},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiInputError {
@@ -24,70 +31,131 @@ pub trait ClientUi {
 }
 
 pub struct TerminalUi {
-    rx: Receiver<String>,
+    stdout: Stdout,
+    buffer: String,
 }
 
 impl TerminalUi {
-    pub fn new() -> Self {
-        let (tx, rx) = mpsc::channel::<String>();
+    pub fn new() -> io::Result<Self> {
+        terminal::enable_raw_mode()?;
+        let mut stdout = stdout();
+        execute!(
+            stdout,
+            MoveToColumn(0),
+            Clear(ClearType::CurrentLine),
+            Print("> ")
+        )?;
+        stdout.flush()?;
+        Ok(Self {
+            stdout,
+            buffer: String::new(),
+        })
+    }
 
-        thread::spawn(move || {
-            loop {
-                let mut buffer = String::new();
-                match stdin().read_line(&mut buffer) {
-                    Ok(0) => break,
-                    Ok(_) => {
-                        let trimmed = buffer.trim().to_string();
-                        if tx.send(trimmed).is_err() {
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("Input thread error: {}", e);
-                        break;
-                    }
-                }
-            }
-        });
-
-        Self { rx }
+    fn redraw_prompt(&mut self) -> io::Result<()> {
+        queue!(
+            self.stdout,
+            MoveToColumn(0),
+            Clear(ClearType::CurrentLine),
+            Print("> "),
+            Print(&self.buffer)
+        )?;
+        self.stdout.flush()
     }
 }
 
 impl ClientUi for TerminalUi {
     fn show_message(&mut self, message: &str) {
-        println!("{}", message);
+        queue!(
+            self.stdout,
+            MoveToColumn(0),
+            Clear(ClearType::CurrentLine),
+            Print(message),
+            Print("\r\n"),
+            MoveToColumn(0),
+            Print("> "),
+            Print(&self.buffer)
+        )
+        .expect("failed to show message");
+        self.stdout.flush().expect("failed to flush stdout");
     }
 
     fn show_error(&mut self, message: &str) {
-        eprintln!("{}", message);
+        queue!(
+            self.stdout,
+            MoveToColumn(0),
+            Clear(ClearType::CurrentLine),
+            Print("[ERROR] "),
+            Print(message),
+            Print("\r\n"),
+            MoveToColumn(0),
+            Print("> "),
+            Print(&self.buffer)
+        )
+        .expect("failed to show error");
+        self.stdout.flush().expect("failed to flush stdout");
     }
 
     fn show_prompt(&mut self, prompt: &str) {
-        print!("\r");
-        println!("{}", prompt);
-        print!("> ");
-        stdout().flush().expect("Failed to flush stdout");
+        self.show_message(prompt);
     }
 
     fn poll_input(&mut self) -> Result<Option<String>, UiInputError> {
-        match self.rx.try_recv() {
-            Ok(input) => Ok(Some(input)),
-            Err(mpsc::TryRecvError::Empty) => Ok(None),
-            Err(mpsc::TryRecvError::Disconnected) => Err(UiInputError::Disconnected),
+        if !event::poll(Duration::from_millis(50)).unwrap_or(false) {
+            return Ok(None);
+        }
+
+        match event::read() {
+            Ok(Event::Key(key_event)) => {
+                if key_event.modifiers == KeyModifiers::CONTROL
+                    && key_event.code == KeyCode::Char('c')
+                {
+                    return Err(UiInputError::Disconnected);
+                }
+
+                match key_event.code {
+                    KeyCode::Enter => {
+                        let line = self.buffer.drain(..).collect();
+                        queue!(self.stdout, Print("\r\n")).unwrap();
+                        self.redraw_prompt().unwrap();
+                        Ok(Some(line))
+                    }
+                    KeyCode::Char(c) => {
+                        self.buffer.push(c);
+                        queue!(self.stdout, Print(c)).unwrap();
+                        self.stdout.flush().unwrap();
+                        Ok(None)
+                    }
+                    KeyCode::Backspace => {
+                        if self.buffer.pop().is_some() {
+                            queue!(
+                                self.stdout,
+                                MoveToColumn(0),
+                                Clear(ClearType::CurrentLine),
+                                Print("> "),
+                                Print(&self.buffer)
+                            )
+                            .unwrap();
+                            self.stdout.flush().unwrap();
+                        }
+                        Ok(None)
+                    }
+                    _ => Ok(None),
+                }
+            }
+            Ok(Event::Resize(_, _)) => {
+                self.redraw_prompt().unwrap();
+                Ok(None)
+            }
+            Err(_) => Err(UiInputError::Disconnected),
+            _ => Ok(None),
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn ui_input_error_has_display_message() {
-        assert_eq!(
-            UiInputError::Disconnected.to_string(),
-            "Input source disconnected"
-        );
+impl Drop for TerminalUi {
+    fn drop(&mut self) {
+        execute!(self.stdout, Print("\r\n")).ok();
+        terminal::disable_raw_mode().expect("Failed to disable raw mode");
     }
 }

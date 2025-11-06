@@ -14,7 +14,7 @@ use crate::state::{ClientSession, ClientState};
 use crate::ui::{ClientUi, TerminalUi};
 
 pub fn run_client() {
-    let mut ui = TerminalUi::new();
+    let mut ui = TerminalUi::new().expect("failed to initialize terminal UI");
 
     let private_key = network::client_private_key();
     let client_id = rand::random::<u64>();
@@ -29,15 +29,26 @@ pub fn run_client() {
         &private_key,
     );
 
-    let socket = UdpSocket::bind("127.0.0.1:0").expect("failed to bind socket");
+    let socket = match UdpSocket::bind("127.0.0.1:0") {
+        Ok(socket) => socket,
+        Err(e) => {
+            ui.show_message(&format!("Failed to bind client socket: {}", e));
+            return;
+        }
+    };
     let authentication = ClientAuthentication::Secure { connect_token };
-    let mut transport = NetcodeClientTransport::new(current_time, authentication, socket)
-        .expect("failed to create transport");
+    let mut transport = match NetcodeClientTransport::new(current_time, authentication, socket) {
+        Ok(transport) => transport,
+        Err(e) => {
+            ui.show_message(&format!("Failed to create network transport: {}", e));
+            return;
+        }
+    };
     let connection_config = ConnectionConfig::default();
     let mut client = RenetClient::new(connection_config);
 
     ui.show_message(&format!(
-        "Connecting to {} with client ID: {}",
+        "Connecting to {} with client ID: {}.",
         server_addr, client_id
     ));
 
@@ -45,7 +56,7 @@ pub fn run_client() {
 
     main_loop(&mut session, &mut ui, &mut client, &mut transport);
 
-    ui.show_message("Client shutting down");
+    ui.show_message("Client shutting down.");
 }
 
 fn main_loop(
