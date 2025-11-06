@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+crossterm = "0.29.0"
 renet = "1.2.0"
 renet_netcode = "1.2.0"
 shared = { path = "../shared" }

@@ -53,11 +53,32 @@ impl TerminalUi {
     }
 
     fn redraw_prompt(&mut self) -> io::Result<()> {
+        // Calculate how many lines the prompt + buffer occupy
+        let (cols, _) = terminal::size().unwrap_or((80, 24));
+        let prompt = "> ";
+        let full = format!("{}{}", prompt, &self.buffer);
+        let lines = (full.len() as u16 + cols - 1) / cols;
+
+        // Move cursor up to the first line of the prompt
+        if lines > 1 {
+            queue!(self.stdout, crossterm::cursor::MoveUp(lines - 1))?;
+        }
+        // Clear all lines the prompt occupies
+        for i in 0..lines {
+            queue!(self.stdout, MoveToColumn(0), Clear(ClearType::CurrentLine))?;
+            if i + 1 < lines {
+                queue!(self.stdout, crossterm::cursor::MoveDown(1))?;
+            }
+        }
+        // After clearing, move cursor up to the first line
+        if lines > 1 {
+            queue!(self.stdout, crossterm::cursor::MoveUp(lines - 1))?;
+        }
+        // Print prompt and buffer
         queue!(
             self.stdout,
             MoveToColumn(0),
-            Clear(ClearType::CurrentLine),
-            Print("> "),
+            Print(prompt),
             Print(&self.buffer)
         )?;
         self.stdout.flush()
@@ -128,15 +149,7 @@ impl ClientUi for TerminalUi {
                     }
                     KeyCode::Backspace => {
                         if self.buffer.pop().is_some() {
-                            queue!(
-                                self.stdout,
-                                MoveToColumn(0),
-                                Clear(ClearType::CurrentLine),
-                                Print("> "),
-                                Print(&self.buffer)
-                            )
-                            .unwrap();
-                            self.stdout.flush().unwrap();
+                            self.redraw_prompt().unwrap();
                         }
                         Ok(None)
                     }
