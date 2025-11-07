@@ -3,6 +3,7 @@ use shared::chat::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username};
 
 pub const MAX_ATTEMPTS: u8 = 3;
 
+#[derive(Debug)]
 pub enum ClientState {
     Startup {
         prompt_printed: bool,

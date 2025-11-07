@@ -32,7 +32,10 @@ pub fn startup(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<Cli
             }),
         }
     } else {
-        None
+        panic!(
+            "BUG: Called startup() when state was not Startup. Current state: {:?}",
+            session.state()
+        );
     }
 }
 
@@ -42,6 +45,13 @@ pub fn connecting(
     client: &mut RenetClient,
     transport: &NetcodeClientTransport,
 ) -> Option<ClientState> {
+    if !matches!(session.state(), ClientState::Connecting) {
+        panic!(
+            "BUG: Called connecting() when state was not Connecting. Current state: {:?}",
+            session.state()
+        );
+    }
+
     if client.is_connected() {
         if let Some(passcode) = session.take_first_passcode() {
             ui.show_message(&format!(
@@ -76,6 +86,13 @@ pub fn authenticating(
     client: &mut RenetClient,
     transport: &NetcodeClientTransport,
 ) -> Option<ClientState> {
+    if !matches!(session.state(), ClientState::Authenticating { .. }) {
+        panic!(
+            "BUG: Called authenticating() when state was not Authenticating. Current state: {:?}",
+            session.state()
+        );
+    }
+
     if let ClientState::Authenticating {
         waiting_for_input,
         guesses_left,
@@ -151,7 +168,10 @@ pub fn choosing_username(
     transport: &NetcodeClientTransport,
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::ChoosingUsername { .. }) {
-        return None;
+        panic!(
+            "BUG: Called choosing_username() when state was not ChoosingUsername. Current state: {:?}",
+            session.state()
+        );
     }
 
     while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
@@ -170,42 +190,45 @@ pub fn choosing_username(
         }
     }
 
-    let (prompt_printed, awaiting_confirmation) = match session.state_mut() {
-        ClientState::ChoosingUsername {
-            prompt_printed,
-            awaiting_confirmation,
-        } => (prompt_printed, awaiting_confirmation),
-        _ => return None,
-    };
+    if let ClientState::ChoosingUsername {
+        prompt_printed,
+        awaiting_confirmation,
+    } = session.state_mut()
+    {
+        if !*awaiting_confirmation {
+            if !*prompt_printed {
+                ui.show_prompt(&username_prompt());
+                *prompt_printed = true;
+            }
 
-    if !*awaiting_confirmation {
-        if !*prompt_printed {
-            ui.show_prompt(&username_prompt());
-            *prompt_printed = true;
-        }
-
-        match ui.poll_input() {
-            Ok(Some(input)) => {
-                let validation = validate_username_input(&input);
-                match validation {
-                    Ok(username) => {
-                        client.send_message(DefaultChannel::ReliableOrdered, username.into_bytes());
-                        *awaiting_confirmation = true;
-                    }
-                    Err(err) => {
-                        let message = err.to_string();
-                        ui.show_error(&message);
-                        *prompt_printed = false;
+            match ui.poll_input() {
+                Ok(Some(input)) => {
+                    let validation = validate_username_input(&input);
+                    match validation {
+                        Ok(username) => {
+                            client.send_message(
+                                DefaultChannel::ReliableOrdered,
+                                username.into_bytes(),
+                            );
+                            *awaiting_confirmation = true;
+                        }
+                        Err(err) => {
+                            let message = err.to_string();
+                            ui.show_error(&message);
+                            *prompt_printed = false;
+                        }
                     }
                 }
-            }
-            Ok(None) => {}
-            Err(UiInputError::Disconnected) => {
-                return Some(ClientState::Disconnected {
-                    message: "Input thread disconnected.".to_string(),
-                });
+                Ok(None) => {}
+                Err(UiInputError::Disconnected) => {
+                    return Some(ClientState::Disconnected {
+                        message: "Input thread disconnected.".to_string(),
+                    });
+                }
             }
         }
+    } else {
+        unreachable!("BUG: Guard at top of function failed");
     }
 
     if client.is_disconnected() {
@@ -226,6 +249,13 @@ pub fn in_chat(
     client: &mut RenetClient,
     transport: &NetcodeClientTransport,
 ) -> Option<ClientState> {
+    if !matches!(session.state(), ClientState::InChat) {
+        panic!(
+            "BUG: Called in_chat() when state was not InChat. Current state: {:?}",
+            session.state()
+        );
+    }
+
     while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
         let text = String::from_utf8_lossy(&message).to_string();
         handle_in_chat_server_message(session, ui, &text);
@@ -596,4 +626,65 @@ mod tests {
         );
         assert!(session.awaiting_initial_roster());
     }
+
+    // // TRy these tests once I've refactored to use a mockable Network Trait for client and transport.
+    // #[test]
+    // #[should_panic(
+    //     expected = "BUG: Called connecting() when state was not Connecting. Current state: Startup"
+    // )]
+    // fn connecting_panics_if_not_in_connecting_state() {
+    //     // These objects would need to be mocked or constructed
+    //     let mut client;
+    //     let mut transport;
+
+    //     let mut session = ClientSession::new(); // Starts in Startup
+    //     let mut ui = MockUi::default();
+
+    //     connecting(&mut session, &mut ui, &mut client, &mut transport);
+    // }
+
+    // #[test]
+    // #[should_panic(
+    //     expected = "BUG: Called authenticating() when state was not Authenticating. Current state: Startup"
+    // )]
+    // fn authenticating_panics_if_not_in_authenticating_state() {
+    //     // These objects would need to be mocked or constructed
+    //     let mut client;
+    //     let mut transport;
+
+    //     let mut session = ClientSession::new(); // Starts in Startup
+    //     let mut ui = MockUi::default();
+
+    //     authenticating(&mut session, &mut ui, &mut client, &mut transport);
+    // }
+
+    // #[test]
+    // #[should_panic(
+    //     expected = "BUG: Called choosing_username() when state was not ChoosingUsername. Current state: Startup"
+    // )]
+    // fn choosing_username_panics_if_not_in_choosing_username_state() {
+    //     // These objects would need to be mocked or constructed
+    //     let mut client;
+    //     let mut transport;
+
+    //     let mut session = ClientSession::new(); // Starts in Startup
+    //     let mut ui = MockUi::default();
+
+    //     choosing_username(&mut session, &mut ui, &mut client, &mut transport);
+    // }
+
+    // #[test]
+    // #[should_panic(
+    //     expected = "BUG: Called in_chat() when state was not InChat. Current state: Startup"
+    // )]
+    // fn in_chat_panics_if_not_in_in_chat_state() {
+    //     // These objects would need to be mocked or constructed
+    //     let mut client;
+    //     let mut transport;
+
+    //     let mut session = ClientSession::new(); // Starts in Startup
+    //     let mut ui = MockUi::default();
+
+    //     in_chat(&mut session, &mut ui, &mut client, &mut transport);
+    // }
 }
