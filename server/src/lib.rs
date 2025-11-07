@@ -115,11 +115,11 @@ pub fn process_events(server: &mut RenetServer, state: &mut ServerState) {
     while let Some(event) = server.get_event() {
         match event {
             ServerEvent::ClientConnected { client_id } => {
-                println!("Client {} connected", client_id);
+                println!("Client {} connected.", client_id);
                 state.register_connection(client_id);
             }
             ServerEvent::ClientDisconnected { client_id, reason } => {
-                println!("Client {} disconnected: {}", client_id, reason);
+                println!("Client {} disconnected: {}.", client_id, reason);
                 if let Some(username) = state.remove_client(client_id) {
                     let message = format!("{} left the chat.", username);
                     broadcast_message(server, &message);
@@ -195,6 +195,7 @@ pub fn handle_messages(server: &mut RenetServer, state: &mut ServerState, passco
                         }
 
                         state.register_username(client_id, &username);
+                        println!("Client {} set username to '{}'.", client_id, username);
 
                         let welcome = format!("Welcome, {}!", username);
                         server.send_message(
@@ -208,7 +209,7 @@ pub fn handle_messages(server: &mut RenetServer, state: &mut ServerState, passco
                             server.send_message(
                                 client_id,
                                 DefaultChannel::ReliableOrdered,
-                                "You are the first player online.".as_bytes().to_vec(),
+                                "You are the only player online.".as_bytes().to_vec(),
                             );
                         } else {
                             let list = others.join(", ");

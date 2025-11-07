@@ -7,10 +7,11 @@ use std::net::UdpSocket;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use renet::{ConnectionConfig, RenetClient};
+use renet::{ConnectionConfig, DefaultChannel, RenetClient};
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
 use crate::state::{ClientSession, ClientState};
+use crate::state_handlers::{AppChannel, NetworkHandle};
 use crate::ui::{ClientUi, TerminalUi};
 
 pub fn run_client() {
@@ -59,6 +60,51 @@ pub fn run_client() {
     ui.show_message("Client shutting down.");
 }
 
+struct RenetNetworkHandle<'a> {
+    client: &'a mut RenetClient,
+    transport: &'a NetcodeClientTransport,
+}
+
+impl NetworkHandle for RenetNetworkHandle<'_> {
+    fn is_connected(&self) -> bool {
+        self.client.is_connected()
+    }
+
+    fn is_disconnected(&self) -> bool {
+        self.client.is_disconnected()
+    }
+
+    fn get_disconnect_reason(&self) -> String {
+        self.client
+            .disconnect_reason()
+            .map(|reason| format!("Renet - {:?}", reason))
+            .or_else(|| {
+                self.transport
+                    .disconnect_reason()
+                    .map(|reason| format!("Transport - {:?}", reason))
+            })
+            .unwrap_or_else(|| "no reason given".to_string())
+    }
+
+    fn send_message(&mut self, channel: AppChannel, message: Vec<u8>) {
+        let renet_channel = match channel {
+            AppChannel::ReliableOrdered => DefaultChannel::ReliableOrdered,
+            AppChannel::Unreliable => DefaultChannel::Unreliable,
+        };
+        self.client.send_message(renet_channel, message);
+    }
+
+    fn receive_message(&mut self, channel: AppChannel) -> Option<Vec<u8>> {
+        let renet_channel = match channel {
+            AppChannel::ReliableOrdered => DefaultChannel::ReliableOrdered,
+            AppChannel::Unreliable => DefaultChannel::Unreliable,
+        };
+        self.client
+            .receive_message(renet_channel)
+            .map(|bytes| bytes.to_vec())
+    }
+}
+
 fn main_loop(
     session: &mut ClientSession,
     ui: &mut dyn ClientUi,
@@ -87,17 +133,25 @@ fn main_loop(
 
         client.update(duration);
 
-        let next_state = match session.state() {
-            ClientState::Startup { .. } => state_handlers::startup(session, ui),
-            ClientState::Connecting => state_handlers::connecting(session, ui, client, transport),
-            ClientState::Authenticating { .. } => {
-                state_handlers::authenticating(session, ui, client, transport)
+        // We create the handle inside a new scope.
+        // This ensures its mutable borrows of `client` and `transport`
+        // are released before `transport.send_packets` is called.
+        let next_state = {
+            let mut network_handle = RenetNetworkHandle { client, transport };
+            match session.state() {
+                ClientState::Startup { .. } => state_handlers::startup(session, ui),
+                ClientState::Connecting => {
+                    state_handlers::connecting(session, ui, &mut network_handle)
+                }
+                ClientState::Authenticating { .. } => {
+                    state_handlers::authenticating(session, ui, &mut network_handle)
+                }
+                ClientState::ChoosingUsername { .. } => {
+                    state_handlers::choosing_username(session, ui, &mut network_handle)
+                }
+                ClientState::InChat => state_handlers::in_chat(session, ui, &mut network_handle),
+                ClientState::Disconnected { .. } => None,
             }
-            ClientState::ChoosingUsername { .. } => {
-                state_handlers::choosing_username(session, ui, client, transport)
-            }
-            ClientState::InChat => state_handlers::in_chat(session, ui, client, transport),
-            ClientState::Disconnected { .. } => None,
         };
 
         if let Some(new_state) = next_state {

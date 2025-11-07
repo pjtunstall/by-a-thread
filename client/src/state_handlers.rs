@@ -1,12 +1,23 @@
-use renet::{DefaultChannel, RenetClient};
-use renet_netcode::NetcodeClientTransport;
-
 use crate::state::{
     AuthMessageOutcome, ClientSession, ClientState, MAX_ATTEMPTS, interpret_auth_message,
     username_prompt, validate_username_input,
 };
 use crate::ui::{ClientUi, UiInputError};
 use shared::auth::Passcode;
+
+#[allow(dead_code)]
+pub enum AppChannel {
+    ReliableOrdered,
+    Unreliable,
+}
+
+pub trait NetworkHandle {
+    fn is_connected(&self) -> bool;
+    fn is_disconnected(&self) -> bool;
+    fn get_disconnect_reason(&self) -> String;
+    fn send_message(&mut self, channel: AppChannel, message: Vec<u8>);
+    fn receive_message(&mut self, channel: AppChannel) -> Option<Vec<u8>>;
+}
 
 pub fn startup(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<ClientState> {
     if let ClientState::Startup { prompt_printed } = session.state_mut() {
@@ -42,8 +53,7 @@ pub fn startup(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<Cli
 pub fn connecting(
     session: &mut ClientSession,
     ui: &mut dyn ClientUi,
-    client: &mut RenetClient,
-    transport: &NetcodeClientTransport,
+    network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Connecting) {
         panic!(
@@ -52,13 +62,13 @@ pub fn connecting(
         );
     }
 
-    if client.is_connected() {
+    if network.is_connected() {
         if let Some(passcode) = session.take_first_passcode() {
             ui.show_message(&format!(
                 "Transport connected. Sending passcode: {}.",
                 passcode.string
             ));
-            client.send_message(DefaultChannel::ReliableOrdered, passcode.bytes);
+            network.send_message(AppChannel::ReliableOrdered, passcode.bytes);
             Some(ClientState::Authenticating {
                 waiting_for_input: false,
                 guesses_left: MAX_ATTEMPTS,
@@ -68,12 +78,9 @@ pub fn connecting(
                 message: "Internal error: No passcode to send.".to_string(),
             })
         }
-    } else if client.is_disconnected() {
+    } else if network.is_disconnected() {
         Some(ClientState::Disconnected {
-            message: format!(
-                "Connection failed: {}.",
-                get_disconnect_reason(client, transport)
-            ),
+            message: format!("Connection failed: {}.", network.get_disconnect_reason()),
         })
     } else {
         None
@@ -83,8 +90,7 @@ pub fn connecting(
 pub fn authenticating(
     session: &mut ClientSession,
     ui: &mut dyn ClientUi,
-    client: &mut RenetClient,
-    transport: &NetcodeClientTransport,
+    network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Authenticating { .. }) {
         panic!(
@@ -98,7 +104,7 @@ pub fn authenticating(
         guesses_left,
     } = session.state_mut()
     {
-        while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
+        while let Some(message) = network.receive_message(AppChannel::ReliableOrdered) {
             let text = String::from_utf8_lossy(&message);
             ui.show_message(&format!("Server: {}", text));
 
@@ -126,7 +132,7 @@ pub fn authenticating(
                 Ok(Some(input_string)) => {
                     if let Some(passcode) = parse_passcode_input(&input_string) {
                         ui.show_message("Sending new guess...");
-                        client.send_message(DefaultChannel::ReliableOrdered, passcode.bytes);
+                        network.send_message(AppChannel::ReliableOrdered, passcode.bytes);
                         *waiting_for_input = false;
                     } else {
                         ui.show_error(&format!(
@@ -148,11 +154,11 @@ pub fn authenticating(
             }
         }
 
-        if client.is_disconnected() {
+        if network.is_disconnected() {
             return Some(ClientState::Disconnected {
                 message: format!(
                     "Disconnected while authenticating: {}.",
-                    get_disconnect_reason(client, transport)
+                    network.get_disconnect_reason()
                 ),
             });
         }
@@ -164,8 +170,7 @@ pub fn authenticating(
 pub fn choosing_username(
     session: &mut ClientSession,
     ui: &mut dyn ClientUi,
-    client: &mut RenetClient,
-    transport: &NetcodeClientTransport,
+    network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::ChoosingUsername { .. }) {
         panic!(
@@ -174,7 +179,7 @@ pub fn choosing_username(
         );
     }
 
-    while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
+    while let Some(message) = network.receive_message(AppChannel::ReliableOrdered) {
         let text = String::from_utf8_lossy(&message).to_string();
 
         if is_participant_announcement(&text) {
@@ -206,10 +211,8 @@ pub fn choosing_username(
                     let validation = validate_username_input(&input);
                     match validation {
                         Ok(username) => {
-                            client.send_message(
-                                DefaultChannel::ReliableOrdered,
-                                username.into_bytes(),
-                            );
+                            network
+                                .send_message(AppChannel::ReliableOrdered, username.into_bytes());
                             *awaiting_confirmation = true;
                         }
                         Err(err) => {
@@ -228,14 +231,17 @@ pub fn choosing_username(
             }
         }
     } else {
-        unreachable!("BUG: Guard at top of function failed");
+        unreachable!(
+            "BUG: Guard at top of choosing_username failed to panic on mismatched state: {:?}",
+            session.state()
+        );
     }
 
-    if client.is_disconnected() {
+    if network.is_disconnected() {
         return Some(ClientState::Disconnected {
             message: format!(
                 "Disconnected while choosing username: {}.",
-                get_disconnect_reason(client, transport)
+                network.get_disconnect_reason()
             ),
         });
     }
@@ -246,8 +252,7 @@ pub fn choosing_username(
 pub fn in_chat(
     session: &mut ClientSession,
     ui: &mut dyn ClientUi,
-    client: &mut RenetClient,
-    transport: &NetcodeClientTransport,
+    network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::InChat) {
         panic!(
@@ -256,7 +261,7 @@ pub fn in_chat(
         );
     }
 
-    while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
+    while let Some(message) = network.receive_message(AppChannel::ReliableOrdered) {
         let text = String::from_utf8_lossy(&message).to_string();
         handle_in_chat_server_message(session, ui, &text);
     }
@@ -265,7 +270,7 @@ pub fn in_chat(
         match ui.poll_input() {
             Ok(Some(input)) => {
                 if !input.trim().is_empty() {
-                    client.send_message(DefaultChannel::ReliableOrdered, input.into_bytes());
+                    network.send_message(AppChannel::ReliableOrdered, input.into_bytes());
                 }
             }
             Ok(None) => break,
@@ -277,11 +282,11 @@ pub fn in_chat(
         }
     }
 
-    if client.is_disconnected() {
+    if network.is_disconnected() {
         Some(ClientState::Disconnected {
             message: format!(
                 "Disconnected from chat: {}.",
-                get_disconnect_reason(client, transport)
+                network.get_disconnect_reason()
             ),
         })
     } else {
@@ -298,18 +303,6 @@ fn passcode_prompt(remaining: u8) -> String {
             remaining
         )
     }
-}
-
-fn get_disconnect_reason(client: &RenetClient, transport: &NetcodeClientTransport) -> String {
-    client
-        .disconnect_reason()
-        .map(|reason| format!("Renet - {:?}", reason))
-        .or_else(|| {
-            transport
-                .disconnect_reason()
-                .map(|reason| format!("Transport - {:?}", reason))
-        })
-        .unwrap_or_else(|| "no reason given".to_string())
 }
 
 fn parse_passcode_input(input: &str) -> Option<Passcode> {
@@ -430,6 +423,56 @@ mod tests {
                 .pop_front()
                 .unwrap_or(Ok(None))
                 .map(|opt| opt.map(|s| s.to_string()))
+        }
+    }
+
+    #[derive(Default)]
+    struct MockNetwork {
+        is_connected_val: bool,
+        is_disconnected_val: bool,
+        disconnect_reason_val: String,
+        messages_to_receive: VecDeque<Vec<u8>>,
+        sent_messages: Vec<(AppChannel, Vec<u8>)>,
+    }
+
+    impl MockNetwork {
+        fn new() -> Self {
+            Self::default()
+        }
+
+        #[allow(dead_code)]
+        fn set_connected(&mut self, connected: bool) {
+            self.is_connected_val = connected;
+        }
+
+        #[allow(dead_code)]
+        fn set_disconnected(&mut self, disconnected: bool, reason: &str) {
+            self.is_disconnected_val = disconnected;
+            self.disconnect_reason_val = reason.to_string();
+        }
+
+        #[allow(dead_code)]
+        fn queue_message(&mut self, message: &str) {
+            self.messages_to_receive
+                .push_back(message.as_bytes().to_vec());
+        }
+    }
+
+    impl NetworkHandle for MockNetwork {
+        fn is_connected(&self) -> bool {
+            self.is_connected_val
+        }
+        fn is_disconnected(&self) -> bool {
+            self.is_disconnected_val
+        }
+        fn get_disconnect_reason(&self) -> String {
+            self.disconnect_reason_val.clone()
+        }
+        fn send_message(&mut self, channel: AppChannel, message: Vec<u8>) {
+            self.sent_messages.push((channel, message));
+        }
+        fn receive_message(&mut self, _channel: AppChannel) -> Option<Vec<u8>> {
+            self.messages_to_receive.pop_front()
         }
     }
 
@@ -625,5 +668,133 @@ mod tests {
             vec!["Server: Maintenance starts in 5 minutes.".to_string()]
         );
         assert!(session.awaiting_initial_roster());
+    }
+
+    mod panic_guards {
+        use super::*;
+
+        #[test]
+        #[should_panic(
+            expected = "BUG: Called startup() when state was not Startup. Current state: Connecting"
+        )]
+        fn startup_panics_if_not_in_startup_state() {
+            let mut session = ClientSession::new();
+            session.transition(ClientState::Connecting);
+            let mut ui = MockUi::default();
+
+            startup(&mut session, &mut ui);
+        }
+
+        #[test]
+        fn startup_does_not_panic_in_startup_state() {
+            let mut session = ClientSession::new();
+            let mut ui = MockUi::default();
+            assert!(
+                startup(&mut session, &mut ui).is_none(),
+                "Should not panic and should return None"
+            );
+        }
+
+        #[test]
+        #[should_panic(
+            expected = "BUG: Called connecting() when state was not Connecting. Current state: Startup"
+        )]
+        fn connecting_panics_if_not_in_connecting_state() {
+            let mut session = ClientSession::new(); // Starts in Startup
+            let mut ui = MockUi::default();
+            let mut network = MockNetwork::new();
+
+            connecting(&mut session, &mut ui, &mut network);
+        }
+
+        #[test]
+        fn connecting_does_not_panic_in_connecting_state() {
+            let mut session = ClientSession::new();
+            session.transition(ClientState::Connecting);
+            let mut ui = MockUi::default();
+            let mut network = MockNetwork::new();
+            assert!(
+                connecting(&mut session, &mut ui, &mut network).is_none(),
+                "Should not panic and should return None"
+            );
+        }
+
+        #[test]
+        #[should_panic(
+            expected = "BUG: Called authenticating() when state was not Authenticating. Current state: Startup"
+        )]
+        fn authenticating_panics_if_not_in_authenticating_state() {
+            let mut session = ClientSession::new(); // Starts in Startup
+            let mut ui = MockUi::default();
+            let mut network = MockNetwork::new();
+
+            authenticating(&mut session, &mut ui, &mut network);
+        }
+
+        #[test]
+        fn authenticating_does_not_panic_in_authenticating_state() {
+            let mut session = ClientSession::new();
+            session.transition(ClientState::Authenticating {
+                waiting_for_input: false,
+                guesses_left: MAX_ATTEMPTS,
+            });
+            let mut ui = MockUi::default();
+            let mut network = MockNetwork::new();
+            assert!(
+                authenticating(&mut session, &mut ui, &mut network).is_none(),
+                "Should not panic and should return None"
+            );
+        }
+
+        #[test]
+        #[should_panic(
+            expected = "BUG: Called choosing_username() when state was not ChoosingUsername. Current state: Startup"
+        )]
+        fn choosing_username_panics_if_not_in_choosing_username_state() {
+            let mut session = ClientSession::new(); // Starts in Startup
+            let mut ui = MockUi::default();
+            let mut network = MockNetwork::new();
+
+            choosing_username(&mut session, &mut ui, &mut network);
+        }
+
+        #[test]
+        fn choosing_username_does_not_panic_in_choosing_username_state() {
+            let mut session = ClientSession::new();
+            session.transition(ClientState::ChoosingUsername {
+                prompt_printed: false,
+                awaiting_confirmation: false,
+            });
+            let mut ui = MockUi::default();
+            let mut network = MockNetwork::new();
+            assert!(
+                choosing_username(&mut session, &mut ui, &mut network).is_none(),
+                "Should not panic and should return None"
+            );
+        }
+
+        #[test]
+        #[should_panic(
+            expected = "BUG: Called in_chat() when state was not InChat. Current state: Startup"
+        )]
+        fn in_chat_panics_if_not_in_in_chat_state() {
+            let mut session = ClientSession::new();
+            let mut ui = MockUi::default();
+            let mut network = MockNetwork::new();
+
+            in_chat(&mut session, &mut ui, &mut network);
+        }
+
+        #[test]
+        fn in_chat_does_not_panic_in_in_chat_state() {
+            let mut session = ClientSession::new();
+            session.transition(ClientState::InChat);
+            let mut ui = MockUi::default();
+            let mut network = MockNetwork::new();
+            assert!(
+                in_chat(&mut session, &mut ui, &mut network).is_none(),
+                "Should not panic and should return None"
+            );
+        }
     }
 }
