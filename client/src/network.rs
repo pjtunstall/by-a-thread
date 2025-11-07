@@ -26,7 +26,7 @@ pub fn protocol_version() -> u64 {
 pub fn current_time() -> Duration {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .expect("Your system clock appears to be incorrect--it's set to a date before 1970. Please check your system settings.")
+        .expect("system clock set to a date before 1970") // If this problem occurs, open system's date and time settings and enable automatic time synchronization (NTP). On most Linux systems, try `timedatectl set-ntp true`. On non-systemd distros (like Alpine or Gentoo), use `rc-service ntpd start` or `rc-service chronyd start` instead.
 }
 
 pub fn create_connect_token(
