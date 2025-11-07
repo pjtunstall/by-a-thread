@@ -447,7 +447,7 @@ mod tests {
     }
 
     #[test]
-    fn startup_transitions_when_valid_passcode_received() {
+    fn startup_state_handlers_when_valid_passcode_received() {
         let mut session = ClientSession::new();
         let mut ui = MockUi::with_inputs([Ok(Some("123456".into()))]);
 
@@ -534,7 +534,7 @@ mod tests {
     }
 
     #[test]
-    fn choosing_username_transitions_after_welcome() {
+    fn choosing_username_state_handlers_after_welcome() {
         let mut session = ClientSession::new();
         session.transition(ClientState::ChoosingUsername {
             prompt_printed: false,

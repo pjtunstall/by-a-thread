@@ -1,6 +1,6 @@
 mod network;
 mod state;
-mod transitions;
+mod state_handlers;
 mod ui;
 
 use std::net::UdpSocket;
@@ -88,15 +88,15 @@ fn main_loop(
         client.update(duration);
 
         let next_state = match session.state() {
-            ClientState::Startup { .. } => transitions::startup(session, ui),
-            ClientState::Connecting => transitions::connecting(session, ui, client, transport),
+            ClientState::Startup { .. } => state_handlers::startup(session, ui),
+            ClientState::Connecting => state_handlers::connecting(session, ui, client, transport),
             ClientState::Authenticating { .. } => {
-                transitions::authenticating(session, ui, client, transport)
+                state_handlers::authenticating(session, ui, client, transport)
             }
             ClientState::ChoosingUsername { .. } => {
-                transitions::choosing_username(session, ui, client, transport)
+                state_handlers::choosing_username(session, ui, client, transport)
             }
-            ClientState::InChat => transitions::in_chat(session, ui, client, transport),
+            ClientState::InChat => state_handlers::in_chat(session, ui, client, transport),
             ClientState::Disconnected { .. } => None,
         };
 
