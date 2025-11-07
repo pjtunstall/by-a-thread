@@ -35,7 +35,7 @@ pub struct TerminalUi<W: Write> {
     buffer: String,
     prompt_lines: u16,
     cols: u16,
-    is_raw_mode_owner: bool,
+    is_raw_mode_owner: bool, // True except in tests.
 }
 
 impl TerminalUi<Stdout> {

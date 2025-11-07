@@ -61,9 +61,9 @@ fn protocol_version() -> u64 {
     env!("CARGO_PKG_VERSION")
         .split('.')
         .next()
-        .expect("Failed to get major version")
+        .expect("failed to get major version")
         .parse()
-        .expect("Failed to parse major version")
+        .expect("failed to parse major version")
 }
 
 fn build_server_config(
@@ -102,7 +102,7 @@ fn server_loop(
 
         transport
             .update(duration, server)
-            .expect("Failed to update transport");
+            .expect("failed to update transport");
         server.update(duration);
 
         process_events(server, state);
@@ -139,7 +139,7 @@ pub fn handle_messages(server: &mut RenetServer, state: &mut ServerState, passco
                 let (outcome, attempts_count) = {
                     let attempts_entry = state
                         .authentication_attempts(client_id)
-                        .expect("Expected authentication state for client");
+                        .expect("expected authentication state for client");
                     let outcome = evaluate_passcode_attempt(
                         passcode.bytes.as_slice(),
                         attempts_entry,
