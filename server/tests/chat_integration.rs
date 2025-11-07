@@ -1,6 +1,6 @@
 use renet::{ConnectionConfig, DefaultChannel, RenetServer};
 use server::state::ServerState;
-use server::{handle_messages, process_events};
+use server::{RenetServerNetworkHandle, handle_messages, process_events};
 use shared::auth::Passcode;
 
 fn empty_passcode() -> Passcode {
@@ -21,7 +21,12 @@ fn chat_messages_are_broadcast_to_other_clients() {
     let mut alice = server.new_local_client(alice_id);
     let mut bob = server.new_local_client(bob_id);
 
-    process_events(&mut server, &mut state);
+    {
+        let mut network_handle = RenetServerNetworkHandle {
+            server: &mut server,
+        };
+        process_events(&mut network_handle, &mut state);
+    }
 
     state.mark_authenticated(alice_id);
     state.register_username(alice_id, "Alice");
@@ -37,7 +42,12 @@ fn chat_messages_are_broadcast_to_other_clients() {
         .process_local_client(alice_id, &mut alice)
         .expect("local client processing should succeed");
 
-    handle_messages(&mut server, &mut state, &passcode);
+    {
+        let mut network_handle = RenetServerNetworkHandle {
+            server: &mut server,
+        };
+        handle_messages(&mut network_handle, &mut state, &passcode);
+    }
 
     server
         .process_local_client(bob_id, &mut bob)
@@ -60,7 +70,12 @@ fn players_are_notified_when_others_join_and_leave() {
     let mut alice = server.new_local_client(alice_id);
     let mut bob = server.new_local_client(bob_id);
 
-    process_events(&mut server, &mut state);
+    {
+        let mut network_handle = RenetServerNetworkHandle {
+            server: &mut server,
+        };
+        process_events(&mut network_handle, &mut state);
+    }
 
     state.mark_authenticated(alice_id);
     state.register_username(alice_id, "Alice");
@@ -72,7 +87,12 @@ fn players_are_notified_when_others_join_and_leave() {
         .process_local_client(bob_id, &mut bob)
         .expect("local client processing should succeed");
 
-    handle_messages(&mut server, &mut state, &passcode);
+    {
+        let mut network_handle = RenetServerNetworkHandle {
+            server: &mut server,
+        };
+        handle_messages(&mut network_handle, &mut state, &passcode);
+    }
 
     server
         .process_local_client(bob_id, &mut bob)
@@ -91,7 +111,12 @@ fn players_are_notified_when_others_join_and_leave() {
 
     server.disconnect_local_client(bob_id, &mut bob);
 
-    process_events(&mut server, &mut state);
+    {
+        let mut network_handle = RenetServerNetworkHandle {
+            server: &mut server,
+        };
+        process_events(&mut network_handle, &mut state);
+    }
 
     server
         .process_local_client(alice_id, &mut alice)
@@ -117,7 +142,12 @@ fn newcomer_receives_roster_before_join_announcement() {
     let mut alice = server.new_local_client(alice_id);
     let mut bob = server.new_local_client(bob_id);
 
-    process_events(&mut server, &mut state);
+    {
+        let mut network_handle = RenetServerNetworkHandle {
+            server: &mut server,
+        };
+        process_events(&mut network_handle, &mut state);
+    }
 
     state.mark_authenticated(alice_id);
     state.register_username(alice_id, "Alice");
@@ -129,7 +159,12 @@ fn newcomer_receives_roster_before_join_announcement() {
         .process_local_client(bob_id, &mut bob)
         .expect("local client processing should succeed");
 
-    handle_messages(&mut server, &mut state, &passcode);
+    {
+        let mut network_handle = RenetServerNetworkHandle {
+            server: &mut server,
+        };
+        handle_messages(&mut network_handle, &mut state, &passcode);
+    }
 
     server
         .process_local_client(bob_id, &mut bob)

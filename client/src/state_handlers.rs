@@ -4,12 +4,7 @@ use crate::state::{
 };
 use crate::ui::{ClientUi, UiInputError};
 use shared::auth::Passcode;
-
-#[allow(dead_code)]
-pub enum AppChannel {
-    ReliableOrdered,
-    Unreliable,
-}
+pub use shared::net::AppChannel;
 
 pub trait NetworkHandle {
     fn is_connected(&self) -> bool;

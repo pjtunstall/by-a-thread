@@ -14,6 +14,26 @@ impl Passcode {
 
         Self { bytes, string }
     }
+
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+        let string = bytes.iter().map(|d| d.to_string()).collect();
+        Self { bytes, string }
+    }
+
+    pub fn from_string(string: &str) -> Option<Self> {
+        let mut bytes = Vec::with_capacity(string.len());
+        for ch in string.chars() {
+            if let Some(digit) = ch.to_digit(10) {
+                bytes.push(digit as u8);
+            } else {
+                return None;
+            }
+        }
+        Some(Self {
+            bytes,
+            string: string.to_string(),
+        })
+    }
 }
 
 #[cfg(test)]

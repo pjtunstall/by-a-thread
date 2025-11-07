@@ -1,4 +1,4 @@
-mod network;
+mod net;
 mod state;
 mod state_handlers;
 mod ui;
@@ -13,16 +13,17 @@ use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 use crate::state::{ClientSession, ClientState};
 use crate::state_handlers::{AppChannel, NetworkHandle};
 use crate::ui::{ClientUi, TerminalUi};
+use shared;
 
 pub fn run_client() {
     let mut ui = TerminalUi::new().expect("failed to initialize terminal UI");
 
-    let private_key = network::client_private_key();
+    let private_key = shared::net::private_key();
     let client_id = rand::random::<u64>();
-    let server_addr = network::default_server_addr();
-    let protocol_id = network::protocol_version();
-    let current_time = network::current_time();
-    let connect_token = network::create_connect_token(
+    let server_addr = net::default_server_addr();
+    let protocol_id = shared::protocol_version();
+    let current_time = shared::current_time();
+    let connect_token = net::create_connect_token(
         current_time,
         protocol_id,
         client_id,
