@@ -4,10 +4,10 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use crate::state::{AuthAttemptOutcome, MAX_AUTH_ATTEMPTS, ServerState, evaluate_passcode_attempt};
-
 use renet::{ConnectionConfig, DefaultChannel, RenetServer, ServerEvent};
 use renet_netcode::{NetcodeServerTransport, ServerAuthentication, ServerConfig};
+
+use crate::state::{AuthAttemptOutcome, MAX_AUTH_ATTEMPTS, ServerState, evaluate_passcode_attempt};
 use shared::{
     self,
     auth::Passcode,
@@ -81,12 +81,10 @@ fn print_server_banner(protocol_id: u64, server_addr: SocketAddr, passcode: &Pas
     println!("  Passcode: {}", passcode.string);
 }
 
-// --- Step 4: Create the RenetServerNetworkHandle wrapper ---
 pub struct RenetServerNetworkHandle<'a> {
     pub server: &'a mut RenetServer,
 }
 
-// --- Step 5: Implement the trait for the wrapper ---
 impl ServerNetworkHandle for RenetServerNetworkHandle<'_> {
     fn get_event(&mut self) -> Option<ServerNetworkEvent> {
         self.server.get_event().map(|event| match event {
