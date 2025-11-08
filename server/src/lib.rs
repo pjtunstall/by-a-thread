@@ -301,6 +301,20 @@ pub fn handle_messages(
                     continue;
                 }
 
+                if text == shared::auth::START_SIGNAL {
+                    if state.is_host(client_id) {
+                        let host = state
+                            .username(client_id)
+                            .expect("host should have a username");
+                        println!("Host ({}) started the game.", host);
+                        let start_msg = format!("{} has started the game!", host)
+                            .as_bytes()
+                            .to_vec();
+                        network.broadcast_message(AppChannel::ReliableOrdered, start_msg);
+                    }
+                    continue;
+                }
+
                 if let Some(username) = state.username(client_id) {
                     println!("{}: {}", username, text);
                     let chat_message = format!("{}: {}", username, text);

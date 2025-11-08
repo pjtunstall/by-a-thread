@@ -63,6 +63,13 @@ impl Lobby {
         );
     }
 
+    pub fn is_host(&self, client_id: u64) -> bool {
+        match self.host_client_id {
+            Some(host_id) => host_id == client_id,
+            None => false,
+        }
+    }
+
     pub fn register_connection(&mut self, client_id: u64) {
         self.auth_attempts.insert(client_id, 0);
     }

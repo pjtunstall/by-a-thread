@@ -129,7 +129,7 @@ impl<W: Write> TerminalUi<W> {
                         }
                         Ok(None)
                     }
-                    KeyCode::Tab => Ok(None), // Eventually this will start the game if the user is the host.
+                    KeyCode::Tab => Ok(Some(String::from(shared::auth::START_SIGNAL))),
                     KeyCode::Char(c) => {
                         let at_limit = self.buffer.len() >= limit;
 
