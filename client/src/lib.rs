@@ -34,7 +34,7 @@ pub fn run_client() {
     let socket = match UdpSocket::bind("127.0.0.1:0") {
         Ok(socket) => socket,
         Err(e) => {
-            ui.show_message(&format!("Failed to bind client socket: {}", e));
+            ui.show_message(&format!("Failed to bind client socket: {}.", e));
             return;
         }
     };

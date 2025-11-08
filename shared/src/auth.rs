@@ -7,6 +7,13 @@ pub fn private_key() -> [u8; 32] {
     ]
 }
 
+pub fn start_signal() -> [u8; 32] {
+    [
+        46, 145, 136, 49, 233, 67, 117, 157, 150, 50, 39, 61, 152, 14, 233, 74, 169, 10, 30, 37,
+        120, 91, 27, 107, 244, 3, 89, 120, 18, 2, 3, 59,
+    ]
+}
+
 pub struct Passcode {
     pub bytes: Vec<u8>,
     pub string: String,

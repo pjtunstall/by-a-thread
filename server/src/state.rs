@@ -57,7 +57,7 @@ impl Lobby {
         network.send_message(
             id,
             AppChannel::ReliableOrdered,
-            "  You have been assigned as the host.\r\n  Press ESCAPE to start a game."
+            "  You have been appointed host.\r\n  Press TAB to start a game."
                 .as_bytes()
                 .to_vec(),
         );
@@ -272,7 +272,7 @@ mod tests {
 
         let messages = network.get_sent_messages(123);
         assert_eq!(messages.len(), 1);
-        assert!(messages[0].contains("You have been assigned as the host"));
+        assert!(messages[0].contains("You have been appointed host"));
     }
 
     #[test]
