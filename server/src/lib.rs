@@ -1,4 +1,6 @@
 pub mod state;
+#[cfg(test)]
+pub mod test_helpers;
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::thread;
@@ -7,7 +9,7 @@ use std::time::{Duration, Instant};
 use renet::{ConnectionConfig, DefaultChannel, RenetServer, ServerEvent};
 use renet_netcode::{NetcodeServerTransport, ServerAuthentication, ServerConfig};
 
-use crate::state::{AuthAttemptOutcome, MAX_AUTH_ATTEMPTS, ServerState, evaluate_passcode_attempt};
+use crate::state::{AuthAttemptOutcome, Lobby, MAX_AUTH_ATTEMPTS, evaluate_passcode_attempt};
 use shared::{
     self,
     auth::Passcode,
@@ -27,6 +29,7 @@ pub trait ServerNetworkHandle {
     fn send_message(&mut self, client_id: u64, channel: AppChannel, message: Vec<u8>);
     fn broadcast_message(&mut self, channel: AppChannel, message: Vec<u8>);
     fn disconnect(&mut self, client_id: u64);
+    fn broadcast_message_except(&mut self, client_id: u64, channel: AppChannel, message: Vec<u8>);
 }
 
 pub fn run_server() {
@@ -47,7 +50,7 @@ pub fn run_server() {
     let passcode = Passcode::generate(6);
     print_server_banner(protocol_id, server_addr, &passcode);
 
-    let mut state = ServerState::new();
+    let mut state = Lobby::new();
 
     server_loop(&mut server, &mut transport, &mut state, &passcode);
 }
@@ -100,6 +103,11 @@ impl ServerNetworkHandle for RenetServerNetworkHandle<'_> {
         })
     }
 
+    fn broadcast_message_except(&mut self, client_id: u64, channel: AppChannel, message: Vec<u8>) {
+        self.server
+            .broadcast_message_except(client_id, DefaultChannel::from(channel), message);
+    }
+
     fn clients_id(&self) -> Vec<u64> {
         self.server.clients_id()
     }
@@ -128,7 +136,7 @@ impl ServerNetworkHandle for RenetServerNetworkHandle<'_> {
 fn server_loop(
     server: &mut RenetServer,
     transport: &mut NetcodeServerTransport,
-    state: &mut ServerState,
+    state: &mut Lobby,
     passcode: &Passcode,
 ) {
     let mut last_updated = Instant::now();
@@ -153,7 +161,7 @@ fn server_loop(
     }
 }
 
-pub fn process_events(network: &mut dyn ServerNetworkHandle, state: &mut ServerState) {
+pub fn process_events(network: &mut dyn ServerNetworkHandle, state: &mut Lobby) {
     while let Some(event) = network.get_event() {
         match event {
             ServerNetworkEvent::ClientConnected { client_id } => {
@@ -162,18 +170,14 @@ pub fn process_events(network: &mut dyn ServerNetworkHandle, state: &mut ServerS
             }
             ServerNetworkEvent::ClientDisconnected { client_id, reason } => {
                 println!("Client {} disconnected: {}.", client_id, reason);
-                if let Some(username) = state.remove_client(client_id) {
-                    let message = format!("{} left the chat.", username);
-                    network.broadcast_message(AppChannel::ReliableOrdered, message.into_bytes());
-                }
+                state.remove_client(client_id, network);
             }
         }
     }
 }
-
 pub fn handle_messages(
     network: &mut dyn ServerNetworkHandle,
-    state: &mut ServerState,
+    state: &mut Lobby,
     passcode: &Passcode,
 ) {
     for client_id in network.clients_id() {
@@ -222,7 +226,7 @@ pub fn handle_messages(
                         let error_msg = "Incorrect passcode. Disconnecting.".as_bytes().to_vec();
                         network.send_message(client_id, AppChannel::ReliableOrdered, error_msg);
                         network.disconnect(client_id);
-                        state.remove_client(client_id);
+                        state.remove_client(client_id, network);
                     }
                 }
             } else if state.needs_username(client_id) {
@@ -252,6 +256,7 @@ pub fn handle_messages(
                                 AppChannel::ReliableOrdered,
                                 "You are the only player online.".as_bytes().to_vec(),
                             );
+                            state.set_host(client_id, network);
                         } else {
                             let list = others.join(", ");
                             let message = format!("Players online: {}", list);
@@ -263,7 +268,8 @@ pub fn handle_messages(
                         }
 
                         let join_announcement = format!("{} joined the chat.", username);
-                        network.broadcast_message(
+                        network.broadcast_message_except(
+                            client_id,
                             AppChannel::ReliableOrdered,
                             join_announcement.into_bytes(),
                         );
@@ -308,103 +314,14 @@ fn send_username_error(network: &mut dyn ServerNetworkHandle, client_id: u64, me
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::ServerState;
+    use crate::state::Lobby;
+    use crate::test_helpers::MockServerNetwork;
     use shared::auth::Passcode;
-    use std::collections::{HashMap, VecDeque};
-
-    #[derive(Default)]
-    struct MockServerNetwork {
-        events_to_process: VecDeque<ServerNetworkEvent>,
-        client_messages: HashMap<u64, VecDeque<Vec<u8>>>,
-        sent_messages: HashMap<u64, Vec<Vec<u8>>>,
-        broadcast_messages: Vec<Vec<u8>>,
-        disconnected_clients: Vec<u64>,
-        client_ids: Vec<u64>,
-    }
-
-    impl MockServerNetwork {
-        fn new() -> Self {
-            Self::default()
-        }
-
-        fn add_client(&mut self, client_id: u64) {
-            self.client_ids.push(client_id);
-            self.client_messages.entry(client_id).or_default();
-            self.sent_messages.entry(client_id).or_default();
-        }
-
-        fn queue_event(&mut self, event: ServerNetworkEvent) {
-            self.events_to_process.push_back(event);
-        }
-
-        fn queue_message(&mut self, client_id: u64, message: &str) {
-            self.client_messages
-                .entry(client_id)
-                .or_default()
-                .push_back(message.as_bytes().to_vec());
-        }
-
-        fn queue_raw_message(&mut self, client_id: u64, message: Vec<u8>) {
-            self.client_messages
-                .entry(client_id)
-                .or_default()
-                .push_back(message);
-        }
-
-        fn get_sent_messages(&mut self, client_id: u64) -> Vec<String> {
-            self.sent_messages
-                .entry(client_id)
-                .or_default()
-                .iter()
-                .map(|bytes| String::from_utf8_lossy(bytes).to_string())
-                .collect()
-        }
-
-        fn get_broadcast_messages(&self) -> Vec<String> {
-            self.broadcast_messages
-                .iter()
-                .map(|bytes| String::from_utf8_lossy(bytes).to_string())
-                .collect()
-        }
-    }
-
-    impl ServerNetworkHandle for MockServerNetwork {
-        fn get_event(&mut self) -> Option<ServerNetworkEvent> {
-            self.events_to_process.pop_front()
-        }
-
-        fn clients_id(&self) -> Vec<u64> {
-            self.client_ids.clone()
-        }
-
-        fn receive_message(&mut self, client_id: u64, _channel: AppChannel) -> Option<Vec<u8>> {
-            self.client_messages
-                .entry(client_id)
-                .or_default()
-                .pop_front()
-        }
-
-        fn send_message(&mut self, client_id: u64, _channel: AppChannel, message: Vec<u8>) {
-            self.sent_messages
-                .entry(client_id)
-                .or_default()
-                .push(message);
-        }
-
-        fn broadcast_message(&mut self, _channel: AppChannel, message: Vec<u8>) {
-            self.broadcast_messages.push(message);
-        }
-
-        fn disconnect(&mut self, client_id: u64) {
-            self.disconnected_clients.push(client_id);
-            self.client_ids.retain(|&id| id != client_id);
-        }
-    }
 
     #[test]
     fn test_process_events_client_connect() {
         let mut network = MockServerNetwork::new();
-        let mut state = ServerState::new();
+        let mut state = Lobby::new();
 
         network.queue_event(ServerNetworkEvent::ClientConnected { client_id: 1 });
 
@@ -416,7 +333,7 @@ mod tests {
     #[test]
     fn test_process_events_client_disconnect_with_username() {
         let mut network = MockServerNetwork::new();
-        let mut state = ServerState::new();
+        let mut state = Lobby::new();
 
         state.register_connection(1);
         state.mark_authenticated(1);
@@ -437,7 +354,7 @@ mod tests {
     #[test]
     fn test_handle_messages_auth_success() {
         let mut network = MockServerNetwork::new();
-        let mut state = ServerState::new();
+        let mut state = Lobby::new();
         let passcode =
             Passcode::from_string("123456").expect("Failed to create passcode from string");
 
@@ -457,7 +374,7 @@ mod tests {
     #[test]
     fn test_handle_messages_auth_fail_then_disconnect() {
         let mut network = MockServerNetwork::new();
-        let mut state = ServerState::new();
+        let mut state = Lobby::new();
         let passcode =
             Passcode::from_string("123456").expect("Failed to create passcode from string");
 
@@ -484,7 +401,7 @@ mod tests {
     #[test]
     fn test_handle_messages_username_success_and_broadcast() {
         let mut network = MockServerNetwork::new();
-        let mut state = ServerState::new();
+        let mut state = Lobby::new();
         let passcode =
             Passcode::from_string("123456").expect("Failed to create passcode from string");
 
@@ -505,15 +422,22 @@ mod tests {
         let bob_msgs = network.get_sent_messages(2);
         assert!(bob_msgs.contains(&"Welcome, Bob!".to_string()));
         assert!(bob_msgs.contains(&"Players online: Alice".to_string()));
+        assert!(
+            !bob_msgs.contains(&"Bob joined the chat.".to_string()),
+            "Bob should not be told that he himself joined"
+        );
 
-        let broadcasts = network.get_broadcast_messages();
-        assert!(broadcasts.contains(&"Bob joined the chat.".to_string()));
+        let alice_msgs = network.get_sent_messages(1);
+        assert!(
+            alice_msgs.contains(&"Bob joined the chat.".to_string()),
+            "Alice should have been told that Bob joined"
+        );
     }
 
     #[test]
     fn test_handle_messages_chat_message() {
         let mut network = MockServerNetwork::new();
-        let mut state = ServerState::new();
+        let mut state = Lobby::new();
         let passcode =
             Passcode::from_string("123456").expect("Failed to create passcode from string");
 

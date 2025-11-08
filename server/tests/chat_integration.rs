@@ -1,5 +1,6 @@
 use renet::{ConnectionConfig, DefaultChannel, RenetServer};
-use server::state::ServerState;
+
+use server::state::Lobby;
 use server::{RenetServerNetworkHandle, handle_messages, process_events};
 use shared::auth::Passcode;
 
@@ -13,7 +14,7 @@ fn empty_passcode() -> Passcode {
 #[test]
 fn chat_messages_are_broadcast_to_other_clients() {
     let mut server = RenetServer::new(ConnectionConfig::default());
-    let mut state = ServerState::new();
+    let mut state = Lobby::new();
     let passcode = empty_passcode();
 
     let alice_id = 1;
@@ -62,7 +63,7 @@ fn chat_messages_are_broadcast_to_other_clients() {
 #[test]
 fn players_are_notified_when_others_join_and_leave() {
     let mut server = RenetServer::new(ConnectionConfig::default());
-    let mut state = ServerState::new();
+    let mut state = Lobby::new();
     let passcode = empty_passcode();
 
     let alice_id = 1;
@@ -132,9 +133,9 @@ fn players_are_notified_when_others_join_and_leave() {
 }
 
 #[test]
-fn newcomer_receives_roster_before_join_announcement() {
+fn test_handle_messages_username_success_and_broadcast() {
     let mut server = RenetServer::new(ConnectionConfig::default());
-    let mut state = ServerState::new();
+    let mut state = Lobby::new();
     let passcode = empty_passcode();
 
     let alice_id = 1;
@@ -169,36 +170,30 @@ fn newcomer_receives_roster_before_join_announcement() {
     server
         .process_local_client(bob_id, &mut bob)
         .expect("local client processing should succeed");
-
-    let mut received = Vec::new();
-    while let Some(message) = bob.receive_message(DefaultChannel::ReliableOrdered) {
-        received.push(String::from_utf8_lossy(&message).to_string());
-    }
-
-    assert_eq!(
-        received.len(),
-        3,
-        "expected welcome, roster, and join messages"
-    );
-    assert_eq!(received[0], "Welcome, Bob!");
-    assert!(
-        received[1].starts_with("Players online: "),
-        "roster list should follow the welcome"
-    );
-    assert!(
-        received[1].contains("Alice"),
-        "existing players should appear in the roster"
-    );
-    assert_eq!(received[2], "Bob joined the chat.");
-
     server
         .process_local_client(alice_id, &mut alice)
         .expect("local client processing should succeed");
-    let join_for_alice = alice
-        .receive_message(DefaultChannel::ReliableOrdered)
-        .expect("Alice should receive the join announcement");
-    assert_eq!(
-        String::from_utf8_lossy(&join_for_alice),
-        "Bob joined the chat."
+
+    assert_eq!(state.username(2), Some("Bob"));
+
+    let mut bob_msgs = Vec::new();
+    while let Some(message) = bob.receive_message(DefaultChannel::ReliableOrdered) {
+        bob_msgs.push(String::from_utf8_lossy(&message).to_string());
+    }
+
+    assert!(bob_msgs.contains(&"Welcome, Bob!".to_string()));
+    assert!(
+        bob_msgs
+            .iter()
+            .any(|msg| msg.contains("Players online: Alice"))
     );
+    assert!(
+        !bob_msgs.contains(&"Bob joined the chat.".to_string()),
+        "Bob should not be told that he himself joined"
+    );
+
+    let alice_msg = alice
+        .receive_message(DefaultChannel::ReliableOrdered)
+        .expect("Alice should have received a message");
+    assert_eq!(String::from_utf8_lossy(&alice_msg), "Bob joined the chat.");
 }

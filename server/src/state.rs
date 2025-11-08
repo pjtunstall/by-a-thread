@@ -1,5 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
+use crate::ServerNetworkHandle;
+use shared::net::AppChannel;
+
 pub const MAX_AUTH_ATTEMPTS: u8 = 3;
 
 #[derive(Debug, PartialEq)]
@@ -27,29 +30,62 @@ pub fn evaluate_passcode_attempt(
     }
 }
 
-pub struct ServerState {
-    auth_attempts: HashMap<u64, u8>,
-    pending_usernames: HashSet<u64>,
-    usernames: HashMap<u64, String>,
+pub enum ServerState {
+    Lobby(Lobby),
+    InGame,
 }
 
-impl ServerState {
+pub struct Lobby {
+    auth_attempts: HashMap<u64, u8>,
+    pending_usernames: HashSet<u64>, // Users who are authenticated but have not yet provided a username.
+    usernames: HashMap<u64, String>,
+    host_client_id: Option<u64>,
+}
+
+impl Lobby {
     pub fn new() -> Self {
         Self {
             auth_attempts: HashMap::new(),
             pending_usernames: HashSet::new(),
             usernames: HashMap::new(),
+            host_client_id: None,
         }
+    }
+
+    pub fn set_host(&mut self, id: u64, network: &mut dyn ServerNetworkHandle) {
+        self.host_client_id = Some(id);
+        network.send_message(
+            id,
+            AppChannel::ReliableOrdered,
+            "  You have been assigned as the host.\r\n  Press ESCAPE to start a game."
+                .as_bytes()
+                .to_vec(),
+        );
     }
 
     pub fn register_connection(&mut self, client_id: u64) {
         self.auth_attempts.insert(client_id, 0);
     }
 
-    pub fn remove_client(&mut self, client_id: u64) -> Option<String> {
+    pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
         self.auth_attempts.remove(&client_id);
         self.pending_usernames.remove(&client_id);
-        self.usernames.remove(&client_id)
+
+        let name_removed = self.usernames.remove(&client_id);
+
+        if let Some(username) = name_removed {
+            let message = format!("{} left the chat.", username);
+            network.broadcast_message(AppChannel::ReliableOrdered, message.into_bytes());
+        }
+
+        if self.host_client_id == Some(client_id) {
+            if let Some(new_host_id) = self.usernames.keys().cloned().next() {
+                self.set_host(new_host_id, network);
+            } else {
+                self.host_client_id = None;
+                println!("Host left and no clients remain; host cleared.");
+            }
+        }
     }
 
     pub fn authentication_attempts(&mut self, client_id: u64) -> Option<&mut u8> {
@@ -103,6 +139,7 @@ impl ServerState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_helpers::MockServerNetwork;
 
     #[test]
     fn successful_authentication_does_not_increment_attempts() {
@@ -143,7 +180,7 @@ mod tests {
 
     #[test]
     fn register_connection_initializes_attempts() {
-        let mut state = ServerState::new();
+        let mut state = Lobby::new();
         state.register_connection(42);
 
         let attempts = state
@@ -155,9 +192,11 @@ mod tests {
 
     #[test]
     fn remove_client_clears_authentication_state() {
-        let mut state = ServerState::new();
+        let mut state = Lobby::new();
+        let mut network = MockServerNetwork::new();
         state.register_connection(99);
-        state.remove_client(99);
+
+        state.remove_client(99, &mut network);
 
         assert!(!state.is_authenticating(99));
         assert!(state.authentication_attempts(99).is_none());
@@ -166,7 +205,7 @@ mod tests {
 
     #[test]
     fn mark_authenticated_moves_client_to_pending_username() {
-        let mut state = ServerState::new();
+        let mut state = Lobby::new();
         state.register_connection(1);
         state.mark_authenticated(1);
 
@@ -176,7 +215,7 @@ mod tests {
 
     #[test]
     fn register_username_adds_user_and_removes_pending() {
-        let mut state = ServerState::new();
+        let mut state = Lobby::new();
         state.register_connection(5);
         state.mark_authenticated(5);
 
@@ -190,7 +229,7 @@ mod tests {
 
     #[test]
     fn username_taken_checks_existing_names_case_insensitively() {
-        let mut state = ServerState::new();
+        let mut state = Lobby::new();
         state.register_connection(10);
         state.mark_authenticated(10);
         state.register_username(10, "PlayerOne");
@@ -201,7 +240,7 @@ mod tests {
 
     #[test]
     fn usernames_except_excludes_requested_client() {
-        let mut state = ServerState::new();
+        let mut state = Lobby::new();
         for (id, name) in [(1, "Alpha"), (2, "Beta"), (3, "Gamma")] {
             state.register_connection(id);
             state.mark_authenticated(id);
@@ -211,5 +250,42 @@ mod tests {
         let mut others = state.usernames_except(2);
         others.sort();
         assert_eq!(others, vec!["Alpha".to_string(), "Gamma".to_string()]);
+    }
+
+    #[test]
+    fn test_set_host_updates_state() {
+        let mut state = Lobby::new();
+        let mut network = MockServerNetwork::new();
+
+        state.set_host(123, &mut network);
+
+        assert_eq!(state.host_client_id, Some(123));
+    }
+
+    #[test]
+    fn test_set_host_sends_message_to_new_host() {
+        let mut state = Lobby::new();
+        let mut network = MockServerNetwork::new();
+        network.add_client(123);
+
+        state.set_host(123, &mut network);
+
+        let messages = network.get_sent_messages(123);
+        assert_eq!(messages.len(), 1);
+        assert!(messages[0].contains("You have been assigned as the host"));
+    }
+
+    #[test]
+    fn test_remove_last_client_with_username_clears_host() {
+        let mut state = Lobby::new();
+        let mut network = MockServerNetwork::new();
+
+        state.usernames.insert(1, "Alice".to_string());
+        state.set_host(1, &mut network);
+        assert_eq!(state.host_client_id, Some(1));
+
+        state.remove_client(1, &mut network);
+
+        assert_eq!(state.host_client_id, None);
     }
 }
