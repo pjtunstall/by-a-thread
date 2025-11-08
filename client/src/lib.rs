@@ -18,7 +18,7 @@ use shared;
 pub fn run_client() {
     let mut ui = TerminalUi::new().expect("failed to initialize terminal UI");
 
-    let private_key = shared::net::private_key();
+    let private_key = shared::auth::private_key();
     let client_id = rand::random::<u64>();
     let server_addr = net::default_server_addr();
     let protocol_id = shared::protocol_version();

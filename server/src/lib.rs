@@ -35,7 +35,7 @@ pub trait ServerNetworkHandle {
 }
 
 pub fn run_server() {
-    let private_key = shared::net::private_key();
+    let private_key = shared::auth::private_key();
     let server_addr = server_address();
     let socket = bind_socket(server_addr);
 
