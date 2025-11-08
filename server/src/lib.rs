@@ -17,6 +17,8 @@ use shared::{
     net::AppChannel,
 };
 
+pub const MAX_CHAT_MESSAGE_BYTES: usize = 4096;
+
 pub enum ServerNetworkEvent {
     ClientConnected { client_id: u64 },
     ClientDisconnected { client_id: u64, reason: String },
@@ -175,6 +177,7 @@ pub fn process_events(network: &mut dyn ServerNetworkHandle, state: &mut Lobby) 
         }
     }
 }
+
 pub fn handle_messages(
     network: &mut dyn ServerNetworkHandle,
     state: &mut Lobby,
@@ -182,6 +185,13 @@ pub fn handle_messages(
 ) {
     for client_id in network.clients_id() {
         while let Some(message) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
+            if message.len() > MAX_CHAT_MESSAGE_BYTES {
+                println!(
+                    "Client {} sent an overly long message; ignoring.",
+                    client_id
+                );
+                continue;
+            }
             if state.is_authenticating(client_id) {
                 let (outcome, attempts_count) = {
                     let attempts_entry = state

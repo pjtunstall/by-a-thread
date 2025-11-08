@@ -36,9 +36,9 @@ pub enum ServerState {
 }
 
 pub struct Lobby {
-    auth_attempts: HashMap<u64, u8>,
+    auth_attempts: HashMap<u64, u8>, // Connected users who have yet to enter the correct passcode.
     pending_usernames: HashSet<u64>, // Users who are authenticated but have not yet provided a username.
-    usernames: HashMap<u64, String>,
+    usernames: HashMap<u64, String>, // Authenticated users with registered usernames.
     host_client_id: Option<u64>,
 }
 

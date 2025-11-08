@@ -2,7 +2,7 @@ use crate::state::{
     AuthMessageOutcome, ClientSession, ClientState, MAX_ATTEMPTS, interpret_auth_message,
     username_prompt, validate_username_input,
 };
-use crate::ui::{ClientUi, UiInputError};
+use crate::ui::{ClientUi, MAX_INPUT_LENGTH, UiInputError};
 use shared::auth::Passcode;
 pub use shared::net::AppChannel;
 
@@ -21,7 +21,7 @@ pub fn startup(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<Cli
             *prompt_printed = true;
         }
 
-        match ui.poll_input() {
+        match ui.poll_input(MAX_INPUT_LENGTH) {
             Ok(Some(input_string)) => {
                 if let Some(passcode) = parse_passcode_input(&input_string) {
                     session.store_first_passcode(passcode);
@@ -123,7 +123,7 @@ pub fn authenticating(
         }
 
         if *waiting_for_input {
-            match ui.poll_input() {
+            match ui.poll_input(MAX_INPUT_LENGTH) {
                 Ok(Some(input_string)) => {
                     if let Some(passcode) = parse_passcode_input(&input_string) {
                         ui.show_message("Sending new guess...");
@@ -201,7 +201,7 @@ pub fn choosing_username(
                 *prompt_printed = true;
             }
 
-            match ui.poll_input() {
+            match ui.poll_input(MAX_INPUT_LENGTH) {
                 Ok(Some(input)) => {
                     let validation = validate_username_input(&input);
                     match validation {
@@ -262,7 +262,7 @@ pub fn in_chat(
     }
 
     loop {
-        match ui.poll_input() {
+        match ui.poll_input(MAX_INPUT_LENGTH) {
             Ok(Some(input)) => {
                 if !input.trim().is_empty() {
                     network.send_message(AppChannel::ReliableOrdered, input.into_bytes());
@@ -413,7 +413,7 @@ mod tests {
             self.prompts.push(prompt.to_string());
         }
 
-        fn poll_input(&mut self) -> Result<Option<String>, UiInputError> {
+        fn poll_input(&mut self, _limit: usize) -> Result<Option<String>, UiInputError> {
             self.inputs
                 .pop_front()
                 .unwrap_or(Ok(None))
