@@ -307,7 +307,7 @@ pub fn handle_messages(
                             .username(client_id)
                             .expect("host should have a username");
                         println!("Host ({}) started the game.", host);
-                        let start_msg = format!("{} has started the game!", host)
+                        let start_msg = format!("Host, {}, has started the game!", host)
                             .as_bytes()
                             .to_vec();
                         network.broadcast_message(AppChannel::ReliableOrdered, start_msg);
