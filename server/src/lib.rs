@@ -17,7 +17,7 @@ use shared::{
     net::AppChannel,
 };
 
-pub const MAX_CHAT_MESSAGE_BYTES: usize = 4096;
+use shared::chat::MAX_CHAT_MESSAGE_BYTES;
 
 pub enum ServerNetworkEvent {
     ClientConnected { client_id: u64 },

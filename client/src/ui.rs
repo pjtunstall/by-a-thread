@@ -10,8 +10,6 @@ use crossterm::{
     terminal::{self, Clear, ClearType},
 };
 
-pub const MAX_INPUT_LENGTH: usize = 128;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiInputError {
     Disconnected,
@@ -250,8 +248,10 @@ impl<W: Write> Drop for TerminalUi<W> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+
+    use super::*;
+    use shared::chat::MAX_CHAT_MESSAGE_BYTES;
 
     // Create a new `TerminalUi` for testing with a fake width
     // and a `Vec<u8>` as the `stdout` buffer.
@@ -273,12 +273,12 @@ mod tests {
     fn test_simple_char_input() {
         let mut ui = setup_test_ui(80);
 
-        ui.handle_event(key_event(KeyCode::Char('a')), MAX_INPUT_LENGTH)
+        ui.handle_event(key_event(KeyCode::Char('a')), MAX_CHAT_MESSAGE_BYTES)
             .unwrap();
         assert_eq!(ui.buffer, "a");
         assert_eq!(ui.prompt_lines, 1);
 
-        ui.handle_event(key_event(KeyCode::Char('b')), MAX_INPUT_LENGTH)
+        ui.handle_event(key_event(KeyCode::Char('b')), MAX_CHAT_MESSAGE_BYTES)
             .unwrap();
         assert_eq!(ui.buffer, "ab");
         assert_eq!(ui.prompt_lines, 1);
@@ -287,24 +287,24 @@ mod tests {
     #[test]
     fn test_simple_backspace() {
         let mut ui = setup_test_ui(80);
-        ui.handle_event(key_event(KeyCode::Char('a')), MAX_INPUT_LENGTH)
+        ui.handle_event(key_event(KeyCode::Char('a')), MAX_CHAT_MESSAGE_BYTES)
             .unwrap();
-        ui.handle_event(key_event(KeyCode::Char('b')), MAX_INPUT_LENGTH)
+        ui.handle_event(key_event(KeyCode::Char('b')), MAX_CHAT_MESSAGE_BYTES)
             .unwrap();
         assert_eq!(ui.buffer, "ab");
 
-        ui.handle_event(key_event(KeyCode::Backspace), MAX_INPUT_LENGTH)
+        ui.handle_event(key_event(KeyCode::Backspace), MAX_CHAT_MESSAGE_BYTES)
             .unwrap();
         assert_eq!(ui.buffer, "a");
         assert_eq!(ui.prompt_lines, 1);
 
-        ui.handle_event(key_event(KeyCode::Backspace), MAX_INPUT_LENGTH)
+        ui.handle_event(key_event(KeyCode::Backspace), MAX_CHAT_MESSAGE_BYTES)
             .unwrap();
         assert_eq!(ui.buffer, "");
         assert_eq!(ui.prompt_lines, 1);
 
         // Backspace on empty buffer should do nothing.
-        ui.handle_event(key_event(KeyCode::Backspace), MAX_INPUT_LENGTH)
+        ui.handle_event(key_event(KeyCode::Backspace), MAX_CHAT_MESSAGE_BYTES)
             .expect("Backspace on empty buffer failed");
         assert_eq!(ui.buffer, "");
         assert_eq!(ui.prompt_lines, 1);
@@ -313,14 +313,14 @@ mod tests {
     #[test]
     fn test_enter_key_returns_and_clears_buffer() {
         let mut ui = setup_test_ui(80);
-        ui.handle_event(key_event(KeyCode::Char('h')), MAX_INPUT_LENGTH)
+        ui.handle_event(key_event(KeyCode::Char('h')), MAX_CHAT_MESSAGE_BYTES)
             .expect("Failed to handle 'h' key");
-        ui.handle_event(key_event(KeyCode::Char('i')), MAX_INPUT_LENGTH)
+        ui.handle_event(key_event(KeyCode::Char('i')), MAX_CHAT_MESSAGE_BYTES)
             .expect("Failed to handle 'i' key");
         assert_eq!(ui.buffer, "hi");
 
         let result = ui
-            .handle_event(key_event(KeyCode::Enter), MAX_INPUT_LENGTH)
+            .handle_event(key_event(KeyCode::Enter), MAX_CHAT_MESSAGE_BYTES)
             .expect("Failed to handle Enter key");
 
         // Should return the line.
@@ -342,7 +342,7 @@ mod tests {
         // 1. Fill the first line exactly.
         // Buffer: "12345678" (8 chars). Prompt + buffer = 10 chars.
         for c in "12345678".chars() {
-            ui.handle_event(key_event(KeyCode::Char(c)), MAX_INPUT_LENGTH)
+            ui.handle_event(key_event(KeyCode::Char(c)), MAX_CHAT_MESSAGE_BYTES)
                 .expect("Failed to handle char");
         }
         assert_eq!(ui.buffer, "12345678");
@@ -350,7 +350,7 @@ mod tests {
 
         // 2. Add one more char to wrap to the second line.
         // Buffer: "123456789" (9 chars).
-        ui.handle_event(key_event(KeyCode::Char('9')), MAX_INPUT_LENGTH)
+        ui.handle_event(key_event(KeyCode::Char('9')), MAX_CHAT_MESSAGE_BYTES)
             .expect("Failed to handle char");
         assert_eq!(ui.buffer, "123456789");
         // Line 1: "> 12345678".
@@ -359,7 +359,7 @@ mod tests {
 
         // 3. Add another char to be safe.
         // Buffer: "1234567890" (10 chars).
-        ui.handle_event(key_event(KeyCode::Char('0')), MAX_INPUT_LENGTH)
+        ui.handle_event(key_event(KeyCode::Char('0')), MAX_CHAT_MESSAGE_BYTES)
             .expect("Failed to handle char");
         assert_eq!(ui.buffer, "1234567890");
         // Line 1: "> 12345678".
@@ -368,14 +368,14 @@ mod tests {
 
         // 4. Backspace from line 2.
         // Buffer: "123456789".
-        ui.handle_event(key_event(KeyCode::Backspace), MAX_INPUT_LENGTH)
+        ui.handle_event(key_event(KeyCode::Backspace), MAX_CHAT_MESSAGE_BYTES)
             .expect("Failed to handle backspace");
         assert_eq!(ui.buffer, "123456789");
         assert_eq!(ui.prompt_lines, 2); // Still 2 lines.
 
         // 5. THE CRITICAL TEST: Backspace again to "un-wrap".
         // Buffer: "12345678".
-        ui.handle_event(key_event(KeyCode::Backspace), MAX_INPUT_LENGTH)
+        ui.handle_event(key_event(KeyCode::Backspace), MAX_CHAT_MESSAGE_BYTES)
             .expect("Failed to handle backspace");
 
         // Check that the buffer is correct.
@@ -387,7 +387,7 @@ mod tests {
 
         // 6. Backspace again, should stay on 1 line.
         // Buffer: "1234567".
-        ui.handle_event(key_event(KeyCode::Backspace), MAX_INPUT_LENGTH)
+        ui.handle_event(key_event(KeyCode::Backspace), MAX_CHAT_MESSAGE_BYTES)
             .expect("Failed to handle backspace");
         assert_eq!(ui.buffer, "1234567");
         assert_eq!(ui.prompt_lines, 1);

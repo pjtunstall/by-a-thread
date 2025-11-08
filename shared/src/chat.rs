@@ -1,6 +1,7 @@
 use std::fmt;
 
 pub const MAX_USERNAME_LENGTH: usize = 16;
+pub const MAX_CHAT_MESSAGE_BYTES: usize = 256;
 
 #[derive(Debug, PartialEq)]
 pub enum UsernameError {

@@ -2,9 +2,9 @@ use crate::state::{
     AuthMessageOutcome, ClientSession, ClientState, MAX_ATTEMPTS, interpret_auth_message,
     username_prompt, validate_username_input,
 };
-use crate::ui::{ClientUi, MAX_INPUT_LENGTH, UiInputError};
-use shared::auth::Passcode;
+use crate::ui::{ClientUi, UiInputError};
 pub use shared::net::AppChannel;
+use shared::{auth::Passcode, chat::MAX_CHAT_MESSAGE_BYTES};
 
 pub trait NetworkHandle {
     fn is_connected(&self) -> bool;
@@ -21,7 +21,7 @@ pub fn startup(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<Cli
             *prompt_printed = true;
         }
 
-        match ui.poll_input(MAX_INPUT_LENGTH) {
+        match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
             Ok(Some(input_string)) => {
                 if let Some(passcode) = parse_passcode_input(&input_string) {
                     session.store_first_passcode(passcode);
@@ -123,7 +123,7 @@ pub fn authenticating(
         }
 
         if *waiting_for_input {
-            match ui.poll_input(MAX_INPUT_LENGTH) {
+            match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
                 Ok(Some(input_string)) => {
                     if let Some(passcode) = parse_passcode_input(&input_string) {
                         ui.show_message("Sending new guess...");
@@ -201,7 +201,7 @@ pub fn choosing_username(
                 *prompt_printed = true;
             }
 
-            match ui.poll_input(MAX_INPUT_LENGTH) {
+            match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
                 Ok(Some(input)) => {
                     let validation = validate_username_input(&input);
                     match validation {
@@ -262,7 +262,7 @@ pub fn in_chat(
     }
 
     loop {
-        match ui.poll_input(MAX_INPUT_LENGTH) {
+        match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
             Ok(Some(input)) => {
                 if !input.trim().is_empty() {
                     network.send_message(AppChannel::ReliableOrdered, input.into_bytes());
@@ -375,10 +375,11 @@ fn is_roster_message(text: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::VecDeque;
+
     use super::*;
     use crate::state::ClientSession;
     use crate::ui::{ClientUi, UiInputError};
-    use std::collections::VecDeque;
 
     #[derive(Default)]
     struct MockUi {
