@@ -1,0 +1,5 @@
+- Refactor server.
+- Consider separate channels for chat messages and system messages, such as the start signal.
+- Consider architecture of how pressing tab should send a start request from client to server.
+- Synchronize server and client clocks.
+- Have the start signal indicate the future time that all clients will count down to.

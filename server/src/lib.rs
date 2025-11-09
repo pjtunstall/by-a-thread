@@ -44,7 +44,7 @@ pub fn run_server() {
 
     let server_config = build_server_config(current_time, protocol_id, server_addr, private_key);
     let mut transport =
-        NetcodeServerTransport::new(server_config, socket).expect("Failed to create transport");
+        NetcodeServerTransport::new(server_config, socket).expect("failed to create transport");
 
     let connection_config = ConnectionConfig::default();
     let mut server = RenetServer::new(connection_config);
@@ -62,7 +62,7 @@ fn server_address() -> SocketAddr {
 }
 
 fn bind_socket(addr: SocketAddr) -> UdpSocket {
-    UdpSocket::bind(addr).expect("Failed to bind socket")
+    UdpSocket::bind(addr).expect("failed to bind socket")
 }
 
 fn build_server_config(
@@ -380,7 +380,7 @@ mod tests {
         let mut network = MockServerNetwork::new();
         let mut state = Lobby::new();
         let passcode =
-            Passcode::from_string("123456").expect("Failed to create passcode from string");
+            Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
         state.register_connection(1);
@@ -400,7 +400,7 @@ mod tests {
         let mut network = MockServerNetwork::new();
         let mut state = Lobby::new();
         let passcode =
-            Passcode::from_string("123456").expect("Failed to create passcode from string");
+            Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
         state.register_connection(1);
@@ -427,7 +427,7 @@ mod tests {
         let mut network = MockServerNetwork::new();
         let mut state = Lobby::new();
         let passcode =
-            Passcode::from_string("123456").expect("Failed to create passcode from string");
+            Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
         state.register_connection(1);
@@ -463,7 +463,7 @@ mod tests {
         let mut network = MockServerNetwork::new();
         let mut state = Lobby::new();
         let passcode =
-            Passcode::from_string("123456").expect("Failed to create passcode from string");
+            Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
         state.register_connection(1);
