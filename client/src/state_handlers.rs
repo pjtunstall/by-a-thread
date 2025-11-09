@@ -370,7 +370,7 @@ fn is_participant_announcement(text: &str) -> bool {
 }
 
 fn is_roster_message(text: &str) -> bool {
-    text.starts_with("Players online: ") || text == "You are the first player online."
+    text.starts_with("Players online: ") || text == "You are the only player online."
 }
 
 #[cfg(test)]
