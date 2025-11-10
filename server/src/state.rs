@@ -5,33 +5,9 @@ use shared::net::AppChannel;
 
 pub const MAX_AUTH_ATTEMPTS: u8 = 3;
 
-#[derive(Debug, PartialEq)]
-pub enum AuthAttemptOutcome {
-    Authenticated,
-    TryAgain,
-    Disconnect,
-}
-
-pub fn evaluate_passcode_attempt(
-    passcode: &[u8],
-    attempts: &mut u8,
-    guess: &[u8],
-    max_attempts: u8,
-) -> AuthAttemptOutcome {
-    if guess == passcode {
-        AuthAttemptOutcome::Authenticated
-    } else {
-        *attempts = attempts.saturating_add(1);
-        if *attempts >= max_attempts {
-            AuthAttemptOutcome::Disconnect
-        } else {
-            AuthAttemptOutcome::TryAgain
-        }
-    }
-}
-
 pub enum ServerState {
     Lobby(Lobby),
+    Countdown,
     InGame,
 }
 
@@ -140,6 +116,31 @@ impl Lobby {
                 }
             })
             .collect()
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum AuthAttemptOutcome {
+    Authenticated,
+    TryAgain,
+    Disconnect,
+}
+
+pub fn evaluate_passcode_attempt(
+    passcode: &[u8],
+    attempts: &mut u8,
+    guess: &[u8],
+    max_attempts: u8,
+) -> AuthAttemptOutcome {
+    if guess == passcode {
+        AuthAttemptOutcome::Authenticated
+    } else {
+        *attempts = attempts.saturating_add(1);
+        if *attempts >= max_attempts {
+            AuthAttemptOutcome::Disconnect
+        } else {
+            AuthAttemptOutcome::TryAgain
+        }
     }
 }
 
