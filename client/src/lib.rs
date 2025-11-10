@@ -207,18 +207,6 @@ fn process_network_messages(
     session: &mut ClientSession,
     network: &mut RenetNetworkHandle,
 ) -> Option<ClientState> {
-    let mut next_state = None;
-
-    while let Some(message) = network.receive_message(AppChannel::ReliableOrdered) {
-        match bincode::serde::decode_from_slice(&message, bincode::config::standard()) {
-            Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
-                session.countdown_end_time = Some(end_time);
-                next_state = Some(ClientState::Countdown);
-            }
-            _ => {}
-        }
-    }
-
     while let Some(message) = network.receive_message(AppChannel::ServerTime) {
         match bincode::serde::decode_from_slice(&message, bincode::config::standard()) {
             Ok((ServerMessage::ServerTime(server_sent_time), _)) => {
@@ -230,7 +218,7 @@ fn process_network_messages(
         }
     }
 
-    next_state
+    None
 }
 
 fn apply_transition(

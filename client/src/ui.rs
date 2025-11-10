@@ -44,6 +44,7 @@ impl TerminalUi<Stdout> {
         terminal::enable_raw_mode()?;
         let mut stdout = stdout();
         let (cols, _) = terminal::size().unwrap_or((80, 24));
+        let cols = cols.max(1);
         execute!(
             stdout,
             MoveToColumn(0),
@@ -85,7 +86,7 @@ impl<W: Write> TerminalUi<W> {
     }
 
     fn redraw_prompt(&mut self) -> io::Result<()> {
-        let cols = self.cols;
+        let cols = usize::from(self.cols.max(1));
         let prompt = "> ";
 
         if self.prompt_lines > 1 {
@@ -95,28 +96,19 @@ impl<W: Write> TerminalUi<W> {
             )?;
         }
 
-        for i in 0..self.prompt_lines {
-            queue!(self.stdout, MoveToColumn(0), Clear(ClearType::CurrentLine))?;
-            if i + 1 < self.prompt_lines {
-                queue!(self.stdout, crossterm::cursor::MoveDown(1))?;
-            }
-        }
-
-        if self.prompt_lines > 1 {
-            queue!(
-                self.stdout,
-                crossterm::cursor::MoveUp(self.prompt_lines - 1)
-            )?;
-        }
-        queue!(self.stdout, MoveToColumn(0))?;
+        queue!(
+            self.stdout,
+            MoveToColumn(0),
+            Clear(ClearType::FromCursorDown)
+        )?;
 
         let full = format!("{}{}", prompt, &self.buffer);
-        let new_lines = (full.len().max(1) + cols as usize - 1) / cols as usize;
+        let new_lines = (full.len().max(1) + cols - 1) / cols;
         self.prompt_lines = new_lines as u16;
 
         queue!(self.stdout, Print(prompt), Print(&self.buffer))?;
-
-        self.stdout.flush()
+        self.stdout.flush()?;
+        stdout().flush()
     }
 
     fn handle_event(&mut self, event: Event, limit: usize) -> Result<Option<String>, UiInputError> {
@@ -160,7 +152,14 @@ impl<W: Write> TerminalUi<W> {
                             Ok(None)
                         } else {
                             self.buffer.push(c);
-                            self.redraw_prompt().unwrap();
+                            let cols = usize::from(self.cols.max(1));
+                            let prompt = "> ";
+                            let full = format!("{}{}", prompt, &self.buffer);
+                            let new_lines = (full.len().max(1) + cols - 1) / cols;
+                            self.prompt_lines = new_lines as u16;
+                            queue!(self.stdout, Print(c)).expect("failed to write char");
+                            self.stdout.flush().expect("failed to flush stdout");
+                            stdout().flush().expect("failed to flush global stdout");
                             Ok(None)
                         }
                     }
@@ -168,7 +167,7 @@ impl<W: Write> TerminalUi<W> {
                 }
             }
             Event::Resize(cols, _) => {
-                self.cols = cols;
+                self.cols = cols.max(1);
                 self.redraw_prompt().unwrap();
                 Ok(None)
             }
@@ -267,6 +266,8 @@ mod tests {
 
         ui.handle_event(key_event(KeyCode::Char('a')), MAX_CHAT_MESSAGE_BYTES)
             .unwrap();
+        let output = String::from_utf8(ui.stdout.clone()).unwrap();
+        assert_eq!(output, "a");
         assert_eq!(ui.buffer, "a");
         assert_eq!(ui.prompt_lines, 1);
 

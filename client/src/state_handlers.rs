@@ -722,6 +722,39 @@ mod tests {
         assert!(session.awaiting_initial_roster());
     }
 
+    #[test]
+    fn authenticating_requests_new_guess_after_incorrect_passcode_message() {
+        let mut session = ClientSession::new();
+        session.transition(ClientState::Authenticating {
+            waiting_for_input: false,
+            guesses_left: MAX_ATTEMPTS,
+        });
+
+        let mut ui = MockUi::default();
+        let mut network = MockNetwork::new();
+        network.queue_message("Incorrect passcode. Try again.");
+
+        let next_state = authenticating(&mut session, &mut ui, &mut network);
+
+        assert!(next_state.is_none());
+        assert_eq!(
+            ui.messages,
+            vec!["Server: Incorrect passcode. Try again.".to_string()]
+        );
+        assert_eq!(ui.prompts, vec![passcode_prompt(MAX_ATTEMPTS - 1)]);
+
+        match session.state() {
+            ClientState::Authenticating {
+                waiting_for_input,
+                guesses_left,
+            } => {
+                assert!(*waiting_for_input);
+                assert_eq!(*guesses_left, MAX_ATTEMPTS - 1);
+            }
+            other => panic!("expected Authenticating state, found {:?}", other),
+        }
+    }
+
     mod panic_guards {
         use super::*;
 
