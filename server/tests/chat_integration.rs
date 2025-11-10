@@ -1,6 +1,6 @@
 use renet::{ConnectionConfig, DefaultChannel, RenetServer};
 
-use server::state::Lobby;
+use server::state::{Lobby, ServerState};
 use server::{RenetServerNetworkHandle, handle_messages, process_events};
 use shared::auth::Passcode;
 
@@ -14,7 +14,7 @@ fn empty_passcode() -> Passcode {
 #[test]
 fn chat_messages_are_broadcast_to_other_clients() {
     let mut server = RenetServer::new(ConnectionConfig::default());
-    let mut state = Lobby::new();
+    let mut state = ServerState::Lobby(Lobby::new());
     let passcode = empty_passcode();
 
     let alice_id = 1;
@@ -29,11 +29,14 @@ fn chat_messages_are_broadcast_to_other_clients() {
         process_events(&mut network_handle, &mut state);
     }
 
-    state.mark_authenticated(alice_id);
-    state.register_username(alice_id, "Alice");
-
-    state.mark_authenticated(bob_id);
-    state.register_username(bob_id, "Bob");
+    if let ServerState::Lobby(lobby) = &mut state {
+        lobby.mark_authenticated(alice_id);
+        lobby.register_username(alice_id, "Alice");
+        lobby.mark_authenticated(bob_id);
+        lobby.register_username(bob_id, "Bob");
+    } else {
+        panic!("State should be Lobby");
+    }
 
     alice.send_message(
         DefaultChannel::ReliableOrdered,
@@ -63,7 +66,7 @@ fn chat_messages_are_broadcast_to_other_clients() {
 #[test]
 fn players_are_notified_when_others_join_and_leave() {
     let mut server = RenetServer::new(ConnectionConfig::default());
-    let mut state = Lobby::new();
+    let mut state = ServerState::Lobby(Lobby::new());
     let passcode = empty_passcode();
 
     let alice_id = 1;
@@ -78,10 +81,13 @@ fn players_are_notified_when_others_join_and_leave() {
         process_events(&mut network_handle, &mut state);
     }
 
-    state.mark_authenticated(alice_id);
-    state.register_username(alice_id, "Alice");
-
-    state.mark_authenticated(bob_id);
+    if let ServerState::Lobby(lobby) = &mut state {
+        lobby.mark_authenticated(alice_id);
+        lobby.register_username(alice_id, "Alice");
+        lobby.mark_authenticated(bob_id);
+    } else {
+        panic!("State should be Lobby");
+    }
 
     bob.send_message(DefaultChannel::ReliableOrdered, "Bob".as_bytes().to_vec());
     server
@@ -135,7 +141,7 @@ fn players_are_notified_when_others_join_and_leave() {
 #[test]
 fn test_handle_messages_username_success_and_broadcast() {
     let mut server = RenetServer::new(ConnectionConfig::default());
-    let mut state = Lobby::new();
+    let mut state = ServerState::Lobby(Lobby::new());
     let passcode = empty_passcode();
 
     let alice_id = 1;
@@ -150,10 +156,13 @@ fn test_handle_messages_username_success_and_broadcast() {
         process_events(&mut network_handle, &mut state);
     }
 
-    state.mark_authenticated(alice_id);
-    state.register_username(alice_id, "Alice");
-
-    state.mark_authenticated(bob_id);
+    if let ServerState::Lobby(lobby) = &mut state {
+        lobby.mark_authenticated(alice_id);
+        lobby.register_username(alice_id, "Alice");
+        lobby.mark_authenticated(bob_id);
+    } else {
+        panic!("State should be Lobby");
+    }
 
     bob.send_message(DefaultChannel::ReliableOrdered, "Bob".as_bytes().to_vec());
     server
@@ -174,7 +183,11 @@ fn test_handle_messages_username_success_and_broadcast() {
         .process_local_client(alice_id, &mut alice)
         .expect("local client processing should succeed");
 
-    assert_eq!(state.username(2), Some("Bob"));
+    if let ServerState::Lobby(lobby) = &state {
+        assert_eq!(lobby.username(2), Some("Bob"));
+    } else {
+        panic!("State should be Lobby");
+    }
 
     let mut bob_msgs = Vec::new();
     while let Some(message) = bob.receive_message(DefaultChannel::ReliableOrdered) {

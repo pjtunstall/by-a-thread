@@ -1,14 +1,74 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    time::Instant,
+};
 
 use crate::ServerNetworkHandle;
 use shared::net::AppChannel;
 
 pub const MAX_AUTH_ATTEMPTS: u8 = 3;
 
+pub struct Countdown {
+    // TODO: Add fields, e.g., players, start_time.
+    usernames: HashMap<u64, String>,
+    start_time: Instant,
+}
+
+impl Countdown {
+    pub fn new(usernames: HashMap<u64, String>, start_time: Instant) -> Self {
+        Self {
+            usernames,
+            start_time,
+        }
+    }
+
+    pub fn remove_client(&mut self, client_id: u64, _network: &mut dyn ServerNetworkHandle) {
+        println!("Client {} disconnected during countdown.", client_id);
+        // TODO: Handle player/host disconnects.
+        let _ = self.usernames.remove(&client_id);
+    }
+}
+
+pub struct InGame {
+    // TODO: Add fields, e.g., game state, players.
+}
+
+impl InGame {
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    pub fn remove_client(&mut self, client_id: u64, _network: &mut dyn ServerNetworkHandle) {
+        println!("Client {} disconnected during game.", client_id);
+        // TODO: Handle player/host disconnects.
+    }
+}
+
 pub enum ServerState {
     Lobby(Lobby),
-    Countdown,
-    InGame,
+    Countdown(Countdown),
+    InGame(InGame),
+}
+
+impl ServerState {
+    pub fn register_connection(&mut self, client_id: u64) {
+        if let ServerState::Lobby(lobby) = self {
+            lobby.register_connection(client_id);
+        } else {
+            println!(
+                "Client {} connected, but server is not in Lobby. Ignoring.",
+                client_id
+            );
+        }
+    }
+
+    pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
+        match self {
+            ServerState::Lobby(lobby) => lobby.remove_client(client_id, network),
+            ServerState::Countdown(countdown) => countdown.remove_client(client_id, network),
+            ServerState::InGame(in_game) => in_game.remove_client(client_id, network),
+        }
+    }
 }
 
 pub struct Lobby {
@@ -64,6 +124,7 @@ impl Lobby {
         if self.host_client_id == Some(client_id) {
             if let Some(new_host_id) = self.usernames.keys().cloned().next() {
                 self.set_host(new_host_id, network);
+                println!("Host disconnected, new host is client {}", new_host_id);
             } else {
                 self.host_client_id = None;
                 println!("Host left and no clients remain; host cleared.");

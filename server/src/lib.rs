@@ -9,7 +9,9 @@ use std::time::{Duration, Instant};
 use renet::{ConnectionConfig, DefaultChannel, RenetServer, ServerEvent};
 use renet_netcode::{NetcodeServerTransport, ServerAuthentication, ServerConfig};
 
-use crate::state::{AuthAttemptOutcome, Lobby, MAX_AUTH_ATTEMPTS, evaluate_passcode_attempt};
+use crate::state::{
+    AuthAttemptOutcome, Lobby, MAX_AUTH_ATTEMPTS, ServerState, evaluate_passcode_attempt,
+};
 use shared::{
     self,
     auth::Passcode,
@@ -52,7 +54,9 @@ pub fn run_server() {
     let passcode = Passcode::generate(6);
     print_server_banner(protocol_id, server_addr, &passcode);
 
-    let mut state = Lobby::new();
+    // --- MODIFIED ---
+    // Changed to use the assumed idiomatic enum struct initialization.
+    let mut state = ServerState::Lobby(Lobby::new());
 
     server_loop(&mut server, &mut transport, &mut state, &passcode);
 }
@@ -138,7 +142,7 @@ impl ServerNetworkHandle for RenetServerNetworkHandle<'_> {
 fn server_loop(
     server: &mut RenetServer,
     transport: &mut NetcodeServerTransport,
-    state: &mut Lobby,
+    state: &mut ServerState,
     passcode: &Passcode,
 ) {
     let mut last_updated = Instant::now();
@@ -156,33 +160,78 @@ fn server_loop(
         let mut network_handle = RenetServerNetworkHandle { server };
 
         process_events(&mut network_handle, state);
-        handle_messages(&mut network_handle, state, passcode);
+
+        // `handle_messages` returns an Option<ServerState>.
+        // If it returns Some(new_state), we transition the server's state.
+        let next_state = handle_messages(&mut network_handle, state, passcode);
+        if let Some(new_state) = next_state {
+            *state = new_state;
+        }
 
         transport.send_packets(server);
         thread::sleep(Duration::from_millis(16));
     }
 }
 
-pub fn process_events(network: &mut dyn ServerNetworkHandle, state: &mut Lobby) {
+pub fn process_events(network: &mut dyn ServerNetworkHandle, state: &mut ServerState) {
     while let Some(event) = network.get_event() {
         match event {
             ServerNetworkEvent::ClientConnected { client_id } => {
                 println!("Client {} connected.", client_id);
+                // Assumes ServerState implements this by delegating to the inner state
                 state.register_connection(client_id);
             }
             ServerNetworkEvent::ClientDisconnected { client_id, reason } => {
                 println!("Client {} disconnected: {}.", client_id, reason);
+                // Assumes ServerState implements this by delegating to the inner state
                 state.remove_client(client_id, network);
             }
         }
     }
 }
 
+// --- MODIFIED ---
+// This function is now the main state dispatcher.
+// It returns an Option<ServerState> to signal a state transition.
 pub fn handle_messages(
+    network: &mut dyn ServerNetworkHandle,
+    state: &mut ServerState,
+    passcode: &Passcode,
+) -> Option<ServerState> {
+    match state {
+        ServerState::Lobby(lobby_state) => {
+            // Pass control to the lobby-specific handler
+            handle_lobby(network, lobby_state, passcode)
+        }
+        // --- FUTURE ---
+        // When you add Countdown, you'll add it here:
+        // ServerState::Countdown(countdown_state) => {
+        //     handle_countdown(network, countdown_state)
+        // }
+        // ServerState::InGame(in_game_state) => {
+        //     handle_in_game(network, in_game_state)
+        // }
+        _ => {
+            todo!();
+        }
+    }
+}
+
+fn send_username_error(network: &mut dyn ServerNetworkHandle, client_id: u64, message: &str) {
+    let payload = format!("Username error: {}", message);
+    network.send_message(
+        client_id,
+        AppChannel::ReliableOrdered,
+        payload.as_bytes().to_vec(),
+    );
+}
+
+// returns the Some variant to indicate a transition.
+fn handle_lobby(
     network: &mut dyn ServerNetworkHandle,
     state: &mut Lobby,
     passcode: &Passcode,
-) {
+) -> Option<ServerState> {
     for client_id in network.clients_id() {
         while let Some(message) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
             if message.len() > MAX_CHAT_MESSAGE_BYTES {
@@ -311,6 +360,17 @@ pub fn handle_messages(
                             .as_bytes()
                             .to_vec();
                         network.broadcast_message(AppChannel::ReliableOrdered, start_msg);
+
+                        // --- STATE TRANSITION ---
+                        // This is where you would transition to the next state.
+                        // 1. Get necessary data from the current lobby state.
+                        //    (e.g., let players = state.get_players_list();)
+                        // 2. Create the new state.
+                        //    (e.g., let countdown_state = CountdownState::new(players);)
+                        // 3. Return the new state wrapped in Some().
+                        //    return Some(ServerState::Countdown(countdown_state));
+
+                        // For now, we just continue.
                     }
                     continue;
                 }
@@ -324,44 +384,43 @@ pub fn handle_messages(
             }
         }
     }
-}
 
-fn send_username_error(network: &mut dyn ServerNetworkHandle, client_id: u64, message: &str) {
-    let payload = format!("Username error: {}", message);
-    network.send_message(
-        client_id,
-        AppChannel::ReliableOrdered,
-        payload.as_bytes().to_vec(),
-    );
+    None
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::Lobby;
+    use crate::state::{Lobby, ServerState};
     use crate::test_helpers::MockServerNetwork;
     use shared::auth::Passcode;
 
     #[test]
     fn test_process_events_client_connect() {
         let mut network = MockServerNetwork::new();
-        let mut state = Lobby::new();
+        let mut state = ServerState::Lobby(Lobby::new());
 
         network.queue_event(ServerNetworkEvent::ClientConnected { client_id: 1 });
 
         process_events(&mut network, &mut state);
 
-        assert!(state.is_authenticating(1));
+        if let ServerState::Lobby(lobby) = state {
+            assert!(lobby.is_authenticating(1));
+        } else {
+            panic!("State is not Lobby");
+        }
     }
 
     #[test]
     fn test_process_events_client_disconnect_with_username() {
         let mut network = MockServerNetwork::new();
-        let mut state = Lobby::new();
+        let mut state = ServerState::Lobby(Lobby::new());
 
-        state.register_connection(1);
-        state.mark_authenticated(1);
-        state.register_username(1, "Alice");
+        if let ServerState::Lobby(lobby) = &mut state {
+            lobby.register_connection(1);
+            lobby.mark_authenticated(1);
+            lobby.register_username(1, "Alice");
+        }
 
         network.queue_event(ServerNetworkEvent::ClientDisconnected {
             client_id: 1,
@@ -370,7 +429,12 @@ mod tests {
 
         process_events(&mut network, &mut state);
 
-        assert_eq!(state.username(1), None);
+        if let ServerState::Lobby(lobby) = state {
+            assert_eq!(lobby.username(1), None);
+        } else {
+            panic!("State is not Lobby");
+        }
+
         let broadcasts = network.get_broadcast_messages();
         assert_eq!(broadcasts, vec!["Alice left the chat."]);
     }
@@ -378,18 +442,25 @@ mod tests {
     #[test]
     fn test_handle_messages_auth_success() {
         let mut network = MockServerNetwork::new();
-        let mut state = Lobby::new();
+        let mut state = ServerState::Lobby(Lobby::new());
         let passcode =
             Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
-        state.register_connection(1);
+        if let ServerState::Lobby(lobby) = &mut state {
+            lobby.register_connection(1);
+        }
 
         network.queue_raw_message(1, vec![1, 2, 3, 4, 5, 6]);
 
-        handle_messages(&mut network, &mut state, &passcode);
+        let _ = handle_messages(&mut network, &mut state, &passcode); // Ignores the transition.
 
-        assert!(state.needs_username(1));
+        if let ServerState::Lobby(lobby) = state {
+            assert!(lobby.needs_username(1));
+        } else {
+            panic!("State is not Lobby");
+        }
+
         let client_msgs = network.get_sent_messages(1);
         assert_eq!(client_msgs.len(), 1);
         assert!(client_msgs[0].starts_with("Authentication successful!"));
@@ -398,20 +469,27 @@ mod tests {
     #[test]
     fn test_handle_messages_auth_fail_then_disconnect() {
         let mut network = MockServerNetwork::new();
-        let mut state = Lobby::new();
+        let mut state = ServerState::Lobby(Lobby::new());
         let passcode =
             Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
-        state.register_connection(1);
+        if let ServerState::Lobby(lobby) = &mut state {
+            lobby.register_connection(1);
+        }
 
         for _ in 0..MAX_AUTH_ATTEMPTS {
             network.queue_message(1, "000000");
         }
 
-        handle_messages(&mut network, &mut state, &passcode);
+        let _ = handle_messages(&mut network, &mut state, &passcode);
 
-        assert_eq!(state.username(1), None);
+        if let ServerState::Lobby(lobby) = state {
+            assert_eq!(lobby.username(1), None);
+        } else {
+            panic!("State is not Lobby");
+        }
+
         assert!(network.disconnected_clients.contains(&1));
         let client_msgs = network.get_sent_messages(1);
         assert!(
@@ -425,23 +503,32 @@ mod tests {
     #[test]
     fn test_handle_messages_username_success_and_broadcast() {
         let mut network = MockServerNetwork::new();
-        let mut state = Lobby::new();
+        let mut state = ServerState::Lobby(Lobby::new());
         let passcode =
             Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
-        state.register_connection(1);
-        state.mark_authenticated(1);
-        state.register_username(1, "Alice");
+        if let ServerState::Lobby(lobby) = &mut state {
+            lobby.register_connection(1);
+            lobby.mark_authenticated(1);
+            lobby.register_username(1, "Alice");
+        }
 
         network.add_client(2);
-        state.register_connection(2);
-        state.mark_authenticated(2);
+        if let ServerState::Lobby(lobby) = &mut state {
+            lobby.register_connection(2);
+            lobby.mark_authenticated(2);
+        }
+
         network.queue_message(2, "Bob");
 
-        handle_messages(&mut network, &mut state, &passcode);
+        let _ = handle_messages(&mut network, &mut state, &passcode);
 
-        assert_eq!(state.username(2), Some("Bob"));
+        if let ServerState::Lobby(lobby) = state {
+            assert_eq!(lobby.username(2), Some("Bob"));
+        } else {
+            panic!("State is not Lobby");
+        }
 
         let bob_msgs = network.get_sent_messages(2);
         assert!(bob_msgs.contains(&"Welcome, Bob!".to_string()));
@@ -461,23 +548,25 @@ mod tests {
     #[test]
     fn test_handle_messages_chat_message() {
         let mut network = MockServerNetwork::new();
-        let mut state = Lobby::new();
+        let mut state = ServerState::Lobby(Lobby::new());
         let passcode =
             Passcode::from_string("123456").expect("failed to create passcode from string");
 
-        network.add_client(1);
-        state.register_connection(1);
-        state.mark_authenticated(1);
-        state.register_username(1, "Alice");
+        if let ServerState::Lobby(lobby) = &mut state {
+            network.add_client(1);
+            lobby.register_connection(1);
+            lobby.mark_authenticated(1);
+            lobby.register_username(1, "Alice");
 
-        network.add_client(2);
-        state.register_connection(2);
-        state.mark_authenticated(2);
-        state.register_username(2, "Bob");
+            network.add_client(2);
+            lobby.register_connection(2);
+            lobby.mark_authenticated(2);
+            lobby.register_username(2, "Bob");
+        }
 
         network.queue_message(1, "Hello Bob!");
 
-        handle_messages(&mut network, &mut state, &passcode);
+        let _ = handle_messages(&mut network, &mut state, &passcode);
 
         let broadcasts = network.get_broadcast_messages();
         assert_eq!(broadcasts, vec!["Alice: Hello Bob!"]);

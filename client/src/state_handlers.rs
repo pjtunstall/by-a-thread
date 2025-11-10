@@ -627,11 +627,11 @@ mod tests {
         handle_in_chat_server_message(&mut session, &mut ui, "Casey left the chat.");
         assert!(ui.messages.is_empty());
 
-        handle_in_chat_server_message(&mut session, &mut ui, "You are the first player online.");
+        handle_in_chat_server_message(&mut session, &mut ui, "You are the only player online.");
 
         assert_eq!(
             ui.messages,
-            vec!["You are the first player online.".to_string()]
+            vec!["You are the only player online.".to_string()]
         );
         assert!(!session.awaiting_initial_roster());
 
@@ -640,7 +640,7 @@ mod tests {
         assert_eq!(
             ui.messages,
             vec![
-                "You are the first player online.".to_string(),
+                "You are the only player online.".to_string(),
                 "Morgan joined the chat.".to_string(),
             ]
         );
