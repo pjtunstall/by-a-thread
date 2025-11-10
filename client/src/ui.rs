@@ -28,6 +28,7 @@ pub trait ClientUi {
     fn show_error(&mut self, message: &str);
     fn show_prompt(&mut self, prompt: &str);
     fn poll_input(&mut self, limit: usize) -> Result<Option<String>, UiInputError>;
+    fn show_status_line(&mut self, message: &str);
 }
 
 pub struct TerminalUi<W: Write> {
@@ -61,6 +62,28 @@ impl TerminalUi<Stdout> {
 }
 
 impl<W: Write> TerminalUi<W> {
+    fn clear_prompt(&mut self) -> io::Result<()> {
+        if self.prompt_lines > 1 {
+            queue!(
+                self.stdout,
+                crossterm::cursor::MoveUp(self.prompt_lines - 1)
+            )?;
+        }
+        for i in 0..self.prompt_lines {
+            queue!(self.stdout, MoveToColumn(0), Clear(ClearType::CurrentLine))?;
+            if i + 1 < self.prompt_lines {
+                queue!(self.stdout, crossterm::cursor::MoveDown(1))?;
+            }
+        }
+        if self.prompt_lines > 1 {
+            queue!(
+                self.stdout,
+                crossterm::cursor::MoveUp(self.prompt_lines - 1)
+            )?;
+        }
+        queue!(self.stdout, MoveToColumn(0))
+    }
+
     fn redraw_prompt(&mut self) -> io::Result<()> {
         let cols = self.cols;
         let prompt = "> ";
@@ -129,7 +152,7 @@ impl<W: Write> TerminalUi<W> {
                         }
                         Ok(None)
                     }
-                    KeyCode::Tab => Ok(Some(String::from(shared::auth::START_SIGNAL))),
+                    KeyCode::Tab => Ok(Some(String::from(shared::auth::START_COUNTDOWN))),
                     KeyCode::Char(c) => {
                         let at_limit = self.buffer.len() >= limit;
 
@@ -156,56 +179,15 @@ impl<W: Write> TerminalUi<W> {
 
 impl<W: Write> ClientUi for TerminalUi<W> {
     fn show_message(&mut self, message: &str) {
-        if self.prompt_lines > 1 {
-            queue!(
-                self.stdout,
-                crossterm::cursor::MoveUp(self.prompt_lines - 1)
-            )
-            .unwrap();
-        }
-        for i in 0..self.prompt_lines {
-            queue!(self.stdout, MoveToColumn(0), Clear(ClearType::CurrentLine)).unwrap();
-            if i + 1 < self.prompt_lines {
-                queue!(self.stdout, crossterm::cursor::MoveDown(1)).unwrap();
-            }
-        }
-        if self.prompt_lines > 1 {
-            queue!(
-                self.stdout,
-                crossterm::cursor::MoveUp(self.prompt_lines - 1)
-            )
-            .unwrap();
-        }
-
-        queue!(self.stdout, MoveToColumn(0), Print(message), Print("\r\n"),)
-            .expect("failed to show message");
+        self.clear_prompt().expect("failed to clear prompt");
+        queue!(self.stdout, Print(message), Print("\r\n"),).expect("failed to show message");
 
         self.prompt_lines = 1;
         self.redraw_prompt().expect("failed to redraw prompt");
     }
 
     fn show_error(&mut self, message: &str) {
-        if self.prompt_lines > 1 {
-            queue!(
-                self.stdout,
-                crossterm::cursor::MoveUp(self.prompt_lines - 1)
-            )
-            .unwrap();
-        }
-        for i in 0..self.prompt_lines {
-            queue!(self.stdout, MoveToColumn(0), Clear(ClearType::CurrentLine)).unwrap();
-            if i + 1 < self.prompt_lines {
-                queue!(self.stdout, crossterm::cursor::MoveDown(1)).unwrap();
-            }
-        }
-        if self.prompt_lines > 1 {
-            queue!(
-                self.stdout,
-                crossterm::cursor::MoveUp(self.prompt_lines - 1)
-            )
-            .unwrap();
-        }
-
+        self.clear_prompt().expect("failed to clear prompt");
         queue!(
             self.stdout,
             MoveToColumn(0),
@@ -222,6 +204,15 @@ impl<W: Write> ClientUi for TerminalUi<W> {
 
     fn show_prompt(&mut self, prompt: &str) {
         self.show_message(prompt);
+    }
+
+    fn show_status_line(&mut self, message: &str) {
+        self.clear_prompt()
+            .expect("failed to clear prompt for status");
+        queue!(self.stdout, Print(message), Clear(ClearType::UntilNewLine))
+            .expect("failed to show status line");
+        self.prompt_lines = 1;
+        self.stdout.flush().expect("failed to flush stdout");
     }
 
     fn poll_input(&mut self, limit: usize) -> Result<Option<String>, UiInputError> {

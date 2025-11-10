@@ -1,8 +1,10 @@
-use renet::{ConnectionConfig, DefaultChannel, RenetServer};
+use renet::{ChannelConfig, ConnectionConfig, RenetServer, SendType};
+use std::time::Duration;
 
 use server::state::{Lobby, ServerState};
 use server::{RenetServerNetworkHandle, handle_messages, process_events};
 use shared::auth::Passcode;
+use shared::net::AppChannel;
 
 fn empty_passcode() -> Passcode {
     Passcode {
@@ -11,9 +13,55 @@ fn empty_passcode() -> Passcode {
     }
 }
 
+fn setup_test_server() -> RenetServer {
+    let reliable_config = ChannelConfig {
+        channel_id: 0,
+        max_memory_usage_bytes: 10 * 1024 * 1024,
+        send_type: SendType::ReliableOrdered {
+            resend_time: Duration::from_millis(100),
+        },
+    };
+
+    let unreliable_config = ChannelConfig {
+        channel_id: 1,
+        max_memory_usage_bytes: 10 * 1024 * 1024,
+        send_type: SendType::Unreliable,
+    };
+
+    let time_sync_config = ChannelConfig {
+        channel_id: 2,
+        max_memory_usage_bytes: 1 * 1024 * 1024,
+        send_type: SendType::Unreliable,
+    };
+
+    let connection_config = ConnectionConfig {
+        server_channels_config: vec![reliable_config, unreliable_config, time_sync_config],
+        ..Default::default()
+    };
+
+    RenetServer::new(connection_config)
+}
+
+fn full_tick(
+    server: &mut RenetServer,
+    alice: &mut renet::RenetClient,
+    bob: &mut renet::RenetClient,
+) {
+    let tick_duration = Duration::from_millis(16);
+    alice.update(tick_duration);
+    bob.update(tick_duration);
+    server
+        .process_local_client(1, alice)
+        .expect("process alice failed");
+    server
+        .process_local_client(2, bob)
+        .expect("process bob failed");
+    server.update(tick_duration);
+}
+
 #[test]
 fn chat_messages_are_broadcast_to_other_clients() {
-    let mut server = RenetServer::new(ConnectionConfig::default());
+    let mut server = setup_test_server();
     let mut state = ServerState::Lobby(Lobby::new());
     let passcode = empty_passcode();
 
@@ -22,12 +70,16 @@ fn chat_messages_are_broadcast_to_other_clients() {
     let mut alice = server.new_local_client(alice_id);
     let mut bob = server.new_local_client(bob_id);
 
+    full_tick(&mut server, &mut alice, &mut bob);
+
     {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
         process_events(&mut network_handle, &mut state);
     }
+
+    full_tick(&mut server, &mut alice, &mut bob);
 
     if let ServerState::Lobby(lobby) = &mut state {
         lobby.mark_authenticated(alice_id);
@@ -39,12 +91,11 @@ fn chat_messages_are_broadcast_to_other_clients() {
     }
 
     alice.send_message(
-        DefaultChannel::ReliableOrdered,
+        AppChannel::ReliableOrdered,
         "Hello, Bob!".as_bytes().to_vec(),
     );
-    server
-        .process_local_client(alice_id, &mut alice)
-        .expect("local client processing should succeed");
+
+    full_tick(&mut server, &mut alice, &mut bob);
 
     {
         let mut network_handle = RenetServerNetworkHandle {
@@ -53,19 +104,27 @@ fn chat_messages_are_broadcast_to_other_clients() {
         handle_messages(&mut network_handle, &mut state, &passcode);
     }
 
+    server.update(Duration::from_millis(16));
+
     server
-        .process_local_client(bob_id, &mut bob)
-        .expect("local client processing should succeed");
+        .process_local_client(1, &mut alice)
+        .expect("process alice failed");
+    server
+        .process_local_client(2, &mut bob)
+        .expect("process bob failed");
+
+    alice.update(Duration::from_millis(16));
+    bob.update(Duration::from_millis(16));
 
     let message = bob
-        .receive_message(DefaultChannel::ReliableOrdered)
+        .receive_message(AppChannel::ReliableOrdered)
         .expect("Bob should receive the chat message");
     assert_eq!(String::from_utf8_lossy(&message), "Alice: Hello, Bob!");
 }
 
 #[test]
 fn players_are_notified_when_others_join_and_leave() {
-    let mut server = RenetServer::new(ConnectionConfig::default());
+    let mut server = setup_test_server();
     let mut state = ServerState::Lobby(Lobby::new());
     let passcode = empty_passcode();
 
@@ -74,12 +133,16 @@ fn players_are_notified_when_others_join_and_leave() {
     let mut alice = server.new_local_client(alice_id);
     let mut bob = server.new_local_client(bob_id);
 
+    full_tick(&mut server, &mut alice, &mut bob);
+
     {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
         process_events(&mut network_handle, &mut state);
     }
+
+    full_tick(&mut server, &mut alice, &mut bob);
 
     if let ServerState::Lobby(lobby) = &mut state {
         lobby.mark_authenticated(alice_id);
@@ -89,10 +152,9 @@ fn players_are_notified_when_others_join_and_leave() {
         panic!("State should be Lobby");
     }
 
-    bob.send_message(DefaultChannel::ReliableOrdered, "Bob".as_bytes().to_vec());
-    server
-        .process_local_client(bob_id, &mut bob)
-        .expect("local client processing should succeed");
+    bob.send_message(AppChannel::ReliableOrdered, "Bob".as_bytes().to_vec());
+
+    full_tick(&mut server, &mut alice, &mut bob);
 
     {
         let mut network_handle = RenetServerNetworkHandle {
@@ -101,15 +163,20 @@ fn players_are_notified_when_others_join_and_leave() {
         handle_messages(&mut network_handle, &mut state, &passcode);
     }
 
+    server.update(Duration::from_millis(16));
+
     server
-        .process_local_client(bob_id, &mut bob)
-        .expect("local client processing should succeed");
+        .process_local_client(1, &mut alice)
+        .expect("process alice failed");
     server
-        .process_local_client(alice_id, &mut alice)
-        .expect("local client processing should succeed");
+        .process_local_client(2, &mut bob)
+        .expect("process bob failed");
+
+    alice.update(Duration::from_millis(16));
+    bob.update(Duration::from_millis(16));
 
     let join_message = alice
-        .receive_message(DefaultChannel::ReliableOrdered)
+        .receive_message(AppChannel::ReliableOrdered)
         .expect("Alice should be notified when Bob joins");
     assert_eq!(
         String::from_utf8_lossy(&join_message),
@@ -118,6 +185,8 @@ fn players_are_notified_when_others_join_and_leave() {
 
     server.disconnect_local_client(bob_id, &mut bob);
 
+    full_tick(&mut server, &mut alice, &mut bob);
+
     {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
@@ -125,12 +194,20 @@ fn players_are_notified_when_others_join_and_leave() {
         process_events(&mut network_handle, &mut state);
     }
 
+    server.update(Duration::from_millis(16));
+
     server
-        .process_local_client(alice_id, &mut alice)
-        .expect("local client processing should succeed");
+        .process_local_client(1, &mut alice)
+        .expect("process alice failed");
+    server
+        .process_local_client(2, &mut bob)
+        .expect("process bob failed");
+
+    alice.update(Duration::from_millis(16));
+    bob.update(Duration::from_millis(16));
 
     let leave_message = alice
-        .receive_message(DefaultChannel::ReliableOrdered)
+        .receive_message(AppChannel::ReliableOrdered)
         .expect("Alice should be notified when Bob leaves");
     assert_eq!(
         String::from_utf8_lossy(&leave_message),
@@ -140,7 +217,7 @@ fn players_are_notified_when_others_join_and_leave() {
 
 #[test]
 fn test_handle_messages_username_success_and_broadcast() {
-    let mut server = RenetServer::new(ConnectionConfig::default());
+    let mut server = setup_test_server();
     let mut state = ServerState::Lobby(Lobby::new());
     let passcode = empty_passcode();
 
@@ -149,12 +226,16 @@ fn test_handle_messages_username_success_and_broadcast() {
     let mut alice = server.new_local_client(alice_id);
     let mut bob = server.new_local_client(bob_id);
 
+    full_tick(&mut server, &mut alice, &mut bob);
+
     {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
         process_events(&mut network_handle, &mut state);
     }
+
+    full_tick(&mut server, &mut alice, &mut bob);
 
     if let ServerState::Lobby(lobby) = &mut state {
         lobby.mark_authenticated(alice_id);
@@ -164,10 +245,9 @@ fn test_handle_messages_username_success_and_broadcast() {
         panic!("State should be Lobby");
     }
 
-    bob.send_message(DefaultChannel::ReliableOrdered, "Bob".as_bytes().to_vec());
-    server
-        .process_local_client(bob_id, &mut bob)
-        .expect("local client processing should succeed");
+    bob.send_message(AppChannel::ReliableOrdered, "Bob".as_bytes().to_vec());
+
+    full_tick(&mut server, &mut alice, &mut bob);
 
     {
         let mut network_handle = RenetServerNetworkHandle {
@@ -176,12 +256,17 @@ fn test_handle_messages_username_success_and_broadcast() {
         handle_messages(&mut network_handle, &mut state, &passcode);
     }
 
+    server.update(Duration::from_millis(16));
+
     server
-        .process_local_client(bob_id, &mut bob)
-        .expect("local client processing should succeed");
+        .process_local_client(1, &mut alice)
+        .expect("process alice failed");
     server
-        .process_local_client(alice_id, &mut alice)
-        .expect("local client processing should succeed");
+        .process_local_client(2, &mut bob)
+        .expect("process bob failed");
+
+    alice.update(Duration::from_millis(16));
+    bob.update(Duration::from_millis(16));
 
     if let ServerState::Lobby(lobby) = &state {
         assert_eq!(lobby.username(2), Some("Bob"));
@@ -190,7 +275,7 @@ fn test_handle_messages_username_success_and_broadcast() {
     }
 
     let mut bob_msgs = Vec::new();
-    while let Some(message) = bob.receive_message(DefaultChannel::ReliableOrdered) {
+    while let Some(message) = bob.receive_message(AppChannel::ReliableOrdered) {
         bob_msgs.push(String::from_utf8_lossy(&message).to_string());
     }
 
@@ -206,7 +291,7 @@ fn test_handle_messages_username_success_and_broadcast() {
     );
 
     let alice_msg = alice
-        .receive_message(DefaultChannel::ReliableOrdered)
+        .receive_message(AppChannel::ReliableOrdered)
         .expect("Alice should have received a message");
     assert_eq!(String::from_utf8_lossy(&alice_msg), "Bob joined the chat.");
 }

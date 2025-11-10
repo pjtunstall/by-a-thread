@@ -14,11 +14,7 @@ pub struct Countdown {
 }
 
 impl Countdown {
-    pub fn new(lobby: &Lobby) -> Self {
-        let duration = Duration::from_secs_f32(10.0);
-        let end_time = Instant::now()
-            .checked_add(duration)
-            .expect("failed to get end time for countdown");
+    pub fn new(lobby: &Lobby, end_time: Instant) -> Self {
         Self {
             usernames: lobby.usernames.clone(),
             end_time,

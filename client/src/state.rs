@@ -52,6 +52,8 @@ pub struct ClientSession {
     state: ClientState,
     first_passcode: Option<Passcode>,
     awaiting_initial_roster: bool,
+    pub estimated_server_time: f64,
+    pub countdown_end_time: Option<f64>,
 }
 
 impl ClientSession {
@@ -62,6 +64,8 @@ impl ClientSession {
             },
             first_passcode: None,
             awaiting_initial_roster: false,
+            estimated_server_time: 0.0,
+            countdown_end_time: None,
         }
     }
 

@@ -6,14 +6,14 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use renet::{ConnectionConfig, DefaultChannel, RenetServer, ServerEvent};
+use renet::{ChannelConfig, ConnectionConfig, RenetServer, SendType, ServerEvent};
 use renet_netcode::{NetcodeServerTransport, ServerAuthentication, ServerConfig};
 
 use crate::state::{
     AuthAttemptOutcome, Countdown, Lobby, MAX_AUTH_ATTEMPTS, ServerState, evaluate_passcode_attempt,
 };
 use shared::{
-    self,
+    self, ServerMessage,
     auth::Passcode,
     chat::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username},
     net::AppChannel,
@@ -48,7 +48,31 @@ pub fn run_server() {
     let mut transport =
         NetcodeServerTransport::new(server_config, socket).expect("failed to create transport");
 
-    let connection_config = ConnectionConfig::default();
+    let reliable_config = ChannelConfig {
+        channel_id: 0,
+        max_memory_usage_bytes: 10 * 1024 * 1024,
+        send_type: SendType::ReliableOrdered {
+            resend_time: Duration::from_millis(100),
+        },
+    };
+
+    let unreliable_config = ChannelConfig {
+        channel_id: 1,
+        max_memory_usage_bytes: 10 * 1024 * 1024,
+        send_type: SendType::Unreliable,
+    };
+
+    let time_sync_config = ChannelConfig {
+        channel_id: 2,
+        max_memory_usage_bytes: 1 * 1024 * 1024,
+        send_type: SendType::Unreliable,
+    };
+
+    let connection_config = ConnectionConfig {
+        server_channels_config: vec![reliable_config, unreliable_config, time_sync_config],
+        ..Default::default()
+    };
+
     let mut server = RenetServer::new(connection_config);
 
     let passcode = Passcode::generate(6);
@@ -109,7 +133,7 @@ impl ServerNetworkHandle for RenetServerNetworkHandle<'_> {
 
     fn broadcast_message_except(&mut self, client_id: u64, channel: AppChannel, message: Vec<u8>) {
         self.server
-            .broadcast_message_except(client_id, DefaultChannel::from(channel), message);
+            .broadcast_message_except(client_id, channel, message);
     }
 
     fn clients_id(&self) -> Vec<u64> {
@@ -118,18 +142,16 @@ impl ServerNetworkHandle for RenetServerNetworkHandle<'_> {
 
     fn receive_message(&mut self, client_id: u64, channel: AppChannel) -> Option<Vec<u8>> {
         self.server
-            .receive_message(client_id, DefaultChannel::from(channel))
+            .receive_message(client_id, channel)
             .map(|bytes| bytes.to_vec())
     }
 
     fn send_message(&mut self, client_id: u64, channel: AppChannel, message: Vec<u8>) {
-        self.server
-            .send_message(client_id, DefaultChannel::from(channel), message);
+        self.server.send_message(client_id, channel, message);
     }
 
     fn broadcast_message(&mut self, channel: AppChannel, message: Vec<u8>) {
-        self.server
-            .broadcast_message(DefaultChannel::from(channel), message);
+        self.server.broadcast_message(channel, message);
     }
 
     fn disconnect(&mut self, client_id: u64) {
@@ -144,6 +166,8 @@ fn server_loop(
     passcode: &Passcode,
 ) {
     let mut last_updated = Instant::now();
+    let mut last_sync_time = Instant::now();
+    let sync_interval = Duration::from_millis(50);
 
     loop {
         let now = Instant::now();
@@ -158,6 +182,11 @@ fn server_loop(
         let mut network_handle = RenetServerNetworkHandle { server };
 
         process_events(&mut network_handle, state);
+
+        if now.duration_since(last_sync_time) > sync_interval {
+            sync_clocks(&mut network_handle);
+            last_sync_time = now;
+        }
 
         let next_state = handle_messages(&mut network_handle, state, passcode);
         if let Some(new_state) = next_state {
@@ -174,16 +203,22 @@ pub fn process_events(network: &mut dyn ServerNetworkHandle, state: &mut ServerS
         match event {
             ServerNetworkEvent::ClientConnected { client_id } => {
                 println!("Client {} connected.", client_id);
-                // Assumes ServerState implements this by delegating to the inner state
                 state.register_connection(client_id);
             }
             ServerNetworkEvent::ClientDisconnected { client_id, reason } => {
                 println!("Client {} disconnected: {}.", client_id, reason);
-                // Assumes ServerState implements this by delegating to the inner state
                 state.remove_client(client_id, network);
             }
         }
     }
+}
+
+fn sync_clocks(network: &mut dyn ServerNetworkHandle) {
+    let server_time_f64 = shared::current_time().as_secs_f64();
+    let message = ServerMessage::ServerTime(server_time_f64);
+    let payload = bincode::serde::encode_to_vec(&message, bincode::config::standard())
+        .expect("Failed to serialize ServerTime");
+    network.broadcast_message(AppChannel::ServerTime, payload);
 }
 
 pub fn handle_messages(
@@ -194,9 +229,6 @@ pub fn handle_messages(
     match state {
         ServerState::Lobby(lobby_state) => handle_lobby(network, lobby_state, passcode),
         ServerState::Countdown(countdown_state) => handle_countdown(network, countdown_state),
-        // ServerState::InGame(in_game_state) => {
-        //     handle_in_game(network, in_game_state)
-        // }
         _ => {
             todo!();
         }
@@ -204,20 +236,15 @@ pub fn handle_messages(
 }
 
 fn handle_countdown(
-    network: &mut dyn ServerNetworkHandle,
+    _network: &mut dyn ServerNetworkHandle,
     state: &mut Countdown,
 ) -> Option<ServerState> {
-    println!("handle_countdown");
     let server_time = Instant::now();
 
-    if let Some(remaining_duration) = state.end_time.checked_duration_since(server_time) {
-        let remaining_millis = remaining_duration.as_millis();
-        let message = remaining_millis.to_le_bytes().to_vec();
-        network.broadcast_message(AppChannel::Unreliable, message);
-        println!("handle_countdown: some time remaining.");
+    if server_time >= state.end_time {
+        println!("Time up.");
         None
     } else {
-        println!("Time up.");
         None
     }
 }
@@ -360,12 +387,26 @@ fn handle_lobby(
                             .username(client_id)
                             .expect("host should have a username");
                         println!("Host ({}) started the game.", host);
-                        let start_msg = format!("Host, {}, has started the game!", host)
-                            .as_bytes()
-                            .to_vec();
-                        network.broadcast_message(AppChannel::ReliableOrdered, start_msg);
 
-                        return Some(ServerState::Countdown(Countdown::new(state)));
+                        let countdown_duration = Duration::from_secs(10);
+                        let end_time_f64 =
+                            shared::current_time().as_secs_f64() + countdown_duration.as_secs_f64();
+
+                        let message = ServerMessage::CountdownStarted {
+                            end_time: end_time_f64,
+                        };
+                        let payload =
+                            bincode::serde::encode_to_vec(&message, bincode::config::standard())
+                                .expect("Failed to serialize CountdownStarted");
+
+                        network.broadcast_message(AppChannel::ReliableOrdered, payload);
+
+                        let end_time_instant = Instant::now() + countdown_duration;
+
+                        return Some(ServerState::Countdown(Countdown::new(
+                            state,
+                            end_time_instant,
+                        )));
                     }
                     continue;
                 }
@@ -448,7 +489,7 @@ mod tests {
 
         network.queue_raw_message(1, vec![1, 2, 3, 4, 5, 6]);
 
-        let _ = handle_messages(&mut network, &mut state, &passcode); // Ignores the transition.
+        let _ = handle_messages(&mut network, &mut state, &passcode);
 
         if let ServerState::Lobby(lobby) = state {
             assert!(lobby.needs_username(1));

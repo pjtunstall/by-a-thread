@@ -7,13 +7,14 @@ use std::net::UdpSocket;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use renet::{ConnectionConfig, DefaultChannel, RenetClient};
+use renet::{ChannelConfig, ConnectionConfig, RenetClient, SendType};
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
 use crate::state::{ClientSession, ClientState};
 use crate::state_handlers::{AppChannel, NetworkHandle};
 use crate::ui::{ClientUi, TerminalUi};
 use shared;
+use shared::ServerMessage;
 
 pub fn run_client() {
     let mut ui = TerminalUi::new().expect("failed to initialize terminal UI");
@@ -46,7 +47,30 @@ pub fn run_client() {
             return;
         }
     };
-    let connection_config = ConnectionConfig::default();
+
+    let reliable_config = ChannelConfig {
+        channel_id: 0,
+        max_memory_usage_bytes: 10 * 1024 * 1024,
+        send_type: SendType::ReliableOrdered {
+            resend_time: Duration::from_millis(100),
+        },
+    };
+    let unreliable_config = ChannelConfig {
+        channel_id: 1,
+        max_memory_usage_bytes: 10 * 1024 * 1024,
+        send_type: SendType::Unreliable,
+    };
+    let time_sync_config = ChannelConfig {
+        channel_id: 2,
+        max_memory_usage_bytes: 1 * 1024 * 1024,
+        send_type: SendType::Unreliable,
+    };
+
+    let connection_config = ConnectionConfig {
+        client_channels_config: vec![reliable_config, unreliable_config, time_sync_config],
+        ..Default::default()
+    };
+
     let mut client = RenetClient::new(connection_config);
 
     ui.show_message(&format!(
@@ -87,21 +111,17 @@ impl NetworkHandle for RenetNetworkHandle<'_> {
             .unwrap_or_else(|| "no reason given".to_string())
     }
 
+    fn rtt(&self) -> f64 {
+        self.client.rtt()
+    }
+
     fn send_message(&mut self, channel: AppChannel, message: Vec<u8>) {
-        let renet_channel = match channel {
-            AppChannel::ReliableOrdered => DefaultChannel::ReliableOrdered,
-            AppChannel::Unreliable => DefaultChannel::Unreliable,
-        };
-        self.client.send_message(renet_channel, message);
+        self.client.send_message(channel, message);
     }
 
     fn receive_message(&mut self, channel: AppChannel) -> Option<Vec<u8>> {
-        let renet_channel = match channel {
-            AppChannel::ReliableOrdered => DefaultChannel::ReliableOrdered,
-            AppChannel::Unreliable => DefaultChannel::Unreliable,
-        };
         self.client
-            .receive_message(renet_channel)
+            .receive_message(channel)
             .map(|bytes| bytes.to_vec())
     }
 }
@@ -134,31 +154,25 @@ fn main_loop(
 
         client.update(duration);
 
-        // We create the handle inside a new scope.
-        // This ensures its mutable borrows of `client` and `transport`
-        // are released before `transport.send_packets` is called.
-        let next_state = {
-            let mut network_handle = RenetNetworkHandle { client, transport };
-            match session.state() {
-                ClientState::Startup { .. } => state_handlers::startup(session, ui),
-                ClientState::Connecting => {
-                    state_handlers::connecting(session, ui, &mut network_handle)
-                }
-                ClientState::Authenticating { .. } => {
-                    state_handlers::authenticating(session, ui, &mut network_handle)
-                }
-                ClientState::ChoosingUsername { .. } => {
-                    state_handlers::choosing_username(session, ui, &mut network_handle)
-                }
-                ClientState::InChat => state_handlers::in_chat(session, ui, &mut network_handle),
-                ClientState::Countdown => {
-                    state_handlers::countdown(session, ui, &mut network_handle)
-                }
-                ClientState::Disconnected { .. } => None,
+        let mut network_handle = RenetNetworkHandle { client, transport };
+
+        let next_state_from_messages = process_network_messages(session, &mut network_handle);
+
+        let next_state_from_logic = match session.state() {
+            ClientState::Startup { .. } => state_handlers::startup(session, ui),
+            ClientState::Connecting => state_handlers::connecting(session, ui, &mut network_handle),
+            ClientState::Authenticating { .. } => {
+                state_handlers::authenticating(session, ui, &mut network_handle)
             }
+            ClientState::ChoosingUsername { .. } => {
+                state_handlers::choosing_username(session, ui, &mut network_handle)
+            }
+            ClientState::InChat => state_handlers::in_chat(session, ui, &mut network_handle),
+            ClientState::Countdown => state_handlers::countdown(session, ui),
+            ClientState::Disconnected { .. } => None,
         };
 
-        if let Some(new_state) = next_state {
+        if let Some(new_state) = next_state_from_messages.or(next_state_from_logic) {
             if apply_transition(session, ui, new_state) {
                 break;
             }
@@ -179,6 +193,36 @@ fn main_loop(
 
         thread::sleep(Duration::from_millis(16));
     }
+}
+
+fn process_network_messages(
+    session: &mut ClientSession,
+    network: &mut RenetNetworkHandle,
+) -> Option<ClientState> {
+    let mut next_state = None;
+
+    while let Some(message) = network.receive_message(AppChannel::ReliableOrdered) {
+        match bincode::serde::decode_from_slice(&message, bincode::config::standard()) {
+            Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
+                session.countdown_end_time = Some(end_time);
+                next_state = Some(ClientState::Countdown);
+            }
+            _ => {}
+        }
+    }
+
+    while let Some(message) = network.receive_message(AppChannel::ServerTime) {
+        match bincode::serde::decode_from_slice(&message, bincode::config::standard()) {
+            Ok((ServerMessage::ServerTime(server_sent_time), _)) => {
+                let rtt = network.rtt();
+                let one_way_latency = (rtt / 1000.0) / 2.0;
+                session.estimated_server_time = server_sent_time + one_way_latency;
+            }
+            _ => {}
+        }
+    }
+
+    next_state
 }
 
 fn apply_transition(

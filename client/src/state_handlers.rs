@@ -1,12 +1,10 @@
-use std::time::Duration;
-
 use crate::state::{
     AuthMessageOutcome, ClientSession, ClientState, MAX_ATTEMPTS, interpret_auth_message,
     username_prompt, validate_username_input,
 };
 use crate::ui::{ClientUi, UiInputError};
 pub use shared::net::AppChannel;
-use shared::{auth::Passcode, chat::MAX_CHAT_MESSAGE_BYTES};
+use shared::{ServerMessage, auth::Passcode, chat::MAX_CHAT_MESSAGE_BYTES};
 
 pub trait NetworkHandle {
     fn is_connected(&self) -> bool;
@@ -14,6 +12,7 @@ pub trait NetworkHandle {
     fn get_disconnect_reason(&self) -> String;
     fn send_message(&mut self, channel: AppChannel, message: Vec<u8>);
     fn receive_message(&mut self, channel: AppChannel) -> Option<Vec<u8>>;
+    fn rtt(&self) -> f64;
 }
 
 pub fn startup(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<ClientState> {
@@ -102,6 +101,13 @@ pub fn authenticating(
     } = session.state_mut()
     {
         while let Some(message) = network.receive_message(AppChannel::ReliableOrdered) {
+            if let Ok((ServerMessage::CountdownStarted { end_time }, _)) =
+                bincode::serde::decode_from_slice(&message, bincode::config::standard())
+            {
+                session.countdown_end_time = Some(end_time);
+                return Some(ClientState::Countdown);
+            }
+
             let text = String::from_utf8_lossy(&message);
             ui.show_message(&format!("Server: {}", text));
 
@@ -177,6 +183,13 @@ pub fn choosing_username(
     }
 
     while let Some(message) = network.receive_message(AppChannel::ReliableOrdered) {
+        if let Ok((ServerMessage::CountdownStarted { end_time }, _)) =
+            bincode::serde::decode_from_slice(&message, bincode::config::standard())
+        {
+            session.countdown_end_time = Some(end_time);
+            return Some(ClientState::Countdown);
+        }
+
         let text = String::from_utf8_lossy(&message).to_string();
 
         if is_participant_announcement(&text) {
@@ -259,10 +272,14 @@ pub fn in_chat(
     }
 
     while let Some(message) = network.receive_message(AppChannel::ReliableOrdered) {
-        let text = String::from_utf8_lossy(&message).to_string();
-        if text == shared::auth::START_COUNTDOWN {
+        if let Ok((ServerMessage::CountdownStarted { end_time }, _)) =
+            bincode::serde::decode_from_slice(&message, bincode::config::standard())
+        {
+            session.countdown_end_time = Some(end_time);
             return Some(ClientState::Countdown);
         }
+
+        let text = String::from_utf8_lossy(&message).to_string();
         handle_in_chat_server_message(session, ui, &text);
     }
 
@@ -294,11 +311,7 @@ pub fn in_chat(
     }
 }
 
-pub fn countdown(
-    session: &mut ClientSession,
-    ui: &mut dyn ClientUi,
-    network: &mut dyn NetworkHandle,
-) -> Option<ClientState> {
+pub fn countdown(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Countdown) {
         panic!(
             "BUG: Called countdown() when state was not Countdown. Current state: {:?}",
@@ -306,33 +319,21 @@ pub fn countdown(
         );
     }
 
-    while let Some(message) = network.receive_message(AppChannel::Unreliable) {
-        if let Some(time_remaining) = handle_countdown_message(message) {
-            print!("\rTime Remaining: {:.0}s", time_remaining.as_secs_f32()); // Eventually have ui handle this.
-            return Some(ClientState::Countdown);
-        }
+    if let Some(end_time) = session.countdown_end_time {
+        let time_remaining_secs = end_time - session.estimated_server_time;
+
+        let status_message = if time_remaining_secs > 0.0 {
+            format!("Time Remaining: {:.0}s", time_remaining_secs.ceil())
+        } else {
+            "Time Remaining: 0s".to_string()
+        };
+
+        ui.show_status_line(&status_message);
+    } else {
+        ui.show_status_line("Waiting for countdown info...");
     }
 
     None
-}
-
-fn handle_countdown_message(bytes: Vec<u8>) -> Option<Duration> {
-    let slice = bytes.as_slice();
-
-    let array: [u8; 16] = match slice.try_into() {
-        Ok(arr) => arr,
-        Err(_) => {
-            println!("Error: Received countdown message with wrong length!");
-            return None;
-        }
-    };
-
-    let total_millis = u128::from_le_bytes(array);
-
-    let secs = (total_millis / 1000) as u64;
-    let nanos = ((total_millis % 1000) * 1_000_000) as u32;
-
-    Some(Duration::new(secs, nanos))
 }
 
 fn passcode_prompt(remaining: u8) -> String {
@@ -433,6 +434,7 @@ mod tests {
         messages: Vec<String>,
         errors: Vec<String>,
         prompts: Vec<String>,
+        status_lines: Vec<String>,
     }
 
     impl MockUi {
@@ -460,6 +462,10 @@ mod tests {
             self.prompts.push(prompt.to_string());
         }
 
+        fn show_status_line(&mut self, message: &str) {
+            self.status_lines.push(message.to_string());
+        }
+
         fn poll_input(&mut self, _limit: usize) -> Result<Option<String>, UiInputError> {
             self.inputs
                 .pop_front()
@@ -475,6 +481,7 @@ mod tests {
         disconnect_reason_val: String,
         messages_to_receive: VecDeque<Vec<u8>>,
         sent_messages: Vec<(AppChannel, Vec<u8>)>,
+        rtt_val: f64,
     }
 
     impl MockNetwork {
@@ -515,6 +522,9 @@ mod tests {
         }
         fn receive_message(&mut self, _channel: AppChannel) -> Option<Vec<u8>> {
             self.messages_to_receive.pop_front()
+        }
+        fn rtt(&self) -> f64 {
+            self.rtt_val
         }
     }
 
