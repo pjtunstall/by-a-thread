@@ -68,8 +68,16 @@ pub fn run_server() {
         send_type: SendType::Unreliable,
     };
 
+    let client_channels_config = vec![
+        reliable_config.clone(),
+        unreliable_config.clone(),
+        time_sync_config.clone(),
+    ];
+    let server_channels_config = vec![reliable_config, unreliable_config, time_sync_config];
+
     let connection_config = ConnectionConfig {
-        server_channels_config: vec![reliable_config, unreliable_config, time_sync_config],
+        client_channels_config,
+        server_channels_config,
         ..Default::default()
     };
 
