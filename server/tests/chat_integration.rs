@@ -1,4 +1,4 @@
-use renet::{ChannelConfig, ConnectionConfig, RenetServer, SendType};
+use renet::{ChannelConfig, ClientNotFound, ConnectionConfig, RenetServer, SendType};
 use std::time::Duration;
 
 use server::state::{Lobby, ServerState};
@@ -34,8 +34,16 @@ fn setup_test_server() -> RenetServer {
         send_type: SendType::Unreliable,
     };
 
+    let client_channels_config = vec![
+        reliable_config.clone(),
+        unreliable_config.clone(),
+        time_sync_config.clone(),
+    ];
+    let server_channels_config = vec![reliable_config, unreliable_config, time_sync_config];
+
     let connection_config = ConnectionConfig {
-        server_channels_config: vec![reliable_config, unreliable_config, time_sync_config],
+        client_channels_config,
+        server_channels_config,
         ..Default::default()
     };
 
@@ -53,9 +61,7 @@ fn full_tick(
     server
         .process_local_client(1, alice)
         .expect("process alice failed");
-    server
-        .process_local_client(2, bob)
-        .expect("process bob failed");
+    if let Err(ClientNotFound) = server.process_local_client(2, bob) {}
     server.update(tick_duration);
 }
 
@@ -109,9 +115,7 @@ fn chat_messages_are_broadcast_to_other_clients() {
     server
         .process_local_client(1, &mut alice)
         .expect("process alice failed");
-    server
-        .process_local_client(2, &mut bob)
-        .expect("process bob failed");
+    if let Err(ClientNotFound) = server.process_local_client(2, &mut bob) {}
 
     alice.update(Duration::from_millis(16));
     bob.update(Duration::from_millis(16));
@@ -168,9 +172,7 @@ fn players_are_notified_when_others_join_and_leave() {
     server
         .process_local_client(1, &mut alice)
         .expect("process alice failed");
-    server
-        .process_local_client(2, &mut bob)
-        .expect("process bob failed");
+    if let Err(ClientNotFound) = server.process_local_client(2, &mut bob) {}
 
     alice.update(Duration::from_millis(16));
     bob.update(Duration::from_millis(16));
@@ -199,9 +201,7 @@ fn players_are_notified_when_others_join_and_leave() {
     server
         .process_local_client(1, &mut alice)
         .expect("process alice failed");
-    server
-        .process_local_client(2, &mut bob)
-        .expect("process bob failed");
+    if let Err(ClientNotFound) = server.process_local_client(2, &mut bob) {}
 
     alice.update(Duration::from_millis(16));
     bob.update(Duration::from_millis(16));
