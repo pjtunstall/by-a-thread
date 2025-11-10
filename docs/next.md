@@ -10,9 +10,9 @@ Renet constantly measures the connection quality with its own internal keep-aliv
 
 You can access it directly:
 
-On the client: let rtt_ms: f64 = client.rtt();
+On the client: ``let rtt_ms: f64 = client.rtt();`
 
-On the server: let rtt_ms: f64 = server.rtt(client_id);
+On the server: `let rtt_ms: f64 = server.rtt(client_id);`
 
 This single function call replaces all the complex timestamp-echoing and EMA math we discussed. The RTT renet provides is a smoothed f64 in milliseconds.
 

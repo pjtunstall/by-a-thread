@@ -10,7 +10,7 @@ use renet::{ConnectionConfig, DefaultChannel, RenetServer, ServerEvent};
 use renet_netcode::{NetcodeServerTransport, ServerAuthentication, ServerConfig};
 
 use crate::state::{
-    AuthAttemptOutcome, Lobby, MAX_AUTH_ATTEMPTS, ServerState, evaluate_passcode_attempt,
+    AuthAttemptOutcome, Countdown, Lobby, MAX_AUTH_ATTEMPTS, ServerState, evaluate_passcode_attempt,
 };
 use shared::{
     self,
@@ -54,8 +54,6 @@ pub fn run_server() {
     let passcode = Passcode::generate(6);
     print_server_banner(protocol_id, server_addr, &passcode);
 
-    // --- MODIFIED ---
-    // Changed to use the assumed idiomatic enum struct initialization.
     let mut state = ServerState::Lobby(Lobby::new());
 
     server_loop(&mut server, &mut transport, &mut state, &passcode);
@@ -161,8 +159,6 @@ fn server_loop(
 
         process_events(&mut network_handle, state);
 
-        // `handle_messages` returns an Option<ServerState>.
-        // If it returns Some(new_state), we transition the server's state.
         let next_state = handle_messages(&mut network_handle, state, passcode);
         if let Some(new_state) = next_state {
             *state = new_state;
@@ -190,30 +186,36 @@ pub fn process_events(network: &mut dyn ServerNetworkHandle, state: &mut ServerS
     }
 }
 
-// --- MODIFIED ---
-// This function is now the main state dispatcher.
-// It returns an Option<ServerState> to signal a state transition.
 pub fn handle_messages(
     network: &mut dyn ServerNetworkHandle,
     state: &mut ServerState,
     passcode: &Passcode,
 ) -> Option<ServerState> {
     match state {
-        ServerState::Lobby(lobby_state) => {
-            // Pass control to the lobby-specific handler
-            handle_lobby(network, lobby_state, passcode)
-        }
-        // --- FUTURE ---
-        // When you add Countdown, you'll add it here:
-        // ServerState::Countdown(countdown_state) => {
-        //     handle_countdown(network, countdown_state)
-        // }
+        ServerState::Lobby(lobby_state) => handle_lobby(network, lobby_state, passcode),
+        ServerState::Countdown(countdown_state) => handle_countdown(network, countdown_state),
         // ServerState::InGame(in_game_state) => {
         //     handle_in_game(network, in_game_state)
         // }
         _ => {
             todo!();
         }
+    }
+}
+
+fn handle_countdown(
+    network: &mut dyn ServerNetworkHandle,
+    state: &mut Countdown,
+) -> Option<ServerState> {
+    let server_time = Instant::now();
+
+    if let Some(remaining_duration) = state.end_time.checked_duration_since(server_time) {
+        let remaining_millis = remaining_duration.as_millis();
+        let message = remaining_millis.to_le_bytes().to_vec();
+        network.broadcast_message(AppChannel::Unreliable, message);
+        None
+    } else {
+        None
     }
 }
 
@@ -226,7 +228,6 @@ fn send_username_error(network: &mut dyn ServerNetworkHandle, client_id: u64, me
     );
 }
 
-// returns the Some variant to indicate a transition.
 fn handle_lobby(
     network: &mut dyn ServerNetworkHandle,
     state: &mut Lobby,
@@ -361,16 +362,7 @@ fn handle_lobby(
                             .to_vec();
                         network.broadcast_message(AppChannel::ReliableOrdered, start_msg);
 
-                        // --- STATE TRANSITION ---
-                        // This is where you would transition to the next state.
-                        // 1. Get necessary data from the current lobby state.
-                        //    (e.g., let players = state.get_players_list();)
-                        // 2. Create the new state.
-                        //    (e.g., let countdown_state = CountdownState::new(players);)
-                        // 3. Return the new state wrapped in Some().
-                        //    return Some(ServerState::Countdown(countdown_state));
-
-                        // For now, we just continue.
+                        return Some(ServerState::Countdown(Countdown::new(state)));
                     }
                     continue;
                 }

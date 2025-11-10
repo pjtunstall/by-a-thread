@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use crate::ServerNetworkHandle;
@@ -9,16 +9,19 @@ use shared::net::AppChannel;
 pub const MAX_AUTH_ATTEMPTS: u8 = 3;
 
 pub struct Countdown {
-    // TODO: Add fields, e.g., players, start_time.
     usernames: HashMap<u64, String>,
-    start_time: Instant,
+    pub end_time: Instant,
 }
 
 impl Countdown {
-    pub fn new(usernames: HashMap<u64, String>, start_time: Instant) -> Self {
+    pub fn new(lobby: &Lobby) -> Self {
+        let duration = Duration::from_secs_f32(10.0);
+        let end_time = Instant::now()
+            .checked_add(duration)
+            .expect("failed to get end time for countdown");
         Self {
-            usernames,
-            start_time,
+            usernames: lobby.usernames.clone(),
+            end_time,
         }
     }
 
@@ -85,6 +88,20 @@ impl Lobby {
             pending_usernames: HashSet::new(),
             usernames: HashMap::new(),
             host_client_id: None,
+        }
+    }
+
+    pub fn transition_to_countdown(&self, duration: Duration) -> Countdown {
+        println!(
+            "-> Transitioning Lobby to Countdown. Moving {} usernames...",
+            self.usernames.len()
+        );
+
+        Countdown {
+            usernames: self.usernames.clone(),
+            end_time: Instant::now()
+                .checked_add(duration)
+                .expect("failed to get end time for countdown"),
         }
     }
 

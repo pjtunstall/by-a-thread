@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::state::{
     AuthMessageOutcome, ClientSession, ClientState, MAX_ATTEMPTS, interpret_auth_message,
     username_prompt, validate_username_input,
@@ -287,6 +289,47 @@ pub fn in_chat(
     } else {
         None
     }
+}
+
+pub fn countdown(
+    session: &mut ClientSession,
+    ui: &mut dyn ClientUi,
+    network: &mut dyn NetworkHandle,
+) -> Option<ClientState> {
+    if !matches!(session.state(), ClientState::Countdown) {
+        panic!(
+            "BUG: Called countdown() when state was not Countdown. Current state: {:?}",
+            session.state()
+        );
+    }
+
+    while let Some(message) = network.receive_message(AppChannel::Unreliable) {
+        if let Some(time_remaining) = handle_countdown_message(message) {
+            println!("Time Remaining: {:.1}s", time_remaining.as_secs_f32()); // Eventually have ui handle this.
+            return Some(ClientState::Countdown);
+        }
+    }
+
+    None
+}
+
+fn handle_countdown_message(bytes: Vec<u8>) -> Option<Duration> {
+    let slice = bytes.as_slice();
+
+    let array: [u8; 16] = match slice.try_into() {
+        Ok(arr) => arr,
+        Err(_) => {
+            println!("Error: Received countdown message with wrong length!");
+            return None;
+        }
+    };
+
+    let total_millis = u128::from_le_bytes(array);
+
+    let secs = (total_millis / 1000) as u64;
+    let nanos = ((total_millis % 1000) * 1_000_000) as u32;
+
+    Some(Duration::new(secs, nanos))
 }
 
 fn passcode_prompt(remaining: u8) -> String {

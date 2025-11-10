@@ -18,6 +18,7 @@ pub enum ClientState {
         awaiting_confirmation: bool,
     },
     InChat,
+    Countdown,
     Disconnected {
         message: String,
     },
