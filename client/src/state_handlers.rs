@@ -260,6 +260,9 @@ pub fn in_chat(
 
     while let Some(message) = network.receive_message(AppChannel::ReliableOrdered) {
         let text = String::from_utf8_lossy(&message).to_string();
+        if text == shared::auth::START_COUNTDOWN {
+            return Some(ClientState::Countdown);
+        }
         handle_in_chat_server_message(session, ui, &text);
     }
 
@@ -305,7 +308,7 @@ pub fn countdown(
 
     while let Some(message) = network.receive_message(AppChannel::Unreliable) {
         if let Some(time_remaining) = handle_countdown_message(message) {
-            println!("Time Remaining: {:.1}s", time_remaining.as_secs_f32()); // Eventually have ui handle this.
+            print!("\rTime Remaining: {:.0}s", time_remaining.as_secs_f32()); // Eventually have ui handle this.
             return Some(ClientState::Countdown);
         }
     }

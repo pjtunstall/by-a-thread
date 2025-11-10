@@ -7,7 +7,16 @@ pub fn private_key() -> [u8; 32] {
     ]
 }
 
-pub const START_SIGNAL: &str = "2b252b29-513f-47ac-8477-373bf6cacc05";
+pub const START_COUNTDOWN: &str = "2b252b29-513f-47ac-8477-373bf6cacc05";
+
+// // Generate UUIDs thus:
+// use uuid::Uuid;
+
+// fn main() {
+//     let my_uuid = Uuid::new_v4();
+
+//     println!("Here is your new v4 UUID: {}", my_uuid);
+// }
 
 pub struct Passcode {
     pub bytes: Vec<u8>,

@@ -207,14 +207,17 @@ fn handle_countdown(
     network: &mut dyn ServerNetworkHandle,
     state: &mut Countdown,
 ) -> Option<ServerState> {
+    println!("handle_countdown");
     let server_time = Instant::now();
 
     if let Some(remaining_duration) = state.end_time.checked_duration_since(server_time) {
         let remaining_millis = remaining_duration.as_millis();
         let message = remaining_millis.to_le_bytes().to_vec();
         network.broadcast_message(AppChannel::Unreliable, message);
+        println!("handle_countdown: some time remaining.");
         None
     } else {
+        println!("Time up.");
         None
     }
 }
@@ -351,7 +354,7 @@ fn handle_lobby(
                     continue;
                 }
 
-                if text == shared::auth::START_SIGNAL {
+                if text == shared::auth::START_COUNTDOWN {
                     if state.is_host(client_id) {
                         let host = state
                             .username(client_id)
