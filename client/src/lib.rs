@@ -178,6 +178,7 @@ fn main_loop(
             ClientState::InChat => state_handlers::in_chat(session, ui, &mut network_handle),
             ClientState::Countdown => state_handlers::countdown(session, ui),
             ClientState::Disconnected { .. } => None,
+            ClientState::InGame => break,
         };
 
         if let Some(new_state) = next_state_from_logic {

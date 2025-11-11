@@ -328,10 +328,9 @@ pub fn countdown(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<C
             format!("Time Remaining: {:.0}s", time_remaining_secs.ceil())
         } else {
             ui.show_status_line("Time Remaining: 0s");
-            std::thread::sleep(Duration::from_secs(1));
+            std::thread::sleep(Duration::from_millis(100));
             println!("\r");
-            std::process::exit(0);
-            // return Some(ClientState::InGame);
+            return Some(ClientState::InGame);
         };
 
         ui.show_status_line(&status_message);
@@ -517,18 +516,23 @@ mod tests {
         fn is_connected(&self) -> bool {
             self.is_connected_val
         }
+
         fn is_disconnected(&self) -> bool {
             self.is_disconnected_val
         }
+
         fn get_disconnect_reason(&self) -> String {
             self.disconnect_reason_val.clone()
         }
+
         fn send_message(&mut self, channel: AppChannel, message: Vec<u8>) {
             self.sent_messages.push((channel, message));
         }
+
         fn receive_message(&mut self, _channel: AppChannel) -> Option<Vec<u8>> {
             self.messages_to_receive.pop_front()
         }
+
         fn rtt(&self) -> f64 {
             self.rtt_val
         }

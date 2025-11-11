@@ -22,6 +22,7 @@ pub enum ClientState {
     Disconnected {
         message: String,
     },
+    InGame,
 }
 
 #[derive(Debug, PartialEq)]
