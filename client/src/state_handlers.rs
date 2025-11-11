@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::state::{
     AuthMessageOutcome, ClientSession, ClientState, MAX_ATTEMPTS, interpret_auth_message,
     username_prompt, validate_username_input,
@@ -320,12 +322,16 @@ pub fn countdown(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<C
     }
 
     if let Some(end_time) = session.countdown_end_time {
-        let time_remaining_secs = end_time - session.estimated_server_time;
+        let time_remaining_secs = end_time - session.estimated_server_time - 1.0;
 
         let status_message = if time_remaining_secs > 0.0 {
             format!("Time Remaining: {:.0}s", time_remaining_secs.ceil())
         } else {
-            "Time Remaining: 0s".to_string()
+            ui.show_status_line("Time Remaining: 0s");
+            std::thread::sleep(Duration::from_secs(1));
+            println!("\r");
+            std::process::exit(0);
+            // return Some(ClientState::InGame);
         };
 
         ui.show_status_line(&status_message);

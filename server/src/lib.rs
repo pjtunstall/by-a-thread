@@ -249,9 +249,10 @@ fn handle_countdown(
 ) -> Option<ServerState> {
     let server_time = Instant::now();
 
-    if server_time >= state.end_time {
+    if server_time > state.end_time {
         println!("Time up.");
-        None
+        std::thread::sleep(Duration::from_secs(1));
+        std::process::exit(0);
     } else {
         None
     }
@@ -396,7 +397,7 @@ fn handle_lobby(
                             .expect("host should have a username");
                         println!("Host ({}) started the game.", host);
 
-                        let countdown_duration = Duration::from_secs(10);
+                        let countdown_duration = Duration::from_secs(11); // The client will use this value in the comparison and consider the time up when the countdown reaches 1.0. But it will print the counter value minus one.
                         let end_time_f64 =
                             shared::current_time().as_secs_f64() + countdown_duration.as_secs_f64();
 

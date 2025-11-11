@@ -164,7 +164,7 @@ fn main_loop(
 
         let mut network_handle = RenetNetworkHandle { client, transport };
 
-        let next_state_from_messages = process_network_messages(session, &mut network_handle);
+        update_estimated_server_time(session, &mut network_handle);
 
         let next_state_from_logic = match session.state() {
             ClientState::Startup { .. } => state_handlers::startup(session, ui),
@@ -180,7 +180,7 @@ fn main_loop(
             ClientState::Disconnected { .. } => None,
         };
 
-        if let Some(new_state) = next_state_from_messages.or(next_state_from_logic) {
+        if let Some(new_state) = next_state_from_logic {
             if apply_transition(session, ui, new_state) {
                 break;
             }
@@ -203,10 +203,7 @@ fn main_loop(
     }
 }
 
-fn process_network_messages(
-    session: &mut ClientSession,
-    network: &mut RenetNetworkHandle,
-) -> Option<ClientState> {
+fn update_estimated_server_time(session: &mut ClientSession, network: &mut RenetNetworkHandle) {
     while let Some(message) = network.receive_message(AppChannel::ServerTime) {
         match bincode::serde::decode_from_slice(&message, bincode::config::standard()) {
             Ok((ServerMessage::ServerTime(server_sent_time), _)) => {
@@ -217,8 +214,6 @@ fn process_network_messages(
             _ => {}
         }
     }
-
-    None
 }
 
 fn apply_transition(
