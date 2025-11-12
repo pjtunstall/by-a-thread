@@ -6,7 +6,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use renet::{ChannelConfig, ConnectionConfig, RenetServer, SendType, ServerEvent};
+use renet::{RenetServer, ServerEvent};
 use renet_netcode::{NetcodeServerTransport, ServerAuthentication, ServerConfig};
 
 use crate::state::{
@@ -15,11 +15,9 @@ use crate::state::{
 use shared::{
     self, ServerMessage,
     auth::Passcode,
-    chat::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username},
+    chat::{MAX_CHAT_MESSAGE_BYTES, MAX_USERNAME_LENGTH, UsernameError, sanitize_username},
     net::AppChannel,
 };
-
-use shared::chat::MAX_CHAT_MESSAGE_BYTES;
 
 pub enum ServerNetworkEvent {
     ClientConnected { client_id: u64 },
@@ -47,40 +45,7 @@ pub fn run_server() {
     let server_config = build_server_config(current_time, protocol_id, server_addr, private_key);
     let mut transport =
         NetcodeServerTransport::new(server_config, socket).expect("failed to create transport");
-
-    let reliable_config = ChannelConfig {
-        channel_id: 0,
-        max_memory_usage_bytes: 10 * 1024 * 1024,
-        send_type: SendType::ReliableOrdered {
-            resend_time: Duration::from_millis(100),
-        },
-    };
-
-    let unreliable_config = ChannelConfig {
-        channel_id: 1,
-        max_memory_usage_bytes: 10 * 1024 * 1024,
-        send_type: SendType::Unreliable,
-    };
-
-    let time_sync_config = ChannelConfig {
-        channel_id: 2,
-        max_memory_usage_bytes: 1 * 1024 * 1024,
-        send_type: SendType::Unreliable,
-    };
-
-    let client_channels_config = vec![
-        reliable_config.clone(),
-        unreliable_config.clone(),
-        time_sync_config.clone(),
-    ];
-    let server_channels_config = vec![reliable_config, unreliable_config, time_sync_config];
-
-    let connection_config = ConnectionConfig {
-        client_channels_config,
-        server_channels_config,
-        ..Default::default()
-    };
-
+    let connection_config = shared::connection_config();
     let mut server = RenetServer::new(connection_config);
 
     let passcode = Passcode::generate(6);
