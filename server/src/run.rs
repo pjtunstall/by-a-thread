@@ -6,6 +6,7 @@ use renet::RenetServer;
 use renet_netcode::NetcodeServerTransport;
 
 use crate::{
+    maze::{self, maker::Algorithm},
     net::{self, RenetServerNetworkHandle, ServerNetworkEvent, ServerNetworkHandle},
     state::{
         AuthAttemptOutcome, Countdown, Lobby, MAX_AUTH_ATTEMPTS, ServerState,
@@ -131,6 +132,15 @@ fn handle_countdown(
     let server_time = Instant::now();
 
     if server_time > state.end_time {
+        let number = 1;
+        const MAZE_RADIUS: usize = 16; // Double and add one to get the width of the maze in grid cells, including edge walls. The reason for this calculation is to ensure an odd number of chars for the width. This lets us draw a nice map with equally thick edges, no matter the value of this parameter used to set its width.
+        let generator = match number {
+            1 => Algorithm::Backtrack,
+            2 => Algorithm::Wilson,
+            _ => Algorithm::Prim,
+        };
+        let maze = maze::Maze::new(generator, MAZE_RADIUS);
+        maze.log();
         println!("Time up.");
         std::thread::sleep(Duration::from_secs(1));
         std::process::exit(0);
