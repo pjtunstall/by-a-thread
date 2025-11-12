@@ -173,7 +173,7 @@ fn handle_difficulty_choice(
                     let maze_layout = maze.log();
                     println!("{}", maze_layout);
 
-                    let game_started_msg = ServerMessage::GameStarted { maze_layout };
+                    let game_started_msg = ServerMessage::GameStarted { maze: maze.clone() };
                     let game_started_payload = encode_to_vec(&game_started_msg, standard())
                         .expect("Failed to serialize GameStarted");
                     network.broadcast_message(AppChannel::ReliableOrdered, game_started_payload);

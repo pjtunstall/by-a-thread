@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::maze::Maze;
+
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
     ServerTime(f64),
@@ -12,7 +14,7 @@ pub enum ServerMessage {
     ChatMessage { username: String, content: String },
     ServerInfo { message: String },
     RequestDifficultyChoice,
-    GameStarted { maze_layout: String },
+    GameStarted { maze: Maze },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

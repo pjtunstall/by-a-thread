@@ -1,4 +1,3 @@
-// client/src/state_handlers.rs
 use std::time::Duration;
 
 use bincode::{
@@ -113,8 +112,8 @@ pub fn authenticating(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((ServerMessage::GameStarted { maze_layout }, _)) => {
-                session.maze_layout = Some(maze_layout);
+            Ok((ServerMessage::GameStarted { maze }, _)) => {
+                session.maze = Some(maze);
             }
             Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
                 session.countdown_end_time = Some(end_time);
@@ -213,8 +212,8 @@ pub fn choosing_username(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((ServerMessage::GameStarted { maze_layout }, _)) => {
-                session.maze_layout = Some(maze_layout);
+            Ok((ServerMessage::GameStarted { maze }, _)) => {
+                session.maze = Some(maze);
             }
             Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
                 session.countdown_end_time = Some(end_time);
@@ -280,11 +279,6 @@ pub fn choosing_username(
                 }
             }
         }
-    } else {
-        unreachable!(
-            "BUG: Guard at top of choosing_username failed to panic on mismatched state: {:?}",
-            session.state()
-        );
     }
 
     if network.is_disconnected() {
@@ -313,8 +307,8 @@ pub fn in_chat(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((ServerMessage::GameStarted { maze_layout }, _)) => {
-                session.maze_layout = Some(maze_layout);
+            Ok((ServerMessage::GameStarted { maze }, _)) => {
+                session.maze = Some(maze);
             }
             Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
                 session.countdown_end_time = Some(end_time);
@@ -408,8 +402,8 @@ pub fn countdown(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((ServerMessage::GameStarted { maze_layout }, _)) => {
-                session.maze_layout = Some(maze_layout);
+            Ok((ServerMessage::GameStarted { maze }, _)) => {
+                session.maze = Some(maze);
             }
             Ok((ServerMessage::ChatMessage { username, content }, _)) => {
                 ui.show_message(&format!("{}: {}", username, content));
@@ -434,11 +428,12 @@ pub fn countdown(
         } else {
             ui.show_status_line("Time Remaining: 0s");
 
-            if let Some(maze_layout) = session.maze_layout.take() {
+            if let Some(maze) = session.maze.take() {
                 std::thread::sleep(Duration::from_millis(100));
                 println!("\r");
                 ui.show_message("Game started! Maze received:");
 
+                let maze_layout = maze.log();
                 for line in maze_layout.lines() {
                     ui.show_message(line);
                 }
@@ -514,8 +509,8 @@ pub fn choosing_difficulty(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((ServerMessage::GameStarted { maze_layout }, _)) => {
-                session.maze_layout = Some(maze_layout);
+            Ok((ServerMessage::GameStarted { maze }, _)) => {
+                session.maze = Some(maze);
             }
             Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
                 session.countdown_end_time = Some(end_time);

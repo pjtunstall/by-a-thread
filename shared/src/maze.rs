@@ -4,8 +4,9 @@ use std::fmt;
 
 pub use maker::Algorithm;
 use maker::MazeMaker;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Maze {
     pub grid: Vec<Vec<u8>>,
     pub spaces: Vec<(usize, usize)>,

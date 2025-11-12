@@ -1,5 +1,6 @@
 use shared::auth::Passcode;
 use shared::chat::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username};
+use shared::maze::Maze;
 
 pub const MAX_ATTEMPTS: u8 = 3;
 
@@ -32,7 +33,7 @@ pub struct ClientSession {
     awaiting_initial_roster: bool,
     pub estimated_server_time: f64,
     pub countdown_end_time: Option<f64>,
-    pub maze_layout: Option<String>,
+    pub maze: Option<Maze>,
 }
 
 impl ClientSession {
@@ -45,7 +46,7 @@ impl ClientSession {
             awaiting_initial_roster: false,
             estimated_server_time: 0.0,
             countdown_end_time: None,
-            maze_layout: None,
+            maze: None,
         }
     }
 
