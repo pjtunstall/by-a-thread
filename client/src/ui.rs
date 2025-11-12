@@ -1,5 +1,6 @@
 use std::fmt;
 use std::io::{self, Stdout, Write, stdout};
+use std::net::SocketAddr;
 use std::time::Duration;
 
 use crossterm::{
@@ -29,6 +30,7 @@ pub trait ClientUi {
     fn show_prompt(&mut self, prompt: &str);
     fn poll_input(&mut self, limit: usize) -> Result<Option<String>, UiInputError>;
     fn show_status_line(&mut self, message: &str);
+    fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr, client_id: u64);
 }
 
 pub struct TerminalUi<W: Write> {
@@ -223,6 +225,12 @@ impl<W: Write> ClientUi for TerminalUi<W> {
             Ok(event) => self.handle_event(event, limit),
             Err(_) => Err(UiInputError::Disconnected),
         }
+    }
+
+    fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr, client_id: u64) {
+        self.show_message(&format!("  Game version:  {}", protocol_id));
+        self.show_message(&format!("  Connecting to: {}", server_addr));
+        self.show_message(&format!("  Your ID:       {}", client_id));
     }
 }
 

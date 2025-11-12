@@ -3,28 +3,18 @@ mod state;
 mod state_handlers;
 mod ui;
 
-use std::net::{SocketAddr, UdpSocket};
+use std::net::UdpSocket;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use renet::RenetClient;
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
+use crate::net::RenetNetworkHandle;
 use crate::state::{ClientSession, ClientState};
 use crate::state_handlers::{AppChannel, NetworkHandle};
 use crate::ui::{ClientUi, TerminalUi};
 use shared::{self, ServerMessage};
-
-fn print_client_banner(
-    ui: &mut dyn ClientUi,
-    protocol_id: u64,
-    server_addr: SocketAddr,
-    client_id: u64,
-) {
-    ui.show_message(&format!("  Game version:  {}", protocol_id));
-    ui.show_message(&format!("  Connecting to: {}", server_addr));
-    ui.show_message(&format!("  Your ID:       {}", client_id));
-}
 
 pub fn run_client() {
     let private_key = shared::auth::private_key();
@@ -39,9 +29,7 @@ pub fn run_client() {
         server_addr,
         &private_key,
     );
-
     let mut ui = TerminalUi::new().expect("failed to initialize terminal UI");
-
     let socket = match UdpSocket::bind("127.0.0.1:0") {
         Ok(socket) => socket,
         Err(e) => {
@@ -61,54 +49,13 @@ pub fn run_client() {
     let connection_config = shared::connection_config();
     let mut client = RenetClient::new(connection_config);
 
-    print_client_banner(&mut ui, protocol_id, server_addr, client_id);
+    ui.print_client_banner(protocol_id, server_addr, client_id);
 
     let mut session = ClientSession::new();
 
     client_loop(&mut session, &mut ui, &mut client, &mut transport);
 
     ui.show_message("Client shutting down.");
-}
-
-struct RenetNetworkHandle<'a> {
-    client: &'a mut RenetClient,
-    transport: &'a NetcodeClientTransport,
-}
-
-impl NetworkHandle for RenetNetworkHandle<'_> {
-    fn is_connected(&self) -> bool {
-        self.client.is_connected()
-    }
-
-    fn is_disconnected(&self) -> bool {
-        self.client.is_disconnected()
-    }
-
-    fn get_disconnect_reason(&self) -> String {
-        self.client
-            .disconnect_reason()
-            .map(|reason| format!("Renet - {:?}", reason))
-            .or_else(|| {
-                self.transport
-                    .disconnect_reason()
-                    .map(|reason| format!("Transport - {:?}", reason))
-            })
-            .unwrap_or_else(|| "no reason given".to_string())
-    }
-
-    fn rtt(&self) -> f64 {
-        self.client.rtt()
-    }
-
-    fn send_message(&mut self, channel: AppChannel, message: Vec<u8>) {
-        self.client.send_message(channel, message);
-    }
-
-    fn receive_message(&mut self, channel: AppChannel) -> Option<Vec<u8>> {
-        self.client
-            .receive_message(channel)
-            .map(|bytes| bytes.to_vec())
-    }
 }
 
 fn client_loop(
@@ -139,7 +86,7 @@ fn client_loop(
 
         client.update(duration);
 
-        let mut network_handle = RenetNetworkHandle { client, transport };
+        let mut network_handle = RenetNetworkHandle::new(client, transport);
 
         update_estimated_server_time(session, &mut network_handle);
 

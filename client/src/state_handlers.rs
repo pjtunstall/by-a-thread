@@ -477,6 +477,15 @@ mod tests {
                 .unwrap_or(Ok(None))
                 .map(|opt| opt.map(|s| s.to_string()))
         }
+
+        fn print_client_banner(
+            &mut self,
+            protocol_id: u64,
+            server_addr: std::net::SocketAddr,
+            client_id: u64,
+        ) {
+            todo!();
+        }
     }
 
     #[derive(Default)]
