@@ -13,8 +13,8 @@ use renet_netcode::NetcodeServerTransport;
 use crate::{
     net::{self, RenetServerNetworkHandle, ServerNetworkEvent, ServerNetworkHandle},
     state::{
-        AuthAttemptOutcome, Countdown, Lobby, MAX_AUTH_ATTEMPTS, ServerState,
-        evaluate_passcode_attempt,
+        AuthAttemptOutcome, ChoosingDifficulty, Countdown, InGame, Lobby, MAX_AUTH_ATTEMPTS,
+        ServerState, evaluate_passcode_attempt,
     },
 };
 use shared::{
@@ -23,7 +23,7 @@ use shared::{
     chat::{MAX_CHAT_MESSAGE_BYTES, MAX_USERNAME_LENGTH, UsernameError, sanitize_username},
     maze::{self, maker::Algorithm},
     net::AppChannel,
-    protocol::{ClientMessage, ServerMessage}, // Import ClientMessage
+    protocol::{ClientMessage, ServerMessage},
 };
 
 pub fn run_server() {
@@ -122,11 +122,112 @@ pub fn handle_messages(
 ) -> Option<ServerState> {
     match state {
         ServerState::Lobby(lobby_state) => handle_lobby(network, lobby_state, passcode),
+        ServerState::ChoosingDifficulty(difficulty_state) => {
+            handle_difficulty_choice(network, difficulty_state)
+        }
         ServerState::Countdown(countdown_state) => handle_countdown(network, countdown_state),
-        _ => {
-            todo!();
+        ServerState::InGame(_) => None,
+    }
+}
+
+fn handle_difficulty_choice(
+    network: &mut dyn ServerNetworkHandle,
+    state: &mut ChoosingDifficulty,
+) -> Option<ServerState> {
+    let host_id = state.host_id();
+
+    for client_id in network.clients_id() {
+        while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
+            let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
+                println!("Client {} sent malformed data. Disconnecting.", client_id);
+                network.disconnect(client_id);
+                continue;
+            };
+
+            match message {
+                ClientMessage::SetDifficulty(level) => {
+                    if client_id != host_id {
+                        println!("Non-host {} tried to set difficulty.", client_id);
+                        continue;
+                    }
+
+                    if !(1..=3).contains(&level) {
+                        println!("Host {} sent invalid difficulty level: {}", host_id, level);
+                        let msg = ServerMessage::ServerInfo {
+                            message: "Invalid choice. Please press 1, 2, or 3.".to_string(),
+                        };
+                        let payload = encode_to_vec(&msg, standard()).expect("Failed to serialize");
+                        network.send_message(host_id, AppChannel::ReliableOrdered, payload);
+                        return None;
+                    }
+
+                    println!("Host selected difficulty {}. Starting countdown.", level);
+                    state.set_difficulty(level);
+
+                    let generator = match level {
+                        1 => Algorithm::Backtrack,
+                        2 => Algorithm::Wilson,
+                        _ => Algorithm::Prim,
+                    };
+                    let maze = maze::Maze::new(generator);
+                    let maze_layout = maze.log();
+                    println!("{}", maze_layout);
+
+                    let game_started_msg = ServerMessage::GameStarted { maze_layout };
+                    let game_started_payload = encode_to_vec(&game_started_msg, standard())
+                        .expect("Failed to serialize GameStarted");
+                    network.broadcast_message(AppChannel::ReliableOrdered, game_started_payload);
+
+                    let countdown_duration = Duration::from_secs(11);
+                    let end_time_f64 =
+                        shared::time::now().as_secs_f64() + countdown_duration.as_secs_f64();
+
+                    let countdown_msg = ServerMessage::CountdownStarted {
+                        end_time: end_time_f64,
+                    };
+                    let countdown_payload = encode_to_vec(&countdown_msg, standard())
+                        .expect("Failed to serialize CountdownStarted");
+
+                    network.broadcast_message(AppChannel::ReliableOrdered, countdown_payload);
+
+                    let end_time_instant = Instant::now() + countdown_duration;
+
+                    return Some(ServerState::Countdown(Countdown::new(
+                        state,
+                        end_time_instant,
+                        maze,
+                    )));
+                }
+                ClientMessage::SendChat(content) => {
+                    if let Some(username) = state.username(client_id) {
+                        if content.is_empty() {
+                            continue;
+                        }
+                        if content.len() > MAX_CHAT_MESSAGE_BYTES {
+                            continue;
+                        }
+
+                        println!("{}: {}", username, content);
+                        let message = ServerMessage::ChatMessage {
+                            username: username.to_string(),
+                            content,
+                        };
+                        let payload = encode_to_vec(&message, standard())
+                            .expect("Failed to serialize ChatMessage");
+                        network.broadcast_message(AppChannel::ReliableOrdered, payload);
+                    }
+                }
+                _ => {
+                    println!(
+                        "Client {} sent unexpected message in difficulty choice state.",
+                        client_id
+                    );
+                }
+            }
         }
     }
+
+    None
 }
 
 fn handle_countdown(
@@ -136,17 +237,11 @@ fn handle_countdown(
     let server_time = Instant::now();
 
     if server_time > state.end_time {
-        let number = 1;
-        let generator = match number {
-            1 => Algorithm::Backtrack,
-            2 => Algorithm::Wilson,
-            _ => Algorithm::Prim,
-        };
-        let maze = maze::Maze::new(generator);
-        println!("{}", maze.log());
-        println!("Time up.");
-        std::thread::sleep(Duration::from_secs(1));
-        std::process::exit(0);
+        println!("Countdown finished. Transitioning to InGame.");
+        return Some(ServerState::InGame(InGame::new(
+            state.usernames.clone(),
+            state.maze.clone(),
+        )));
     } else {
         None
     }
@@ -187,7 +282,7 @@ fn handle_lobby(
                         let outcome = evaluate_passcode_attempt(
                             passcode.bytes.as_slice(),
                             attempts_entry,
-                            &guess_bytes, // Use the inner bytes
+                            &guess_bytes,
                             MAX_AUTH_ATTEMPTS,
                         );
                         let count = *attempts_entry;
@@ -324,29 +419,25 @@ fn handle_lobby(
                         let host = state
                             .username(client_id)
                             .expect("host should have a username");
-                        println!("Host, {}, started the game.", host);
+                        println!("Host, {}, is choosing a difficulty.", host);
 
-                        let countdown_duration = Duration::from_secs(11);
-                        let end_time_f64 =
-                            shared::time::now().as_secs_f64() + countdown_duration.as_secs_f64();
-
-                        let message = ServerMessage::CountdownStarted {
-                            end_time: end_time_f64,
-                        };
+                        let message = ServerMessage::RequestDifficultyChoice;
                         let payload = encode_to_vec(&message, standard())
-                            .expect("Failed to serialize CountdownStarted");
+                            .expect("Failed to serialize RequestDifficultyChoice");
+                        network.send_message(client_id, AppChannel::ReliableOrdered, payload);
 
-                        network.broadcast_message(AppChannel::ReliableOrdered, payload);
-
-                        let end_time_instant = Instant::now() + countdown_duration;
-
-                        return Some(ServerState::Countdown(Countdown::new(
+                        return Some(ServerState::ChoosingDifficulty(ChoosingDifficulty::new(
                             state,
-                            end_time_instant,
                         )));
                     } else {
                         println!("Client {} (not host) tried to start game.", client_id);
                     }
+                }
+                ClientMessage::SetDifficulty(_) => {
+                    println!(
+                        "Client {} sent SetDifficulty in Lobby state. Ignoring.",
+                        client_id
+                    );
                 }
             }
         }

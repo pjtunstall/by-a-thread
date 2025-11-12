@@ -1,5 +1,7 @@
 pub mod maker;
 
+use std::fmt;
+
 pub use maker::Algorithm;
 use maker::MazeMaker;
 
@@ -37,6 +39,18 @@ impl Maze {
             })
             .collect::<Vec<String>>()
             .join("\n")
+    }
+}
+
+impl fmt::Debug for Maze {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "\n{}", self.log())
+    }
+}
+
+impl fmt::Display for Maze {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.log())
     }
 }
 

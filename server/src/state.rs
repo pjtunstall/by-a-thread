@@ -1,25 +1,50 @@
-// state.rs
 use std::{
     collections::{HashMap, HashSet},
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use crate::net::ServerNetworkHandle;
 use bincode::{config::standard, serde::encode_to_vec};
-use shared::{net::AppChannel, protocol::ServerMessage};
+use shared::{maze, net::AppChannel, protocol::ServerMessage};
 
 pub const MAX_AUTH_ATTEMPTS: u8 = 3;
 
+#[derive(Clone)]
+pub struct ChoosingDifficulty {
+    lobby: Lobby,
+    pub difficulty: u8,
+}
+
+impl ChoosingDifficulty {
+    pub fn new(lobby: &Lobby) -> Self {
+        Self {
+            lobby: lobby.clone(),
+            difficulty: 1,
+        }
+    }
+    pub fn host_id(&self) -> u64 {
+        self.lobby.host_client_id.unwrap_or(0)
+    }
+    pub fn username(&self, client_id: u64) -> Option<&str> {
+        self.lobby.username(client_id)
+    }
+    pub fn set_difficulty(&mut self, level: u8) {
+        self.difficulty = level;
+    }
+}
+
 pub struct Countdown {
-    usernames: HashMap<u64, String>,
+    pub usernames: HashMap<u64, String>,
     pub end_time: Instant,
+    pub maze: maze::Maze,
 }
 
 impl Countdown {
-    pub fn new(lobby: &Lobby, end_time: Instant) -> Self {
+    pub fn new(state: &ChoosingDifficulty, end_time: Instant, maze: maze::Maze) -> Self {
         Self {
-            usernames: lobby.usernames.clone(),
+            usernames: state.lobby.usernames.clone(),
             end_time,
+            maze,
         }
     }
 
@@ -39,27 +64,39 @@ impl Countdown {
                 client_id
             );
         }
-        // TODO: Handle host disconnects.
     }
 }
 
 pub struct InGame {
-    // TODO: Add fields, e.g., game state, players.
+    usernames: HashMap<u64, String>,
+    _maze: maze::Maze,
 }
 
 impl InGame {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(usernames: HashMap<u64, String>, maze: maze::Maze) -> Self {
+        Self {
+            usernames,
+            _maze: maze,
+        }
     }
 
-    pub fn remove_client(&mut self, client_id: u64, _network: &mut dyn ServerNetworkHandle) {
-        println!("Client {} disconnected during game.", client_id);
-        // TODO: Handle player/host disconnects.
+    pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
+        if let Some(username) = self.usernames.remove(&client_id) {
+            println!(
+                "Client {} ({}) disconnected during game.",
+                client_id, username
+            );
+            let message = ServerMessage::UserLeft { username };
+            let payload =
+                encode_to_vec(&message, standard()).expect("Failed to serialize UserLeft");
+            network.broadcast_message(AppChannel::ReliableOrdered, payload);
+        }
     }
 }
 
 pub enum ServerState {
     Lobby(Lobby),
+    ChoosingDifficulty(ChoosingDifficulty),
     Countdown(Countdown),
     InGame(InGame),
 }
@@ -79,16 +116,18 @@ impl ServerState {
     pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
         match self {
             ServerState::Lobby(lobby) => lobby.remove_client(client_id, network),
+            ServerState::ChoosingDifficulty(state) => state.lobby.remove_client(client_id, network),
             ServerState::Countdown(countdown) => countdown.remove_client(client_id, network),
             ServerState::InGame(in_game) => in_game.remove_client(client_id, network),
         }
     }
 }
 
+#[derive(Clone)]
 pub struct Lobby {
-    auth_attempts: HashMap<u64, u8>, // Connected users who have yet to enter the correct passcode.
-    pending_usernames: HashSet<u64>, // Users who are authenticated but have not yet provided a username.
-    usernames: HashMap<u64, String>, // Authenticated users with registered usernames.
+    auth_attempts: HashMap<u64, u8>,
+    pending_usernames: HashSet<u64>,
+    usernames: HashMap<u64, String>,
     host_client_id: Option<u64>,
 }
 
@@ -99,20 +138,6 @@ impl Lobby {
             pending_usernames: HashSet::new(),
             usernames: HashMap::new(),
             host_client_id: None,
-        }
-    }
-
-    pub fn transition_to_countdown(&self, duration: Duration) -> Countdown {
-        println!(
-            "-> Transitioning Lobby to Countdown. Moving {} usernames...",
-            self.usernames.len()
-        );
-
-        Countdown {
-            usernames: self.usernames.clone(),
-            end_time: Instant::now()
-                .checked_add(duration)
-                .expect("failed to get end time for countdown"),
         }
     }
 

@@ -111,40 +111,49 @@ pub fn authenticating(
         );
     }
 
+    while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
+        match decode_from_slice::<ServerMessage, _>(&data, standard()) {
+            Ok((ServerMessage::GameStarted { maze_layout }, _)) => {
+                session.maze_layout = Some(maze_layout);
+            }
+            Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
+                session.countdown_end_time = Some(end_time);
+                return Some(ClientState::Countdown);
+            }
+            Ok((ServerMessage::ServerInfo { message }, _)) => {
+                ui.show_message(&format!("Server: {}", message));
+
+                if message.starts_with("Authentication successful!") {
+                    return Some(ClientState::ChoosingUsername {
+                        prompt_printed: false,
+                        awaiting_confirmation: false,
+                    });
+                } else if message.starts_with("Incorrect passcode. Try again.") {
+                    if let ClientState::Authenticating {
+                        waiting_for_input,
+                        guesses_left,
+                    } = session.state_mut()
+                    {
+                        *guesses_left = guesses_left.saturating_sub(1);
+                        ui.show_prompt(&passcode_prompt(*guesses_left));
+                        *waiting_for_input = true;
+                    }
+                } else if message.starts_with("Incorrect passcode. Disconnecting.") {
+                    return Some(ClientState::Disconnected {
+                        message: "Authentication failed.".to_string(),
+                    });
+                }
+            }
+            Ok((_, _)) => {}
+            Err(e) => ui.show_message(&format!("[Deserialization error: {}]", e)),
+        }
+    }
+
     if let ClientState::Authenticating {
         waiting_for_input,
         guesses_left,
     } = session.state_mut()
     {
-        while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
-            match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-                Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
-                    session.countdown_end_time = Some(end_time);
-                    return Some(ClientState::Countdown);
-                }
-                Ok((ServerMessage::ServerInfo { message }, _)) => {
-                    ui.show_message(&format!("Server: {}", message));
-
-                    if message.starts_with("Authentication successful!") {
-                        return Some(ClientState::ChoosingUsername {
-                            prompt_printed: false,
-                            awaiting_confirmation: false,
-                        });
-                    } else if message.starts_with("Incorrect passcode. Try again.") {
-                        *guesses_left = guesses_left.saturating_sub(1);
-                        ui.show_prompt(&passcode_prompt(*guesses_left));
-                        *waiting_for_input = true;
-                    } else if message.starts_with("Incorrect passcode. Disconnecting.") {
-                        return Some(ClientState::Disconnected {
-                            message: "Authentication failed.".to_string(),
-                        });
-                    }
-                }
-                Ok((_, _)) => { /* Ignore unexpected messages in this state */ }
-                Err(e) => ui.show_message(&format!("[Deserialization error: {}]", e)),
-            }
-        }
-
         if *waiting_for_input {
             match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
                 Ok(Some(input_string)) => {
@@ -176,15 +185,15 @@ pub fn authenticating(
                 }
             }
         }
+    }
 
-        if network.is_disconnected() {
-            return Some(ClientState::Disconnected {
-                message: format!(
-                    "Disconnected while authenticating: {}.",
-                    network.get_disconnect_reason()
-                ),
-            });
-        }
+    if network.is_disconnected() {
+        return Some(ClientState::Disconnected {
+            message: format!(
+                "Disconnected while authenticating: {}.",
+                network.get_disconnect_reason()
+            ),
+        });
     }
 
     None
@@ -204,6 +213,9 @@ pub fn choosing_username(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
+            Ok((ServerMessage::GameStarted { maze_layout }, _)) => {
+                session.maze_layout = Some(maze_layout);
+            }
             Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
                 session.countdown_end_time = Some(end_time);
                 return Some(ClientState::Countdown);
@@ -225,7 +237,7 @@ pub fn choosing_username(
                     *prompt_printed = false;
                 }
             }
-            Ok((_, _)) => { /* Ignore other messages (chat, join, etc.) in this state */ }
+            Ok((_, _)) => {}
             Err(e) => ui.show_message(&format!("[Deserialization error: {}]", e)),
         }
     }
@@ -301,9 +313,15 @@ pub fn in_chat(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
+            Ok((ServerMessage::GameStarted { maze_layout }, _)) => {
+                session.maze_layout = Some(maze_layout);
+            }
             Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
                 session.countdown_end_time = Some(end_time);
                 return Some(ClientState::Countdown);
+            }
+            Ok((ServerMessage::RequestDifficultyChoice, _)) => {
+                return Some(ClientState::ChoosingDifficulty(false));
             }
             Ok((ServerMessage::ChatMessage { username, content }, _)) => {
                 if session.awaiting_initial_roster() {
@@ -333,11 +351,9 @@ pub fn in_chat(
                 session.mark_initial_roster_received();
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
-                // THE FIX IS HERE:
-                // We must *always* show ServerInfo messages, not just before the roster.
                 ui.show_message(&format!("Server: {}", message));
             }
-            Ok((_, _)) => { /* Ignore other messages like Welcome, UsernameError, etc. */ }
+            Ok((_, _)) => {}
             Err(e) => ui.show_message(&format!("[Deserialization error: {}]", e)),
         }
     }
@@ -378,7 +394,11 @@ pub fn in_chat(
     }
 }
 
-pub fn countdown(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<ClientState> {
+pub fn countdown(
+    session: &mut ClientSession,
+    ui: &mut dyn ClientUi,
+    network: &mut dyn NetworkHandle,
+) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Countdown) {
         panic!(
             "BUG: Called countdown() when state was not Countdown. Current state: {:?}",
@@ -386,21 +406,57 @@ pub fn countdown(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<C
         );
     }
 
+    while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
+        match decode_from_slice::<ServerMessage, _>(&data, standard()) {
+            Ok((ServerMessage::GameStarted { maze_layout }, _)) => {
+                session.maze_layout = Some(maze_layout);
+            }
+            Ok((ServerMessage::ChatMessage { username, content }, _)) => {
+                ui.show_message(&format!("{}: {}", username, content));
+            }
+            Ok((ServerMessage::UserJoined { username }, _)) => {
+                ui.show_message(&format!("{} joined the chat.", username));
+            }
+            Ok((ServerMessage::UserLeft { username }, _)) => {
+                ui.show_message(&format!("{} left the chat.", username));
+            }
+            Ok((_, _)) => {}
+            Err(e) => ui.show_message(&format!("[Deserialization error: {}]", e)),
+        }
+    }
+
     if let Some(end_time) = session.countdown_end_time {
         let time_remaining_secs = end_time - session.estimated_server_time - 1.0;
 
-        let status_message = if time_remaining_secs > 0.0 {
-            format!("Time Remaining: {:.0}s", time_remaining_secs.ceil())
+        if time_remaining_secs > 0.0 {
+            let status_message = format!("Time Remaining: {:.0}s", time_remaining_secs.ceil());
+            ui.show_status_line(&status_message);
         } else {
             ui.show_status_line("Time Remaining: 0s");
-            std::thread::sleep(Duration::from_millis(100));
-            println!("\r");
-            return Some(ClientState::InGame);
-        };
 
-        ui.show_status_line(&status_message);
+            if let Some(maze_layout) = session.maze_layout.take() {
+                std::thread::sleep(Duration::from_millis(100));
+                println!("\r");
+                ui.show_message("Game started! Maze received:");
+
+                for line in maze_layout.lines() {
+                    ui.show_message(line);
+                }
+
+                ui.show_message("Exiting for now.");
+                return Some(ClientState::InGame);
+            } else {
+                ui.show_status_line("Waiting for maze data...");
+            }
+        }
     } else {
         ui.show_status_line("Waiting for countdown info...");
+    }
+
+    if let Err(UiInputError::Disconnected) = ui.poll_input(0) {
+        return Some(ClientState::Disconnected {
+            message: "Input thread disconnected.".to_string(),
+        });
     }
 
     None
@@ -429,6 +485,86 @@ fn parse_passcode_input(input: &str) -> Option<Passcode> {
             string: s.to_string(),
         });
     }
+    None
+}
+
+pub fn choosing_difficulty(
+    session: &mut ClientSession,
+    ui: &mut dyn ClientUi,
+    network: &mut dyn NetworkHandle,
+) -> Option<ClientState> {
+    let is_correct_state = matches!(session.state(), ClientState::ChoosingDifficulty(_));
+    if !is_correct_state {
+        panic!(
+            "BUG: Called choosing_difficulty() when state was not ChoosingDifficulty. Current state: {:?}",
+            session.state()
+        );
+    };
+
+    if let ClientState::ChoosingDifficulty(prompt_printed) = session.state_mut() {
+        if !*prompt_printed {
+            ui.show_message("Server: Choose a difficulty level:");
+            ui.show_message("  1. Easy");
+            ui.show_message("  2. So-so");
+            ui.show_message("  3. Next level");
+            ui.show_prompt("Enter 1, 2, or 3: ");
+            *prompt_printed = true;
+        }
+    }
+
+    while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
+        match decode_from_slice::<ServerMessage, _>(&data, standard()) {
+            Ok((ServerMessage::GameStarted { maze_layout }, _)) => {
+                session.maze_layout = Some(maze_layout);
+            }
+            Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
+                session.countdown_end_time = Some(end_time);
+                return Some(ClientState::Countdown);
+            }
+            Ok((ServerMessage::ServerInfo { message }, _)) => {
+                ui.show_message(&format!("Server: {}", message));
+                if let ClientState::ChoosingDifficulty(prompt_printed) = session.state_mut() {
+                    *prompt_printed = false;
+                }
+            }
+            Ok((ServerMessage::ChatMessage { username, content }, _)) => {
+                ui.show_message(&format!("{}: {}", username, content));
+            }
+            Ok((ServerMessage::UserJoined { username }, _)) => {
+                ui.show_message(&format!("{} joined the chat.", username));
+            }
+            Ok((ServerMessage::UserLeft { username }, _)) => {
+                ui.show_message(&format!("{} left the chat.", username));
+            }
+            Ok((_, _)) => {}
+            Err(e) => ui.show_message(&format!("[Deserialization error: {}]", e)),
+        }
+    }
+
+    match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
+        Ok(Some(input)) => match input.trim() {
+            "1" | "2" | "3" => {
+                let level = input.trim().parse::<u8>().unwrap();
+                let msg = ClientMessage::SetDifficulty(level);
+                let payload =
+                    encode_to_vec(&msg, standard()).expect("Failed to serialize SetDifficulty");
+                network.send_message(AppChannel::ReliableOrdered, payload);
+            }
+            _ => {
+                ui.show_error("Invalid choice. Please enter 1, 2, or 3.");
+                if let ClientState::ChoosingDifficulty(prompt_printed) = session.state_mut() {
+                    *prompt_printed = false;
+                }
+            }
+        },
+        Ok(None) => {}
+        Err(UiInputError::Disconnected) => {
+            return Some(ClientState::Disconnected {
+                message: "Input thread disconnected.".to_string(),
+            });
+        }
+    }
+
     None
 }
 
@@ -703,7 +839,7 @@ mod tests {
             expected = "BUG: Called connecting() when state was not Connecting. Current state: Startup"
         )]
         fn connecting_panics_if_not_in_connecting_state() {
-            let mut session = ClientSession::new(); // Starts in Startup.
+            let mut session = ClientSession::new();
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
 
@@ -727,7 +863,7 @@ mod tests {
             expected = "BUG: Called authenticating() when state was not Authenticating. Current state: Startup"
         )]
         fn authenticating_panics_if_not_in_authenticating_state() {
-            let mut session = ClientSession::new(); // Starts in Startup.
+            let mut session = ClientSession::new();
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
 
@@ -754,7 +890,7 @@ mod tests {
             expected = "BUG: Called choosing_username() when state was not ChoosingUsername. Current state: Startup"
         )]
         fn choosing_username_panics_if_not_in_choosing_username_state() {
-            let mut session = ClientSession::new(); // Starts in Startup.
+            let mut session = ClientSession::new();
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
 

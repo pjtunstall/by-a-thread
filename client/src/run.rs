@@ -92,7 +92,10 @@ fn client_loop(
                 state_handlers::choosing_username(session, ui, &mut network_handle)
             }
             ClientState::InChat => state_handlers::in_chat(session, ui, &mut network_handle),
-            ClientState::Countdown => state_handlers::countdown(session, ui),
+            ClientState::ChoosingDifficulty(_) => {
+                state_handlers::choosing_difficulty(session, ui, &mut network_handle)
+            }
+            ClientState::Countdown => state_handlers::countdown(session, ui, &mut network_handle),
             ClientState::Disconnected { .. } => None,
             ClientState::InGame => break,
         };

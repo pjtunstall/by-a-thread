@@ -1,14 +1,17 @@
-// chat_integration.rs
+// server/tests/chat_integration.rs
 use renet::{ChannelConfig, ClientNotFound, ConnectionConfig, RenetServer, SendType};
 use std::time::Duration;
 
-use bincode::{config::standard, serde::decode_from_slice};
+use bincode::{
+    config::standard,
+    serde::{decode_from_slice, encode_to_vec},
+};
 use server::net::RenetServerNetworkHandle;
 use server::run::{handle_messages, process_events};
 use server::state::{Lobby, ServerState};
 use shared::auth::Passcode;
 use shared::net::AppChannel;
-use shared::protocol::ServerMessage;
+use shared::protocol::{ClientMessage, ServerMessage};
 
 fn empty_passcode() -> Passcode {
     Passcode {
@@ -100,10 +103,9 @@ fn chat_messages_are_broadcast_to_other_clients() {
         panic!("State should be Lobby");
     }
 
-    alice.send_message(
-        AppChannel::ReliableOrdered,
-        "Hello, Bob!".as_bytes().to_vec(),
-    );
+    let msg = ClientMessage::SendChat("Hello, Bob!".to_string());
+    let payload = encode_to_vec(&msg, standard()).expect("Failed to serialize message");
+    alice.send_message(AppChannel::ReliableOrdered, payload);
 
     full_tick(&mut server, &mut alice, &mut bob);
 
@@ -169,7 +171,9 @@ fn players_are_notified_when_others_join_and_leave() {
         panic!("State should be Lobby");
     }
 
-    bob.send_message(AppChannel::ReliableOrdered, "Bob".as_bytes().to_vec());
+    let msg = ClientMessage::SetUsername("Bob".to_string());
+    let payload = encode_to_vec(&msg, standard()).expect("Failed to serialize message");
+    bob.send_message(AppChannel::ReliableOrdered, payload);
 
     full_tick(&mut server, &mut alice, &mut bob);
 
@@ -268,7 +272,9 @@ fn test_handle_messages_username_success_and_broadcast() {
         panic!("State should be Lobby");
     }
 
-    bob.send_message(AppChannel::ReliableOrdered, "Bob".as_bytes().to_vec());
+    let msg = ClientMessage::SetUsername("Bob".to_string());
+    let payload = encode_to_vec(&msg, standard()).expect("Failed to serialize message");
+    bob.send_message(AppChannel::ReliableOrdered, payload);
 
     full_tick(&mut server, &mut alice, &mut bob);
 
