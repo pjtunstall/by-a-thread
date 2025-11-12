@@ -1,3 +1,5 @@
+use client;
+
 fn main() {
-    client::run_client();
+    client::run::run_client();
 }

@@ -1,8 +1,9 @@
 use renet::{ChannelConfig, ClientNotFound, ConnectionConfig, RenetServer, SendType};
 use std::time::Duration;
 
+use server::net::RenetServerNetworkHandle;
+use server::run::{handle_messages, process_events};
 use server::state::{Lobby, ServerState};
-use server::{RenetServerNetworkHandle, handle_messages, process_events};
 use shared::auth::Passcode;
 use shared::net::AppChannel;
 

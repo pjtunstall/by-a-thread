@@ -1,3 +1,5 @@
+use server;
+
 fn main() {
-    server::run_server();
+    server::run::run_server();
 }

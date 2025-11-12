@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::ServerNetworkHandle;
+use crate::net::ServerNetworkHandle;
 use shared::net::AppChannel;
 
 pub const MAX_AUTH_ATTEMPTS: u8 = 3;
@@ -55,7 +55,7 @@ impl ServerState {
             lobby.register_connection(client_id);
         } else {
             println!(
-                "Client {} connected, but server is not in Lobby. Ignoring.",
+                "Client {} connected, but server is not in Lobby state. Ignoring.",
                 client_id
             );
         }

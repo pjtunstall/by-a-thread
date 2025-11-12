@@ -1,7 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 
-use crate::ServerNetworkEvent;
-use crate::ServerNetworkHandle;
+use crate::net::{ServerNetworkEvent, ServerNetworkHandle};
 use shared::net::AppChannel;
 
 #[derive(Default)]
