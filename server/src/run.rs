@@ -1,10 +1,12 @@
-// server/src/lib.rs
+// server/src/run.rs
 use std::net::SocketAddr;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use bincode::config::standard;
-use bincode::serde::encode_to_vec;
+use bincode::{
+    config::standard,
+    serde::{decode_from_slice, encode_to_vec},
+};
 use renet::RenetServer;
 use renet_netcode::NetcodeServerTransport;
 
@@ -21,7 +23,7 @@ use shared::{
     chat::{MAX_CHAT_MESSAGE_BYTES, MAX_USERNAME_LENGTH, UsernameError, sanitize_username},
     maze::{self, maker::Algorithm},
     net::AppChannel,
-    protocol::ServerMessage,
+    protocol::{ClientMessage, ServerMessage}, // Import ClientMessage
 };
 
 pub fn run_server() {
@@ -164,132 +166,165 @@ fn handle_lobby(
     passcode: &Passcode,
 ) -> Option<ServerState> {
     for client_id in network.clients_id() {
-        while let Some(message) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
-            if message.len() > MAX_CHAT_MESSAGE_BYTES {
-                println!(
-                    "Client {} sent an overly long message; ignoring.",
-                    client_id
-                );
+        while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
+            let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
+                println!("Client {} sent malformed data. Disconnecting.", client_id);
+                network.disconnect(client_id);
                 continue;
-            }
-            if state.is_authenticating(client_id) {
-                let (outcome, attempts_count) = {
-                    let attempts_entry = state
-                        .authentication_attempts(client_id)
-                        .expect("expected authentication state for client");
-                    let outcome = evaluate_passcode_attempt(
-                        passcode.bytes.as_slice(),
-                        attempts_entry,
-                        message.as_ref(),
-                        MAX_AUTH_ATTEMPTS,
-                    );
-                    let count = *attempts_entry;
-                    (outcome, count)
-                };
+            };
 
-                match outcome {
-                    AuthAttemptOutcome::Authenticated => {
-                        println!("Client {} authenticated successfully.", client_id);
-                        state.mark_authenticated(client_id);
-
-                        let prompt = format!(
-                            "Authentication successful! Please enter a username (1-{} characters).",
-                            MAX_USERNAME_LENGTH
-                        );
-                        let message = ServerMessage::ServerInfo { message: prompt };
-                        let payload = encode_to_vec(&message, standard())
-                            .expect("Failed to serialize ServerInfo");
-                        network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+            match message {
+                ClientMessage::SendPasscode(guess_bytes) => {
+                    if !state.is_authenticating(client_id) {
+                        println!("Client {} sent passcode in wrong state.", client_id);
+                        continue;
                     }
-                    AuthAttemptOutcome::TryAgain => {
-                        println!(
-                            "Client {} sent wrong passcode (Attempt {}).",
-                            client_id, attempts_count
-                        );
 
-                        let message = ServerMessage::ServerInfo {
-                            message: "Incorrect passcode. Try again.".to_string(),
-                        };
-                        let payload = encode_to_vec(&message, standard())
-                            .expect("Failed to serialize ServerInfo");
-                        network.send_message(client_id, AppChannel::ReliableOrdered, payload);
-                    }
-                    AuthAttemptOutcome::Disconnect => {
-                        println!("Client {} failed authentication. Disconnecting.", client_id);
-                        let message = ServerMessage::ServerInfo {
-                            message: "Incorrect passcode. Disconnecting.".to_string(),
-                        };
-                        let payload = encode_to_vec(&message, standard())
-                            .expect("Failed to serialize ServerInfo");
-                        network.send_message(client_id, AppChannel::ReliableOrdered, payload);
-                        network.disconnect(client_id);
-                        state.remove_client(client_id, network);
+                    let (outcome, attempts_count) = {
+                        let attempts_entry = state
+                            .authentication_attempts(client_id)
+                            .expect("expected authentication state for client");
+                        let outcome = evaluate_passcode_attempt(
+                            passcode.bytes.as_slice(),
+                            attempts_entry,
+                            &guess_bytes, // Use the inner bytes
+                            MAX_AUTH_ATTEMPTS,
+                        );
+                        let count = *attempts_entry;
+                        (outcome, count)
+                    };
+
+                    match outcome {
+                        AuthAttemptOutcome::Authenticated => {
+                            println!("Client {} authenticated successfully.", client_id);
+                            state.mark_authenticated(client_id);
+
+                            let prompt = format!(
+                                "Authentication successful! Please enter a username (1-{} characters).",
+                                MAX_USERNAME_LENGTH
+                            );
+                            let message = ServerMessage::ServerInfo { message: prompt };
+                            let payload = encode_to_vec(&message, standard())
+                                .expect("Failed to serialize ServerInfo");
+                            network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+                        }
+                        AuthAttemptOutcome::TryAgain => {
+                            println!(
+                                "Client {} sent wrong passcode (Attempt {}).",
+                                client_id, attempts_count
+                            );
+
+                            let message = ServerMessage::ServerInfo {
+                                message: "Incorrect passcode. Try again.".to_string(),
+                            };
+                            let payload = encode_to_vec(&message, standard())
+                                .expect("Failed to serialize ServerInfo");
+                            network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+                        }
+                        AuthAttemptOutcome::Disconnect => {
+                            println!("Client {} failed authentication. Disconnecting.", client_id);
+                            let message = ServerMessage::ServerInfo {
+                                message: "Incorrect passcode. Disconnecting.".to_string(),
+                            };
+                            let payload = encode_to_vec(&message, standard())
+                                .expect("Failed to serialize ServerInfo");
+                            network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+                            network.disconnect(client_id);
+                            state.remove_client(client_id, network);
+                        }
                     }
                 }
-            } else if state.needs_username(client_id) {
-                let text = String::from_utf8_lossy(&message).to_string();
+                ClientMessage::SetUsername(username_text) => {
+                    if !state.needs_username(client_id) {
+                        println!("Client {} sent username in wrong state.", client_id);
+                        continue;
+                    }
 
-                match sanitize_username(&text) {
-                    Ok(username) => {
-                        if state.is_username_taken(&username) {
-                            send_username_error(network, client_id, "Username is already taken.");
+                    match sanitize_username(&username_text) {
+                        Ok(username) => {
+                            if state.is_username_taken(&username) {
+                                send_username_error(
+                                    network,
+                                    client_id,
+                                    "Username is already taken.",
+                                );
+                                continue;
+                            }
+
+                            state.register_username(client_id, &username);
+                            println!("Client {} set username to '{}'.", client_id, username);
+
+                            let message = ServerMessage::Welcome {
+                                username: username.to_string(),
+                            };
+                            let payload = encode_to_vec(&message, standard())
+                                .expect("Failed to serialize Welcome");
+                            network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+
+                            let others = state.usernames_except(client_id);
+                            let message = ServerMessage::Roster { online: others };
+                            let payload = encode_to_vec(&message, standard())
+                                .expect("Failed to serialize Roster");
+                            network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+
+                            if state.usernames_except(client_id).is_empty() {
+                                state.set_host(client_id, network);
+                            }
+
+                            let message = ServerMessage::UserJoined {
+                                username: username.to_string(),
+                            };
+                            let payload = encode_to_vec(&message, standard())
+                                .expect("Failed to serialize UserJoined");
+                            network.broadcast_message_except(
+                                client_id,
+                                AppChannel::ReliableOrdered,
+                                payload,
+                            );
+                        }
+                        Err(err) => {
+                            let error_text = match err {
+                                UsernameError::Empty => "Username must not be empty.",
+                                UsernameError::TooLong => "Username is too long.",
+                                UsernameError::InvalidCharacter(_) => {
+                                    "Username contains invalid characters."
+                                }
+                            };
+                            send_username_error(network, client_id, error_text);
+                        }
+                    }
+                }
+                ClientMessage::SendChat(content) => {
+                    if let Some(username) = state.username(client_id) {
+                        if content.is_empty() {
+                            continue;
+                        }
+                        if content.len() > MAX_CHAT_MESSAGE_BYTES {
+                            println!(
+                                "Client {} sent an overly long chat message; ignoring.",
+                                client_id
+                            );
                             continue;
                         }
 
-                        state.register_username(client_id, &username);
-                        println!("Client {} set username to '{}'.", client_id, username);
-
-                        let message = ServerMessage::Welcome {
+                        println!("{}: {}", username, content);
+                        let message = ServerMessage::ChatMessage {
                             username: username.to_string(),
+                            content,
                         };
                         let payload = encode_to_vec(&message, standard())
-                            .expect("Failed to serialize Welcome");
-                        network.send_message(client_id, AppChannel::ReliableOrdered, payload);
-
-                        let others = state.usernames_except(client_id);
-                        let message = ServerMessage::Roster { online: others };
-                        let payload = encode_to_vec(&message, standard())
-                            .expect("Failed to serialize Roster");
-                        network.send_message(client_id, AppChannel::ReliableOrdered, payload);
-
-                        if state.usernames_except(client_id).is_empty() {
-                            state.set_host(client_id, network);
-                        }
-
-                        let message = ServerMessage::UserJoined {
-                            username: username.to_string(),
-                        };
-                        let payload = encode_to_vec(&message, standard())
-                            .expect("Failed to serialize UserJoined");
-                        network.broadcast_message_except(
-                            client_id,
-                            AppChannel::ReliableOrdered,
-                            payload,
-                        );
-                    }
-                    Err(err) => {
-                        let error_text = match err {
-                            UsernameError::Empty => "Username must not be empty.",
-                            UsernameError::TooLong => "Username is too long.",
-                            UsernameError::InvalidCharacter(_) => {
-                                "Username contains invalid characters."
-                            }
-                        };
-                        send_username_error(network, client_id, error_text);
+                            .expect("Failed to serialize ChatMessage");
+                        network.broadcast_message(AppChannel::ReliableOrdered, payload);
+                    } else {
+                        println!("Client {} sent chat message in wrong state.", client_id);
                     }
                 }
-            } else {
-                let text = String::from_utf8_lossy(&message).trim().to_string();
-                if text.is_empty() {
-                    continue;
-                }
-
-                if text == shared::auth::START_COUNTDOWN {
+                ClientMessage::RequestStartGame => {
                     if state.is_host(client_id) {
                         let host = state
                             .username(client_id)
                             .expect("host should have a username");
-                        println!("Host ({}) started the game.", host);
+                        println!("Host, {}, started the game.", host);
 
                         let countdown_duration = Duration::from_secs(11);
                         let end_time_f64 =
@@ -309,19 +344,9 @@ fn handle_lobby(
                             state,
                             end_time_instant,
                         )));
+                    } else {
+                        println!("Client {} (not host) tried to start game.", client_id);
                     }
-                    continue;
-                }
-
-                if let Some(username) = state.username(client_id) {
-                    println!("{}: {}", username, text);
-                    let message = ServerMessage::ChatMessage {
-                        username: username.to_string(),
-                        content: text,
-                    };
-                    let payload = encode_to_vec(&message, standard())
-                        .expect("Failed to serialize ChatMessage");
-                    network.broadcast_message(AppChannel::ReliableOrdered, payload);
                 }
             }
         }
@@ -338,7 +363,7 @@ mod tests {
     use bincode::config::standard;
     use bincode::serde::decode_from_slice;
     use shared::auth::Passcode;
-    use shared::protocol::ServerMessage;
+    use shared::protocol::{ClientMessage, ServerMessage};
 
     #[test]
     fn test_process_events_client_connect() {
@@ -404,7 +429,9 @@ mod tests {
             lobby.register_connection(1);
         }
 
-        network.queue_raw_message(1, vec![1, 2, 3, 4, 5, 6]);
+        let msg = ClientMessage::SendPasscode(vec![1, 2, 3, 4, 5, 6]);
+        let payload = encode_to_vec(&msg, standard()).unwrap();
+        network.queue_raw_message(1, payload);
 
         let _ = handle_messages(&mut network, &mut state, &passcode);
 
@@ -439,7 +466,9 @@ mod tests {
         }
 
         for _ in 0..MAX_AUTH_ATTEMPTS {
-            network.queue_message(1, "000000");
+            let msg = ClientMessage::SendPasscode(vec![0, 0, 0, 0, 0, 0]);
+            let payload = encode_to_vec(&msg, standard()).unwrap();
+            network.queue_raw_message(1, payload);
         }
 
         let _ = handle_messages(&mut network, &mut state, &passcode);
@@ -483,7 +512,9 @@ mod tests {
             lobby.mark_authenticated(2);
         }
 
-        network.queue_message(2, "Bob");
+        let msg = ClientMessage::SetUsername("Bob".to_string());
+        let payload = encode_to_vec(&msg, standard()).unwrap();
+        network.queue_raw_message(2, payload);
 
         let _ = handle_messages(&mut network, &mut state, &passcode);
 
@@ -545,7 +576,9 @@ mod tests {
             lobby.register_username(2, "Bob");
         }
 
-        network.queue_message(1, "Hello Bob!");
+        let msg = ClientMessage::SendChat("Hello Bob!".to_string());
+        let payload = encode_to_vec(&msg, standard()).unwrap();
+        network.queue_raw_message(1, payload);
 
         let _ = handle_messages(&mut network, &mut state, &passcode);
 

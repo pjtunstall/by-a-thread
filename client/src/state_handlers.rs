@@ -1,13 +1,21 @@
+// client/src/state_handlers.rs
 use std::time::Duration;
 
-use bincode::{config::standard, serde::decode_from_slice};
+use bincode::{
+    config::standard,
+    serde::{decode_from_slice, encode_to_vec},
+};
 
 use crate::state::{
     ClientSession, ClientState, MAX_ATTEMPTS, username_prompt, validate_username_input,
 };
 use crate::ui::{ClientUi, UiInputError};
 pub use shared::net::AppChannel;
-use shared::{auth::Passcode, chat::MAX_CHAT_MESSAGE_BYTES, protocol::ServerMessage};
+use shared::{
+    auth::Passcode,
+    chat::MAX_CHAT_MESSAGE_BYTES,
+    protocol::{ClientMessage, ServerMessage},
+};
 
 pub trait NetworkHandle {
     fn is_connected(&self) -> bool;
@@ -67,7 +75,12 @@ pub fn connecting(
                 "Transport connected. Sending passcode: {}.",
                 passcode.string
             ));
-            network.send_message(AppChannel::ReliableOrdered, passcode.bytes);
+
+            let message = ClientMessage::SendPasscode(passcode.bytes);
+            let payload =
+                encode_to_vec(&message, standard()).expect("Failed to serialize SendPasscode");
+            network.send_message(AppChannel::ReliableOrdered, payload);
+
             Some(ClientState::Authenticating {
                 waiting_for_input: false,
                 guesses_left: MAX_ATTEMPTS,
@@ -113,7 +126,6 @@ pub fn authenticating(
                     ui.show_message(&format!("Server: {}", message));
 
                     if message.starts_with("Authentication successful!") {
-                        ui.show_message("Authenticated successfully!");
                         return Some(ClientState::ChoosingUsername {
                             prompt_printed: false,
                             awaiting_confirmation: false,
@@ -138,7 +150,12 @@ pub fn authenticating(
                 Ok(Some(input_string)) => {
                     if let Some(passcode) = parse_passcode_input(&input_string) {
                         ui.show_message("Sending new guess...");
-                        network.send_message(AppChannel::ReliableOrdered, passcode.bytes);
+
+                        let message = ClientMessage::SendPasscode(passcode.bytes);
+                        let payload = encode_to_vec(&message, standard())
+                            .expect("Failed to serialize SendPasscode");
+                        network.send_message(AppChannel::ReliableOrdered, payload);
+
                         *waiting_for_input = false;
                     } else {
                         ui.show_error(&format!(
@@ -229,8 +246,11 @@ pub fn choosing_username(
                     let validation = validate_username_input(&input);
                     match validation {
                         Ok(username) => {
-                            network
-                                .send_message(AppChannel::ReliableOrdered, username.into_bytes());
+                            let message = ClientMessage::SetUsername(username);
+                            let payload = encode_to_vec(&message, standard())
+                                .expect("Failed to serialize SetUsername");
+                            network.send_message(AppChannel::ReliableOrdered, payload);
+
                             *awaiting_confirmation = true;
                         }
                         Err(err) => {
@@ -313,6 +333,8 @@ pub fn in_chat(
                 session.mark_initial_roster_received();
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
+                // THE FIX IS HERE:
+                // We must *always* show ServerInfo messages, not just before the roster.
                 ui.show_message(&format!("Server: {}", message));
             }
             Ok((_, _)) => { /* Ignore other messages like Welcome, UsernameError, etc. */ }
@@ -324,7 +346,15 @@ pub fn in_chat(
         match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
             Ok(Some(input)) => {
                 if !input.trim().is_empty() {
-                    network.send_message(AppChannel::ReliableOrdered, input.into_bytes());
+                    let message = if input == shared::auth::START_COUNTDOWN {
+                        ClientMessage::RequestStartGame
+                    } else {
+                        ClientMessage::SendChat(input)
+                    };
+
+                    let payload =
+                        encode_to_vec(&message, standard()).expect("Failed to serialize chat");
+                    network.send_message(AppChannel::ReliableOrdered, payload);
                 }
             }
             Ok(None) => break,

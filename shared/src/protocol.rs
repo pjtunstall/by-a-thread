@@ -20,6 +20,14 @@ pub enum ServerMessage {
     ServerInfo { message: String },
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ClientMessage {
+    SendPasscode(Vec<u8>),
+    SetUsername(String),
+    SendChat(String),
+    RequestStartGame,
+}
+
 pub fn version() -> u64 {
     env!("CARGO_PKG_VERSION")
         .split('.')
