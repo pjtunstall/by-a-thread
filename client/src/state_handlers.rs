@@ -6,7 +6,7 @@ use crate::state::{
 };
 use crate::ui::{ClientUi, UiInputError};
 pub use shared::net::AppChannel;
-use shared::{ServerMessage, auth::Passcode, chat::MAX_CHAT_MESSAGE_BYTES};
+use shared::{auth::Passcode, chat::MAX_CHAT_MESSAGE_BYTES, protocol::ServerMessage};
 
 pub trait NetworkHandle {
     fn is_connected(&self) -> bool;

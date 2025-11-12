@@ -13,10 +13,11 @@ use crate::{
     },
 };
 use shared::{
-    self, ServerMessage,
+    self,
     auth::Passcode,
     chat::{MAX_CHAT_MESSAGE_BYTES, MAX_USERNAME_LENGTH, UsernameError, sanitize_username},
     net::AppChannel,
+    protocol::ServerMessage,
 };
 
 pub fn run_server() {
@@ -24,14 +25,14 @@ pub fn run_server() {
     let server_addr = net::server_address();
     let socket = net::bind_socket(server_addr);
 
-    let current_time = shared::current_time();
-    let protocol_id = shared::protocol_version();
+    let current_time = shared::time::now();
+    let protocol_id = shared::protocol::version();
 
     let server_config =
         net::build_server_config(current_time, protocol_id, server_addr, private_key);
     let mut transport =
         NetcodeServerTransport::new(server_config, socket).expect("failed to create transport");
-    let connection_config = shared::connection_config();
+    let connection_config = shared::net::connection_config();
     let mut server = RenetServer::new(connection_config);
     let passcode = Passcode::generate(6);
     let mut state = ServerState::Lobby(Lobby::new());
@@ -102,7 +103,7 @@ pub fn process_events(network: &mut dyn ServerNetworkHandle, state: &mut ServerS
 }
 
 fn sync_clocks(network: &mut dyn ServerNetworkHandle) {
-    let server_time_f64 = shared::current_time().as_secs_f64();
+    let server_time_f64 = shared::time::now().as_secs_f64();
     let message = ServerMessage::ServerTime(server_time_f64);
     let payload = bincode::serde::encode_to_vec(&message, bincode::config::standard())
         .expect("Failed to serialize ServerTime");
@@ -279,7 +280,7 @@ fn handle_lobby(
 
                         let countdown_duration = Duration::from_secs(11); // The client will use this value in the comparison and consider the time up when the countdown reaches 1.0. But it will print the counter value minus one.
                         let end_time_f64 =
-                            shared::current_time().as_secs_f64() + countdown_duration.as_secs_f64();
+                            shared::time::now().as_secs_f64() + countdown_duration.as_secs_f64();
 
                         let message = ServerMessage::CountdownStarted {
                             end_time: end_time_f64,

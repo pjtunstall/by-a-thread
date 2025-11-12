@@ -9,14 +9,14 @@ use crate::net::{self, RenetNetworkHandle};
 use crate::state::{ClientSession, ClientState};
 use crate::state_handlers::{self, AppChannel, NetworkHandle};
 use crate::ui::{ClientUi, TerminalUi};
-use shared::{self, ServerMessage};
+use shared::{self, protocol::ServerMessage};
 
 pub fn run_client() {
     let private_key = shared::auth::private_key();
     let client_id = rand::random::<u64>();
     let server_addr = net::default_server_addr();
-    let protocol_id = shared::protocol_version();
-    let current_time = shared::current_time();
+    let protocol_id = shared::protocol::version();
+    let current_time = shared::time::now();
     let connect_token = net::create_connect_token(
         current_time,
         protocol_id,
@@ -41,7 +41,7 @@ pub fn run_client() {
         }
     };
 
-    let connection_config = shared::connection_config();
+    let connection_config = shared::net::connection_config();
     let mut client = RenetClient::new(connection_config);
     let mut session = ClientSession::new();
 
