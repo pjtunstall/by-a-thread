@@ -3,7 +3,7 @@ mod state;
 mod state_handlers;
 mod ui;
 
-use std::net::UdpSocket;
+use std::net::{SocketAddr, UdpSocket};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -14,6 +14,17 @@ use crate::state::{ClientSession, ClientState};
 use crate::state_handlers::{AppChannel, NetworkHandle};
 use crate::ui::{ClientUi, TerminalUi};
 use shared::{self, ServerMessage};
+
+fn print_client_banner(
+    ui: &mut dyn ClientUi,
+    protocol_id: u64,
+    server_addr: SocketAddr,
+    client_id: u64,
+) {
+    ui.show_message(&format!("  Game version:  {}", protocol_id));
+    ui.show_message(&format!("  Connecting to: {}", server_addr));
+    ui.show_message(&format!("  Your ID:       {}", client_id));
+}
 
 pub fn run_client() {
     let private_key = shared::auth::private_key();
@@ -30,7 +41,6 @@ pub fn run_client() {
     );
 
     let mut ui = TerminalUi::new().expect("failed to initialize terminal UI");
-    ui.show_message(&format!("  Game version:  {}", protocol_id));
 
     let socket = match UdpSocket::bind("127.0.0.1:0") {
         Ok(socket) => socket,
@@ -51,12 +61,11 @@ pub fn run_client() {
     let connection_config = shared::connection_config();
     let mut client = RenetClient::new(connection_config);
 
-    ui.show_message(&format!("  Connecting to: {}", server_addr));
-    ui.show_message(&format!("  Your ID:       {}", client_id));
+    print_client_banner(&mut ui, protocol_id, server_addr, client_id);
 
     let mut session = ClientSession::new();
 
-    main_loop(&mut session, &mut ui, &mut client, &mut transport);
+    client_loop(&mut session, &mut ui, &mut client, &mut transport);
 
     ui.show_message("Client shutting down.");
 }
@@ -102,7 +111,7 @@ impl NetworkHandle for RenetNetworkHandle<'_> {
     }
 }
 
-fn main_loop(
+fn client_loop(
     session: &mut ClientSession,
     ui: &mut dyn ClientUi,
     client: &mut RenetClient,
