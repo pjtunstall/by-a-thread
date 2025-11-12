@@ -3,8 +3,6 @@ pub mod maker;
 pub use maker::Algorithm;
 use maker::MazeMaker;
 
-pub const CELL_SIZE: f32 = 64.0;
-
 #[derive(Clone)]
 pub struct Maze {
     pub grid: Vec<Vec<u8>>,
@@ -12,7 +10,8 @@ pub struct Maze {
 }
 
 impl Maze {
-    pub fn new(generator: Algorithm, radius: usize) -> Self {
+    pub fn new(generator: Algorithm) -> Self {
+        let radius = 16usize;
         let maker = MazeMaker::new(radius, radius, generator);
         let grid = maker.grid;
         let mut spaces = Vec::new();
@@ -28,16 +27,104 @@ impl Maze {
         Self { grid, spaces }
     }
 
-    pub fn log(&self) {
-        for row in self.grid.iter() {
-            for cell in row {
-                if *cell == 0 {
-                    print!("  ");
-                } else {
-                    print!("██");
+    pub fn log(&self) -> String {
+        self.grid
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|&cell| if cell == 0 { "  " } else { "██" })
+                    .collect::<String>()
+            })
+            .collect::<Vec<String>>()
+            .join("\n")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::VecDeque;
+
+    use super::*;
+
+    #[test]
+    fn test_backtrack_all_spaces_are_connected() {
+        for _ in 0..64 {
+            test_all_spaces_are_connected(Algorithm::Backtrack);
+        }
+    }
+
+    #[test]
+    fn test_prim_all_spaces_are_connected() {
+        for _ in 0..64 {
+            test_all_spaces_are_connected(Algorithm::Prim);
+        }
+    }
+
+    #[test]
+    fn test_wilson_all_spaces_are_connected() {
+        for _ in 0..64 {
+            test_all_spaces_are_connected(Algorithm::Wilson);
+        }
+    }
+
+    fn test_all_spaces_are_connected(generator: Algorithm) {
+        let maze = Maze::new(generator);
+        let grid = &maze.grid;
+
+        let height = grid.len();
+        assert!(height != 0, "Maze should have some rows");
+        let width = grid[0].len();
+        assert!(width != 0, "Maze should have some columns");
+
+        let mut total_spaces = 0;
+        let mut start_pos: Option<(usize, usize)> = None;
+
+        for r in 0..height {
+            for c in 0..width {
+                if grid[r][c] == 0 {
+                    total_spaces += 1;
+                    if start_pos.is_none() {
+                        start_pos = Some((r, c));
+                    }
                 }
             }
-            println!();
         }
+
+        let (start_r, start_c) = start_pos.expect("There should be at least one space");
+        assert!(total_spaces > 1, "There should be more than one space");
+
+        let mut visited = vec![vec![false; width]; height];
+        let mut queue: VecDeque<(usize, usize)> = VecDeque::new();
+        let mut visited_count = 0;
+
+        queue.push_back((start_r, start_c));
+        visited[start_r][start_c] = true;
+
+        while let Some((r, c)) = queue.pop_front() {
+            visited_count += 1;
+
+            let directions = [(0, 1), (0, -1), (1, 0), (-1, 0)];
+
+            for (dr, dc) in directions {
+                let nr = r as isize + dr;
+                let nc = c as isize + dc;
+
+                if nr >= 0 && nr < height as isize && nc >= 0 && nc < width as isize {
+                    let nr_u = nr as usize;
+                    let nc_u = nc as usize;
+
+                    if grid[nr_u][nc_u] == 0 && !visited[nr_u][nc_u] {
+                        visited[nr_u][nc_u] = true;
+                        queue.push_back((nr_u, nc_u));
+                    }
+                }
+            }
+        }
+
+        assert!(
+            total_spaces == visited_count,
+            "All spaces should be connected:\n{}",
+            maze.log()
+        );
     }
 }

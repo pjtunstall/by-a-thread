@@ -25,6 +25,10 @@ impl Cell {
 
         Cell { x, y }
     }
+
+    pub fn is_equal(&self, other: &Cell) -> bool {
+        self.x == other.x && self.y == other.y
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
