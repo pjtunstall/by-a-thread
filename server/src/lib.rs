@@ -1,4 +1,3 @@
-pub mod maze;
 pub mod net;
 pub mod run;
 pub mod state;

@@ -6,7 +6,6 @@ use renet::RenetServer;
 use renet_netcode::NetcodeServerTransport;
 
 use crate::{
-    maze::{self, maker::Algorithm},
     net::{self, RenetServerNetworkHandle, ServerNetworkEvent, ServerNetworkHandle},
     state::{
         AuthAttemptOutcome, Countdown, Lobby, MAX_AUTH_ATTEMPTS, ServerState,
@@ -17,6 +16,7 @@ use shared::{
     self,
     auth::Passcode,
     chat::{MAX_CHAT_MESSAGE_BYTES, MAX_USERNAME_LENGTH, UsernameError, sanitize_username},
+    maze::{self, maker::Algorithm},
     net::AppChannel,
     protocol::ServerMessage,
 };
