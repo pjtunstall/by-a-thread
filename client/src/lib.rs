@@ -16,8 +16,6 @@ use crate::ui::{ClientUi, TerminalUi};
 use shared::{self, ServerMessage};
 
 pub fn run_client() {
-    let mut ui = TerminalUi::new().expect("failed to initialize terminal UI");
-
     let private_key = shared::auth::private_key();
     let client_id = rand::random::<u64>();
     let server_addr = net::default_server_addr();
@@ -30,6 +28,9 @@ pub fn run_client() {
         server_addr,
         &private_key,
     );
+
+    let mut ui = TerminalUi::new().expect("failed to initialize terminal UI");
+    ui.show_message(&format!("  Game version:  {}", protocol_id));
 
     let socket = match UdpSocket::bind("127.0.0.1:0") {
         Ok(socket) => socket,
@@ -50,10 +51,8 @@ pub fn run_client() {
     let connection_config = shared::connection_config();
     let mut client = RenetClient::new(connection_config);
 
-    ui.show_message(&format!(
-        "Connecting to {} with client ID: {}.",
-        server_addr, client_id
-    ));
+    ui.show_message(&format!("  Connecting to: {}", server_addr));
+    ui.show_message(&format!("  Your ID:       {}", client_id));
 
     let mut session = ClientSession::new();
 

@@ -80,9 +80,9 @@ fn build_server_config(
 }
 
 fn print_server_banner(protocol_id: u64, server_addr: SocketAddr, passcode: &Passcode) {
-    println!("  Game version: {}", protocol_id);
+    println!("  Game version:   {}", protocol_id);
     println!("  Server address: {}", server_addr);
-    println!("  Passcode: {}", passcode.string);
+    println!("  Passcode:       {}", passcode.string);
 }
 
 pub struct RenetServerNetworkHandle<'a> {
