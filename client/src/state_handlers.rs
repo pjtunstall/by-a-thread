@@ -484,7 +484,10 @@ mod tests {
             server_addr: std::net::SocketAddr,
             client_id: u64,
         ) {
-            todo!();
+            self.messages.push(format!(
+                "Client Banner: Protocol={}, Server={}, ClientID={}",
+                protocol_id, server_addr, client_id
+            ));
         }
     }
 
@@ -699,7 +702,7 @@ mod tests {
         session.expect_initial_roster();
         let mut ui = MockUi::default();
 
-        handle_in_chat_server_message(&mut session, &mut ui, "Casey left the chat.");
+        handle_in_chat_server_message(&mut session, &mut ui, "Imhotep left the chat.");
         assert!(ui.messages.is_empty());
 
         handle_in_chat_server_message(&mut session, &mut ui, "You are the only player online.");
@@ -804,7 +807,7 @@ mod tests {
             expected = "BUG: Called connecting() when state was not Connecting. Current state: Startup"
         )]
         fn connecting_panics_if_not_in_connecting_state() {
-            let mut session = ClientSession::new(); // Starts in Startup
+            let mut session = ClientSession::new(); // Starts in Startup.
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
 
@@ -828,7 +831,7 @@ mod tests {
             expected = "BUG: Called authenticating() when state was not Authenticating. Current state: Startup"
         )]
         fn authenticating_panics_if_not_in_authenticating_state() {
-            let mut session = ClientSession::new(); // Starts in Startup
+            let mut session = ClientSession::new(); // Starts in Startup.
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
 
@@ -855,7 +858,7 @@ mod tests {
             expected = "BUG: Called choosing_username() when state was not ChoosingUsername. Current state: Startup"
         )]
         fn choosing_username_panics_if_not_in_choosing_username_state() {
-            let mut session = ClientSession::new(); // Starts in Startup
+            let mut session = ClientSession::new(); // Starts in Startup.
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
 
@@ -900,5 +903,23 @@ mod tests {
                 "Should not panic and should return None"
             );
         }
+    }
+
+    #[test]
+    fn client_banner_is_printed_correctly() {
+        let mut ui = MockUi::default();
+        let protocol_id = 12345;
+        let server_addr: std::net::SocketAddr = "127.0.0.1:8080".parse().unwrap();
+        let client_id = 99;
+
+        let expected_banner =
+            "Client Banner: Protocol=12345, Server=127.0.0.1:8080, ClientID=99".to_string();
+
+        ui.print_client_banner(protocol_id, server_addr, client_id);
+
+        assert_eq!(ui.messages, vec![expected_banner]);
+        assert!(ui.errors.is_empty());
+        assert!(ui.prompts.is_empty());
+        assert!(ui.status_lines.is_empty());
     }
 }
