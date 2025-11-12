@@ -16,16 +16,16 @@ pub struct MockServerNetwork {
     /// We add to this in tests using `queue_message` or `queue_raw_message`.
     client_messages: HashMap<u64, VecDeque<Vec<u8>>>,
 
-    /// **Outgoing Message Log (Server -> Specific Client):** A log of messages sent from the server.
+    /// **Outgoing Message Log (Server -> Specific Client):** A log of serialized binary messages.
     /// This is the "inbox" for each specific client. It's populated by `send_message`
     /// and `broadcast_message_except`.
-    /// Tests read this using `get_sent_messages(client_id)` to verify what a specific
-    /// client received.
+    /// Tests read this using `get_sent_messages_data(client_id)` to verify what
+    /// a specific client received.
     sent_messages: HashMap<u64, Vec<Vec<u8>>>,
 
-    /// **Outgoing Broadcast Log (Server -> All):** A log of messages broadcast to *everyone*.
+    /// **Outgoing Broadcast Log (Server -> All):** A log of serialized binary messages.
     /// This is populated *only* by `broadcast_message`.
-    /// Tests read this using `get_broadcast_messages()` to verify that a global broadcast
+    /// Tests read this using `get_broadcast_messages_data()` to verify that a global broadcast
     /// was sent.
     broadcast_messages: Vec<Vec<u8>>,
 
@@ -70,20 +70,12 @@ impl MockServerNetwork {
             .push_back(message);
     }
 
-    pub fn get_sent_messages(&mut self, client_id: u64) -> Vec<String> {
-        self.sent_messages
-            .entry(client_id)
-            .or_default()
-            .iter()
-            .map(|bytes| String::from_utf8_lossy(bytes).to_string())
-            .collect()
+    pub fn get_sent_messages_data(&mut self, client_id: u64) -> Vec<Vec<u8>> {
+        self.sent_messages.entry(client_id).or_default().clone()
     }
 
-    pub fn get_broadcast_messages(&self) -> Vec<String> {
-        self.broadcast_messages
-            .iter()
-            .map(|bytes| String::from_utf8_lossy(bytes).to_string())
-            .collect()
+    pub fn get_broadcast_messages_data(&self) -> Vec<Vec<u8>> {
+        self.broadcast_messages.clone()
     }
 }
 

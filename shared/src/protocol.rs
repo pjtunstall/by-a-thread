@@ -2,16 +2,22 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
-    /// Sent 10-20x/sec on an unreliable channel.
-    /// Contains the server's time in seconds (f64).
+    // Sent 10-20x/sec on an unreliable channel.
+    // Contains the server's time in seconds (f64).
     ServerTime(f64),
 
-    /// Sent once on a reliable channel to start the countdown.
-    /// Contains the exact server time (f64) when the countdown will end.
+    // Sent once on a reliable channel to start the countdown.
+    // Contains the exact server time (f64) when the countdown will end.
     CountdownStarted { end_time: f64 },
-    // Add other messages here later, e.g.:
-    // ChatMessage(String),
-    // PlayerJoined(String),
+    Welcome { username: String },
+    UsernameError { message: String },
+    Roster { online: Vec<String> },
+    UserJoined { username: String },
+    UserLeft { username: String },
+    ChatMessage { username: String, content: String },
+
+    // E.g. "Authentication successful!" or "Incorrect passcode..."
+    ServerInfo { message: String },
 }
 
 pub fn version() -> u64 {

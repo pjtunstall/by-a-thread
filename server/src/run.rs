@@ -1,7 +1,10 @@
+// server/src/lib.rs
 use std::net::SocketAddr;
 use std::thread;
 use std::time::{Duration, Instant};
 
+use bincode::config::standard;
+use bincode::serde::encode_to_vec;
 use renet::RenetServer;
 use renet_netcode::NetcodeServerTransport;
 
@@ -106,8 +109,7 @@ pub fn process_events(network: &mut dyn ServerNetworkHandle, state: &mut ServerS
 fn sync_clocks(network: &mut dyn ServerNetworkHandle) {
     let server_time_f64 = shared::time::now().as_secs_f64();
     let message = ServerMessage::ServerTime(server_time_f64);
-    let payload = bincode::serde::encode_to_vec(&message, bincode::config::standard())
-        .expect("Failed to serialize ServerTime");
+    let payload = encode_to_vec(&message, standard()).expect("Failed to serialize ServerTime");
     network.broadcast_message(AppChannel::ServerTime, payload);
 }
 
@@ -149,12 +151,11 @@ fn handle_countdown(
 }
 
 fn send_username_error(network: &mut dyn ServerNetworkHandle, client_id: u64, message: &str) {
-    let payload = format!("Username error: {}", message);
-    network.send_message(
-        client_id,
-        AppChannel::ReliableOrdered,
-        payload.as_bytes().to_vec(),
-    );
+    let message = ServerMessage::UsernameError {
+        message: message.to_string(),
+    };
+    let payload = encode_to_vec(&message, standard()).expect("Failed to serialize UsernameError");
+    network.send_message(client_id, AppChannel::ReliableOrdered, payload);
 }
 
 fn handle_lobby(
@@ -195,11 +196,10 @@ fn handle_lobby(
                             "Authentication successful! Please enter a username (1-{} characters).",
                             MAX_USERNAME_LENGTH
                         );
-                        network.send_message(
-                            client_id,
-                            AppChannel::ReliableOrdered,
-                            prompt.as_bytes().to_vec(),
-                        );
+                        let message = ServerMessage::ServerInfo { message: prompt };
+                        let payload = encode_to_vec(&message, standard())
+                            .expect("Failed to serialize ServerInfo");
+                        network.send_message(client_id, AppChannel::ReliableOrdered, payload);
                     }
                     AuthAttemptOutcome::TryAgain => {
                         println!(
@@ -207,13 +207,21 @@ fn handle_lobby(
                             client_id, attempts_count
                         );
 
-                        let try_again_msg = "Incorrect passcode. Try again.".as_bytes().to_vec();
-                        network.send_message(client_id, AppChannel::ReliableOrdered, try_again_msg);
+                        let message = ServerMessage::ServerInfo {
+                            message: "Incorrect passcode. Try again.".to_string(),
+                        };
+                        let payload = encode_to_vec(&message, standard())
+                            .expect("Failed to serialize ServerInfo");
+                        network.send_message(client_id, AppChannel::ReliableOrdered, payload);
                     }
                     AuthAttemptOutcome::Disconnect => {
                         println!("Client {} failed authentication. Disconnecting.", client_id);
-                        let error_msg = "Incorrect passcode. Disconnecting.".as_bytes().to_vec();
-                        network.send_message(client_id, AppChannel::ReliableOrdered, error_msg);
+                        let message = ServerMessage::ServerInfo {
+                            message: "Incorrect passcode. Disconnecting.".to_string(),
+                        };
+                        let payload = encode_to_vec(&message, standard())
+                            .expect("Failed to serialize ServerInfo");
+                        network.send_message(client_id, AppChannel::ReliableOrdered, payload);
                         network.disconnect(client_id);
                         state.remove_client(client_id, network);
                     }
@@ -231,36 +239,32 @@ fn handle_lobby(
                         state.register_username(client_id, &username);
                         println!("Client {} set username to '{}'.", client_id, username);
 
-                        let welcome = format!("Welcome, {}!", username);
-                        network.send_message(
-                            client_id,
-                            AppChannel::ReliableOrdered,
-                            welcome.as_bytes().to_vec(),
-                        );
+                        let message = ServerMessage::Welcome {
+                            username: username.to_string(),
+                        };
+                        let payload = encode_to_vec(&message, standard())
+                            .expect("Failed to serialize Welcome");
+                        network.send_message(client_id, AppChannel::ReliableOrdered, payload);
 
                         let others = state.usernames_except(client_id);
-                        if others.is_empty() {
-                            network.send_message(
-                                client_id,
-                                AppChannel::ReliableOrdered,
-                                "You are the only player online.".as_bytes().to_vec(),
-                            );
+                        let message = ServerMessage::Roster { online: others };
+                        let payload = encode_to_vec(&message, standard())
+                            .expect("Failed to serialize Roster");
+                        network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+
+                        if state.usernames_except(client_id).is_empty() {
                             state.set_host(client_id, network);
-                        } else {
-                            let list = others.join(", ");
-                            let message = format!("Players online: {}", list);
-                            network.send_message(
-                                client_id,
-                                AppChannel::ReliableOrdered,
-                                message.as_bytes().to_vec(),
-                            );
                         }
 
-                        let join_announcement = format!("{} joined the chat.", username);
+                        let message = ServerMessage::UserJoined {
+                            username: username.to_string(),
+                        };
+                        let payload = encode_to_vec(&message, standard())
+                            .expect("Failed to serialize UserJoined");
                         network.broadcast_message_except(
                             client_id,
                             AppChannel::ReliableOrdered,
-                            join_announcement.into_bytes(),
+                            payload,
                         );
                     }
                     Err(err) => {
@@ -287,16 +291,15 @@ fn handle_lobby(
                             .expect("host should have a username");
                         println!("Host ({}) started the game.", host);
 
-                        let countdown_duration = Duration::from_secs(11); // The client will use this value in the comparison and consider the time up when the countdown reaches 1.0. But it will print the counter value minus one.
+                        let countdown_duration = Duration::from_secs(11);
                         let end_time_f64 =
                             shared::time::now().as_secs_f64() + countdown_duration.as_secs_f64();
 
                         let message = ServerMessage::CountdownStarted {
                             end_time: end_time_f64,
                         };
-                        let payload =
-                            bincode::serde::encode_to_vec(&message, bincode::config::standard())
-                                .expect("Failed to serialize CountdownStarted");
+                        let payload = encode_to_vec(&message, standard())
+                            .expect("Failed to serialize CountdownStarted");
 
                         network.broadcast_message(AppChannel::ReliableOrdered, payload);
 
@@ -312,9 +315,13 @@ fn handle_lobby(
 
                 if let Some(username) = state.username(client_id) {
                     println!("{}: {}", username, text);
-                    let chat_message = format!("{}: {}", username, text);
-                    network
-                        .broadcast_message(AppChannel::ReliableOrdered, chat_message.into_bytes());
+                    let message = ServerMessage::ChatMessage {
+                        username: username.to_string(),
+                        content: text,
+                    };
+                    let payload = encode_to_vec(&message, standard())
+                        .expect("Failed to serialize ChatMessage");
+                    network.broadcast_message(AppChannel::ReliableOrdered, payload);
                 }
             }
         }
@@ -328,7 +335,10 @@ mod tests {
     use super::*;
     use crate::state::{Lobby, ServerState};
     use crate::test_helpers::MockServerNetwork;
+    use bincode::config::standard;
+    use bincode::serde::decode_from_slice;
     use shared::auth::Passcode;
+    use shared::protocol::ServerMessage;
 
     #[test]
     fn test_process_events_client_connect() {
@@ -370,8 +380,16 @@ mod tests {
             panic!("State is not Lobby");
         }
 
-        let broadcasts = network.get_broadcast_messages();
-        assert_eq!(broadcasts, vec!["Alice left the chat."]);
+        let broadcasts = network.get_broadcast_messages_data();
+        assert_eq!(broadcasts.len(), 1);
+        let msg = decode_from_slice::<ServerMessage, _>(&broadcasts[0], standard())
+            .unwrap()
+            .0;
+        if let ServerMessage::UserLeft { username } = msg {
+            assert_eq!(username, "Alice");
+        } else {
+            panic!("Expected UserLeft message, got {:?}", msg);
+        }
     }
 
     #[test]
@@ -396,9 +414,16 @@ mod tests {
             panic!("State is not Lobby");
         }
 
-        let client_msgs = network.get_sent_messages(1);
+        let client_msgs = network.get_sent_messages_data(1);
         assert_eq!(client_msgs.len(), 1);
-        assert!(client_msgs[0].starts_with("Authentication successful!"));
+        let msg = decode_from_slice::<ServerMessage, _>(&client_msgs[0], standard())
+            .unwrap()
+            .0;
+        if let ServerMessage::ServerInfo { message } = msg {
+            assert!(message.starts_with("Authentication successful!"));
+        } else {
+            panic!("Expected ServerInfo message, got {:?}", msg);
+        }
     }
 
     #[test]
@@ -426,13 +451,16 @@ mod tests {
         }
 
         assert!(network.disconnected_clients.contains(&1));
-        let client_msgs = network.get_sent_messages(1);
-        assert!(
-            client_msgs
-                .last()
-                .unwrap()
-                .starts_with("Incorrect passcode. Disconnecting.")
-        );
+        let client_msgs = network.get_sent_messages_data(1);
+        let last_msg_data = client_msgs.last().unwrap();
+        let msg = decode_from_slice::<ServerMessage, _>(last_msg_data, standard())
+            .unwrap()
+            .0;
+        if let ServerMessage::ServerInfo { message } = msg {
+            assert!(message.starts_with("Incorrect passcode. Disconnecting."));
+        } else {
+            panic!("Expected ServerInfo message, got {:?}", msg);
+        }
     }
 
     #[test]
@@ -465,19 +493,37 @@ mod tests {
             panic!("State is not Lobby");
         }
 
-        let bob_msgs = network.get_sent_messages(2);
-        assert!(bob_msgs.contains(&"Welcome, Bob!".to_string()));
-        assert!(bob_msgs.contains(&"Players online: Alice".to_string()));
-        assert!(
-            !bob_msgs.contains(&"Bob joined the chat.".to_string()),
-            "Bob should not be told that he himself joined"
-        );
+        let bob_msgs = network.get_sent_messages_data(2);
+        assert_eq!(bob_msgs.len(), 2);
 
-        let alice_msgs = network.get_sent_messages(1);
-        assert!(
-            alice_msgs.contains(&"Bob joined the chat.".to_string()),
-            "Alice should have been told that Bob joined"
-        );
+        let msg1 = decode_from_slice::<ServerMessage, _>(&bob_msgs[0], standard())
+            .unwrap()
+            .0;
+        if let ServerMessage::Welcome { username } = msg1 {
+            assert_eq!(username, "Bob");
+        } else {
+            panic!("Expected Welcome message, got {:?}", msg1);
+        }
+
+        let msg2 = decode_from_slice::<ServerMessage, _>(&bob_msgs[1], standard())
+            .unwrap()
+            .0;
+        if let ServerMessage::Roster { online } = msg2 {
+            assert_eq!(online, vec!["Alice"]);
+        } else {
+            panic!("Expected Roster message, got {:?}", msg2);
+        }
+
+        let alice_msgs = network.get_sent_messages_data(1);
+        assert_eq!(alice_msgs.len(), 1);
+        let msg_alice = decode_from_slice::<ServerMessage, _>(&alice_msgs[0], standard())
+            .unwrap()
+            .0;
+        if let ServerMessage::UserJoined { username } = msg_alice {
+            assert_eq!(username, "Bob");
+        } else {
+            panic!("Expected UserJoined message, got {:?}", msg_alice);
+        }
     }
 
     #[test]
@@ -503,7 +549,16 @@ mod tests {
 
         let _ = handle_messages(&mut network, &mut state, &passcode);
 
-        let broadcasts = network.get_broadcast_messages();
-        assert_eq!(broadcasts, vec!["Alice: Hello Bob!"]);
+        let broadcasts = network.get_broadcast_messages_data();
+        assert_eq!(broadcasts.len(), 1);
+        let msg = decode_from_slice::<ServerMessage, _>(&broadcasts[0], standard())
+            .unwrap()
+            .0;
+        if let ServerMessage::ChatMessage { username, content } = msg {
+            assert_eq!(username, "Alice");
+            assert_eq!(content, "Hello Bob!");
+        } else {
+            panic!("Expected ChatMessage, got {:?}", msg);
+        }
     }
 }

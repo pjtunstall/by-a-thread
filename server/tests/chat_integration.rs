@@ -1,11 +1,14 @@
+// chat_integration.rs
 use renet::{ChannelConfig, ClientNotFound, ConnectionConfig, RenetServer, SendType};
 use std::time::Duration;
 
+use bincode::{config::standard, serde::decode_from_slice};
 use server::net::RenetServerNetworkHandle;
 use server::run::{handle_messages, process_events};
 use server::state::{Lobby, ServerState};
 use shared::auth::Passcode;
 use shared::net::AppChannel;
+use shared::protocol::ServerMessage;
 
 fn empty_passcode() -> Passcode {
     Passcode {
@@ -121,10 +124,19 @@ fn chat_messages_are_broadcast_to_other_clients() {
     alice.update(Duration::from_millis(16));
     bob.update(Duration::from_millis(16));
 
-    let message = bob
+    let message_data = bob
         .receive_message(AppChannel::ReliableOrdered)
         .expect("Bob should receive the chat message");
-    assert_eq!(String::from_utf8_lossy(&message), "Alice: Hello, Bob!");
+    let message = decode_from_slice::<ServerMessage, _>(&message_data, standard())
+        .expect("Failed to deserialize message")
+        .0;
+
+    if let ServerMessage::ChatMessage { username, content } = message {
+        assert_eq!(username, "Alice");
+        assert_eq!(content, "Hello, Bob!");
+    } else {
+        panic!("Expected ChatMessage, got {:?}", message);
+    }
 }
 
 #[test]
@@ -178,13 +190,18 @@ fn players_are_notified_when_others_join_and_leave() {
     alice.update(Duration::from_millis(16));
     bob.update(Duration::from_millis(16));
 
-    let join_message = alice
+    let join_data = alice
         .receive_message(AppChannel::ReliableOrdered)
         .expect("Alice should be notified when Bob joins");
-    assert_eq!(
-        String::from_utf8_lossy(&join_message),
-        "Bob joined the chat."
-    );
+    let join_message = decode_from_slice::<ServerMessage, _>(&join_data, standard())
+        .expect("Failed to deserialize join message")
+        .0;
+
+    if let ServerMessage::UserJoined { username } = join_message {
+        assert_eq!(username, "Bob");
+    } else {
+        panic!("Expected UserJoined message, got {:?}", join_message);
+    }
 
     server.disconnect_local_client(bob_id, &mut bob);
 
@@ -207,13 +224,18 @@ fn players_are_notified_when_others_join_and_leave() {
     alice.update(Duration::from_millis(16));
     bob.update(Duration::from_millis(16));
 
-    let leave_message = alice
+    let leave_data = alice
         .receive_message(AppChannel::ReliableOrdered)
         .expect("Alice should be notified when Bob leaves");
-    assert_eq!(
-        String::from_utf8_lossy(&leave_message),
-        "Bob left the chat."
-    );
+    let leave_message = decode_from_slice::<ServerMessage, _>(&leave_data, standard())
+        .expect("Failed to deserialize leave message")
+        .0;
+
+    if let ServerMessage::UserLeft { username } = leave_message {
+        assert_eq!(username, "Bob");
+    } else {
+        panic!("Expected UserLeft message, got {:?}", leave_message);
+    }
 }
 
 #[test]
@@ -276,23 +298,44 @@ fn test_handle_messages_username_success_and_broadcast() {
     }
 
     let mut bob_msgs = Vec::new();
-    while let Some(message) = bob.receive_message(AppChannel::ReliableOrdered) {
-        bob_msgs.push(String::from_utf8_lossy(&message).to_string());
+    while let Some(message_data) = bob.receive_message(AppChannel::ReliableOrdered) {
+        let msg = decode_from_slice::<ServerMessage, _>(&message_data, standard())
+            .unwrap()
+            .0;
+        bob_msgs.push(msg);
     }
 
-    assert!(bob_msgs.contains(&"Welcome, Bob!".to_string()));
     assert!(
         bob_msgs
             .iter()
-            .any(|msg| msg.contains("Players online: Alice"))
+            .any(|msg| { matches!(msg, ServerMessage::Welcome { username } if username == "Bob") }),
+        "Bob did not receive a Welcome message"
     );
+
     assert!(
-        !bob_msgs.contains(&"Bob joined the chat.".to_string()),
+        bob_msgs.iter().any(|msg| {
+            matches!(msg, ServerMessage::Roster { online } if online == &vec!["Alice".to_string()])
+        }),
+        "Bob did not receive a correct Roster message"
+    );
+
+    assert!(
+        !bob_msgs.iter().any(|msg| {
+            matches!(msg, ServerMessage::UserJoined { username } if username == "Bob")
+        }),
         "Bob should not be told that he himself joined"
     );
 
-    let alice_msg = alice
+    let alice_data = alice
         .receive_message(AppChannel::ReliableOrdered)
         .expect("Alice should have received a message");
-    assert_eq!(String::from_utf8_lossy(&alice_msg), "Bob joined the chat.");
+    let alice_msg = decode_from_slice::<ServerMessage, _>(&alice_data, standard())
+        .unwrap()
+        .0;
+
+    if let ServerMessage::UserJoined { username } = alice_msg {
+        assert_eq!(username, "Bob");
+    } else {
+        panic!("Alice expected UserJoined message, got {:?}", alice_msg);
+    }
 }

@@ -1,8 +1,9 @@
 use std::time::Duration;
 
+use bincode::{config::standard, serde::decode_from_slice};
+
 use crate::state::{
-    AuthMessageOutcome, ClientSession, ClientState, MAX_ATTEMPTS, interpret_auth_message,
-    username_prompt, validate_username_input,
+    ClientSession, ClientState, MAX_ATTEMPTS, username_prompt, validate_username_input,
 };
 use crate::ui::{ClientUi, UiInputError};
 pub use shared::net::AppChannel;
@@ -102,33 +103,33 @@ pub fn authenticating(
         guesses_left,
     } = session.state_mut()
     {
-        while let Some(message) = network.receive_message(AppChannel::ReliableOrdered) {
-            if let Ok((ServerMessage::CountdownStarted { end_time }, _)) =
-                bincode::serde::decode_from_slice(&message, bincode::config::standard())
-            {
-                session.countdown_end_time = Some(end_time);
-                return Some(ClientState::Countdown);
-            }
+        while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
+            match decode_from_slice::<ServerMessage, _>(&data, standard()) {
+                Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
+                    session.countdown_end_time = Some(end_time);
+                    return Some(ClientState::Countdown);
+                }
+                Ok((ServerMessage::ServerInfo { message }, _)) => {
+                    ui.show_message(&format!("Server: {}", message));
 
-            let text = String::from_utf8_lossy(&message);
-            ui.show_message(&format!("Server: {}", text));
-
-            match interpret_auth_message(&text, guesses_left) {
-                AuthMessageOutcome::Authenticated => {
-                    ui.show_message("Authenticated successfully!");
-                    return Some(ClientState::ChoosingUsername {
-                        prompt_printed: false,
-                        awaiting_confirmation: false,
-                    });
+                    if message.starts_with("Authentication successful!") {
+                        ui.show_message("Authenticated successfully!");
+                        return Some(ClientState::ChoosingUsername {
+                            prompt_printed: false,
+                            awaiting_confirmation: false,
+                        });
+                    } else if message.starts_with("Incorrect passcode. Try again.") {
+                        *guesses_left = guesses_left.saturating_sub(1);
+                        ui.show_prompt(&passcode_prompt(*guesses_left));
+                        *waiting_for_input = true;
+                    } else if message.starts_with("Incorrect passcode. Disconnecting.") {
+                        return Some(ClientState::Disconnected {
+                            message: "Authentication failed.".to_string(),
+                        });
+                    }
                 }
-                AuthMessageOutcome::RequestNewGuess(remaining) => {
-                    ui.show_prompt(&passcode_prompt(remaining));
-                    *waiting_for_input = true;
-                }
-                AuthMessageOutcome::Disconnect(message) => {
-                    return Some(ClientState::Disconnected { message });
-                }
-                AuthMessageOutcome::None => {}
+                Ok((_, _)) => { /* Ignore unexpected messages in this state */ }
+                Err(e) => ui.show_message(&format!("[Deserialization error: {}]", e)),
             }
         }
 
@@ -184,26 +185,31 @@ pub fn choosing_username(
         );
     }
 
-    while let Some(message) = network.receive_message(AppChannel::ReliableOrdered) {
-        if let Ok((ServerMessage::CountdownStarted { end_time }, _)) =
-            bincode::serde::decode_from_slice(&message, bincode::config::standard())
-        {
-            session.countdown_end_time = Some(end_time);
-            return Some(ClientState::Countdown);
-        }
-
-        let text = String::from_utf8_lossy(&message).to_string();
-
-        if is_participant_announcement(&text) {
-            continue;
-        }
-
-        if matches!(
-            handle_username_server_message(session, ui, &text),
-            UsernameMessageResult::TransitionToChat
-        ) {
-            session.expect_initial_roster();
-            return Some(ClientState::InChat);
+    while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
+        match decode_from_slice::<ServerMessage, _>(&data, standard()) {
+            Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
+                session.countdown_end_time = Some(end_time);
+                return Some(ClientState::Countdown);
+            }
+            Ok((ServerMessage::Welcome { username }, _)) => {
+                ui.show_message(&format!("Welcome, {}!", username));
+                session.expect_initial_roster();
+                return Some(ClientState::InChat);
+            }
+            Ok((ServerMessage::UsernameError { message }, _)) => {
+                ui.show_message(&format!("Username error: {}", message));
+                ui.show_message("Please try a different username.");
+                if let ClientState::ChoosingUsername {
+                    prompt_printed,
+                    awaiting_confirmation,
+                } = session.state_mut()
+                {
+                    *awaiting_confirmation = false;
+                    *prompt_printed = false;
+                }
+            }
+            Ok((_, _)) => { /* Ignore other messages (chat, join, etc.) in this state */ }
+            Err(e) => ui.show_message(&format!("[Deserialization error: {}]", e)),
         }
     }
 
@@ -273,16 +279,45 @@ pub fn in_chat(
         );
     }
 
-    while let Some(message) = network.receive_message(AppChannel::ReliableOrdered) {
-        if let Ok((ServerMessage::CountdownStarted { end_time }, _)) =
-            bincode::serde::decode_from_slice(&message, bincode::config::standard())
-        {
-            session.countdown_end_time = Some(end_time);
-            return Some(ClientState::Countdown);
+    while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
+        match decode_from_slice::<ServerMessage, _>(&data, standard()) {
+            Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
+                session.countdown_end_time = Some(end_time);
+                return Some(ClientState::Countdown);
+            }
+            Ok((ServerMessage::ChatMessage { username, content }, _)) => {
+                if session.awaiting_initial_roster() {
+                    continue;
+                }
+                ui.show_message(&format!("{}: {}", username, content));
+            }
+            Ok((ServerMessage::UserJoined { username }, _)) => {
+                if session.awaiting_initial_roster() {
+                    continue;
+                }
+                ui.show_message(&format!("{} joined the chat.", username));
+            }
+            Ok((ServerMessage::UserLeft { username }, _)) => {
+                if session.awaiting_initial_roster() {
+                    continue;
+                }
+                ui.show_message(&format!("{} left the chat.", username));
+            }
+            Ok((ServerMessage::Roster { online }, _)) => {
+                let msg = if online.is_empty() {
+                    "You are the only player online.".to_string()
+                } else {
+                    format!("Players online: {}", online.join(", "))
+                };
+                ui.show_message(&msg);
+                session.mark_initial_roster_received();
+            }
+            Ok((ServerMessage::ServerInfo { message }, _)) => {
+                ui.show_message(&format!("Server: {}", message));
+            }
+            Ok((_, _)) => { /* Ignore other messages like Welcome, UsernameError, etc. */ }
+            Err(e) => ui.show_message(&format!("[Deserialization error: {}]", e)),
         }
-
-        let text = String::from_utf8_lossy(&message).to_string();
-        handle_in_chat_server_message(session, ui, &text);
     }
 
     loop {
@@ -367,64 +402,6 @@ fn parse_passcode_input(input: &str) -> Option<Passcode> {
     None
 }
 
-#[derive(Debug, PartialEq, Eq)]
-enum UsernameMessageResult {
-    None,
-    TransitionToChat,
-}
-
-fn handle_username_server_message(
-    session: &mut ClientSession,
-    ui: &mut dyn ClientUi,
-    text: &str,
-) -> UsernameMessageResult {
-    if is_participant_announcement(text) {
-        return UsernameMessageResult::None;
-    }
-
-    let mut result = UsernameMessageResult::None;
-
-    let handled = session.with_choosing_username(|prompt_printed, awaiting_confirmation| {
-        ui.show_message(&format!("Server: {}", text));
-
-        if text.starts_with("Username error:") {
-            ui.show_message("Please try a different username.");
-            *awaiting_confirmation = false;
-            *prompt_printed = false;
-        } else if text.starts_with("Welcome, ") {
-            result = UsernameMessageResult::TransitionToChat;
-        }
-    });
-
-    if handled.is_none() {
-        ui.show_message(&format!("Server: {}", text));
-    }
-
-    result
-}
-
-fn handle_in_chat_server_message(session: &mut ClientSession, ui: &mut dyn ClientUi, text: &str) {
-    if session.awaiting_initial_roster() {
-        if is_roster_message(text) {
-            ui.show_message(text);
-            session.mark_initial_roster_received();
-        } else if !is_participant_announcement(text) {
-            ui.show_message(text);
-        }
-        return;
-    }
-
-    ui.show_message(text);
-}
-
-fn is_participant_announcement(text: &str) -> bool {
-    text.ends_with(" joined the chat.") || text.ends_with(" left the chat.")
-}
-
-fn is_roster_message(text: &str) -> bool {
-    text.starts_with("Players online: ") || text == "You are the only player online."
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::VecDeque;
@@ -432,6 +409,7 @@ mod tests {
     use super::*;
     use crate::state::ClientSession;
     use crate::ui::{ClientUi, UiInputError};
+    use bincode::{config::standard, serde::encode_to_vec};
 
     #[derive(Default)]
     struct MockUi {
@@ -517,10 +495,10 @@ mod tests {
             self.disconnect_reason_val = reason.to_string();
         }
 
-        #[allow(dead_code)]
-        fn queue_message(&mut self, message: &str) {
-            self.messages_to_receive
-                .push_back(message.as_bytes().to_vec());
+        fn queue_server_message(&mut self, message: ServerMessage) {
+            let data =
+                encode_to_vec(&message, standard()).expect("Failed to serialize test message");
+            self.messages_to_receive.push_back(data);
         }
     }
 
@@ -631,120 +609,6 @@ mod tests {
     }
 
     #[test]
-    fn choosing_username_discards_announcements() {
-        let mut session = ClientSession::new();
-        session.transition(ClientState::ChoosingUsername {
-            prompt_printed: false,
-            awaiting_confirmation: false,
-        });
-        let mut ui = MockUi::default();
-
-        handle_username_server_message(&mut session, &mut ui, "Riley joined the chat.");
-
-        assert!(ui.messages.is_empty());
-        assert!(ui.errors.is_empty());
-        assert!(ui.prompts.is_empty());
-    }
-
-    #[test]
-    fn choosing_username_retries_after_error_message() {
-        let mut session = ClientSession::new();
-        session.transition(ClientState::ChoosingUsername {
-            prompt_printed: true,
-            awaiting_confirmation: true,
-        });
-        let mut ui = MockUi::default();
-
-        let result = handle_username_server_message(
-            &mut session,
-            &mut ui,
-            "Username error: Username is already taken.",
-        );
-
-        assert_eq!(result, UsernameMessageResult::None);
-        assert_eq!(
-            ui.messages,
-            vec![
-                "Server: Username error: Username is already taken.".to_string(),
-                "Please try a different username.".to_string(),
-            ]
-        );
-
-        let (prompt_printed, awaiting_confirmation) = session
-            .with_choosing_username(|prompt_printed, awaiting_confirmation| {
-                (*prompt_printed, *awaiting_confirmation)
-            })
-            .expect("session should still be choosing a username");
-
-        assert!(!prompt_printed);
-        assert!(!awaiting_confirmation);
-    }
-
-    #[test]
-    fn choosing_username_state_handlers_after_welcome() {
-        let mut session = ClientSession::new();
-        session.transition(ClientState::ChoosingUsername {
-            prompt_printed: false,
-            awaiting_confirmation: true,
-        });
-        let mut ui = MockUi::default();
-
-        let result = handle_username_server_message(&mut session, &mut ui, "Welcome, Pat!");
-
-        assert_eq!(result, UsernameMessageResult::TransitionToChat);
-        assert_eq!(ui.messages, vec!["Server: Welcome, Pat!".to_string()]);
-    }
-
-    #[test]
-    fn chat_discards_announcements_received_before_roster() {
-        let mut session = ClientSession::new();
-        session.transition(ClientState::InChat);
-        session.expect_initial_roster();
-        let mut ui = MockUi::default();
-
-        handle_in_chat_server_message(&mut session, &mut ui, "Imhotep left the chat.");
-        assert!(ui.messages.is_empty());
-
-        handle_in_chat_server_message(&mut session, &mut ui, "You are the only player online.");
-
-        assert_eq!(
-            ui.messages,
-            vec!["You are the only player online.".to_string()]
-        );
-        assert!(!session.awaiting_initial_roster());
-
-        handle_in_chat_server_message(&mut session, &mut ui, "Morgan joined the chat.");
-
-        assert_eq!(
-            ui.messages,
-            vec![
-                "You are the only player online.".to_string(),
-                "Morgan joined the chat.".to_string(),
-            ]
-        );
-    }
-
-    #[test]
-    fn chat_surfaces_regular_messages_before_roster_arrives() {
-        let mut session = ClientSession::new();
-        session.transition(ClientState::InChat);
-        session.expect_initial_roster();
-        let mut ui = MockUi::default();
-
-        handle_in_chat_server_message(
-            &mut session,
-            &mut ui,
-            "Server: Maintenance starts in 5 minutes.",
-        );
-
-        assert_eq!(
-            ui.messages,
-            vec!["Server: Maintenance starts in 5 minutes.".to_string()]
-        );
-        assert!(session.awaiting_initial_roster());
-    }
-
-    #[test]
     fn authenticating_requests_new_guess_after_incorrect_passcode_message() {
         let mut session = ClientSession::new();
         session.transition(ClientState::Authenticating {
@@ -754,7 +618,9 @@ mod tests {
 
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
-        network.queue_message("Incorrect passcode. Try again.");
+        network.queue_server_message(ServerMessage::ServerInfo {
+            message: "Incorrect passcode. Try again.".to_string(),
+        });
 
         let next_state = authenticating(&mut session, &mut ui, &mut network);
 

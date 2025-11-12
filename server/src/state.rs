@@ -1,10 +1,12 @@
+// state.rs
 use std::{
     collections::{HashMap, HashSet},
     time::{Duration, Instant},
 };
 
 use crate::net::ServerNetworkHandle;
-use shared::net::AppChannel;
+use bincode::{config::standard, serde::encode_to_vec};
+use shared::{net::AppChannel, protocol::ServerMessage};
 
 pub const MAX_AUTH_ATTEMPTS: u8 = 3;
 
@@ -21,10 +23,23 @@ impl Countdown {
         }
     }
 
-    pub fn remove_client(&mut self, client_id: u64, _network: &mut dyn ServerNetworkHandle) {
-        println!("Client {} disconnected during countdown.", client_id);
-        // TODO: Handle player/host disconnects.
-        let _ = self.usernames.remove(&client_id);
+    pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
+        if let Some(username) = self.usernames.remove(&client_id) {
+            println!(
+                "Client {} ({}) disconnected during countdown.",
+                client_id, username
+            );
+            let message = ServerMessage::UserLeft { username };
+            let payload =
+                encode_to_vec(&message, standard()).expect("Failed to serialize UserLeft");
+            network.broadcast_message(AppChannel::ReliableOrdered, payload);
+        } else {
+            println!(
+                "Client {} disconnected during countdown (no username).",
+                client_id
+            );
+        }
+        // TODO: Handle host disconnects.
     }
 }
 
@@ -103,13 +118,11 @@ impl Lobby {
 
     pub fn set_host(&mut self, id: u64, network: &mut dyn ServerNetworkHandle) {
         self.host_client_id = Some(id);
-        network.send_message(
-            id,
-            AppChannel::ReliableOrdered,
-            "  You have been appointed host.\r\n  Press TAB to start a game."
-                .as_bytes()
-                .to_vec(),
-        );
+        let message = ServerMessage::ServerInfo {
+            message: "  You have been appointed host.\r\n  Press TAB to start a game.".to_string(),
+        };
+        let payload = encode_to_vec(&message, standard()).expect("Failed to serialize ServerInfo");
+        network.send_message(id, AppChannel::ReliableOrdered, payload);
     }
 
     pub fn is_host(&self, client_id: u64) -> bool {
@@ -130,8 +143,10 @@ impl Lobby {
         let name_removed = self.usernames.remove(&client_id);
 
         if let Some(username) = name_removed {
-            let message = format!("{} left the chat.", username);
-            network.broadcast_message(AppChannel::ReliableOrdered, message.into_bytes());
+            let message = ServerMessage::UserLeft { username };
+            let payload =
+                encode_to_vec(&message, standard()).expect("Failed to serialize UserLeft");
+            network.broadcast_message(AppChannel::ReliableOrdered, payload);
         }
 
         if self.host_client_id == Some(client_id) {
@@ -222,6 +237,8 @@ pub fn evaluate_passcode_attempt(
 mod tests {
     use super::*;
     use crate::test_helpers::MockServerNetwork;
+    use bincode::{config::standard, serde::decode_from_slice};
+    use shared::protocol::ServerMessage;
 
     #[test]
     fn successful_authentication_does_not_increment_attempts() {
@@ -352,9 +369,17 @@ mod tests {
 
         state.set_host(123, &mut network);
 
-        let messages = network.get_sent_messages(123);
+        let messages = network.get_sent_messages_data(123);
         assert_eq!(messages.len(), 1);
-        assert!(messages[0].contains("You have been appointed host"));
+
+        let msg = decode_from_slice::<ServerMessage, _>(&messages[0], standard())
+            .unwrap()
+            .0;
+        if let ServerMessage::ServerInfo { message } = msg {
+            assert!(message.contains("You have been appointed host"));
+        } else {
+            panic!("Expected ServerInfo message, got {:?}", msg);
+        }
     }
 
     #[test]

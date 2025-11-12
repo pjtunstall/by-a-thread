@@ -25,30 +25,6 @@ pub enum ClientState {
     InGame,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum AuthMessageOutcome {
-    Authenticated,
-    RequestNewGuess(u8),
-    Disconnect(String),
-    None,
-}
-
-pub fn interpret_auth_message(text: &str, guesses_left: &mut u8) -> AuthMessageOutcome {
-    match text {
-        "Authentication successful! Please enter a username (1-16 characters)." => {
-            AuthMessageOutcome::Authenticated
-        }
-        "Incorrect passcode. Try again." => {
-            *guesses_left = guesses_left.saturating_sub(1);
-            AuthMessageOutcome::RequestNewGuess(*guesses_left)
-        }
-        "Incorrect passcode. Disconnecting." => {
-            AuthMessageOutcome::Disconnect("Incorrect passcode (final attempt failed).".to_string())
-        }
-        _ => AuthMessageOutcome::None,
-    }
-}
-
 pub struct ClientSession {
     state: ClientState,
     first_passcode: Option<Passcode>,
@@ -131,55 +107,6 @@ pub fn validate_username_input(input: &str) -> Result<String, UsernameError> {
 mod tests {
     use super::*;
     use shared::auth::Passcode;
-
-    #[test]
-    fn interprets_welcome_message() {
-        let mut guesses_left = 3;
-        let outcome = interpret_auth_message(
-            "Authentication successful! Please enter a username (1-16 characters).",
-            &mut guesses_left,
-        );
-        assert_eq!(outcome, AuthMessageOutcome::Authenticated);
-        assert_eq!(guesses_left, 3);
-    }
-
-    #[test]
-    fn interprets_try_again_message() {
-        let mut guesses_left = 3;
-        let outcome = interpret_auth_message("Incorrect passcode. Try again.", &mut guesses_left);
-        assert_eq!(outcome, AuthMessageOutcome::RequestNewGuess(2));
-        assert_eq!(guesses_left, 2);
-    }
-
-    #[test]
-    fn interprets_disconnect_message() {
-        let mut guesses_left = 1;
-        let outcome =
-            interpret_auth_message("Incorrect passcode. Disconnecting.", &mut guesses_left);
-        assert_eq!(guesses_left, 1);
-        assert_eq!(
-            outcome,
-            AuthMessageOutcome::Disconnect(
-                "Incorrect passcode (final attempt failed).".to_string()
-            )
-        );
-    }
-
-    #[test]
-    fn ignores_unexpected_message() {
-        let mut guesses_left = 2;
-        let outcome = interpret_auth_message("Some other message", &mut guesses_left);
-        assert_eq!(outcome, AuthMessageOutcome::None);
-        assert_eq!(guesses_left, 2);
-    }
-
-    #[test]
-    fn try_again_message_saturates_guesses_at_zero() {
-        let mut guesses_left = 0;
-        let outcome = interpret_auth_message("Incorrect passcode. Try again.", &mut guesses_left);
-        assert_eq!(outcome, AuthMessageOutcome::RequestNewGuess(0));
-        assert_eq!(guesses_left, 0);
-    }
 
     #[test]
     fn new_session_starts_in_startup_state() {
