@@ -23,14 +23,16 @@ pub enum ClientState {
     Disconnected {
         message: String,
     },
-    ChoosingDifficulty(bool),
+    ChoosingDifficulty {
+        prompt_printed: bool,
+    },
     InGame,
 }
 
 pub struct ClientSession {
-    state: ClientState,
-    first_passcode: Option<Passcode>,
-    awaiting_initial_roster: bool,
+    pub state: ClientState,
+    pub first_passcode: Option<Passcode>,
+    pub awaiting_initial_roster: bool,
     pub estimated_server_time: f64,
     pub countdown_end_time: Option<f64>,
     pub maze: Option<Maze>,

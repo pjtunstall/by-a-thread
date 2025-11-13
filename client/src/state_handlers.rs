@@ -13,6 +13,7 @@ pub use shared::net::AppChannel;
 use shared::{
     auth::Passcode,
     chat::MAX_CHAT_MESSAGE_BYTES,
+    input::UiKey,
     protocol::{ClientMessage, ServerMessage},
 };
 
@@ -315,7 +316,9 @@ pub fn in_chat(
                 return Some(ClientState::Countdown);
             }
             Ok((ServerMessage::RequestDifficultyChoice, _)) => {
-                return Some(ClientState::ChoosingDifficulty(false));
+                return Some(ClientState::ChoosingDifficulty {
+                    prompt_printed: false,
+                });
             }
             Ok((ServerMessage::ChatMessage { username, content }, _)) => {
                 if session.awaiting_initial_roster() {
@@ -488,7 +491,7 @@ pub fn choosing_difficulty(
     ui: &mut dyn ClientUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    let is_correct_state = matches!(session.state(), ClientState::ChoosingDifficulty(_));
+    let is_correct_state = matches!(session.state(), ClientState::ChoosingDifficulty { .. });
     if !is_correct_state {
         panic!(
             "BUG: Called choosing_difficulty() when state was not ChoosingDifficulty. Current state: {:?}",
@@ -496,7 +499,7 @@ pub fn choosing_difficulty(
         );
     };
 
-    if let ClientState::ChoosingDifficulty(prompt_printed) = session.state_mut() {
+    if let ClientState::ChoosingDifficulty { prompt_printed } = session.state_mut() {
         if !*prompt_printed {
             ui.show_message("Server: Choose a difficulty level:");
             ui.show_message("  1. Easy");
@@ -518,7 +521,7 @@ pub fn choosing_difficulty(
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_message(&format!("Server: {}", message));
-                if let ClientState::ChoosingDifficulty(prompt_printed) = session.state_mut() {
+                if let ClientState::ChoosingDifficulty { prompt_printed } = session.state_mut() {
                     *prompt_printed = false;
                 }
             }
@@ -536,26 +539,26 @@ pub fn choosing_difficulty(
         }
     }
 
-    match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
-        Ok(Some(input)) => match input.trim() {
-            "1" | "2" | "3" => {
-                let level = input.trim().parse::<u8>().unwrap();
+    match ui.poll_single_key() {
+        Ok(Some(key)) => {
+            let level = match key {
+                UiKey::Char('1') => Some(1),
+                UiKey::Char('2') => Some(2),
+                UiKey::Char('3') => Some(3),
+                _ => None,
+            };
+
+            if let Some(level) = level {
                 let msg = ClientMessage::SetDifficulty(level);
                 let payload =
                     encode_to_vec(&msg, standard()).expect("Failed to serialize SetDifficulty");
                 network.send_message(AppChannel::ReliableOrdered, payload);
             }
-            _ => {
-                ui.show_error("Invalid choice. Please enter 1, 2, or 3.");
-                if let ClientState::ChoosingDifficulty(prompt_printed) = session.state_mut() {
-                    *prompt_printed = false;
-                }
-            }
-        },
+        }
         Ok(None) => {}
         Err(UiInputError::Disconnected) => {
             return Some(ClientState::Disconnected {
-                message: "Input thread disconnected.".to_string(),
+                message: "Input disconnected.".to_string(),
             });
         }
     }
@@ -566,6 +569,7 @@ pub fn choosing_difficulty(
 #[cfg(test)]
 mod tests {
     use std::collections::VecDeque;
+    use std::net::SocketAddr;
 
     use super::*;
     use crate::state::ClientSession;
@@ -573,12 +577,13 @@ mod tests {
     use bincode::{config::standard, serde::encode_to_vec};
 
     #[derive(Default)]
-    struct MockUi {
-        inputs: VecDeque<Result<Option<String>, UiInputError>>,
-        messages: Vec<String>,
-        errors: Vec<String>,
-        prompts: Vec<String>,
-        status_lines: Vec<String>,
+    pub struct MockUi {
+        pub messages: Vec<String>,
+        pub errors: Vec<String>,
+        pub prompts: Vec<String>,
+        pub status_lines: Vec<String>,
+        pub inputs: VecDeque<Result<Option<String>, UiInputError>>,
+        pub keys: VecDeque<Result<Option<UiKey>, UiInputError>>,
     }
 
     impl MockUi {
@@ -589,6 +594,19 @@ mod tests {
             Self {
                 inputs: inputs.into_iter().collect(),
                 ..Default::default()
+            }
+        }
+    }
+
+    impl MockUi {
+        pub fn new() -> Self {
+            Self {
+                messages: Vec::new(),
+                errors: Vec::new(),
+                prompts: Vec::new(),
+                status_lines: Vec::new(),
+                inputs: VecDeque::new(),
+                keys: VecDeque::new(),
             }
         }
     }
@@ -617,10 +635,14 @@ mod tests {
                 .map(|opt| opt.map(|s| s.to_string()))
         }
 
+        fn poll_single_key(&mut self) -> Result<Option<UiKey>, UiInputError> {
+            self.keys.pop_front().unwrap_or(Ok(None))
+        }
+
         fn print_client_banner(
             &mut self,
             protocol_id: u64,
-            server_addr: std::net::SocketAddr,
+            server_addr: SocketAddr,
             client_id: u64,
         ) {
             self.messages.push(format!(
@@ -636,7 +658,7 @@ mod tests {
         is_disconnected_val: bool,
         disconnect_reason_val: String,
         messages_to_receive: VecDeque<Vec<u8>>,
-        sent_messages: Vec<(AppChannel, Vec<u8>)>,
+        sent_messages: VecDeque<(AppChannel, Vec<u8>)>,
         rtt_val: f64,
     }
 
@@ -677,7 +699,7 @@ mod tests {
         }
 
         fn send_message(&mut self, channel: AppChannel, message: Vec<u8>) {
-            self.sent_messages.push((channel, message));
+            self.sent_messages.push_back((channel, message));
         }
 
         fn receive_message(&mut self, _channel: AppChannel) -> Option<Vec<u8>> {
@@ -948,5 +970,91 @@ mod tests {
         assert!(ui.errors.is_empty());
         assert!(ui.prompts.is_empty());
         assert!(ui.status_lines.is_empty());
+    }
+
+    fn setup_choosing_difficulty_tests() -> (ClientSession, MockUi, MockNetwork) {
+        let session = ClientSession {
+            state: ClientState::ChoosingDifficulty {
+                prompt_printed: false,
+            },
+            ..ClientSession::new()
+        };
+        let ui = MockUi::new();
+        let network = MockNetwork::new();
+        (session, ui, network)
+    }
+
+    #[test]
+    fn test_choosing_difficulty_prints_prompt() {
+        let (mut session, mut ui, mut network) = setup_choosing_difficulty_tests();
+
+        let next_state = choosing_difficulty(&mut session, &mut ui, &mut network);
+
+        assert_eq!(ui.messages.len(), 4);
+        assert_eq!(ui.messages[0], "Server: Choose a difficulty level:");
+        assert_eq!(ui.messages[1], "  1. Easy");
+        assert_eq!(ui.prompts[0], "Enter 1, 2, or 3: ");
+        assert!(matches!(
+            session.state(),
+            ClientState::ChoosingDifficulty {
+                prompt_printed: true
+            }
+        ));
+        assert!(next_state.is_none());
+    }
+
+    #[test]
+    fn test_choosing_difficulty_selects_level_2() {
+        let (mut session, mut ui, mut network) = setup_choosing_difficulty_tests();
+
+        choosing_difficulty(&mut session, &mut ui, &mut network);
+
+        ui.keys.push_back(Ok(Some(UiKey::Char('2'))));
+
+        let next_state = choosing_difficulty(&mut session, &mut ui, &mut network);
+
+        assert!(next_state.is_none());
+        assert_eq!(network.sent_messages.len(), 1);
+
+        let (channel, payload) = network.sent_messages.pop_front().unwrap();
+        assert_eq!(channel, AppChannel::ReliableOrdered);
+
+        let (msg, _) = decode_from_slice::<ClientMessage, _>(&payload, standard()).unwrap();
+        assert_eq!(msg, ClientMessage::SetDifficulty(2));
+    }
+
+    #[test]
+    fn test_choosing_difficulty_ignores_invalid_key() {
+        let (mut session, mut ui, mut network) = setup_choosing_difficulty_tests();
+
+        choosing_difficulty(&mut session, &mut ui, &mut network);
+
+        ui.keys.push_back(Ok(Some(UiKey::Char('a'))));
+        ui.keys.push_back(Ok(Some(UiKey::Enter)));
+        ui.keys.push_back(Ok(Some(UiKey::Char('5'))));
+
+        let next_state_1 = choosing_difficulty(&mut session, &mut ui, &mut network);
+        let next_state_2 = choosing_difficulty(&mut session, &mut ui, &mut network);
+        let next_state_3 = choosing_difficulty(&mut session, &mut ui, &mut network);
+
+        assert!(next_state_1.is_none());
+        assert!(next_state_2.is_none());
+        assert!(next_state_3.is_none());
+        assert!(network.sent_messages.is_empty());
+        assert!(ui.errors.is_empty());
+    }
+
+    #[test]
+    fn test_choosing_difficulty_handles_disconnect() {
+        let (mut session, mut ui, mut network) = setup_choosing_difficulty_tests();
+
+        choosing_difficulty(&mut session, &mut ui, &mut network);
+
+        ui.keys.push_back(Err(UiInputError::Disconnected));
+
+        let next_state = choosing_difficulty(&mut session, &mut ui, &mut network);
+
+        assert!(network.sent_messages.is_empty());
+        assert!(matches!(next_state, Some(ClientState::Disconnected { .. })));
     }
 }

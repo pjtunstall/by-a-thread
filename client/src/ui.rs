@@ -11,6 +11,8 @@ use crossterm::{
     terminal::{self, Clear, ClearType},
 };
 
+use shared::input::UiKey;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiInputError {
     Disconnected,
@@ -29,6 +31,7 @@ pub trait ClientUi {
     fn show_error(&mut self, message: &str);
     fn show_prompt(&mut self, prompt: &str);
     fn poll_input(&mut self, limit: usize) -> Result<Option<String>, UiInputError>;
+    fn poll_single_key(&mut self) -> Result<Option<UiKey>, UiInputError>;
     fn show_status_line(&mut self, message: &str);
     fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr, client_id: u64);
 }
@@ -227,6 +230,42 @@ impl<W: Write> ClientUi for TerminalUi<W> {
         }
     }
 
+    fn poll_single_key(&mut self) -> Result<Option<UiKey>, UiInputError> {
+        if !event::poll(Duration::from_millis(50)).unwrap_or(false) {
+            return Ok(None);
+        }
+
+        match event::read() {
+            Ok(Event::Key(key_event)) => {
+                if key_event.modifiers == KeyModifiers::CONTROL {
+                    match key_event.code {
+                        KeyCode::Char('c') | KeyCode::Char('d') => {
+                            return Err(UiInputError::Disconnected);
+                        }
+                        _ => return Ok(None),
+                    }
+                }
+
+                let ui_key = match key_event.code {
+                    KeyCode::Char(c) => Some(UiKey::Char(c)),
+                    KeyCode::Enter => Some(UiKey::Enter),
+                    KeyCode::Backspace => Some(UiKey::Backspace),
+                    KeyCode::Esc => Some(UiKey::Esc),
+                    KeyCode::Tab => Some(UiKey::Tab),
+                    _ => None,
+                };
+                Ok(ui_key)
+            }
+            Ok(Event::Resize(cols, _)) => {
+                self.cols = cols.max(1);
+                self.redraw_prompt().unwrap();
+                Ok(None)
+            }
+            Ok(_) => Ok(None),
+            Err(_) => Err(UiInputError::Disconnected),
+        }
+    }
+
     fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr, client_id: u64) {
         self.show_message(&format!("  Game version:  {}", protocol_id));
         self.show_message(&format!("  Connecting to: {}", server_addr));
@@ -237,8 +276,6 @@ impl<W: Write> ClientUi for TerminalUi<W> {
 impl<W: Write> Drop for TerminalUi<W> {
     fn drop(&mut self) {
         if self.is_raw_mode_owner {
-            // Only disable raw mode if this instance was the one to enable it.
-            // This prevents tests from disabling raw mode for the test runner.
             execute!(self.stdout, Print("\r\n")).ok();
             terminal::disable_raw_mode().expect("failed to disable raw mode");
         }
@@ -252,15 +289,13 @@ mod tests {
     use super::*;
     use shared::chat::MAX_CHAT_MESSAGE_BYTES;
 
-    // Create a new `TerminalUi` for testing with a fake width
-    // and a `Vec<u8>` as the `stdout` buffer.
     fn setup_test_ui(cols: u16) -> TerminalUi<Vec<u8>> {
         TerminalUi {
-            stdout: Vec::new(), // Use a simple vector as the writer.
+            stdout: Vec::new(),
             buffer: String::new(),
             prompt_lines: 1,
-            cols,                     // Set the terminal width.
-            is_raw_mode_owner: false, // Don't touch global raw mode.
+            cols,
+            is_raw_mode_owner: false,
         }
     }
 
@@ -304,7 +339,6 @@ mod tests {
         assert_eq!(ui.buffer, "");
         assert_eq!(ui.prompt_lines, 1);
 
-        // Backspace on empty buffer should do nothing.
         ui.handle_event(key_event(KeyCode::Backspace), MAX_CHAT_MESSAGE_BYTES)
             .expect("Backspace on empty buffer failed");
         assert_eq!(ui.buffer, "");
@@ -324,70 +358,46 @@ mod tests {
             .handle_event(key_event(KeyCode::Enter), MAX_CHAT_MESSAGE_BYTES)
             .expect("failed to handle Enter key");
 
-        // Should return the line.
         assert!(result.is_some());
         assert_eq!(result.unwrap(), "hi");
 
         assert_eq!(ui.buffer, "");
-        // Prompt should be reset to 1 line.
         assert_eq!(ui.prompt_lines, 1);
     }
 
     #[test]
     fn test_multiline_backspace_unwraps_correctly() {
-        // Use a tiny terminal width: 10 columns.
-        // Prompt is "> ", which takes 2 columns.
-        // This leaves 8 columns for the buffer on the first line.
         let mut ui = setup_test_ui(10);
 
-        // 1. Fill the first line exactly.
-        // Buffer: "12345678" (8 chars). Prompt + buffer = 10 chars.
         for c in "12345678".chars() {
             ui.handle_event(key_event(KeyCode::Char(c)), MAX_CHAT_MESSAGE_BYTES)
                 .expect("failed to handle char");
         }
         assert_eq!(ui.buffer, "12345678");
-        assert_eq!(ui.prompt_lines, 1); // Exactly 1 line.
+        assert_eq!(ui.prompt_lines, 1);
 
-        // 2. Add one more char to wrap to the second line.
-        // Buffer: "123456789" (9 chars).
         ui.handle_event(key_event(KeyCode::Char('9')), MAX_CHAT_MESSAGE_BYTES)
             .expect("failed to handle char");
         assert_eq!(ui.buffer, "123456789");
-        // Line 1: "> 12345678".
-        // Line 2: "9".
         assert_eq!(ui.prompt_lines, 2);
 
-        // 3. Add another char to be safe.
-        // Buffer: "1234567890" (10 chars).
         ui.handle_event(key_event(KeyCode::Char('0')), MAX_CHAT_MESSAGE_BYTES)
             .expect("failed to handle char");
         assert_eq!(ui.buffer, "1234567890");
-        // Line 1: "> 12345678".
-        // Line 2: "90".
         assert_eq!(ui.prompt_lines, 2);
 
-        // 4. Backspace from line 2.
-        // Buffer: "123456789".
         ui.handle_event(key_event(KeyCode::Backspace), MAX_CHAT_MESSAGE_BYTES)
             .expect("failed to handle backspace");
         assert_eq!(ui.buffer, "123456789");
-        assert_eq!(ui.prompt_lines, 2); // Still 2 lines.
+        assert_eq!(ui.prompt_lines, 2);
 
-        // 5. THE CRITICAL TEST: Backspace again to "un-wrap".
-        // Buffer: "12345678".
         ui.handle_event(key_event(KeyCode::Backspace), MAX_CHAT_MESSAGE_BYTES)
             .expect("failed to handle backspace");
 
-        // Check that the buffer is correct.
         assert_eq!(ui.buffer, "12345678");
 
-        // Check that the UI *knows* it's back to 1 line.
-        // This is what was failing previously.
         assert_eq!(ui.prompt_lines, 1);
 
-        // 6. Backspace again, should stay on 1 line.
-        // Buffer: "1234567".
         ui.handle_event(key_event(KeyCode::Backspace), MAX_CHAT_MESSAGE_BYTES)
             .expect("failed to handle backspace");
         assert_eq!(ui.buffer, "1234567");

@@ -17,7 +17,7 @@ pub enum ServerMessage {
     GameStarted { maze: Maze },
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum ClientMessage {
     SendPasscode(Vec<u8>),
     SetUsername(String),
