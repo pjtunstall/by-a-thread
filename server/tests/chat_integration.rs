@@ -104,7 +104,7 @@ fn chat_messages_are_broadcast_to_other_clients() {
     }
 
     let msg = ClientMessage::SendChat("Hello, Bob!".to_string());
-    let payload = encode_to_vec(&msg, standard()).expect("Failed to serialize message");
+    let payload = encode_to_vec(&msg, standard()).expect("failed to serialize message");
     alice.send_message(AppChannel::ReliableOrdered, payload);
 
     full_tick(&mut server, &mut alice, &mut bob);
@@ -130,7 +130,7 @@ fn chat_messages_are_broadcast_to_other_clients() {
         .receive_message(AppChannel::ReliableOrdered)
         .expect("Bob should receive the chat message");
     let message = decode_from_slice::<ServerMessage, _>(&message_data, standard())
-        .expect("Failed to deserialize message")
+        .expect("failed to deserialize message")
         .0;
 
     if let ServerMessage::ChatMessage { username, content } = message {
@@ -172,7 +172,7 @@ fn players_are_notified_when_others_join_and_leave() {
     }
 
     let msg = ClientMessage::SetUsername("Bob".to_string());
-    let payload = encode_to_vec(&msg, standard()).expect("Failed to serialize message");
+    let payload = encode_to_vec(&msg, standard()).expect("failed to serialize message");
     bob.send_message(AppChannel::ReliableOrdered, payload);
 
     full_tick(&mut server, &mut alice, &mut bob);
@@ -198,7 +198,7 @@ fn players_are_notified_when_others_join_and_leave() {
         .receive_message(AppChannel::ReliableOrdered)
         .expect("Alice should be notified when Bob joins");
     let join_message = decode_from_slice::<ServerMessage, _>(&join_data, standard())
-        .expect("Failed to deserialize join message")
+        .expect("failed to deserialize join message")
         .0;
 
     if let ServerMessage::UserJoined { username } = join_message {
@@ -232,7 +232,7 @@ fn players_are_notified_when_others_join_and_leave() {
         .receive_message(AppChannel::ReliableOrdered)
         .expect("Alice should be notified when Bob leaves");
     let leave_message = decode_from_slice::<ServerMessage, _>(&leave_data, standard())
-        .expect("Failed to deserialize leave message")
+        .expect("failed to deserialize leave message")
         .0;
 
     if let ServerMessage::UserLeft { username } = leave_message {
@@ -273,7 +273,7 @@ fn test_handle_messages_username_success_and_broadcast() {
     }
 
     let msg = ClientMessage::SetUsername("Bob".to_string());
-    let payload = encode_to_vec(&msg, standard()).expect("Failed to serialize message");
+    let payload = encode_to_vec(&msg, standard()).expect("failed to serialize message");
     bob.send_message(AppChannel::ReliableOrdered, payload);
 
     full_tick(&mut server, &mut alice, &mut bob);

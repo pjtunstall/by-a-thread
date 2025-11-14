@@ -78,7 +78,7 @@ pub fn connecting(
 
             let message = ClientMessage::SendPasscode(passcode.bytes);
             let payload =
-                encode_to_vec(&message, standard()).expect("Failed to serialize SendPasscode");
+                encode_to_vec(&message, standard()).expect("failed to serialize SendPasscode");
             network.send_message(AppChannel::ReliableOrdered, payload);
 
             Some(ClientState::Authenticating {
@@ -162,7 +162,7 @@ pub fn authenticating(
 
                         let message = ClientMessage::SendPasscode(passcode.bytes);
                         let payload = encode_to_vec(&message, standard())
-                            .expect("Failed to serialize SendPasscode");
+                            .expect("failed to serialize SendPasscode");
                         network.send_message(AppChannel::ReliableOrdered, payload);
 
                         *waiting_for_input = false;
@@ -260,7 +260,7 @@ pub fn choosing_username(
                         Ok(username) => {
                             let message = ClientMessage::SetUsername(username);
                             let payload = encode_to_vec(&message, standard())
-                                .expect("Failed to serialize SetUsername");
+                                .expect("failed to serialize SetUsername");
                             network.send_message(AppChannel::ReliableOrdered, payload);
 
                             *awaiting_confirmation = true;
@@ -366,7 +366,7 @@ pub fn in_chat(
                     };
 
                     let payload =
-                        encode_to_vec(&message, standard()).expect("Failed to serialize chat");
+                        encode_to_vec(&message, standard()).expect("failed to serialize chat");
                     network.send_message(AppChannel::ReliableOrdered, payload);
                 }
             }
@@ -551,7 +551,7 @@ pub fn choosing_difficulty(
             if let Some(level) = level {
                 let msg = ClientMessage::SetDifficulty(level);
                 let payload =
-                    encode_to_vec(&msg, standard()).expect("Failed to serialize SetDifficulty");
+                    encode_to_vec(&msg, standard()).expect("failed to serialize SetDifficulty");
                 network.send_message(AppChannel::ReliableOrdered, payload);
             }
         }
@@ -680,7 +680,7 @@ mod tests {
 
         fn queue_server_message(&mut self, message: ServerMessage) {
             let data =
-                encode_to_vec(&message, standard()).expect("Failed to serialize test message");
+                encode_to_vec(&message, standard()).expect("failed to serialize test message");
             self.messages_to_receive.push_back(data);
         }
     }

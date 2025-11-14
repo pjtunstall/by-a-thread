@@ -56,7 +56,7 @@ impl Countdown {
             );
             let message = ServerMessage::UserLeft { username };
             let payload =
-                encode_to_vec(&message, standard()).expect("Failed to serialize UserLeft");
+                encode_to_vec(&message, standard()).expect("failed to serialize UserLeft");
             network.broadcast_message(AppChannel::ReliableOrdered, payload);
         } else {
             println!(
@@ -88,7 +88,7 @@ impl InGame {
             );
             let message = ServerMessage::UserLeft { username };
             let payload =
-                encode_to_vec(&message, standard()).expect("Failed to serialize UserLeft");
+                encode_to_vec(&message, standard()).expect("failed to serialize UserLeft");
             network.broadcast_message(AppChannel::ReliableOrdered, payload);
         }
     }
@@ -146,7 +146,7 @@ impl Lobby {
         let message = ServerMessage::ServerInfo {
             message: "  You have been appointed host.\r\n  Press TAB to start a game.".to_string(),
         };
-        let payload = encode_to_vec(&message, standard()).expect("Failed to serialize ServerInfo");
+        let payload = encode_to_vec(&message, standard()).expect("failed to serialize ServerInfo");
         network.send_message(id, AppChannel::ReliableOrdered, payload);
     }
 
@@ -170,7 +170,7 @@ impl Lobby {
         if let Some(username) = name_removed {
             let message = ServerMessage::UserLeft { username };
             let payload =
-                encode_to_vec(&message, standard()).expect("Failed to serialize UserLeft");
+                encode_to_vec(&message, standard()).expect("failed to serialize UserLeft");
             network.broadcast_message(AppChannel::ReliableOrdered, payload);
         }
 

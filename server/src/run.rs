@@ -111,7 +111,7 @@ pub fn process_events(network: &mut dyn ServerNetworkHandle, state: &mut ServerS
 fn sync_clocks(network: &mut dyn ServerNetworkHandle) {
     let server_time_f64 = shared::time::now().as_secs_f64();
     let message = ServerMessage::ServerTime(server_time_f64);
-    let payload = encode_to_vec(&message, standard()).expect("Failed to serialize ServerTime");
+    let payload = encode_to_vec(&message, standard()).expect("failed to serialize ServerTime");
     network.broadcast_message(AppChannel::ServerTime, payload);
 }
 
@@ -156,7 +156,7 @@ fn handle_difficulty_choice(
                         let msg = ServerMessage::ServerInfo {
                             message: "Invalid choice. Please press 1, 2, or 3.".to_string(),
                         };
-                        let payload = encode_to_vec(&msg, standard()).expect("Failed to serialize");
+                        let payload = encode_to_vec(&msg, standard()).expect("failed to serialize");
                         network.send_message(host_id, AppChannel::ReliableOrdered, payload);
                         return None;
                     }
@@ -175,7 +175,7 @@ fn handle_difficulty_choice(
 
                     let game_started_msg = ServerMessage::GameStarted { maze: maze.clone() };
                     let game_started_payload = encode_to_vec(&game_started_msg, standard())
-                        .expect("Failed to serialize GameStarted");
+                        .expect("failed to serialize GameStarted");
                     network.broadcast_message(AppChannel::ReliableOrdered, game_started_payload);
 
                     let countdown_duration = Duration::from_secs(11);
@@ -186,7 +186,7 @@ fn handle_difficulty_choice(
                         end_time: end_time_f64,
                     };
                     let countdown_payload = encode_to_vec(&countdown_msg, standard())
-                        .expect("Failed to serialize CountdownStarted");
+                        .expect("failed to serialize CountdownStarted");
 
                     network.broadcast_message(AppChannel::ReliableOrdered, countdown_payload);
 
@@ -213,7 +213,7 @@ fn handle_difficulty_choice(
                             content,
                         };
                         let payload = encode_to_vec(&message, standard())
-                            .expect("Failed to serialize ChatMessage");
+                            .expect("failed to serialize ChatMessage");
                         network.broadcast_message(AppChannel::ReliableOrdered, payload);
                     }
                 }
@@ -251,7 +251,7 @@ fn send_username_error(network: &mut dyn ServerNetworkHandle, client_id: u64, me
     let message = ServerMessage::UsernameError {
         message: message.to_string(),
     };
-    let payload = encode_to_vec(&message, standard()).expect("Failed to serialize UsernameError");
+    let payload = encode_to_vec(&message, standard()).expect("failed to serialize UsernameError");
     network.send_message(client_id, AppChannel::ReliableOrdered, payload);
 }
 
@@ -300,7 +300,7 @@ fn handle_lobby(
                             );
                             let message = ServerMessage::ServerInfo { message: prompt };
                             let payload = encode_to_vec(&message, standard())
-                                .expect("Failed to serialize ServerInfo");
+                                .expect("failed to serialize ServerInfo");
                             network.send_message(client_id, AppChannel::ReliableOrdered, payload);
                         }
                         AuthAttemptOutcome::TryAgain => {
@@ -313,7 +313,7 @@ fn handle_lobby(
                                 message: "Incorrect passcode. Try again.".to_string(),
                             };
                             let payload = encode_to_vec(&message, standard())
-                                .expect("Failed to serialize ServerInfo");
+                                .expect("failed to serialize ServerInfo");
                             network.send_message(client_id, AppChannel::ReliableOrdered, payload);
                         }
                         AuthAttemptOutcome::Disconnect => {
@@ -322,7 +322,7 @@ fn handle_lobby(
                                 message: "Incorrect passcode. Disconnecting.".to_string(),
                             };
                             let payload = encode_to_vec(&message, standard())
-                                .expect("Failed to serialize ServerInfo");
+                                .expect("failed to serialize ServerInfo");
                             network.send_message(client_id, AppChannel::ReliableOrdered, payload);
                             network.disconnect(client_id);
                             state.remove_client(client_id, network);
@@ -353,13 +353,13 @@ fn handle_lobby(
                                 username: username.to_string(),
                             };
                             let payload = encode_to_vec(&message, standard())
-                                .expect("Failed to serialize Welcome");
+                                .expect("failed to serialize Welcome");
                             network.send_message(client_id, AppChannel::ReliableOrdered, payload);
 
                             let others = state.usernames_except(client_id);
                             let message = ServerMessage::Roster { online: others };
                             let payload = encode_to_vec(&message, standard())
-                                .expect("Failed to serialize Roster");
+                                .expect("failed to serialize Roster");
                             network.send_message(client_id, AppChannel::ReliableOrdered, payload);
 
                             if state.usernames_except(client_id).is_empty() {
@@ -370,7 +370,7 @@ fn handle_lobby(
                                 username: username.to_string(),
                             };
                             let payload = encode_to_vec(&message, standard())
-                                .expect("Failed to serialize UserJoined");
+                                .expect("failed to serialize UserJoined");
                             network.broadcast_message_except(
                                 client_id,
                                 AppChannel::ReliableOrdered,
@@ -408,7 +408,7 @@ fn handle_lobby(
                             content,
                         };
                         let payload = encode_to_vec(&message, standard())
-                            .expect("Failed to serialize ChatMessage");
+                            .expect("failed to serialize ChatMessage");
                         network.broadcast_message(AppChannel::ReliableOrdered, payload);
                     } else {
                         println!("Client {} sent chat message in wrong state.", client_id);
@@ -423,7 +423,7 @@ fn handle_lobby(
 
                         let message = ServerMessage::RequestDifficultyChoice;
                         let payload = encode_to_vec(&message, standard())
-                            .expect("Failed to serialize RequestDifficultyChoice");
+                            .expect("failed to serialize RequestDifficultyChoice");
                         network.send_message(client_id, AppChannel::ReliableOrdered, payload);
 
                         return Some(ServerState::ChoosingDifficulty(ChoosingDifficulty::new(
