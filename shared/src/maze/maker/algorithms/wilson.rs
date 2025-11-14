@@ -10,7 +10,7 @@ impl Wilson for MazeMaker {
 
         let initial_cell = self
             .pick_out_cell(&mut prospective_cells)
-            .expect("Should be some cells to begin with");
+            .expect("should be some cells to begin with");
         self.visit_cell(initial_cell);
 
         let mut finalized_cells = vec![initial_cell];
@@ -38,7 +38,7 @@ fn walk(
     while !finalized_cells.contains(&curr) {
         let next = maze
             .pick_neighbor(curr, false, false)
-            .expect("There should always be a neighbor unless the grid was malformed");
+            .expect("there should always be a neighbor unless the grid was malformed");
         if let Some(pos) = walk.iter().position(|&c| c == next) {
             walk.truncate(pos + 1);
         } else {

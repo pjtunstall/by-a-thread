@@ -51,7 +51,7 @@ pub fn startup(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<Cli
         }
     } else {
         panic!(
-            "BUG: Called startup() when state was not Startup. Current state: {:?}",
+            "bug: called startup() when state was not Startup. current state: {:?}",
             session.state()
         );
     }
@@ -64,7 +64,7 @@ pub fn connecting(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Connecting) {
         panic!(
-            "BUG: Called connecting() when state was not Connecting. Current state: {:?}",
+            "called connecting() when state was not Connecting. current state: {:?}",
             session.state()
         );
     }
@@ -106,7 +106,7 @@ pub fn authenticating(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Authenticating { .. }) {
         panic!(
-            "BUG: Called authenticating() when state was not Authenticating. Current state: {:?}",
+            "called authenticating() when state was not Authenticating. current state: {:?}",
             session.state()
         );
     }
@@ -206,7 +206,7 @@ pub fn choosing_username(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::ChoosingUsername { .. }) {
         panic!(
-            "BUG: Called choosing_username() when state was not ChoosingUsername. Current state: {:?}",
+            "called choosing_username() when state was not ChoosingUsername. current state: {:?}",
             session.state()
         );
     }
@@ -301,7 +301,7 @@ pub fn in_chat(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::InChat) {
         panic!(
-            "BUG: Called in_chat() when state was not InChat. Current state: {:?}",
+            "bug: called in_chat() when state was not InChat. current state: {:?}",
             session.state()
         );
     }
@@ -398,7 +398,7 @@ pub fn countdown(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Countdown) {
         panic!(
-            "BUG: Called countdown() when state was not Countdown. Current state: {:?}",
+            "bug: called countdown() when state was not Countdown. current state: {:?}",
             session.state()
         );
     }
@@ -494,7 +494,7 @@ pub fn choosing_difficulty(
     let is_correct_state = matches!(session.state(), ClientState::ChoosingDifficulty { .. });
     if !is_correct_state {
         panic!(
-            "BUG: Called choosing_difficulty() when state was not ChoosingDifficulty. Current state: {:?}",
+            "bug: called choosing_difficulty() when state was not ChoosingDifficulty. current state: {:?}",
             session.state()
         );
     };
@@ -831,7 +831,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "BUG: Called startup() when state was not Startup. Current state: Connecting"
+            expected = "bug: called startup() when state was not Startup. current state: Connecting"
         )]
         fn startup_panics_if_not_in_startup_state() {
             let mut session = ClientSession::new();
@@ -847,13 +847,13 @@ mod tests {
             let mut ui = MockUi::default();
             assert!(
                 startup(&mut session, &mut ui).is_none(),
-                "Should not panic and should return None"
+                "should not panic and should return None"
             );
         }
 
         #[test]
         #[should_panic(
-            expected = "BUG: Called connecting() when state was not Connecting. Current state: Startup"
+            expected = "bug: called connecting() when state was not Connecting. current state: Startup"
         )]
         fn connecting_panics_if_not_in_connecting_state() {
             let mut session = ClientSession::new();
@@ -871,13 +871,13 @@ mod tests {
             let mut network = MockNetwork::new();
             assert!(
                 connecting(&mut session, &mut ui, &mut network).is_none(),
-                "Should not panic and should return None"
+                "should not panic and should return None"
             );
         }
 
         #[test]
         #[should_panic(
-            expected = "BUG: Called authenticating() when state was not Authenticating. Current state: Startup"
+            expected = "bug: called authenticating() when state was not Authenticating. current state: Startup"
         )]
         fn authenticating_panics_if_not_in_authenticating_state() {
             let mut session = ClientSession::new();
@@ -898,13 +898,13 @@ mod tests {
             let mut network = MockNetwork::new();
             assert!(
                 authenticating(&mut session, &mut ui, &mut network).is_none(),
-                "Should not panic and should return None"
+                "should not panic and should return None"
             );
         }
 
         #[test]
         #[should_panic(
-            expected = "BUG: Called choosing_username() when state was not ChoosingUsername. Current state: Startup"
+            expected = "bug: called choosing_username() when state was not ChoosingUsername. current state: Startup"
         )]
         fn choosing_username_panics_if_not_in_choosing_username_state() {
             let mut session = ClientSession::new();
@@ -925,13 +925,13 @@ mod tests {
             let mut network = MockNetwork::new();
             assert!(
                 choosing_username(&mut session, &mut ui, &mut network).is_none(),
-                "Should not panic and should return None"
+                "should not panic and should return None"
             );
         }
 
         #[test]
         #[should_panic(
-            expected = "BUG: Called in_chat() when state was not InChat. Current state: Startup"
+            expected = "bug: called in_chat() when state was not InChat. current state: Startup"
         )]
         fn in_chat_panics_if_not_in_in_chat_state() {
             let mut session = ClientSession::new();
@@ -949,7 +949,7 @@ mod tests {
             let mut network = MockNetwork::new();
             assert!(
                 in_chat(&mut session, &mut ui, &mut network).is_none(),
-                "Should not panic and should return None"
+                "should not panic and should return None"
             );
         }
     }
