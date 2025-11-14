@@ -128,14 +128,14 @@ pub fn handle_messages(
     match state {
         ServerState::Lobby(lobby_state) => handle_lobby(network, lobby_state, passcode),
         ServerState::ChoosingDifficulty(difficulty_state) => {
-            handle_difficulty_choice(network, difficulty_state)
+            handle_choosing_difficulty(network, difficulty_state)
         }
         ServerState::Countdown(countdown_state) => handle_countdown(network, countdown_state),
         ServerState::InGame(_) => None,
     }
 }
 
-fn handle_difficulty_choice(
+fn handle_choosing_difficulty(
     network: &mut dyn ServerNetworkHandle,
     state: &mut ChoosingDifficulty,
 ) -> Option<ServerState> {
