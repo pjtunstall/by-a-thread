@@ -1,4 +1,4 @@
-// server/src/run.rs
+use std::io::stdout;
 use std::net::SocketAddr;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -6,6 +6,11 @@ use std::time::{Duration, Instant};
 use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
+};
+use crossterm::{
+    cursor::{MoveToColumn, MoveUp},
+    execute,
+    terminal::{Clear, ClearType},
 };
 use renet::RenetServer;
 use renet_netcode::NetcodeServerTransport;
@@ -192,6 +197,8 @@ fn handle_difficulty_choice(
 
                     let end_time_instant = Instant::now() + countdown_duration;
 
+                    println!();
+
                     return Some(ServerState::Countdown(Countdown::new(
                         state,
                         end_time_instant,
@@ -236,14 +243,25 @@ fn handle_countdown(
 ) -> Option<ServerState> {
     let server_time = Instant::now();
 
-    if server_time > state.end_time {
-        println!("Countdown finished. Transitioning to InGame.");
-        return Some(ServerState::InGame(InGame::new(
+    if server_time < state.end_time {
+        execute!(
+            stdout(),
+            MoveUp(1),
+            MoveToColumn(0),
+            Clear(ClearType::CurrentLine),
+        )
+        .expect("failed to clear line");
+        println!(
+            "Countdown: {:} seconds remaining.",
+            (state.end_time - server_time).as_secs()
+        );
+        None
+    } else {
+        println!("\nCountdown finished. Transitioning to InGame.");
+        Some(ServerState::InGame(InGame::new(
             state.usernames.clone(),
             state.maze.clone(),
-        )));
-    } else {
-        None
+        )))
     }
 }
 
@@ -468,7 +486,7 @@ mod tests {
         if let ServerState::Lobby(lobby) = state {
             assert!(lobby.is_authenticating(1));
         } else {
-            panic!("State is not Lobby");
+            panic!("state is not Lobby");
         }
     }
 

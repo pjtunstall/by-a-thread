@@ -502,9 +502,9 @@ pub fn choosing_difficulty(
     if let ClientState::ChoosingDifficulty { prompt_printed } = session.state_mut() {
         if !*prompt_printed {
             ui.show_message("Server: Choose a difficulty level:");
-            ui.show_message("  1. Easy");
-            ui.show_message("  2. So-so");
-            ui.show_message("  3. Next level");
+            ui.show_message("  1. Easy (few dead ends)");
+            ui.show_message("  2. So-so (balanced)");
+            ui.show_message("  3. Next level (many dead ends)");
             ui.show_prompt("Enter 1, 2, or 3: ");
             *prompt_printed = true;
         }
@@ -785,9 +785,9 @@ mod tests {
         let next = startup(&mut session, &mut ui);
         match next {
             Some(ClientState::Disconnected { message }) => {
-                assert_eq!(message, "Input thread disconnected.");
+                assert_eq!(message, "input thread disconnected.");
             }
-            _ => panic!("Unexpected transition: expected disconnection"),
+            _ => panic!("unexpected transition: expected disconnection"),
         }
     }
 
