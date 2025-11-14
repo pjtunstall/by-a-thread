@@ -100,7 +100,7 @@ fn chat_messages_are_broadcast_to_other_clients() {
         lobby.mark_authenticated(bob_id);
         lobby.register_username(bob_id, "Bob");
     } else {
-        panic!("State should be Lobby");
+        panic!("state should be Lobby");
     }
 
     let msg = ClientMessage::SendChat("Hello, Bob!".to_string());
@@ -137,7 +137,7 @@ fn chat_messages_are_broadcast_to_other_clients() {
         assert_eq!(username, "Alice");
         assert_eq!(content, "Hello, Bob!");
     } else {
-        panic!("Expected ChatMessage, got {:?}", message);
+        panic!("expected ChatMessage, got {:?}", message);
     }
 }
 
@@ -168,7 +168,7 @@ fn players_are_notified_when_others_join_and_leave() {
         lobby.register_username(alice_id, "Alice");
         lobby.mark_authenticated(bob_id);
     } else {
-        panic!("State should be Lobby");
+        panic!("state should be Lobby");
     }
 
     let msg = ClientMessage::SetUsername("Bob".to_string());
@@ -204,7 +204,7 @@ fn players_are_notified_when_others_join_and_leave() {
     if let ServerMessage::UserJoined { username } = join_message {
         assert_eq!(username, "Bob");
     } else {
-        panic!("Expected UserJoined message, got {:?}", join_message);
+        panic!("expected UserJoined message, got {:?}", join_message);
     }
 
     server.disconnect_local_client(bob_id, &mut bob);
@@ -238,7 +238,7 @@ fn players_are_notified_when_others_join_and_leave() {
     if let ServerMessage::UserLeft { username } = leave_message {
         assert_eq!(username, "Bob");
     } else {
-        panic!("Expected UserLeft message, got {:?}", leave_message);
+        panic!("expected UserLeft message, got {:?}", leave_message);
     }
 }
 
@@ -269,7 +269,7 @@ fn test_handle_messages_username_success_and_broadcast() {
         lobby.register_username(alice_id, "Alice");
         lobby.mark_authenticated(bob_id);
     } else {
-        panic!("State should be Lobby");
+        panic!("state should be Lobby");
     }
 
     let msg = ClientMessage::SetUsername("Bob".to_string());
@@ -300,7 +300,7 @@ fn test_handle_messages_username_success_and_broadcast() {
     if let ServerState::Lobby(lobby) = &state {
         assert_eq!(lobby.username(2), Some("Bob"));
     } else {
-        panic!("State should be Lobby");
+        panic!("state should be Lobby");
     }
 
     let mut bob_msgs = Vec::new();

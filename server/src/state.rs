@@ -403,7 +403,7 @@ mod tests {
         if let ServerMessage::ServerInfo { message } = msg {
             assert!(message.contains("You have been appointed host"));
         } else {
-            panic!("Expected ServerInfo message, got {:?}", msg);
+            panic!("expected ServerInfo message, got {:?}", msg);
         }
     }
 

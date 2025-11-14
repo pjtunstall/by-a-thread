@@ -511,7 +511,7 @@ mod tests {
         if let ServerState::Lobby(lobby) = state {
             assert_eq!(lobby.username(1), None);
         } else {
-            panic!("State is not Lobby");
+            panic!("state is not Lobby");
         }
 
         let broadcasts = network.get_broadcast_messages_data();
@@ -522,7 +522,7 @@ mod tests {
         if let ServerMessage::UserLeft { username } = msg {
             assert_eq!(username, "Alice");
         } else {
-            panic!("Expected UserLeft message, got {:?}", msg);
+            panic!("expected UserLeft message, got {:?}", msg);
         }
     }
 
@@ -547,7 +547,7 @@ mod tests {
         if let ServerState::Lobby(lobby) = state {
             assert!(lobby.needs_username(1));
         } else {
-            panic!("State is not Lobby");
+            panic!("state is not Lobby");
         }
 
         let client_msgs = network.get_sent_messages_data(1);
@@ -558,7 +558,7 @@ mod tests {
         if let ServerMessage::ServerInfo { message } = msg {
             assert!(message.starts_with("Authentication successful!"));
         } else {
-            panic!("Expected ServerInfo message, got {:?}", msg);
+            panic!("expected ServerInfo message, got {:?}", msg);
         }
     }
 
@@ -585,7 +585,7 @@ mod tests {
         if let ServerState::Lobby(lobby) = state {
             assert_eq!(lobby.username(1), None);
         } else {
-            panic!("State is not Lobby");
+            panic!("state is not Lobby");
         }
 
         assert!(network.disconnected_clients.contains(&1));
@@ -597,7 +597,7 @@ mod tests {
         if let ServerMessage::ServerInfo { message } = msg {
             assert!(message.starts_with("Incorrect passcode. Disconnecting."));
         } else {
-            panic!("Expected ServerInfo message, got {:?}", msg);
+            panic!("expected ServerInfo message, got {:?}", msg);
         }
     }
 
@@ -630,7 +630,7 @@ mod tests {
         if let ServerState::Lobby(lobby) = state {
             assert_eq!(lobby.username(2), Some("Bob"));
         } else {
-            panic!("State is not Lobby");
+            panic!("state is not Lobby");
         }
 
         let bob_msgs = network.get_sent_messages_data(2);
@@ -642,7 +642,7 @@ mod tests {
         if let ServerMessage::Welcome { username } = msg1 {
             assert_eq!(username, "Bob");
         } else {
-            panic!("Expected Welcome message, got {:?}", msg1);
+            panic!("expected Welcome message, got {:?}", msg1);
         }
 
         let msg2 = decode_from_slice::<ServerMessage, _>(&bob_msgs[1], standard())
@@ -651,7 +651,7 @@ mod tests {
         if let ServerMessage::Roster { online } = msg2 {
             assert_eq!(online, vec!["Alice"]);
         } else {
-            panic!("Expected Roster message, got {:?}", msg2);
+            panic!("expected Roster message, got {:?}", msg2);
         }
 
         let alice_msgs = network.get_sent_messages_data(1);
@@ -662,7 +662,7 @@ mod tests {
         if let ServerMessage::UserJoined { username } = msg_alice {
             assert_eq!(username, "Bob");
         } else {
-            panic!("Expected UserJoined message, got {:?}", msg_alice);
+            panic!("expected UserJoined message, got {:?}", msg_alice);
         }
     }
 
@@ -700,7 +700,7 @@ mod tests {
             assert_eq!(username, "Alice");
             assert_eq!(content, "Hello Bob!");
         } else {
-            panic!("Expected ChatMessage, got {:?}", msg);
+            panic!("expected ChatMessage, got {:?}", msg);
         }
     }
 }

@@ -152,7 +152,7 @@ mod tests {
 
         match session.state() {
             ClientState::Disconnected { message } => assert_eq!(message, "done"),
-            _ => panic!("Unexpected state after transition"),
+            _ => panic!("unexpected state after transition"),
         }
     }
 
