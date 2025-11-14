@@ -12,6 +12,7 @@ use crossterm::{
     execute,
     terminal::{Clear, ClearType},
 };
+use rand::random_range;
 use renet::RenetServer;
 use renet_netcode::NetcodeServerTransport;
 
@@ -26,8 +27,10 @@ use shared::{
     self,
     auth::Passcode,
     chat::{MAX_CHAT_MESSAGE_BYTES, MAX_USERNAME_LENGTH, UsernameError, sanitize_username},
+    math::Vec3,
     maze::{self, maker::Algorithm},
     net::AppChannel,
+    player::Player,
     protocol::{ClientMessage, ServerMessage},
 };
 
@@ -258,8 +261,33 @@ fn handle_countdown(
         None
     } else {
         println!("\nCountdown finished. Transitioning to InGame.");
+        let mut spaces_remaining = state.maze.spaces.clone();
+        let mut player_count: usize = 0;
+        let players = state
+            .usernames
+            .clone()
+            .into_iter()
+            .map(|(id, username)| {
+                let space_index = random_range(0..spaces_remaining.len());
+                let (y, x) = spaces_remaining.remove(space_index);
+                let start_position = state
+                    .maze
+                    .position_from_grid_coordinates(shared::PLAYER_HEIGHT, y, x)
+                    .expect("failed to get start position from maze");
+                let player = Player {
+                    id: id as u32,
+                    name: username.clone(),
+                    position: start_position,
+                    orientation: Vec3::ZERO,
+                    color: shared::player::COLORS[player_count % shared::player::COLORS.len()],
+                };
+                player_count += 1;
+                println!("{:#}", player);
+                (id, player)
+            })
+            .collect();
         Some(ServerState::InGame(InGame::new(
-            state.usernames.clone(),
+            players,
             state.maze.clone(),
         )))
     }

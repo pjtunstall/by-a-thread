@@ -2,9 +2,12 @@ pub mod maker;
 
 use std::fmt;
 
+use crate::math::{Vec3, vec3};
 pub use maker::Algorithm;
 use maker::MazeMaker;
 use serde::{Deserialize, Serialize};
+
+pub const CELL_SIZE: f32 = 16.0;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Maze {
@@ -40,6 +43,19 @@ impl Maze {
             })
             .collect::<Vec<String>>()
             .join("\n")
+    }
+
+    pub fn position_from_grid_coordinates(&self, height: f32, y: usize, x: usize) -> Option<Vec3> {
+        if self.spaces.is_empty() {
+            None
+        } else {
+            let position = vec3(
+                (x as f32 + 0.5) * CELL_SIZE,
+                height,
+                (y as f32 + 0.5) * CELL_SIZE,
+            );
+            Some(position)
+        }
     }
 }
 
