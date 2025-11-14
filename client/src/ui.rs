@@ -21,7 +21,7 @@ pub enum UiInputError {
 impl fmt::Display for UiInputError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            UiInputError::Disconnected => write!(f, "Input source disconnected"),
+            UiInputError::Disconnected => write!(f, "input source disconnected"),
         }
     }
 }

@@ -46,12 +46,12 @@ pub fn startup(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<Cli
             }
             Ok(None) => None,
             Err(UiInputError::Disconnected) => Some(ClientState::Disconnected {
-                message: "Input thread disconnected.".to_string(),
+                message: "input thread disconnected.".to_string(),
             }),
         }
     } else {
         panic!(
-            "bug: called startup() when state was not Startup; current state: {:?}",
+            "called startup() when state was not Startup; current state: {:?}",
             session.state()
         );
     }
@@ -180,7 +180,7 @@ pub fn authenticating(
                 Ok(None) => {}
                 Err(UiInputError::Disconnected) => {
                     return Some(ClientState::Disconnected {
-                        message: "Input thread disconnected.".to_string(),
+                        message: "input thread disconnected.".to_string(),
                     });
                 }
             }
@@ -275,7 +275,7 @@ pub fn choosing_username(
                 Ok(None) => {}
                 Err(UiInputError::Disconnected) => {
                     return Some(ClientState::Disconnected {
-                        message: "Input thread disconnected.".to_string(),
+                        message: "input thread disconnected.".to_string(),
                     });
                 }
             }
@@ -301,7 +301,7 @@ pub fn in_chat(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::InChat) {
         panic!(
-            "bug: called in_chat() when state was not InChat; current state: {:?}",
+            "called in_chat() when state was not InChat; current state: {:?}",
             session.state()
         );
     }
@@ -373,7 +373,7 @@ pub fn in_chat(
             Ok(None) => break,
             Err(UiInputError::Disconnected) => {
                 return Some(ClientState::Disconnected {
-                    message: "Input thread disconnected.".to_string(),
+                    message: "input thread disconnected.".to_string(),
                 });
             }
         }
@@ -398,7 +398,7 @@ pub fn countdown(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Countdown) {
         panic!(
-            "bug: called countdown() when state was not Countdown; current state: {:?}",
+            "called countdown() when state was not Countdown; current state: {:?}",
             session.state()
         );
     }
@@ -453,7 +453,7 @@ pub fn countdown(
 
     if let Err(UiInputError::Disconnected) = ui.poll_input(0) {
         return Some(ClientState::Disconnected {
-            message: "Input thread disconnected.".to_string(),
+            message: "input thread disconnected.".to_string(),
         });
     }
 
@@ -494,7 +494,7 @@ pub fn choosing_difficulty(
     let is_correct_state = matches!(session.state(), ClientState::ChoosingDifficulty { .. });
     if !is_correct_state {
         panic!(
-            "bug: called choosing_difficulty() when state was not ChoosingDifficulty; current state: {:?}",
+            "called choosing_difficulty() when state was not ChoosingDifficulty; current state: {:?}",
             session.state()
         );
     };
@@ -502,9 +502,9 @@ pub fn choosing_difficulty(
     if let ClientState::ChoosingDifficulty { prompt_printed } = session.state_mut() {
         if !*prompt_printed {
             ui.show_message("Server: Choose a difficulty level:");
-            ui.show_message("  1. Easy (few dead ends)");
-            ui.show_message("  2. So-so (balanced)");
-            ui.show_message("  3. Next level (many dead ends)");
+            ui.show_message("  1. Easy");
+            ui.show_message("  2. So-so");
+            ui.show_message("  3. Next level");
             ui.show_prompt("Enter 1, 2, or 3: ");
             *prompt_printed = true;
         }
@@ -558,7 +558,7 @@ pub fn choosing_difficulty(
         Ok(None) => {}
         Err(UiInputError::Disconnected) => {
             return Some(ClientState::Disconnected {
-                message: "Input disconnected.".to_string(),
+                message: "input disconnected.".to_string(),
             });
         }
     }
@@ -831,7 +831,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "bug: called startup() when state was not Startup; current state: Connecting"
+            expected = "called startup() when state was not Startup; current state: Connecting"
         )]
         fn startup_panics_if_not_in_startup_state() {
             let mut session = ClientSession::new();
@@ -853,7 +853,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "bug: called connecting() when state was not Connecting; current state: Startup"
+            expected = "called connecting() when state was not Connecting; current state: Startup"
         )]
         fn connecting_panics_if_not_in_connecting_state() {
             let mut session = ClientSession::new();
@@ -877,7 +877,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "bug: called authenticating() when state was not Authenticating; current state: Startup"
+            expected = "called authenticating() when state was not Authenticating; current state: Startup"
         )]
         fn authenticating_panics_if_not_in_authenticating_state() {
             let mut session = ClientSession::new();
@@ -904,7 +904,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "bug: called choosing_username() when state was not ChoosingUsername; current state: Startup"
+            expected = "called choosing_username() when state was not ChoosingUsername; current state: Startup"
         )]
         fn choosing_username_panics_if_not_in_choosing_username_state() {
             let mut session = ClientSession::new();
@@ -931,7 +931,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "bug: called in_chat() when state was not InChat; current state: Startup"
+            expected = "called in_chat() when state was not InChat; current state: Startup"
         )]
         fn in_chat_panics_if_not_in_in_chat_state() {
             let mut session = ClientSession::new();

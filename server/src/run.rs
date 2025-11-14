@@ -27,6 +27,7 @@ use shared::{
     self,
     auth::Passcode,
     chat::{MAX_CHAT_MESSAGE_BYTES, MAX_USERNAME_LENGTH, UsernameError, sanitize_username},
+    consts::PLAYER_HEIGHT,
     math::Vec3,
     maze::{self, maker::Algorithm},
     net::AppChannel,
@@ -272,7 +273,7 @@ fn handle_countdown(
                 let (y, x) = spaces_remaining.remove(space_index);
                 let start_position = state
                     .maze
-                    .position_from_grid_coordinates(shared::PLAYER_HEIGHT, y, x)
+                    .position_from_grid_coordinates(PLAYER_HEIGHT, y, x)
                     .expect("failed to get start position from maze");
                 let player = Player {
                     id: id as u32,
