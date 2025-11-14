@@ -51,7 +51,7 @@ pub fn startup(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<Cli
         }
     } else {
         panic!(
-            "bug: called startup() when state was not Startup. current state: {:?}",
+            "bug: called startup() when state was not Startup; current state: {:?}",
             session.state()
         );
     }
@@ -64,7 +64,7 @@ pub fn connecting(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Connecting) {
         panic!(
-            "called connecting() when state was not Connecting. current state: {:?}",
+            "called connecting() when state was not Connecting; current state: {:?}",
             session.state()
         );
     }
@@ -106,7 +106,7 @@ pub fn authenticating(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Authenticating { .. }) {
         panic!(
-            "called authenticating() when state was not Authenticating. current state: {:?}",
+            "called authenticating() when state was not Authenticating; current state: {:?}",
             session.state()
         );
     }
@@ -206,7 +206,7 @@ pub fn choosing_username(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::ChoosingUsername { .. }) {
         panic!(
-            "called choosing_username() when state was not ChoosingUsername. current state: {:?}",
+            "called choosing_username() when state was not ChoosingUsername; current state: {:?}",
             session.state()
         );
     }
@@ -301,7 +301,7 @@ pub fn in_chat(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::InChat) {
         panic!(
-            "bug: called in_chat() when state was not InChat. current state: {:?}",
+            "bug: called in_chat() when state was not InChat; current state: {:?}",
             session.state()
         );
     }
@@ -398,7 +398,7 @@ pub fn countdown(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Countdown) {
         panic!(
-            "bug: called countdown() when state was not Countdown. current state: {:?}",
+            "bug: called countdown() when state was not Countdown; current state: {:?}",
             session.state()
         );
     }
@@ -494,7 +494,7 @@ pub fn choosing_difficulty(
     let is_correct_state = matches!(session.state(), ClientState::ChoosingDifficulty { .. });
     if !is_correct_state {
         panic!(
-            "bug: called choosing_difficulty() when state was not ChoosingDifficulty. current state: {:?}",
+            "bug: called choosing_difficulty() when state was not ChoosingDifficulty; current state: {:?}",
             session.state()
         );
     };
@@ -831,7 +831,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "bug: called startup() when state was not Startup. current state: Connecting"
+            expected = "bug: called startup() when state was not Startup; current state: Connecting"
         )]
         fn startup_panics_if_not_in_startup_state() {
             let mut session = ClientSession::new();
@@ -853,7 +853,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "bug: called connecting() when state was not Connecting. current state: Startup"
+            expected = "bug: called connecting() when state was not Connecting; current state: Startup"
         )]
         fn connecting_panics_if_not_in_connecting_state() {
             let mut session = ClientSession::new();
@@ -877,7 +877,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "bug: called authenticating() when state was not Authenticating. current state: Startup"
+            expected = "bug: called authenticating() when state was not Authenticating; current state: Startup"
         )]
         fn authenticating_panics_if_not_in_authenticating_state() {
             let mut session = ClientSession::new();
@@ -904,7 +904,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "bug: called choosing_username() when state was not ChoosingUsername. current state: Startup"
+            expected = "bug: called choosing_username() when state was not ChoosingUsername; current state: Startup"
         )]
         fn choosing_username_panics_if_not_in_choosing_username_state() {
             let mut session = ClientSession::new();
@@ -931,7 +931,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "bug: called in_chat() when state was not InChat. current state: Startup"
+            expected = "bug: called in_chat() when state was not InChat; current state: Startup"
         )]
         fn in_chat_panics_if_not_in_in_chat_state() {
             let mut session = ClientSession::new();
