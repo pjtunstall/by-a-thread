@@ -30,6 +30,7 @@ pub enum ClientState {
 }
 
 pub struct ClientSession {
+    pub client_id: u64,
     pub state: ClientState,
     pub first_passcode: Option<Passcode>,
     pub awaiting_initial_roster: bool,
@@ -39,8 +40,9 @@ pub struct ClientSession {
 }
 
 impl ClientSession {
-    pub fn new() -> Self {
+    pub fn new(client_id: u64) -> Self {
         Self {
+            client_id,
             state: ClientState::Startup {
                 prompt_printed: false,
             },
@@ -116,7 +118,7 @@ mod tests {
 
     #[test]
     fn new_session_starts_in_startup_state() {
-        let session = ClientSession::new();
+        let session = ClientSession::new(0);
         assert!(matches!(
             session.state(),
             ClientState::Startup {
@@ -127,7 +129,7 @@ mod tests {
 
     #[test]
     fn first_passcode_is_stored_and_cleared() {
-        let mut session = ClientSession::new();
+        let mut session = ClientSession::new(0);
         let passcode = Passcode {
             bytes: vec![1, 2, 3, 4, 5, 6],
             string: "123456".to_string(),
@@ -143,7 +145,7 @@ mod tests {
 
     #[test]
     fn transition_updates_state() {
-        let mut session = ClientSession::new();
+        let mut session = ClientSession::new(0);
         session.transition(ClientState::Connecting);
         assert!(matches!(session.state(), ClientState::Connecting));
         session.transition(ClientState::Disconnected {

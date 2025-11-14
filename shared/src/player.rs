@@ -6,7 +6,7 @@ use crate::math::Vec3;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Player {
-    pub id: u32,
+    pub id: u64,
     pub name: String,
     pub position: Vec3,
     pub orientation: Vec3,
@@ -14,7 +14,7 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(id: u32, name: String, position: Vec3, orientation: Vec3, color: Color) -> Self {
+    pub fn new(id: u64, name: String, position: Vec3, orientation: Vec3, color: Color) -> Self {
         Self {
             id,
             name,

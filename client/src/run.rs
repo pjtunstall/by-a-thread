@@ -43,7 +43,7 @@ pub fn run_client() {
 
     let connection_config = shared::net::connection_config();
     let mut client = RenetClient::new(connection_config);
-    let mut session = ClientSession::new();
+    let mut session = ClientSession::new(client_id);
 
     ui.print_client_banner(protocol_id, server_addr, client_id);
     client_loop(&mut session, &mut ui, &mut client, &mut transport);

@@ -11,7 +11,7 @@ pub const MAX_AUTH_ATTEMPTS: u8 = 3;
 
 #[derive(Clone)]
 pub struct ChoosingDifficulty {
-    lobby: Lobby,
+    pub lobby: Lobby,
     pub difficulty: u8,
 }
 
@@ -35,14 +35,21 @@ impl ChoosingDifficulty {
 
 pub struct Countdown {
     pub usernames: HashMap<u64, String>,
+    pub players: HashMap<u64, Player>,
     pub end_time: Instant,
     pub maze: maze::Maze,
 }
 
 impl Countdown {
-    pub fn new(state: &ChoosingDifficulty, end_time: Instant, maze: maze::Maze) -> Self {
+    pub fn new(
+        state: &ChoosingDifficulty,
+        players: HashMap<u64, Player>,
+        end_time: Instant,
+        maze: maze::Maze,
+    ) -> Self {
         Self {
             usernames: state.lobby.usernames.clone(),
+            players,
             end_time,
             maze,
         }
@@ -128,7 +135,7 @@ impl ServerState {
 pub struct Lobby {
     auth_attempts: HashMap<u64, u8>,
     pending_usernames: HashSet<u64>,
-    usernames: HashMap<u64, String>,
+    pub usernames: HashMap<u64, String>,
     host_client_id: Option<u64>,
 }
 

@@ -417,6 +417,18 @@ pub fn countdown(
             Ok((ServerMessage::UserLeft { username }, _)) => {
                 ui.show_message(&format!("{} left the chat.", username));
             }
+            Ok((ServerMessage::AllPlayers { players }, _)) => {
+                ui.show_message("\nPlayers:");
+                for player in players {
+                    let is_self = if player.id == session.client_id {
+                        "(you)"
+                    } else {
+                        ""
+                    };
+                    ui.show_message(&format!(" - {} {}", player.name, is_self));
+                }
+                ui.show_message("");
+            }
             Ok((_, _)) => {}
             Err(e) => ui.show_message(&format!("[Deserialization error: {}]", e)),
         }
@@ -741,7 +753,7 @@ mod tests {
 
     #[test]
     fn startup_prompts_only_once_when_waiting_for_input() {
-        let mut session = ClientSession::new();
+        let mut session = ClientSession::new(0);
         let mut ui = MockUi::default();
 
         assert!(startup(&mut session, &mut ui).is_none());
@@ -756,7 +768,7 @@ mod tests {
 
     #[test]
     fn startup_state_handlers_when_valid_passcode_received() {
-        let mut session = ClientSession::new();
+        let mut session = ClientSession::new(0);
         let mut ui = MockUi::with_inputs([Ok(Some("123456".into()))]);
 
         let next = startup(&mut session, &mut ui);
@@ -766,7 +778,7 @@ mod tests {
 
     #[test]
     fn startup_reprompts_after_invalid_passcode() {
-        let mut session = ClientSession::new();
+        let mut session = ClientSession::new(0);
         let mut ui = MockUi::with_inputs([Ok(Some("abc".into()))]);
 
         assert!(startup(&mut session, &mut ui).is_none());
@@ -779,7 +791,7 @@ mod tests {
 
     #[test]
     fn startup_returns_disconnected_when_input_thread_stops() {
-        let mut session = ClientSession::new();
+        let mut session = ClientSession::new(0);
         let mut ui = MockUi::with_inputs([Err(UiInputError::Disconnected)]);
 
         let next = startup(&mut session, &mut ui);
@@ -793,7 +805,7 @@ mod tests {
 
     #[test]
     fn authenticating_requests_new_guess_after_incorrect_passcode_message() {
-        let mut session = ClientSession::new();
+        let mut session = ClientSession::new(0);
         session.transition(ClientState::Authenticating {
             waiting_for_input: false,
             guesses_left: MAX_ATTEMPTS,
@@ -834,7 +846,7 @@ mod tests {
             expected = "called startup() when state was not Startup; current state: Connecting"
         )]
         fn startup_panics_if_not_in_startup_state() {
-            let mut session = ClientSession::new();
+            let mut session = ClientSession::new(0);
             session.transition(ClientState::Connecting);
             let mut ui = MockUi::default();
 
@@ -843,7 +855,7 @@ mod tests {
 
         #[test]
         fn startup_does_not_panic_in_startup_state() {
-            let mut session = ClientSession::new();
+            let mut session = ClientSession::new(0);
             let mut ui = MockUi::default();
             assert!(
                 startup(&mut session, &mut ui).is_none(),
@@ -856,7 +868,7 @@ mod tests {
             expected = "called connecting() when state was not Connecting; current state: Startup"
         )]
         fn connecting_panics_if_not_in_connecting_state() {
-            let mut session = ClientSession::new();
+            let mut session = ClientSession::new(0);
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
 
@@ -865,7 +877,7 @@ mod tests {
 
         #[test]
         fn connecting_does_not_panic_in_connecting_state() {
-            let mut session = ClientSession::new();
+            let mut session = ClientSession::new(0);
             session.transition(ClientState::Connecting);
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
@@ -880,7 +892,7 @@ mod tests {
             expected = "called authenticating() when state was not Authenticating; current state: Startup"
         )]
         fn authenticating_panics_if_not_in_authenticating_state() {
-            let mut session = ClientSession::new();
+            let mut session = ClientSession::new(0);
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
 
@@ -889,7 +901,7 @@ mod tests {
 
         #[test]
         fn authenticating_does_not_panic_in_authenticating_state() {
-            let mut session = ClientSession::new();
+            let mut session = ClientSession::new(0);
             session.transition(ClientState::Authenticating {
                 waiting_for_input: false,
                 guesses_left: MAX_ATTEMPTS,
@@ -907,7 +919,7 @@ mod tests {
             expected = "called choosing_username() when state was not ChoosingUsername; current state: Startup"
         )]
         fn choosing_username_panics_if_not_in_choosing_username_state() {
-            let mut session = ClientSession::new();
+            let mut session = ClientSession::new(0);
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
 
@@ -916,7 +928,7 @@ mod tests {
 
         #[test]
         fn choosing_username_does_not_panic_in_choosing_username_state() {
-            let mut session = ClientSession::new();
+            let mut session = ClientSession::new(0);
             session.transition(ClientState::ChoosingUsername {
                 prompt_printed: false,
                 awaiting_confirmation: false,
@@ -934,7 +946,7 @@ mod tests {
             expected = "called in_chat() when state was not InChat; current state: Startup"
         )]
         fn in_chat_panics_if_not_in_in_chat_state() {
-            let mut session = ClientSession::new();
+            let mut session = ClientSession::new(0);
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
 
@@ -943,7 +955,7 @@ mod tests {
 
         #[test]
         fn in_chat_does_not_panic_in_in_chat_state() {
-            let mut session = ClientSession::new();
+            let mut session = ClientSession::new(0);
             session.transition(ClientState::InChat);
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
@@ -977,7 +989,7 @@ mod tests {
             state: ClientState::ChoosingDifficulty {
                 prompt_printed: false,
             },
-            ..ClientSession::new()
+            ..ClientSession::new(0)
         };
         let ui = MockUi::new();
         let network = MockNetwork::new();

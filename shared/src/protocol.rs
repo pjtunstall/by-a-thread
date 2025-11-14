@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::maze::Maze;
+use crate::{maze::Maze, player::Player};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
@@ -15,6 +15,7 @@ pub enum ServerMessage {
     ServerInfo { message: String },
     RequestDifficultyChoice,
     GameStarted { maze: Maze },
+    AllPlayers { players: Vec<Player> },
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
