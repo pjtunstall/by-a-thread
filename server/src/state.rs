@@ -75,16 +75,13 @@ impl Countdown {
 }
 
 pub struct InGame {
-    players: HashMap<u64, Player>,
-    _maze: maze::Maze,
+    pub players: HashMap<u64, Player>,
+    pub maze: maze::Maze,
 }
 
 impl InGame {
     pub fn new(players: HashMap<u64, Player>, maze: maze::Maze) -> Self {
-        Self {
-            players,
-            _maze: maze,
-        }
+        Self { players, maze }
     }
 
     pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{maze::Maze, player::Player};
@@ -15,7 +17,7 @@ pub enum ServerMessage {
     ServerInfo { message: String },
     RequestDifficultyChoice,
     GameStarted { maze: Maze },
-    AllPlayers { players: Vec<Player> },
+    AllPlayers { players: HashMap<u64, Player> },
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]

@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
@@ -419,7 +417,7 @@ pub fn countdown(
             }
             Ok((ServerMessage::AllPlayers { players }, _)) => {
                 ui.show_message("\nPlayers:");
-                for player in players {
+                for player in players.values() {
                     let is_self = if player.id == session.client_id {
                         "(you)"
                     } else {
@@ -428,6 +426,8 @@ pub fn countdown(
                     ui.show_message(&format!(" - {} {}", player.name, is_self));
                 }
                 ui.show_message("");
+
+                session.players = Some(players);
             }
             Ok((_, _)) => {}
             Err(e) => ui.show_message(&format!("[Deserialization error: {}]", e)),
@@ -444,19 +444,17 @@ pub fn countdown(
             ui.show_status_line("Time Remaining: 0s");
 
             if let Some(maze) = session.maze.take() {
-                std::thread::sleep(Duration::from_millis(100));
-                println!("\r");
-                ui.show_message("Game started! Maze received:");
-
-                let maze_layout = maze.log();
-                for line in maze_layout.lines() {
-                    ui.show_message(line);
+                if let Some(players) = session.players.take() {
+                    return Some(ClientState::InGame { maze, players });
+                } else {
+                    return Some(ClientState::Disconnected {
+                        message: "Failed to receive players data.".to_string(),
+                    });
                 }
-
-                ui.show_message("Exiting for now.");
-                return Some(ClientState::InGame);
             } else {
-                ui.show_status_line("Waiting for maze data...");
+                return Some(ClientState::Disconnected {
+                    message: "Failed to receive maze data".to_string(),
+                });
             }
         }
     } else {
@@ -470,6 +468,24 @@ pub fn countdown(
     }
 
     None
+}
+
+pub fn in_game(
+    session: &mut ClientSession,
+    ui: &mut dyn ClientUi,
+    _network: &mut dyn NetworkHandle,
+) -> Option<ClientState> {
+    if !matches!(session.state(), ClientState::InGame { .. }) {
+        panic!(
+            "called in_game() when state was not InGame; current state: {:?}",
+            session.state()
+        );
+    }
+
+    ui.show_message("Exiting for now.");
+    return Some(ClientState::Disconnected {
+        message: "".to_string(),
+    });
 }
 
 fn passcode_prompt(remaining: u8) -> String {

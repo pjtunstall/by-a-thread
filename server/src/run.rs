@@ -231,7 +231,7 @@ fn handle_choosing_difficulty(
                         })
                         .collect();
                     let message = ServerMessage::AllPlayers {
-                        players: players.values().cloned().collect(),
+                        players: players.clone(),
                     };
                     let payload =
                         encode_to_vec(&message, standard()).expect("failed to serialize Players");

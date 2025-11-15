@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+
 use shared::auth::Passcode;
 use shared::chat::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username};
 use shared::maze::Maze;
+use shared::player::Player;
 
 pub const MAX_ATTEMPTS: u8 = 3;
 
@@ -26,7 +29,10 @@ pub enum ClientState {
     ChoosingDifficulty {
         prompt_printed: bool,
     },
-    InGame,
+    InGame {
+        maze: Maze,
+        players: HashMap<u64, Player>,
+    },
 }
 
 pub struct ClientSession {
@@ -37,6 +43,7 @@ pub struct ClientSession {
     pub estimated_server_time: f64,
     pub countdown_end_time: Option<f64>,
     pub maze: Option<Maze>,
+    pub players: Option<HashMap<u64, Player>>,
 }
 
 impl ClientSession {
@@ -51,6 +58,7 @@ impl ClientSession {
             estimated_server_time: 0.0,
             countdown_end_time: None,
             maze: None,
+            players: None,
         }
     }
 

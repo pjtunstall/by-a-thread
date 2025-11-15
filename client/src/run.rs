@@ -97,7 +97,7 @@ fn client_loop(
             }
             ClientState::Countdown => state_handlers::countdown(session, ui, &mut network_handle),
             ClientState::Disconnected { .. } => None,
-            ClientState::InGame => break,
+            ClientState::InGame { .. } => state_handlers::in_game(session, ui, &mut network_handle),
         };
 
         if let Some(new_state) = next_state_from_logic {
