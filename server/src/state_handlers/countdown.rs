@@ -32,7 +32,6 @@ pub fn handle_countdown(
         );
         None
     } else {
-        println!("\nCountdown finished. Transitioning to InGame.");
         Some(ServerState::InGame(InGame::new(
             state.players.clone(),
             state.maze.clone(),

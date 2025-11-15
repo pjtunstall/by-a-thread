@@ -53,7 +53,7 @@ pub fn handle_choosing_difficulty(
                         return None;
                     }
 
-                    println!("Host selected difficulty {}. Starting countdown.", level);
+                    println!("Host selected difficulty {}.", level);
                     state.set_difficulty(level);
 
                     let generator = match level {
@@ -65,23 +65,7 @@ pub fn handle_choosing_difficulty(
                     let maze_layout = maze.log();
                     println!("\n{}", maze_layout);
 
-                    let game_started_msg = ServerMessage::GameStarted { maze: maze.clone() };
-                    let game_started_payload = encode_to_vec(&game_started_msg, standard())
-                        .expect("failed to serialize GameStarted");
-                    network.broadcast_message(AppChannel::ReliableOrdered, game_started_payload);
-
                     let countdown_duration = Duration::from_secs(11);
-                    let end_time_f64 =
-                        shared::time::now().as_secs_f64() + countdown_duration.as_secs_f64();
-
-                    let countdown_msg = ServerMessage::CountdownStarted {
-                        end_time: end_time_f64,
-                    };
-                    let countdown_payload = encode_to_vec(&countdown_msg, standard())
-                        .expect("failed to serialize CountdownStarted");
-
-                    network.broadcast_message(AppChannel::ReliableOrdered, countdown_payload);
-
                     let end_time_instant = Instant::now() + countdown_duration;
 
                     println!();
@@ -112,14 +96,6 @@ pub fn handle_choosing_difficulty(
                             (id, player)
                         })
                         .collect();
-                    let message = ServerMessage::AllPlayers {
-                        players: players.clone(),
-                    };
-                    let payload =
-                        encode_to_vec(&message, standard()).expect("failed to serialize Players");
-                    network.broadcast_message(AppChannel::ReliableOrdered, payload);
-
-                    println!();
 
                     return Some(ServerState::Countdown(Countdown::new(
                         state,

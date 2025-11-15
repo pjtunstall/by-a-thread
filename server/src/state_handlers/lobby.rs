@@ -179,16 +179,6 @@ pub fn handle_lobby(
                 }
                 ClientMessage::RequestStartGame => {
                     if state.is_host(client_id) {
-                        let host = state
-                            .username(client_id)
-                            .expect("host should have a username");
-                        println!("Host, {}, is choosing a difficulty.", host);
-
-                        let message = ServerMessage::RequestDifficultyChoice;
-                        let payload = encode_to_vec(&message, standard())
-                            .expect("failed to serialize RequestDifficultyChoice");
-                        network.send_message(client_id, AppChannel::ReliableOrdered, payload);
-
                         return Some(ServerState::ChoosingDifficulty(ChoosingDifficulty::new(
                             state,
                         )));

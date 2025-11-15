@@ -8,9 +8,8 @@ use renet::{ChannelConfig, ClientNotFound, ConnectionConfig, RenetServer, SendTy
 
 use server::{
     net::RenetServerNetworkHandle,
-    run::process_events,
+    run::update_server_state,
     state::{Lobby, ServerState},
-    state_handlers::handle_messages,
 };
 use shared::{
     auth::Passcode,
@@ -94,7 +93,7 @@ fn chat_messages_are_broadcast_to_other_clients() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        process_events(&mut network_handle, &mut state);
+        update_server_state(&mut network_handle, &mut state, &passcode);
     }
 
     full_tick(&mut server, &mut alice, &mut bob);
@@ -118,7 +117,7 @@ fn chat_messages_are_broadcast_to_other_clients() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        handle_messages(&mut network_handle, &mut state, &passcode);
+        update_server_state(&mut network_handle, &mut state, &passcode);
     }
 
     server.update(Duration::from_millis(16));
@@ -163,7 +162,7 @@ fn players_are_notified_when_others_join_and_leave() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        process_events(&mut network_handle, &mut state);
+        update_server_state(&mut network_handle, &mut state, &passcode);
     }
 
     full_tick(&mut server, &mut alice, &mut bob);
@@ -186,7 +185,7 @@ fn players_are_notified_when_others_join_and_leave() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        handle_messages(&mut network_handle, &mut state, &passcode);
+        update_server_state(&mut network_handle, &mut state, &passcode);
     }
 
     server.update(Duration::from_millis(16));
@@ -220,7 +219,7 @@ fn players_are_notified_when_others_join_and_leave() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        process_events(&mut network_handle, &mut state);
+        update_server_state(&mut network_handle, &mut state, &passcode);
     }
 
     server.update(Duration::from_millis(16));
@@ -264,7 +263,7 @@ fn test_handle_messages_username_success_and_broadcast() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        process_events(&mut network_handle, &mut state);
+        update_server_state(&mut network_handle, &mut state, &passcode);
     }
 
     full_tick(&mut server, &mut alice, &mut bob);
@@ -287,7 +286,7 @@ fn test_handle_messages_username_success_and_broadcast() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        handle_messages(&mut network_handle, &mut state, &passcode);
+        update_server_state(&mut network_handle, &mut state, &passcode);
     }
 
     server.update(Duration::from_millis(16));

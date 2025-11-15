@@ -11,7 +11,7 @@ use crate::{
     state::{Lobby, ServerState},
     state_handlers,
 };
-use shared::{self, auth::Passcode, net::AppChannel, protocol::ServerMessage};
+use shared::{self, auth::Passcode, net::AppChannel, protocol::ServerMessage, time};
 
 pub fn run_server() {
     let private_key = shared::auth::private_key();
@@ -63,20 +63,107 @@ fn server_loop(
 
         let mut network_handle = RenetServerNetworkHandle { server };
 
-        process_events(&mut network_handle, state);
-
         if now.duration_since(last_sync_time) > sync_interval {
             sync_clocks(&mut network_handle);
             last_sync_time = now;
         }
 
-        let next_state = state_handlers::handle_messages(&mut network_handle, state, passcode);
-        if let Some(new_state) = next_state {
-            *state = new_state;
-        }
+        update_server_state(&mut network_handle, state, passcode);
 
         transport.send_packets(server);
         thread::sleep(Duration::from_millis(16));
+    }
+}
+
+pub fn update_server_state(
+    network: &mut dyn ServerNetworkHandle,
+    state: &mut ServerState,
+    passcode: &Passcode,
+) {
+    process_events(network, state);
+
+    let next_state = match state {
+        ServerState::Lobby(lobby_state) => {
+            state_handlers::lobby::handle_lobby(network, lobby_state, passcode)
+        }
+        ServerState::ChoosingDifficulty(difficulty_state) => {
+            state_handlers::difficulty::handle_choosing_difficulty(network, difficulty_state)
+        }
+        ServerState::Countdown(countdown_state) => {
+            state_handlers::countdown::handle_countdown(network, countdown_state)
+        }
+        ServerState::InGame(in_game_state) => {
+            state_handlers::game::handle_in_game(network, in_game_state)
+        }
+    };
+
+    if let Some(new_state) = next_state {
+        apply_server_transition(state, new_state, network);
+    }
+}
+
+fn apply_server_transition(
+    old_state: &mut ServerState,
+    new_state: ServerState,
+    network: &mut dyn ServerNetworkHandle,
+) {
+    println!(
+        "Server state changing from {} to {}.",
+        old_state.name(),
+        new_state.name()
+    );
+
+    *old_state = new_state;
+
+    match old_state {
+        ServerState::Lobby(_) => {}
+
+        ServerState::ChoosingDifficulty(difficulty_state) => {
+            let host_id = difficulty_state.host_id();
+            let host_name = difficulty_state
+                .username(host_id)
+                .expect("host should have a username");
+            println!("Host, {}, is choosing a difficulty.", host_name);
+            let message = ServerMessage::RequestDifficultyChoice;
+            let payload = encode_to_vec(&message, standard())
+                .expect("failed to serialize RequestDifficultyChoice");
+            network.send_message(host_id, AppChannel::ReliableOrdered, payload);
+        }
+
+        ServerState::Countdown(countdown_state) => {
+            println!("Server entering Countdown state.");
+
+            // Send GameStarted.
+            let game_started_msg = ServerMessage::GameStarted {
+                maze: countdown_state.maze.clone(),
+            };
+            let game_started_payload = encode_to_vec(&game_started_msg, standard())
+                .expect("failed to serialize GameStarted");
+            network.broadcast_message(AppChannel::ReliableOrdered, game_started_payload);
+
+            // Send CountdownStarted.
+            let now = time::now().as_secs_f64();
+            let end_time_f64 = countdown_state
+                .end_time
+                .duration_since(Instant::now())
+                .as_secs_f64()
+                + now;
+            let countdown_msg = ServerMessage::CountdownStarted {
+                end_time: end_time_f64,
+            };
+            let countdown_payload = encode_to_vec(&countdown_msg, standard())
+                .expect("failed to serialize CountdownStarted");
+            network.broadcast_message(AppChannel::ReliableOrdered, countdown_payload);
+
+            // Send AllPlayers.
+            let message = ServerMessage::AllPlayers {
+                players: countdown_state.players.clone(),
+            };
+            let payload = encode_to_vec(&message, standard()).expect("failed to serialize Players");
+            network.broadcast_message(AppChannel::ReliableOrdered, payload);
+        }
+
+        ServerState::InGame(_) => {}
     }
 }
 

@@ -107,6 +107,15 @@ pub enum ServerState {
 }
 
 impl ServerState {
+    pub fn name(&self) -> &'static str {
+        match self {
+            ServerState::Lobby(_) => "Lobby",
+            ServerState::ChoosingDifficulty(_) => "ChoosingDifficulty",
+            ServerState::Countdown(_) => "Countdown",
+            ServerState::InGame(_) => "InGame",
+        }
+    }
+
     pub fn register_connection(&mut self, client_id: u64) {
         if let ServerState::Lobby(lobby) = self {
             lobby.register_connection(client_id);
