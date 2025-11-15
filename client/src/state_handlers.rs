@@ -419,11 +419,16 @@ pub fn countdown(
                 ui.show_message("\nPlayers:");
                 for player in players.values() {
                     let is_self = if player.id == session.client_id {
-                        "(you)"
+                        "<--you"
                     } else {
                         ""
                     };
-                    ui.show_message(&format!(" - {} {}", player.name, is_self));
+                    ui.show_message(&format!(
+                        " - {} ({}) {}",
+                        player.name,
+                        player.color.as_str(),
+                        is_self
+                    ));
                 }
                 ui.show_message("");
 

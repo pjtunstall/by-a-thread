@@ -49,6 +49,23 @@ pub enum Color {
     SKYBLUE,
 }
 
+impl Color {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Color::RED => "Red",
+            Color::LIME => "Lime",
+            Color::PINK => "Pink",
+            Color::YELLOW => "Yellow",
+            Color::GREEN => "Green",
+            Color::BLUE => "Blue",
+            Color::MAROON => "Maroon",
+            Color::ORANGE => "Orange",
+            Color::PURPLE => "Purple",
+            Color::SKYBLUE => "Sky Blue",
+        }
+    }
+}
+
 pub const COLORS: [Color; 10] = [
     Color::RED,
     Color::LIME,
