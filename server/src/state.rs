@@ -111,7 +111,7 @@ impl ServerState {
         if let ServerState::Lobby(lobby) = self {
             lobby.register_connection(client_id);
         } else {
-            println!(
+            eprintln!(
                 "Client {} connected, but server is not in Lobby state. Ignoring.",
                 client_id
             );

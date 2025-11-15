@@ -55,7 +55,7 @@ pub fn run_server() {
 
     print_server_banner(protocol_id, server_addr, &passcode);
     server_loop(&mut server, &mut transport, &mut state, &passcode);
-    println!("Server shuttig down.");
+    println!("Server shutting down.");
 }
 
 fn print_server_banner(protocol_id: u64, server_addr: SocketAddr, passcode: &Passcode) {
@@ -149,7 +149,7 @@ fn handle_choosing_difficulty(
     for client_id in network.clients_id() {
         while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
             let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
-                println!("Client {} sent malformed data. Disconnecting.", client_id);
+                eprintln!("Client {} sent malformed data. Disconnecting.", client_id);
                 network.disconnect(client_id);
                 continue;
             };
@@ -157,12 +157,12 @@ fn handle_choosing_difficulty(
             match message {
                 ClientMessage::SetDifficulty(level) => {
                     if client_id != host_id {
-                        println!("Non-host {} tried to set difficulty.", client_id);
+                        eprintln!("Non-host {} tried to set difficulty.", client_id);
                         continue;
                     }
 
                     if !(1..=3).contains(&level) {
-                        println!("Host {} sent invalid difficulty level: {}", host_id, level);
+                        eprintln!("Host {} sent invalid difficulty level: {}", host_id, level);
                         let msg = ServerMessage::ServerInfo {
                             message: "Invalid choice. Please press 1, 2, or 3.".to_string(),
                         };
@@ -181,7 +181,7 @@ fn handle_choosing_difficulty(
                     };
                     let maze = maze::Maze::new(generator);
                     let maze_layout = maze.log();
-                    println!("{}", maze_layout);
+                    println!("\n{}", maze_layout);
 
                     let game_started_msg = ServerMessage::GameStarted { maze: maze.clone() };
                     let game_started_payload = encode_to_vec(&game_started_msg, standard())
@@ -264,7 +264,7 @@ fn handle_choosing_difficulty(
                     }
                 }
                 _ => {
-                    println!(
+                    eprintln!(
                         "Client {} sent unexpected message in difficulty choice state.",
                         client_id
                     );
@@ -320,7 +320,7 @@ fn handle_lobby(
     for client_id in network.clients_id() {
         while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
             let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
-                println!("Client {} sent malformed data. Disconnecting.", client_id);
+                eprintln!("Client {} sent malformed data. Disconnecting.", client_id);
                 network.disconnect(client_id);
                 continue;
             };
@@ -328,7 +328,7 @@ fn handle_lobby(
             match message {
                 ClientMessage::SendPasscode(guess_bytes) => {
                     if !state.is_authenticating(client_id) {
-                        println!("Client {} sent passcode in wrong state.", client_id);
+                        eprintln!("Client {} sent passcode in wrong state.", client_id);
                         continue;
                     }
 
@@ -388,7 +388,7 @@ fn handle_lobby(
                 }
                 ClientMessage::SetUsername(username_text) => {
                     if !state.needs_username(client_id) {
-                        println!("Client {} sent username in wrong state.", client_id);
+                        eprintln!("Client {} sent username in wrong state.", client_id);
                         continue;
                     }
 
@@ -468,7 +468,7 @@ fn handle_lobby(
                             .expect("failed to serialize ChatMessage");
                         network.broadcast_message(AppChannel::ReliableOrdered, payload);
                     } else {
-                        println!("Client {} sent chat message in wrong state.", client_id);
+                        eprintln!("Client {} sent chat message in wrong state.", client_id);
                     }
                 }
                 ClientMessage::RequestStartGame => {
@@ -487,11 +487,11 @@ fn handle_lobby(
                             state,
                         )));
                     } else {
-                        println!("Client {} (not host) tried to start game.", client_id);
+                        eprintln!("Client {}, not host, tried to start game.", client_id);
                     }
                 }
                 ClientMessage::SetDifficulty(_) => {
-                    println!(
+                    eprintln!(
                         "Client {} sent SetDifficulty in Lobby state. Ignoring.",
                         client_id
                     );
