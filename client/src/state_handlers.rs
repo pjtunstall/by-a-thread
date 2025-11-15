@@ -443,7 +443,7 @@ pub fn countdown(
         let time_remaining_secs = end_time - session.estimated_server_time - 1.0;
 
         if time_remaining_secs > 0.0 {
-            let status_message = format!("Time Remaining: {:.0}s", time_remaining_secs.ceil());
+            let status_message = format!("Game starting in {:.0}s.", time_remaining_secs.ceil());
             ui.show_status_line(&status_message);
         } else {
             ui.show_status_line("Time Remaining: 0s");
