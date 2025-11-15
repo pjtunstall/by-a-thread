@@ -1,17 +1,22 @@
-// server/tests/chat_integration.rs
-use renet::{ChannelConfig, ClientNotFound, ConnectionConfig, RenetServer, SendType};
 use std::time::Duration;
 
 use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
 };
-use server::net::RenetServerNetworkHandle;
-use server::run::{handle_messages, process_events};
-use server::state::{Lobby, ServerState};
-use shared::auth::Passcode;
-use shared::net::AppChannel;
-use shared::protocol::{ClientMessage, ServerMessage};
+use renet::{ChannelConfig, ClientNotFound, ConnectionConfig, RenetServer, SendType};
+
+use server::{
+    net::RenetServerNetworkHandle,
+    run::process_events,
+    state::{Lobby, ServerState},
+    state_handlers::handle_messages,
+};
+use shared::{
+    auth::Passcode,
+    net::AppChannel,
+    protocol::{ClientMessage, ServerMessage},
+};
 
 fn empty_passcode() -> Passcode {
     Passcode {

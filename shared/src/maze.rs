@@ -38,7 +38,7 @@ impl Maze {
             .iter()
             .map(|row| {
                 row.iter()
-                    .map(|&cell| if cell == 0 { "  " } else { "🧱" })
+                    .map(|&cell| if cell == 0 { "  " } else { "██" })
                     .collect::<String>()
             })
             .collect::<Vec<String>>()

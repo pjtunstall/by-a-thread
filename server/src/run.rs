@@ -70,7 +70,7 @@ fn server_loop(
             last_sync_time = now;
         }
 
-        let next_state = handle_messages(&mut network_handle, state, passcode);
+        let next_state = state_handlers::handle_messages(&mut network_handle, state, passcode);
         if let Some(new_state) = next_state {
             *state = new_state;
         }
@@ -100,25 +100,6 @@ fn sync_clocks(network: &mut dyn ServerNetworkHandle) {
     let message = ServerMessage::ServerTime(server_time_f64);
     let payload = encode_to_vec(&message, standard()).expect("failed to serialize ServerTime");
     network.broadcast_message(AppChannel::ServerTime, payload);
-}
-
-pub fn handle_messages(
-    network: &mut dyn ServerNetworkHandle,
-    state: &mut ServerState,
-    passcode: &Passcode,
-) -> Option<ServerState> {
-    match state {
-        ServerState::Lobby(lobby_state) => {
-            state_handlers::handle_lobby(network, lobby_state, passcode)
-        }
-        ServerState::ChoosingDifficulty(difficulty_state) => {
-            state_handlers::handle_choosing_difficulty(network, difficulty_state)
-        }
-        ServerState::Countdown(countdown_state) => {
-            state_handlers::handle_countdown(network, countdown_state)
-        }
-        ServerState::InGame(_) => None,
-    }
 }
 
 #[cfg(test)]
