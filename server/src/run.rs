@@ -133,33 +133,19 @@ fn apply_server_transition(
         ServerState::Countdown(countdown_state) => {
             println!("Server entering Countdown state.");
 
-            // Send GameStarted.
-            let game_started_msg = ServerMessage::GameStarted {
-                maze: countdown_state.maze.clone(),
-            };
-            let game_started_payload = encode_to_vec(&game_started_msg, standard())
-                .expect("failed to serialize GameStarted");
-            network.broadcast_message(AppChannel::ReliableOrdered, game_started_payload);
-
-            // Send CountdownStarted.
-            let now = time::now().as_secs_f64();
-            let end_time_f64 = countdown_state
+            let end_time = countdown_state
                 .end_time
                 .duration_since(Instant::now())
                 .as_secs_f64()
-                + now;
-            let countdown_msg = ServerMessage::CountdownStarted {
-                end_time: end_time_f64,
-            };
-            let countdown_payload = encode_to_vec(&countdown_msg, standard())
-                .expect("failed to serialize CountdownStarted");
-            network.broadcast_message(AppChannel::ReliableOrdered, countdown_payload);
+                + time::now().as_secs_f64();
 
-            // Send AllPlayers.
-            let message = ServerMessage::AllPlayers {
+            let message = ServerMessage::CountdownStarted {
+                end_time,
+                maze: countdown_state.maze.clone(),
                 players: countdown_state.players.clone(),
             };
-            let payload = encode_to_vec(&message, standard()).expect("failed to serialize Players");
+            let payload = encode_to_vec(&message, standard())
+                .expect("failed to serialize CountDownStarted mesage");
             network.broadcast_message(AppChannel::ReliableOrdered, payload);
         }
 

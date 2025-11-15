@@ -7,17 +7,34 @@ use crate::{maze::Maze, player::Player};
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
     ServerTime(f64),
-    CountdownStarted { end_time: f64 },
-    Welcome { username: String },
-    UsernameError { message: String },
-    Roster { online: Vec<String> },
-    UserJoined { username: String },
-    UserLeft { username: String },
-    ChatMessage { username: String, content: String },
-    ServerInfo { message: String },
+    CountdownStarted {
+        end_time: f64,
+        maze: Maze,
+        players: HashMap<u64, Player>,
+    },
+    Welcome {
+        username: String,
+    },
+    UsernameError {
+        message: String,
+    },
+    Roster {
+        online: Vec<String>,
+    },
+    UserJoined {
+        username: String,
+    },
+    UserLeft {
+        username: String,
+    },
+    ChatMessage {
+        username: String,
+        content: String,
+    },
+    ServerInfo {
+        message: String,
+    },
     RequestDifficultyChoice,
-    GameStarted { maze: Maze },
-    AllPlayers { players: HashMap<u64, Player> },
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]

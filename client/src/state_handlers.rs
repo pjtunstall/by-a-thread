@@ -2,6 +2,8 @@ use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
 };
+use shared::player::Player;
+use std::collections::HashMap;
 
 use crate::state::{
     ClientSession, ClientState, MAX_ATTEMPTS, username_prompt, validate_username_input,
@@ -22,6 +24,28 @@ pub trait NetworkHandle {
     fn send_message(&mut self, channel: AppChannel, message: Vec<u8>);
     fn receive_message(&mut self, channel: AppChannel) -> Option<Vec<u8>>;
     fn rtt(&self) -> f64;
+}
+
+fn print_player_list(
+    ui: &mut dyn ClientUi,
+    session: &ClientSession,
+    players: &HashMap<u64, Player>,
+) {
+    ui.show_message("\nPlayers:");
+    for player in players.values() {
+        let is_self = if player.id == session.client_id {
+            "<--you"
+        } else {
+            ""
+        };
+        ui.show_message(&format!(
+            " - {} ({}) {}",
+            player.name,
+            player.color.as_str(),
+            is_self
+        ));
+    }
+    ui.show_message("");
 }
 
 pub fn startup(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<ClientState> {
@@ -111,13 +135,6 @@ pub fn authenticating(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((ServerMessage::GameStarted { maze }, _)) => {
-                session.maze = Some(maze);
-            }
-            Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
-                session.countdown_end_time = Some(end_time);
-                return Some(ClientState::Countdown);
-            }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_message(&format!("Server: {}", message));
 
@@ -211,13 +228,6 @@ pub fn choosing_username(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((ServerMessage::GameStarted { maze }, _)) => {
-                session.maze = Some(maze);
-            }
-            Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
-                session.countdown_end_time = Some(end_time);
-                return Some(ClientState::Countdown);
-            }
             Ok((ServerMessage::Welcome { username }, _)) => {
                 ui.show_message(&format!("Welcome, {}!", username));
                 session.expect_initial_roster();
@@ -306,11 +316,18 @@ pub fn in_chat(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((ServerMessage::GameStarted { maze }, _)) => {
-                session.maze = Some(maze);
-            }
-            Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
+            Ok((
+                ServerMessage::CountdownStarted {
+                    end_time,
+                    maze,
+                    players,
+                },
+                _,
+            )) => {
                 session.countdown_end_time = Some(end_time);
+                session.maze = Some(maze);
+                print_player_list(ui, session, &players);
+                session.players = Some(players);
                 return Some(ClientState::Countdown);
             }
             Ok((ServerMessage::RequestDifficultyChoice, _)) => {
@@ -403,9 +420,6 @@ pub fn countdown(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((ServerMessage::GameStarted { maze }, _)) => {
-                session.maze = Some(maze);
-            }
             Ok((ServerMessage::ChatMessage { username, content }, _)) => {
                 ui.show_message(&format!("{}: {}", username, content));
             }
@@ -414,25 +428,6 @@ pub fn countdown(
             }
             Ok((ServerMessage::UserLeft { username }, _)) => {
                 ui.show_message(&format!("{} left the chat.", username));
-            }
-            Ok((ServerMessage::AllPlayers { players }, _)) => {
-                ui.show_message("\nPlayers:");
-                for player in players.values() {
-                    let is_self = if player.id == session.client_id {
-                        "<--you"
-                    } else {
-                        ""
-                    };
-                    ui.show_message(&format!(
-                        " - {} ({}) {}",
-                        player.name,
-                        player.color.as_str(),
-                        is_self
-                    ));
-                }
-                ui.show_message("");
-
-                session.players = Some(players);
             }
             Ok((_, _)) => {}
             Err(e) => ui.show_message(&format!("[Deserialization error: {}]", e)),
@@ -446,7 +441,7 @@ pub fn countdown(
             let status_message = format!("Game starting in {:.0}s.", time_remaining_secs.ceil());
             ui.show_status_line(&status_message);
         } else {
-            ui.show_status_line("Time Remaining: 0s");
+            ui.show_status_line("Time Remaining: 0s.");
 
             if let Some(maze) = session.maze.take() {
                 if let Some(players) = session.players.take() {
@@ -545,11 +540,18 @@ pub fn choosing_difficulty(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((ServerMessage::GameStarted { maze }, _)) => {
-                session.maze = Some(maze);
-            }
-            Ok((ServerMessage::CountdownStarted { end_time }, _)) => {
+            Ok((
+                ServerMessage::CountdownStarted {
+                    end_time,
+                    maze,
+                    players,
+                },
+                _,
+            )) => {
                 session.countdown_end_time = Some(end_time);
+                session.maze = Some(maze);
+                print_player_list(ui, session, &players);
+                session.players = Some(players);
                 return Some(ClientState::Countdown);
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
