@@ -82,29 +82,8 @@ fn client_loop(
 
         update_estimated_server_time(session, &mut network_handle);
 
-        let next_state_from_logic = match session.state() {
-            ClientState::Startup { .. } => state_handlers::startup(session, ui),
-            ClientState::Connecting => state_handlers::connecting(session, ui, &mut network_handle),
-            ClientState::Authenticating { .. } => {
-                state_handlers::authenticating(session, ui, &mut network_handle)
-            }
-            ClientState::ChoosingUsername { .. } => {
-                state_handlers::choosing_username(session, ui, &mut network_handle)
-            }
-            ClientState::InChat => state_handlers::in_chat(session, ui, &mut network_handle),
-            ClientState::ChoosingDifficulty { .. } => {
-                state_handlers::choosing_difficulty(session, ui, &mut network_handle)
-            }
-            ClientState::Countdown => state_handlers::countdown(session, ui, &mut network_handle),
-            ClientState::Disconnected { .. } => None,
-            ClientState::InGame { .. } => state_handlers::in_game(session, ui, &mut network_handle),
-        };
-
-        if let Some(new_state) = next_state_from_logic {
-            if apply_transition(session, ui, new_state) {
-                break;
-            }
-            continue;
+        if update_client_state(session, ui, &mut network_handle) {
+            break;
         }
 
         if let Err(e) = transport.send_packets(client) {
@@ -121,6 +100,38 @@ fn client_loop(
 
         thread::sleep(Duration::from_millis(16));
     }
+}
+
+fn update_client_state(
+    session: &mut ClientSession,
+    ui: &mut dyn ClientUi,
+    network_handle: &mut RenetNetworkHandle,
+) -> bool {
+    let next_state_from_logic = match session.state() {
+        ClientState::Startup { .. } => state_handlers::startup(session, ui),
+        ClientState::Connecting => state_handlers::connecting(session, ui, network_handle),
+        ClientState::Authenticating { .. } => {
+            state_handlers::authenticating(session, ui, network_handle)
+        }
+        ClientState::ChoosingUsername { .. } => {
+            state_handlers::choosing_username(session, ui, network_handle)
+        }
+        ClientState::InChat => state_handlers::in_chat(session, ui, network_handle),
+        ClientState::ChoosingDifficulty { .. } => {
+            state_handlers::choosing_difficulty(session, ui, network_handle)
+        }
+        ClientState::Countdown => state_handlers::countdown(session, ui, network_handle),
+        ClientState::Disconnected { .. } => None,
+        ClientState::InGame { .. } => state_handlers::in_game(session, ui, network_handle),
+    };
+
+    if let Some(new_state) = next_state_from_logic {
+        if apply_transition(session, ui, new_state) {
+            return true;
+        }
+    }
+
+    false
 }
 
 fn update_estimated_server_time(session: &mut ClientSession, network: &mut RenetNetworkHandle) {
