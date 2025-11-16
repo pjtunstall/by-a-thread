@@ -508,10 +508,6 @@ pub fn choosing_difficulty(
         );
     };
 
-    if let ClientState::ChoosingDifficulty { prompt_printed: _ } = session.state_mut() {
-        // This logic is now handled by apply_transition
-    }
-
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((
