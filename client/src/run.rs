@@ -198,6 +198,9 @@ fn apply_client_transition(
             session.expect_initial_roster();
         }
         ClientState::ChoosingDifficulty { prompt_printed, .. } => {
+            execute!(stdout(), MoveToColumn(0), Clear(ClearType::CurrentLine))
+                .expect("failed to clear line");
+
             if !*prompt_printed {
                 ui.show_message("Server: Choose a difficulty level:");
                 ui.show_message("  1. Easy");

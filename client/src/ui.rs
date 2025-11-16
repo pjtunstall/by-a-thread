@@ -1,10 +1,12 @@
-use std::fmt;
-use std::io::{self, Stdout, Write, stdout};
-use std::net::SocketAddr;
-use std::time::Duration;
+use std::{
+    fmt,
+    io::{self, Stdout, Write, stdout},
+    net::SocketAddr,
+    time::Duration,
+};
 
 use crossterm::{
-    cursor::MoveToColumn,
+    cursor::{MoveToColumn, Show},
     event::{self, Event, KeyCode, KeyModifiers},
     execute, queue,
     style::Print,
@@ -41,6 +43,7 @@ pub trait ClientUi {
 pub struct TerminalUi<W: Write> {
     stdout: W,
     buffer: String,
+    cursor_pos: usize,
     prompt_lines: u16,
     cols: u16,
     is_raw_mode_owner: bool,
@@ -59,9 +62,13 @@ impl TerminalUi<Stdout> {
             Print("> ")
         )?;
         stdout.flush()?;
+
+        execute!(stdout, Show).ok();
+
         Ok(Self {
             stdout,
             buffer: String::new(),
+            cursor_pos: 0,
             prompt_lines: 1,
             cols,
             is_raw_mode_owner: true,
@@ -121,6 +128,22 @@ impl<W: Write> TerminalUi<W> {
         self.prompt_lines = new_lines as u16;
 
         queue!(self.stdout, Print(prompt), Print(&self.buffer)).map_err(map_err)?;
+
+        let prompt_len = prompt.len();
+        let cursor_byte_pos = prompt_len + self.cursor_pos;
+        let full_len = prompt_len + self.buffer.len();
+
+        let cursor_row = cursor_byte_pos / cols;
+        let end_row = full_len / cols;
+
+        let cursor_col = (cursor_byte_pos % cols) as u16;
+        let move_up = (end_row - cursor_row) as u16;
+
+        if move_up > 0 {
+            queue!(self.stdout, crossterm::cursor::MoveUp(move_up)).map_err(map_err)?;
+        }
+        queue!(self.stdout, MoveToColumn(cursor_col)).map_err(map_err)?;
+
         self.stdout.flush().map_err(map_err)?;
         stdout().flush().map_err(map_err)?;
         Ok(())
@@ -141,6 +164,7 @@ impl<W: Write> TerminalUi<W> {
                 match key_event.code {
                     KeyCode::Enter => {
                         let line = self.buffer.drain(..).collect();
+                        self.cursor_pos = 0;
                         queue!(self.stdout, Print("\r\n"))
                             .map_err(|_| UiInputError::Disconnected)?;
                         self.prompt_lines = 1;
@@ -148,7 +172,13 @@ impl<W: Write> TerminalUi<W> {
                         Ok(Some(line))
                     }
                     KeyCode::Backspace => {
-                        if self.buffer.pop().is_some() {
+                        if self.cursor_pos > 0 {
+                            let mut char_boundary = self.cursor_pos - 1;
+                            while !self.buffer.is_char_boundary(char_boundary) {
+                                char_boundary -= 1;
+                            }
+                            self.buffer.remove(char_boundary);
+                            self.cursor_pos = char_boundary;
                             self.redraw_prompt()?;
                         }
                         Ok(None)
@@ -156,6 +186,7 @@ impl<W: Write> TerminalUi<W> {
                     KeyCode::Esc => {
                         if !self.buffer.is_empty() {
                             self.buffer.clear();
+                            self.cursor_pos = 0;
                             self.redraw_prompt()?;
                         }
                         Ok(None)
@@ -167,19 +198,35 @@ impl<W: Write> TerminalUi<W> {
                         if at_limit {
                             Ok(None)
                         } else {
-                            self.buffer.push(c);
-                            let cols = usize::from(self.cols.max(1));
-                            let prompt = "> ";
-                            let full = format!("{}{}", prompt, &self.buffer);
-                            let new_lines = (full.len().max(1) + cols - 1) / cols;
-                            self.prompt_lines = new_lines as u16;
-
-                            let map_err = |_| UiInputError::Disconnected;
-                            queue!(self.stdout, Print(c)).map_err(map_err)?;
-                            self.stdout.flush().map_err(map_err)?;
-                            stdout().flush().map_err(map_err)?;
+                            self.buffer.insert(self.cursor_pos, c);
+                            self.cursor_pos += c.len_utf8();
+                            self.redraw_prompt()?;
                             Ok(None)
                         }
+                    }
+                    KeyCode::Left => {
+                        if self.cursor_pos > 0 {
+                            let mut char_boundary = self.cursor_pos - 1;
+                            while !self.buffer.is_char_boundary(char_boundary) {
+                                char_boundary -= 1;
+                            }
+                            self.cursor_pos = char_boundary;
+                            self.redraw_prompt()?;
+                        }
+                        Ok(None)
+                    }
+                    KeyCode::Right => {
+                        if self.cursor_pos < self.buffer.len() {
+                            let mut char_boundary = self.cursor_pos + 1;
+                            while char_boundary < self.buffer.len()
+                                && !self.buffer.is_char_boundary(char_boundary)
+                            {
+                                char_boundary += 1;
+                            }
+                            self.cursor_pos = char_boundary;
+                            self.redraw_prompt()?;
+                        }
+                        Ok(None)
                     }
                     _ => Ok(None),
                 }
@@ -299,7 +346,7 @@ impl<W: Write> ClientUi for TerminalUi<W> {
 impl<W: Write> Drop for TerminalUi<W> {
     fn drop(&mut self) {
         if self.is_raw_mode_owner {
-            execute!(self.stdout, Print("\r\n")).ok();
+            execute!(self.stdout, Print("\r\n"), Show).ok();
             terminal::disable_raw_mode().ok();
         }
     }
@@ -316,6 +363,7 @@ mod tests {
         TerminalUi {
             stdout: Vec::new(),
             buffer: String::new(),
+            cursor_pos: 0,
             prompt_lines: 1,
             cols,
             is_raw_mode_owner: false,
