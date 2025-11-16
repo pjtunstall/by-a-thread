@@ -167,7 +167,7 @@ fn apply_transition(
             }
         }
         ClientState::Authenticating { .. } => {
-            let network = network.expect("Network handle required for Authenticating transition");
+            let network = network.expect("network handle required for Authenticating transition");
             if let Some(passcode) = session.take_first_passcode() {
                 ui.show_message(&format!(
                     "Transport connected. Sending passcode: {}.",
