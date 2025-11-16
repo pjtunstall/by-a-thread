@@ -424,8 +424,6 @@ pub fn countdown(
             let status_message = format!("Game starting in {:.0}s...", time_remaining_secs.ceil());
             ui.show_status_line(&status_message);
         } else {
-            ui.show_status_line("Time Remaining: 0s.");
-
             if let Some(maze) = session.maze.take() {
                 if let Some(players) = session.players.take() {
                     return Some(ClientState::InGame { maze, players });

@@ -1,9 +1,15 @@
 use std::{
+    io::stdout,
     net::{SocketAddr, UdpSocket},
     thread,
     time::{Duration, Instant},
 };
 
+use crossterm::{
+    cursor::{Hide, MoveToColumn, Show},
+    execute,
+    terminal::{Clear, ClearType},
+};
 use renet::RenetClient;
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
@@ -68,7 +74,7 @@ fn client_loop(
         last_updated = now;
 
         if let Err(e) = transport.update(duration, client) {
-            apply_transition(
+            apply_client_transition(
                 session,
                 ui,
                 None,
@@ -93,7 +99,7 @@ fn client_loop(
         }
 
         if let Err(e) = transport.send_packets(client) {
-            apply_transition(
+            apply_client_transition(
                 session,
                 ui,
                 None,
@@ -134,7 +140,7 @@ fn update_client_state(
     };
 
     if let Some(new_state) = next_state_from_logic {
-        apply_transition(session, ui, Some(network_handle), new_state);
+        apply_client_transition(session, ui, Some(network_handle), new_state);
     }
 }
 
@@ -151,7 +157,7 @@ fn update_estimated_server_time(session: &mut ClientSession, network: &mut Renet
     }
 }
 
-fn apply_transition(
+fn apply_client_transition(
     session: &mut ClientSession,
     ui: &mut dyn ClientUi,
     network: Option<&mut dyn NetworkHandle>,
@@ -205,8 +211,16 @@ fn apply_transition(
             if let Some(players) = session.players.as_ref() {
                 state_handlers::print_player_list(ui, session, players);
             }
+            execute!(stdout(), Hide).expect("failed to hide cursor");
         }
         ClientState::Disconnected { message } => {
+            execute!(
+                stdout(),
+                MoveToColumn(0),
+                Clear(ClearType::CurrentLine),
+                Show
+            )
+            .expect("failed to show cursor and clear line");
             ui.show_message(message);
         }
         _ => {}
