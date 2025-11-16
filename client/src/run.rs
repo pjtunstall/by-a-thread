@@ -4,7 +4,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use bincode::{config::standard, serde::encode_to_vec};
 use renet::RenetClient;
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
@@ -14,6 +13,7 @@ use crate::{
     state_handlers::{self, AppChannel, NetworkHandle},
     ui::ClientUi,
 };
+use bincode::{config::standard, serde::encode_to_vec};
 use shared::{
     self,
     protocol::{ClientMessage, ServerMessage},
@@ -68,42 +68,42 @@ fn client_loop(
         last_updated = now;
 
         if let Err(e) = transport.update(duration, client) {
-            if apply_transition(
+            apply_transition(
                 session,
                 ui,
                 None,
                 ClientState::Disconnected {
                     message: format!("Transport error: {}.", e),
                 },
-            ) {
-                break;
-            }
-            continue;
+            );
+        }
+        if matches!(session.state(), ClientState::Disconnected { .. }) {
+            break;
         }
 
         client.update(duration);
 
-        let should_break = {
+        {
             let mut network_handle = RenetNetworkHandle::new(client, transport);
             update_estimated_server_time(session, &mut network_handle);
-            update_client_state(session, ui, &mut network_handle)
-        };
-
-        if should_break {
+            update_client_state(session, ui, &mut network_handle);
+        }
+        if matches!(session.state(), ClientState::Disconnected { .. }) {
             break;
         }
 
         if let Err(e) = transport.send_packets(client) {
-            if apply_transition(
+            apply_transition(
                 session,
                 ui,
                 None,
                 ClientState::Disconnected {
                     message: format!("Error sending packets: {}.", e),
                 },
-            ) {
-                break;
-            }
+            );
+        }
+        if matches!(session.state(), ClientState::Disconnected { .. }) {
+            break;
         }
 
         thread::sleep(Duration::from_millis(16));
@@ -114,7 +114,7 @@ fn update_client_state(
     session: &mut ClientSession,
     ui: &mut dyn ClientUi,
     network_handle: &mut RenetNetworkHandle,
-) -> bool {
+) {
     let next_state_from_logic = match session.state() {
         ClientState::Startup { .. } => state_handlers::startup(session, ui),
         ClientState::Connecting => state_handlers::connecting(session, ui, network_handle),
@@ -134,12 +134,8 @@ fn update_client_state(
     };
 
     if let Some(new_state) = next_state_from_logic {
-        if apply_transition(session, ui, Some(network_handle), new_state) {
-            return true;
-        }
+        apply_transition(session, ui, Some(network_handle), new_state);
     }
-
-    false
 }
 
 fn update_estimated_server_time(session: &mut ClientSession, network: &mut RenetNetworkHandle) {
@@ -160,7 +156,7 @@ fn apply_transition(
     ui: &mut dyn ClientUi,
     network: Option<&mut dyn NetworkHandle>,
     new_state: ClientState,
-) -> bool {
+) {
     session.transition(new_state);
 
     match session.state_mut() {
@@ -210,13 +206,9 @@ fn apply_transition(
                 state_handlers::print_player_list(ui, session, players);
             }
         }
+        ClientState::Disconnected { message } => {
+            ui.show_message(message);
+        }
         _ => {}
-    }
-
-    if let ClientState::Disconnected { message } = session.state() {
-        ui.show_message(message);
-        true
-    } else {
-        false
     }
 }
