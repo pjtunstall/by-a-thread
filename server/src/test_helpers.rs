@@ -31,7 +31,7 @@ pub struct MockServerNetwork {
 
     /// **Disconnection Log:** A simple list that records which client IDs were
     /// passed to the `network.disconnect()` method.
-    /// This lets us test if your code correctly disconnected a client.
+    /// This lets us test if a client has been correctly disconnected.
     pub disconnected_clients: Vec<u64>,
 
     /// **Master Client List:** The mock's "source of truth" for who is connected.
