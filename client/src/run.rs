@@ -32,7 +32,7 @@ pub fn run_client(
     let mut transport = match NetcodeClientTransport::new(current_time, authentication, socket) {
         Ok(transport) => transport,
         Err(e) => {
-            ui.show_message(&format!("Failed to create network transport: {}", e));
+            ui.show_message(&format!("Failed to create network transport: {}.", e));
             return;
         }
     };
@@ -64,7 +64,7 @@ fn client_loop(
                 session,
                 ui,
                 ClientState::Disconnected {
-                    message: format!("Transport error: {}", e),
+                    message: format!("Transport error: {}.", e),
                 },
             ) {
                 break;
@@ -108,7 +108,7 @@ fn client_loop(
                 session,
                 ui,
                 ClientState::Disconnected {
-                    message: format!("Error sending packets: {}", e),
+                    message: format!("Error sending packets: {}.", e),
                 },
             ) {
                 break;
