@@ -1,14 +1,18 @@
-use std::net::{SocketAddr, UdpSocket};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::{
+    net::{SocketAddr, UdpSocket},
+    thread,
+    time::{Duration, Instant},
+};
 
 use renet::RenetClient;
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
-use crate::net::{self, RenetNetworkHandle};
-use crate::state::{ClientSession, ClientState};
-use crate::state_handlers::{self, AppChannel, NetworkHandle};
-use crate::ui::ClientUi;
+use crate::{
+    net::{self, RenetNetworkHandle},
+    state::{ClientSession, ClientState},
+    state_handlers::{self, AppChannel, NetworkHandle},
+    ui::ClientUi,
+};
 use shared::{self, protocol::ServerMessage};
 
 pub fn run_client(
