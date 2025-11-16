@@ -1,4 +1,4 @@
-use std::net::UdpSocket;
+use std::net::{SocketAddr, UdpSocket};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -8,13 +8,16 @@ use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 use crate::net::{self, RenetNetworkHandle};
 use crate::state::{ClientSession, ClientState};
 use crate::state_handlers::{self, AppChannel, NetworkHandle};
-use crate::ui::{ClientUi, TerminalUi};
+use crate::ui::ClientUi;
 use shared::{self, protocol::ServerMessage};
 
-pub fn run_client() {
-    let private_key = shared::auth::private_key();
+pub fn run_client(
+    socket: UdpSocket,
+    server_addr: SocketAddr,
+    private_key: [u8; 32],
+    ui: &mut dyn ClientUi,
+) {
     let client_id = rand::random::<u64>();
-    let server_addr = net::default_server_addr();
     let protocol_id = shared::protocol::version();
     let current_time = shared::time::now();
     let connect_token = net::create_connect_token(
@@ -24,14 +27,7 @@ pub fn run_client() {
         server_addr,
         &private_key,
     );
-    let mut ui = TerminalUi::new().expect("failed to initialize terminal UI");
-    let socket = match UdpSocket::bind("127.0.0.1:0") {
-        Ok(socket) => socket,
-        Err(e) => {
-            ui.show_message(&format!("Failed to bind client socket: {}.", e));
-            return;
-        }
-    };
+
     let authentication = ClientAuthentication::Secure { connect_token };
     let mut transport = match NetcodeClientTransport::new(current_time, authentication, socket) {
         Ok(transport) => transport,
@@ -46,7 +42,7 @@ pub fn run_client() {
     let mut session = ClientSession::new(client_id);
 
     ui.print_client_banner(protocol_id, server_addr, client_id);
-    client_loop(&mut session, &mut ui, &mut client, &mut transport);
+    client_loop(&mut session, ui, &mut client, &mut transport);
     ui.show_message("Client shutting down.");
 }
 

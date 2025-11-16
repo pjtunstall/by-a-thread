@@ -1,6 +1,11 @@
-use std::time::Duration;
+use std::{
+    io,
+    net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket},
+    time::Duration,
+};
 
 use renet::{ChannelConfig, ConnectionConfig, SendType};
+use socket2::{Domain, Socket, Type};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppChannel {
@@ -48,4 +53,20 @@ pub fn connection_config() -> ConnectionConfig {
         server_channels_config,
         ..Default::default()
     }
+}
+
+pub fn bind_socket(addr: SocketAddr) -> io::Result<UdpSocket> {
+    let domain = if addr.is_ipv4() {
+        Domain::IPV4
+    } else {
+        Domain::IPV6
+    };
+    let socket = Socket::new(domain, Type::DGRAM, None)?;
+    socket.set_reuse_address(true)?;
+    socket.bind(&addr.into())?;
+    Ok(socket.into())
+}
+
+pub fn server_address() -> SocketAddr {
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000)
 }

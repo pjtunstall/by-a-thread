@@ -1,5 +1,4 @@
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
-use std::time::Duration;
+use std::{net::SocketAddr, time::Duration};
 
 use renet::{RenetServer, ServerEvent};
 use renet_netcode::{ServerAuthentication, ServerConfig};
@@ -66,14 +65,6 @@ impl ServerNetworkHandle for RenetServerNetworkHandle<'_> {
     fn disconnect(&mut self, client_id: u64) {
         self.server.disconnect(client_id);
     }
-}
-
-pub fn server_address() -> SocketAddr {
-    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000)
-}
-
-pub fn bind_socket(addr: SocketAddr) -> UdpSocket {
-    UdpSocket::bind(addr).expect("failed to bind socket")
 }
 
 pub fn build_server_config(

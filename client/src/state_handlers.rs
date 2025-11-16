@@ -533,7 +533,7 @@ pub fn choosing_difficulty(
             ui.show_message("  1. Easy");
             ui.show_message("  2. So-so");
             ui.show_message("  3. Next level");
-            ui.show_prompt("Enter 1, 2, or 3: ");
+            ui.show_prompt("Press 1, 2, or 3: ");
             *prompt_printed = true;
         }
     }
@@ -1028,7 +1028,7 @@ mod tests {
         assert_eq!(ui.messages.len(), 4);
         assert_eq!(ui.messages[0], "Server: Choose a difficulty level:");
         assert_eq!(ui.messages[1], "  1. Easy");
-        assert_eq!(ui.prompts[0], "Enter 1, 2, or 3: ");
+        assert_eq!(ui.prompts[0], "Press 1, 2, or 3: ");
         assert!(matches!(
             session.state(),
             ClientState::ChoosingDifficulty {

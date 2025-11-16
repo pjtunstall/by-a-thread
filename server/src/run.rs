@@ -1,6 +1,8 @@
-use std::net::SocketAddr;
-use std::thread;
-use std::time::{Duration, Instant};
+use std::{
+    net::{SocketAddr, UdpSocket},
+    thread,
+    time::{Duration, Instant},
+};
 
 use bincode::{config::standard, serde::encode_to_vec};
 use renet::RenetServer;
@@ -13,11 +15,7 @@ use crate::{
 };
 use shared::{self, auth::Passcode, net::AppChannel, protocol::ServerMessage, time};
 
-pub fn run_server() {
-    let private_key = shared::auth::private_key();
-    let server_addr = net::server_address();
-    let socket = net::bind_socket(server_addr);
-
+pub fn run_server(socket: UdpSocket, server_addr: SocketAddr, private_key: [u8; 32]) {
     let current_time = shared::time::now();
     let protocol_id = shared::protocol::version();
 

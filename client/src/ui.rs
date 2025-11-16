@@ -26,6 +26,8 @@ impl fmt::Display for UiInputError {
     }
 }
 
+impl std::error::Error for UiInputError {}
+
 pub trait ClientUi {
     fn show_message(&mut self, message: &str);
     fn show_error(&mut self, message: &str);
@@ -41,7 +43,7 @@ pub struct TerminalUi<W: Write> {
     buffer: String,
     prompt_lines: u16,
     cols: u16,
-    is_raw_mode_owner: bool, // True except in tests.
+    is_raw_mode_owner: bool,
 }
 
 impl TerminalUi<Stdout> {
@@ -68,29 +70,34 @@ impl TerminalUi<Stdout> {
 }
 
 impl<W: Write> TerminalUi<W> {
-    fn clear_prompt(&mut self) -> io::Result<()> {
+    fn clear_prompt(&mut self) -> Result<(), UiInputError> {
+        let map_err = |_| UiInputError::Disconnected;
         if self.prompt_lines > 1 {
             queue!(
                 self.stdout,
                 crossterm::cursor::MoveUp(self.prompt_lines - 1)
-            )?;
+            )
+            .map_err(map_err)?;
         }
         for i in 0..self.prompt_lines {
-            queue!(self.stdout, MoveToColumn(0), Clear(ClearType::CurrentLine))?;
+            queue!(self.stdout, MoveToColumn(0), Clear(ClearType::CurrentLine)).map_err(map_err)?;
             if i + 1 < self.prompt_lines {
-                queue!(self.stdout, crossterm::cursor::MoveDown(1))?;
+                queue!(self.stdout, crossterm::cursor::MoveDown(1)).map_err(map_err)?;
             }
         }
         if self.prompt_lines > 1 {
             queue!(
                 self.stdout,
                 crossterm::cursor::MoveUp(self.prompt_lines - 1)
-            )?;
+            )
+            .map_err(map_err)?;
         }
-        queue!(self.stdout, MoveToColumn(0))
+        queue!(self.stdout, MoveToColumn(0)).map_err(map_err)?;
+        Ok(())
     }
 
-    fn redraw_prompt(&mut self) -> io::Result<()> {
+    fn redraw_prompt(&mut self) -> Result<(), UiInputError> {
+        let map_err = |_| UiInputError::Disconnected;
         let cols = usize::from(self.cols.max(1));
         let prompt = "> ";
 
@@ -98,22 +105,25 @@ impl<W: Write> TerminalUi<W> {
             queue!(
                 self.stdout,
                 crossterm::cursor::MoveUp(self.prompt_lines - 1)
-            )?;
+            )
+            .map_err(map_err)?;
         }
 
         queue!(
             self.stdout,
             MoveToColumn(0),
             Clear(ClearType::FromCursorDown)
-        )?;
+        )
+        .map_err(map_err)?;
 
         let full = format!("{}{}", prompt, &self.buffer);
         let new_lines = (full.len().max(1) + cols - 1) / cols;
         self.prompt_lines = new_lines as u16;
 
-        queue!(self.stdout, Print(prompt), Print(&self.buffer))?;
-        self.stdout.flush()?;
-        stdout().flush()
+        queue!(self.stdout, Print(prompt), Print(&self.buffer)).map_err(map_err)?;
+        self.stdout.flush().map_err(map_err)?;
+        stdout().flush().map_err(map_err)?;
+        Ok(())
     }
 
     fn handle_event(&mut self, event: Event, limit: usize) -> Result<Option<String>, UiInputError> {
@@ -131,21 +141,22 @@ impl<W: Write> TerminalUi<W> {
                 match key_event.code {
                     KeyCode::Enter => {
                         let line = self.buffer.drain(..).collect();
-                        queue!(self.stdout, Print("\r\n")).unwrap();
+                        queue!(self.stdout, Print("\r\n"))
+                            .map_err(|_| UiInputError::Disconnected)?;
                         self.prompt_lines = 1;
-                        self.redraw_prompt().unwrap();
+                        self.redraw_prompt()?;
                         Ok(Some(line))
                     }
                     KeyCode::Backspace => {
                         if self.buffer.pop().is_some() {
-                            self.redraw_prompt().unwrap();
+                            self.redraw_prompt()?;
                         }
                         Ok(None)
                     }
                     KeyCode::Esc => {
                         if !self.buffer.is_empty() {
                             self.buffer.clear();
-                            self.redraw_prompt().unwrap();
+                            self.redraw_prompt()?;
                         }
                         Ok(None)
                     }
@@ -162,9 +173,11 @@ impl<W: Write> TerminalUi<W> {
                             let full = format!("{}{}", prompt, &self.buffer);
                             let new_lines = (full.len().max(1) + cols - 1) / cols;
                             self.prompt_lines = new_lines as u16;
-                            queue!(self.stdout, Print(c)).expect("failed to write char");
-                            self.stdout.flush().expect("failed to flush stdout");
-                            stdout().flush().expect("failed to flush global stdout");
+
+                            let map_err = |_| UiInputError::Disconnected;
+                            queue!(self.stdout, Print(c)).map_err(map_err)?;
+                            self.stdout.flush().map_err(map_err)?;
+                            stdout().flush().map_err(map_err)?;
                             Ok(None)
                         }
                     }
@@ -173,7 +186,7 @@ impl<W: Write> TerminalUi<W> {
             }
             Event::Resize(cols, _) => {
                 self.cols = cols.max(1);
-                self.redraw_prompt().unwrap();
+                self.redraw_prompt()?;
                 Ok(None)
             }
             _ => Ok(None),
@@ -183,15 +196,18 @@ impl<W: Write> TerminalUi<W> {
 
 impl<W: Write> ClientUi for TerminalUi<W> {
     fn show_message(&mut self, message: &str) {
-        self.clear_prompt().expect("failed to clear prompt");
-        queue!(self.stdout, Print(message), Print("\r\n"),).expect("failed to show message");
-
+        if self.clear_prompt().is_err() {
+            return;
+        }
+        queue!(self.stdout, Print(message), Print("\r\n")).ok();
         self.prompt_lines = 1;
-        self.redraw_prompt().expect("failed to redraw prompt");
+        self.redraw_prompt().ok();
     }
 
     fn show_error(&mut self, message: &str) {
-        self.clear_prompt().expect("failed to clear prompt");
+        if self.clear_prompt().is_err() {
+            return;
+        }
         queue!(
             self.stdout,
             MoveToColumn(0),
@@ -199,11 +215,11 @@ impl<W: Write> ClientUi for TerminalUi<W> {
             Print(message),
             Print("\r\n"),
         )
-        .expect("failed to show error");
+        .ok();
 
         self.prompt_lines = 1;
-        self.stdout.flush().expect("failed to flush stdout");
-        self.redraw_prompt().expect("failed to redraw prompt");
+        self.stdout.flush().ok();
+        self.redraw_prompt().ok();
     }
 
     fn show_prompt(&mut self, prompt: &str) {
@@ -211,32 +227,39 @@ impl<W: Write> ClientUi for TerminalUi<W> {
     }
 
     fn show_status_line(&mut self, message: &str) {
-        self.clear_prompt()
-            .expect("failed to clear prompt for status");
-        queue!(self.stdout, Print(message), Clear(ClearType::UntilNewLine))
-            .expect("failed to show status line");
+        if self.clear_prompt().is_err() {
+            return;
+        }
+        queue!(self.stdout, Print(message), Clear(ClearType::UntilNewLine)).ok();
         self.prompt_lines = 1;
-        self.stdout.flush().expect("failed to flush stdout");
+        self.stdout.flush().ok();
     }
 
     fn poll_input(&mut self, limit: usize) -> Result<Option<String>, UiInputError> {
-        if !event::poll(Duration::from_millis(50)).unwrap_or(false) {
+        let has_event =
+            event::poll(Duration::from_millis(50)).map_err(|_| UiInputError::Disconnected)?;
+
+        if !has_event {
             return Ok(None);
         }
 
-        match event::read() {
-            Ok(event) => self.handle_event(event, limit),
-            Err(_) => Err(UiInputError::Disconnected),
-        }
+        let event = event::read().map_err(|_| UiInputError::Disconnected)?;
+
+        self.handle_event(event, limit)
     }
 
     fn poll_single_key(&mut self) -> Result<Option<UiKey>, UiInputError> {
-        if !event::poll(Duration::from_millis(50)).unwrap_or(false) {
+        let has_event =
+            event::poll(Duration::from_millis(50)).map_err(|_| UiInputError::Disconnected)?;
+
+        if !has_event {
             return Ok(None);
         }
 
-        match event::read() {
-            Ok(Event::Key(key_event)) => {
+        let event = event::read().map_err(|_| UiInputError::Disconnected)?;
+
+        match event {
+            Event::Key(key_event) => {
                 if key_event.modifiers == KeyModifiers::CONTROL {
                     match key_event.code {
                         KeyCode::Char('c') | KeyCode::Char('d') => {
@@ -256,13 +279,13 @@ impl<W: Write> ClientUi for TerminalUi<W> {
                 };
                 Ok(ui_key)
             }
-            Ok(Event::Resize(cols, _)) => {
+            Event::Resize(cols, _) => {
                 self.cols = cols.max(1);
-                self.redraw_prompt().unwrap();
+                self.redraw_prompt()
+                    .map_err(|_| UiInputError::Disconnected)?;
                 Ok(None)
             }
-            Ok(_) => Ok(None),
-            Err(_) => Err(UiInputError::Disconnected),
+            _ => Ok(None),
         }
     }
 
@@ -277,7 +300,7 @@ impl<W: Write> Drop for TerminalUi<W> {
     fn drop(&mut self) {
         if self.is_raw_mode_owner {
             execute!(self.stdout, Print("\r\n")).ok();
-            terminal::disable_raw_mode().expect("failed to disable raw mode");
+            terminal::disable_raw_mode().ok();
         }
     }
 }
