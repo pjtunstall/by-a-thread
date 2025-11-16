@@ -26,7 +26,7 @@ pub trait NetworkHandle {
     fn rtt(&self) -> f64;
 }
 
-fn print_player_list(
+pub fn print_player_list(
     ui: &mut dyn ClientUi,
     session: &ClientSession,
     players: &HashMap<u64, Player>,
@@ -49,39 +49,34 @@ fn print_player_list(
 }
 
 pub fn startup(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<ClientState> {
-    if let ClientState::Startup { prompt_printed } = session.state_mut() {
-        if !*prompt_printed {
-            ui.show_prompt(&passcode_prompt(MAX_ATTEMPTS));
-            *prompt_printed = true;
-        }
-
-        match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
-            Ok(Some(input_string)) => {
-                if let Some(passcode) = parse_passcode_input(&input_string) {
-                    session.store_first_passcode(passcode);
-                    Some(ClientState::Connecting)
-                } else {
-                    ui.show_error("Invalid format. Please enter a 6-digit number.");
-                    ui.show_prompt(&passcode_prompt(MAX_ATTEMPTS));
-                    None
-                }
-            }
-            Ok(None) => None,
-            Err(UiInputError::Disconnected) => Some(ClientState::Disconnected {
-                message: "input thread disconnected.".to_string(),
-            }),
-        }
-    } else {
+    if !matches!(session.state(), ClientState::Startup { .. }) {
         panic!(
             "called startup() when state was not Startup; current state: {:?}",
             session.state()
         );
     }
+
+    match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
+        Ok(Some(input_string)) => {
+            if let Some(passcode) = parse_passcode_input(&input_string) {
+                session.store_first_passcode(passcode);
+                Some(ClientState::Connecting)
+            } else {
+                ui.show_error("Invalid format. Please enter a 6-digit number.");
+                ui.show_prompt(&passcode_prompt(MAX_ATTEMPTS));
+                None
+            }
+        }
+        Ok(None) => None,
+        Err(UiInputError::Disconnected) => Some(ClientState::Disconnected {
+            message: "input thread disconnected.".to_string(),
+        }),
+    }
 }
 
 pub fn connecting(
     session: &mut ClientSession,
-    ui: &mut dyn ClientUi,
+    _ui: &mut dyn ClientUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Connecting) {
@@ -92,17 +87,7 @@ pub fn connecting(
     }
 
     if network.is_connected() {
-        if let Some(passcode) = session.take_first_passcode() {
-            ui.show_message(&format!(
-                "Transport connected. Sending passcode: {}.",
-                passcode.string
-            ));
-
-            let message = ClientMessage::SendPasscode(passcode.bytes);
-            let payload =
-                encode_to_vec(&message, standard()).expect("failed to serialize SendPasscode");
-            network.send_message(AppChannel::ReliableOrdered, payload);
-
+        if session.has_first_passcode() {
             Some(ClientState::Authenticating {
                 waiting_for_input: false,
                 guesses_left: MAX_ATTEMPTS,
@@ -230,7 +215,6 @@ pub fn choosing_username(
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::Welcome { username }, _)) => {
                 ui.show_message(&format!("Welcome, {}!", username));
-                session.expect_initial_roster();
                 return Some(ClientState::InChat);
             }
             Ok((ServerMessage::UsernameError { message }, _)) => {
@@ -326,7 +310,6 @@ pub fn in_chat(
             )) => {
                 session.countdown_end_time = Some(end_time);
                 session.maze = Some(maze);
-                print_player_list(ui, session, &players);
                 session.players = Some(players);
                 return Some(ClientState::Countdown);
             }
@@ -488,7 +471,7 @@ pub fn in_game(
     });
 }
 
-fn passcode_prompt(remaining: u8) -> String {
+pub fn passcode_prompt(remaining: u8) -> String {
     if remaining == MAX_ATTEMPTS {
         format!("Passcode ({} guesses): ", remaining)
     } else {
@@ -499,7 +482,7 @@ fn passcode_prompt(remaining: u8) -> String {
     }
 }
 
-fn parse_passcode_input(input: &str) -> Option<Passcode> {
+pub fn parse_passcode_input(input: &str) -> Option<Passcode> {
     let s = input.trim();
     if s.len() == 6 && s.chars().all(|c| c.is_ascii_digit()) {
         let mut bytes = vec![0u8; 6];
@@ -527,15 +510,8 @@ pub fn choosing_difficulty(
         );
     };
 
-    if let ClientState::ChoosingDifficulty { prompt_printed } = session.state_mut() {
-        if !*prompt_printed {
-            ui.show_message("Server: Choose a difficulty level:");
-            ui.show_message("  1. Easy");
-            ui.show_message("  2. So-so");
-            ui.show_message("  3. Next level");
-            ui.show_prompt("Press 1, 2, or 3: ");
-            *prompt_printed = true;
-        }
+    if let ClientState::ChoosingDifficulty { prompt_printed: _ } = session.state_mut() {
+        // This logic is now handled by apply_transition
     }
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
@@ -550,7 +526,6 @@ pub fn choosing_difficulty(
             )) => {
                 session.countdown_end_time = Some(end_time);
                 session.maze = Some(maze);
-                print_player_list(ui, session, &players);
                 session.players = Some(players);
                 return Some(ClientState::Countdown);
             }
@@ -780,13 +755,13 @@ mod tests {
         let mut ui = MockUi::default();
 
         assert!(startup(&mut session, &mut ui).is_none());
-        assert_eq!(ui.prompts, vec![passcode_prompt(MAX_ATTEMPTS)]);
+        assert!(ui.prompts.is_empty());
 
         ui.messages.clear();
         ui.errors.clear();
 
         assert!(startup(&mut session, &mut ui).is_none());
-        assert_eq!(ui.prompts, vec![passcode_prompt(MAX_ATTEMPTS)]);
+        assert!(ui.prompts.is_empty());
     }
 
     #[test]
@@ -809,7 +784,7 @@ mod tests {
             ui.errors,
             vec!["Invalid format. Please enter a 6-digit number.".to_string()]
         );
-        assert_eq!(ui.prompts.len(), 2);
+        assert_eq!(ui.prompts.len(), 1);
     }
 
     #[test]
@@ -1025,14 +1000,12 @@ mod tests {
 
         let next_state = choosing_difficulty(&mut session, &mut ui, &mut network);
 
-        assert_eq!(ui.messages.len(), 4);
-        assert_eq!(ui.messages[0], "Server: Choose a difficulty level:");
-        assert_eq!(ui.messages[1], "  1. Easy");
-        assert_eq!(ui.prompts[0], "Press 1, 2, or 3: ");
+        assert!(ui.messages.is_empty());
+        assert!(ui.prompts.is_empty());
         assert!(matches!(
             session.state(),
             ClientState::ChoosingDifficulty {
-                prompt_printed: true
+                prompt_printed: false
             }
         ));
         assert!(next_state.is_none());

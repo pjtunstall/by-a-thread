@@ -4,16 +4,20 @@ use std::{
     time::{Duration, Instant},
 };
 
+use bincode::{config::standard, serde::encode_to_vec};
 use renet::RenetClient;
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
 use crate::{
     net::{self, RenetNetworkHandle},
-    state::{ClientSession, ClientState},
+    state::{self, ClientSession, ClientState, MAX_ATTEMPTS},
     state_handlers::{self, AppChannel, NetworkHandle},
     ui::ClientUi,
 };
-use shared::{self, protocol::ServerMessage};
+use shared::{
+    self,
+    protocol::{ClientMessage, ServerMessage},
+};
 
 pub fn run_client(
     socket: UdpSocket,
@@ -67,6 +71,7 @@ fn client_loop(
             if apply_transition(
                 session,
                 ui,
+                None,
                 ClientState::Disconnected {
                     message: format!("Transport error: {}.", e),
                 },
@@ -78,11 +83,13 @@ fn client_loop(
 
         client.update(duration);
 
-        let mut network_handle = RenetNetworkHandle::new(client, transport);
+        let should_break = {
+            let mut network_handle = RenetNetworkHandle::new(client, transport);
+            update_estimated_server_time(session, &mut network_handle);
+            update_client_state(session, ui, &mut network_handle)
+        };
 
-        update_estimated_server_time(session, &mut network_handle);
-
-        if update_client_state(session, ui, &mut network_handle) {
+        if should_break {
             break;
         }
 
@@ -90,6 +97,7 @@ fn client_loop(
             if apply_transition(
                 session,
                 ui,
+                None,
                 ClientState::Disconnected {
                     message: format!("Error sending packets: {}.", e),
                 },
@@ -126,7 +134,7 @@ fn update_client_state(
     };
 
     if let Some(new_state) = next_state_from_logic {
-        if apply_transition(session, ui, new_state) {
+        if apply_transition(session, ui, Some(network_handle), new_state) {
             return true;
         }
     }
@@ -150,9 +158,61 @@ fn update_estimated_server_time(session: &mut ClientSession, network: &mut Renet
 fn apply_transition(
     session: &mut ClientSession,
     ui: &mut dyn ClientUi,
+    network: Option<&mut dyn NetworkHandle>,
     new_state: ClientState,
 ) -> bool {
     session.transition(new_state);
+
+    match session.state_mut() {
+        ClientState::Startup { prompt_printed } => {
+            if !*prompt_printed {
+                ui.show_prompt(&state_handlers::passcode_prompt(MAX_ATTEMPTS));
+                *prompt_printed = true;
+            }
+        }
+        ClientState::Authenticating { .. } => {
+            let network = network.expect("Network handle required for Authenticating transition");
+            if let Some(passcode) = session.take_first_passcode() {
+                ui.show_message(&format!(
+                    "Transport connected. Sending passcode: {}.",
+                    passcode.string
+                ));
+
+                let message = ClientMessage::SendPasscode(passcode.bytes);
+                let payload =
+                    encode_to_vec(&message, standard()).expect("failed to serialize SendPasscode");
+                network.send_message(AppChannel::ReliableOrdered, payload);
+            } else {
+                ui.show_message("Internal error: No passcode to send.");
+            }
+        }
+        ClientState::ChoosingUsername { prompt_printed, .. } => {
+            if !*prompt_printed {
+                ui.show_prompt(&state::username_prompt());
+                *prompt_printed = true;
+            }
+        }
+        ClientState::InChat => {
+            session.expect_initial_roster();
+        }
+        ClientState::ChoosingDifficulty { prompt_printed, .. } => {
+            if !*prompt_printed {
+                ui.show_message("Server: Choose a difficulty level:");
+                ui.show_message("  1. Easy");
+                ui.show_message("  2. So-so");
+                ui.show_message("  3. Next level");
+                ui.show_prompt("Press 1, 2, or 3: ");
+                *prompt_printed = true;
+            }
+        }
+        ClientState::Countdown => {
+            if let Some(players) = session.players.as_ref() {
+                state_handlers::print_player_list(ui, session, players);
+            }
+        }
+        _ => {}
+    }
+
     if let ClientState::Disconnected { message } = session.state() {
         ui.show_message(message);
         true

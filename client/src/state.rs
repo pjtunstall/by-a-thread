@@ -82,6 +82,10 @@ impl ClientSession {
         self.first_passcode.take()
     }
 
+    pub fn has_first_passcode(&self) -> bool {
+        self.first_passcode.is_some()
+    }
+
     pub fn expect_initial_roster(&mut self) {
         self.awaiting_initial_roster = true;
     }
