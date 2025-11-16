@@ -1,10 +1,12 @@
 use std::{
+    io::stdout,
     net::{SocketAddr, UdpSocket},
     thread,
     time::{Duration, Instant},
 };
 
 use bincode::{config::standard, serde::encode_to_vec};
+use crossterm::{cursor::Hide, execute};
 use renet::RenetServer;
 use renet_netcode::NetcodeServerTransport;
 
@@ -145,6 +147,8 @@ fn apply_server_transition(
             let payload = encode_to_vec(&message, standard())
                 .expect("failed to serialize CountDownStarted mesage");
             network.broadcast_message(AppChannel::ReliableOrdered, payload);
+
+            execute!(stdout(), Hide).expect("failed to hide cursor");
         }
 
         ServerState::InGame(_) => {}

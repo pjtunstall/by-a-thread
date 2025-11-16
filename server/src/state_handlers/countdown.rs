@@ -1,9 +1,9 @@
-use std::io::stdout;
-use std::time::Instant;
+use std::{io::stdout, time::Instant};
 
 use crossterm::{
-    cursor::{MoveToColumn, MoveUp},
+    cursor::{MoveToColumn, Show},
     execute,
+    style::Print,
     terminal::{Clear, ClearType},
 };
 
@@ -19,19 +19,29 @@ pub fn handle_countdown(
     let server_time = Instant::now();
 
     if server_time < state.end_time {
+        let remaining_secs = (state.end_time - server_time).as_secs();
+        let output = format!("Game starting in {:}s...", remaining_secs);
+
         execute!(
             stdout(),
-            MoveUp(1),
             MoveToColumn(0),
             Clear(ClearType::CurrentLine),
+            Print(output)
         )
-        .expect("failed to clear line");
-        println!(
-            "Game starting in {:}s.",
-            (state.end_time - server_time).as_secs()
-        );
+        .expect("failed to print countdown line");
+
         None
     } else {
+        execute!(
+            stdout(),
+            MoveToColumn(0),
+            Clear(ClearType::CurrentLine),
+            Show
+        )
+        .expect("failed to show cursor and clear line");
+
+        println!();
+
         Some(ServerState::InGame(InGame::new(
             state.players.clone(),
             state.maze.clone(),
