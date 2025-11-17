@@ -24,7 +24,7 @@ impl Defer {
 
 impl Drop for Defer {
     fn drop(&mut self) {
-        execute!(stdout(), Show).ok();
+        clean_up();
     }
 }
 
@@ -32,14 +32,7 @@ fn main() {
     let _defer = Defer::new();
 
     ctrlc::set_handler(move || {
-        execute!(
-            stdout(),
-            Show,
-            MoveToColumn(0),
-            Clear(ClearType::CurrentLine), // In particular, clear the "Game starting..." line.
-            Print("\r\n")                  // Print a newline for the shell prompt.
-        )
-        .ok();
+        clean_up();
         println!("Server forced to shut down.");
         std::process::exit(0);
     })
@@ -64,4 +57,15 @@ fn main() {
     };
 
     server::run::run_server(socket, server_addr, private_key);
+}
+
+fn clean_up() {
+    execute!(
+        stdout(),
+        Show,
+        MoveToColumn(0),
+        Clear(ClearType::CurrentLine), // In particular, clear the "Game starting..." line.
+        Print("\r\n")                  // Print a newline for the shell prompt.
+    )
+    .ok();
 }
