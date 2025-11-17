@@ -106,17 +106,21 @@ pub fn handle_choosing_difficulty(
                 }
                 ClientMessage::SendChat(content) => {
                     if let Some(username) = state.username(client_id) {
-                        if content.is_empty() {
+                        let clean_content: String =
+                            content.chars().filter(|c| !c.is_control()).collect();
+
+                        let trimmed_content = clean_content.trim();
+                        if trimmed_content.is_empty() {
                             continue;
                         }
-                        if content.len() > MAX_CHAT_MESSAGE_BYTES {
+                        if trimmed_content.len() > MAX_CHAT_MESSAGE_BYTES {
                             continue;
                         }
 
-                        println!("{}: {}", username, content);
+                        println!("{}: {}", username, trimmed_content);
                         let message = ServerMessage::ChatMessage {
                             username: username.to_string(),
-                            content,
+                            content: trimmed_content.to_string(),
                         };
                         let payload = encode_to_vec(&message, standard())
                             .expect("failed to serialize ChatMessage");

@@ -32,6 +32,11 @@ fn show_sanitized_prompt(ui: &mut dyn ClientUi, message: &str) {
     ui.show_prompt(&clean_message);
 }
 
+fn show_sanitized_status_line(ui: &mut dyn ClientUi, message: &str) {
+    let clean_message: String = message.chars().filter(|c| !c.is_control()).collect();
+    ui.show_status_line(&clean_message);
+}
+
 pub trait NetworkHandle {
     fn is_connected(&self) -> bool;
     fn is_disconnected(&self) -> bool;
@@ -46,7 +51,7 @@ pub fn print_player_list(
     session: &ClientSession,
     players: &HashMap<u64, Player>,
 ) {
-    show_sanitized_message(ui, "\nPlayers:");
+    ui.show_message("\nPlayers:");
     for player in players.values() {
         let is_self = if player.id == session.client_id {
             "<--you"
@@ -423,17 +428,8 @@ pub fn countdown(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((ServerMessage::ChatMessage { username, content }, _)) => {
-                show_sanitized_message(ui, &format!("{}: {}", username, content));
-            }
-            Ok((ServerMessage::UserJoined { username }, _)) => {
-                show_sanitized_message(ui, &format!("{} joined the chat.", username));
-            }
-            Ok((ServerMessage::UserLeft { username }, _)) => {
-                show_sanitized_message(ui, &format!("{} left the chat.", username));
-            }
             Ok((_, _)) => {}
-            Err(e) => show_sanitized_message(ui, &format!("[Deserialization error: {}.]", e)),
+            Err(e) => show_sanitized_status_line(ui, &format!("[Deserialization error: {}.]", e)),
         }
     }
 
@@ -548,15 +544,6 @@ pub fn choosing_difficulty(
                 if let ClientState::ChoosingDifficulty { prompt_printed } = session.state_mut() {
                     *prompt_printed = false;
                 }
-            }
-            Ok((ServerMessage::ChatMessage { username, content }, _)) => {
-                show_sanitized_message(ui, &format!("{}: {}", username, content));
-            }
-            Ok((ServerMessage::UserJoined { username }, _)) => {
-                show_sanitized_message(ui, &format!("{} joined the chat.", username));
-            }
-            Ok((ServerMessage::UserLeft { username }, _)) => {
-                show_sanitized_message(ui, &format!("{} left the chat.", username));
             }
             Ok((_, _)) => {}
             Err(e) => show_sanitized_message(ui, &format!("[Deserialization error: {}]", e)),
