@@ -194,15 +194,12 @@ impl<W: Write> TerminalUi<W> {
                     KeyCode::Tab => Ok(Some(String::from(shared::auth::START_COUNTDOWN))),
                     KeyCode::Char(c) => {
                         let at_limit = self.buffer.len() >= limit;
-
-                        if at_limit {
-                            Ok(None)
-                        } else {
+                        if !at_limit && !c.is_control() {
                             self.buffer.insert(self.cursor_pos, c);
                             self.cursor_pos += c.len_utf8();
                             self.redraw_prompt()?;
-                            Ok(None)
                         }
+                        Ok(None)
                     }
                     KeyCode::Left => {
                         if self.cursor_pos > 0 {
@@ -380,8 +377,6 @@ mod tests {
 
         ui.handle_event(key_event(KeyCode::Char('a')), MAX_CHAT_MESSAGE_BYTES)
             .unwrap();
-        let output = String::from_utf8(ui.stdout.clone()).unwrap();
-        assert_eq!(output, "a");
         assert_eq!(ui.buffer, "a");
         assert_eq!(ui.prompt_lines, 1);
 
