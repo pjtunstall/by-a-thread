@@ -6,7 +6,11 @@ use std::{
 };
 
 use bincode::{config::standard, serde::encode_to_vec};
-use crossterm::{cursor::Hide, execute};
+use crossterm::{
+    cursor::{Hide, MoveToColumn},
+    execute,
+    terminal::{Clear, ClearType},
+};
 use renet::RenetServer;
 use renet_netcode::NetcodeServerTransport;
 
@@ -163,6 +167,11 @@ pub fn process_events(network: &mut dyn ServerNetworkHandle, state: &mut ServerS
                 state.register_connection(client_id);
             }
             ServerNetworkEvent::ClientDisconnected { client_id, reason } => {
+                if matches!(state, ServerState::Countdown(_)) {
+                    // Clear the "Game starting in..." line.
+                    execute!(stdout(), MoveToColumn(0), Clear(ClearType::CurrentLine)).ok();
+                }
+
                 println!("Client {} disconnected: {}.", client_id, reason);
                 state.remove_client(client_id, network);
             }
