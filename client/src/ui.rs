@@ -469,4 +469,31 @@ mod tests {
         assert_eq!(ui.buffer, "1234567");
         assert_eq!(ui.prompt_lines, 1);
     }
+
+    #[test]
+    fn test_input_sanitization_filters_control_chars() {
+        let mut ui = setup_test_ui(80);
+        let limit = MAX_CHAT_MESSAGE_BYTES;
+
+        ui.handle_event(key_event(KeyCode::Char('a')), limit)
+            .unwrap();
+        assert_eq!(ui.buffer, "a");
+
+        let bell_char = '\x07';
+        assert!(
+            bell_char.is_control(),
+            "Test setup error: Bell char should be a control character"
+        );
+        ui.handle_event(key_event(KeyCode::Char(bell_char)), limit)
+            .unwrap();
+
+        assert_eq!(
+            ui.buffer, "a",
+            "Buffer should not accept control characters"
+        );
+
+        ui.handle_event(key_event(KeyCode::Char('b')), limit)
+            .unwrap();
+        assert_eq!(ui.buffer, "ab");
+    }
 }
