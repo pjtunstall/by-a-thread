@@ -3,7 +3,12 @@ use std::{
     process,
 };
 
-use crossterm::{cursor::Show, execute};
+use crossterm::{
+    cursor::{MoveToColumn, Show},
+    execute,
+    style::Print,
+    terminal::{Clear, ClearType},
+};
 
 use server;
 use shared;
@@ -27,8 +32,16 @@ fn main() {
     let _defer = Defer::new();
 
     ctrlc::set_handler(move || {
-        execute!(stdout(), Show).ok();
-        process::exit(0);
+        execute!(
+            stdout(),
+            Show,
+            MoveToColumn(0),
+            Clear(ClearType::CurrentLine), // In particular, clear the "Game starting..." line.
+            Print("\r\n")                  // Print a newline for the shell prompt.
+        )
+        .ok();
+        println!("Server forced to shut down.");
+        std::process::exit(0);
     })
     .expect("error setting Ctrl-C handler");
 
