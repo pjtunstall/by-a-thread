@@ -165,8 +165,7 @@ impl<W: Write> TerminalUi<W> {
                     KeyCode::Enter => {
                         let line = self.buffer.drain(..).collect();
                         self.cursor_pos = 0;
-                        queue!(self.stdout, Print("\r\n"))
-                            .map_err(|_| UiInputError::Disconnected)?;
+                        self.clear_prompt()?;
                         self.prompt_lines = 1;
                         self.redraw_prompt()?;
                         Ok(Some(line))
