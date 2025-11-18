@@ -81,28 +81,28 @@ pub const COLORS: [Color; 10] = [
     Color::SKYBLUE,
 ];
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UsernameError {
     Empty,
     TooLong,
     InvalidCharacter(char),
+    Reserved,
 }
 
 impl fmt::Display for UsernameError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            UsernameError::Empty => write!(f, "Username must not be empty."),
-            UsernameError::TooLong => write!(
-                f,
-                "Username must be at most {} characters long.",
-                MAX_USERNAME_LENGTH
-            ),
-            UsernameError::InvalidCharacter(ch) => {
-                write!(f, "Username contains invalid character: '{}'.", ch)
+            UsernameError::Empty => write!(f, "username cannot be empty"),
+            UsernameError::TooLong => write!(f, "username is too long"),
+            UsernameError::InvalidCharacter(c) => {
+                write!(f, "username contains invalid character '{}'", c)
             }
+            UsernameError::Reserved => write!(f, "username is reserved"),
         }
     }
 }
+
+impl std::error::Error for UsernameError {}
 
 pub fn sanitize_username(input: &str) -> Result<String, UsernameError> {
     let trimmed = input.trim();
@@ -120,6 +120,17 @@ pub fn sanitize_username(input: &str) -> Result<String, UsernameError> {
         .find(|ch| !ch.is_ascii_alphanumeric() && *ch != '_' && *ch != '-')
     {
         return Err(UsernameError::InvalidCharacter(invalid));
+    }
+
+    // Check for reserved names (case-insensitive).
+    let lowercase = trimmed.to_lowercase();
+    if lowercase == "server"
+        || lowercase == "admin"
+        || lowercase == "host"
+        || lowercase == "system"
+        || lowercase == "you"
+    {
+        return Err(UsernameError::Reserved);
     }
 
     Ok(trimmed.to_string())

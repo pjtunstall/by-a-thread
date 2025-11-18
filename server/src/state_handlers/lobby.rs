@@ -147,6 +147,7 @@ pub fn handle(
                                 UsernameError::InvalidCharacter(_) => {
                                     "Username contains invalid characters."
                                 }
+                                UsernameError::Reserved => "That username is reserved.",
                             };
                             send_username_error(network, client_id, error_text);
                         }
