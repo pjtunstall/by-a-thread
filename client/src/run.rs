@@ -5,6 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use bincode::{config::standard, serde::encode_to_vec};
 use crossterm::{
     cursor::{Hide, MoveToColumn, Show},
     execute,
@@ -14,14 +15,14 @@ use renet::RenetClient;
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
 use crate::{
-    net::{self, RenetNetworkHandle},
+    net::{self, NetworkHandle, RenetNetworkHandle},
     state::{self, ClientSession, ClientState, MAX_ATTEMPTS},
-    state_handlers::{self, AppChannel, NetworkHandle},
+    state_handlers,
     ui::ClientUi,
 };
-use bincode::{config::standard, serde::encode_to_vec};
 use shared::{
     self,
+    net::AppChannel,
     protocol::{ClientMessage, ServerMessage},
 };
 
@@ -122,21 +123,21 @@ fn update_client_state(
     network_handle: &mut RenetNetworkHandle,
 ) {
     let next_state_from_logic = match session.state() {
-        ClientState::Startup { .. } => state_handlers::startup(session, ui),
-        ClientState::Connecting => state_handlers::connecting(session, ui, network_handle),
+        ClientState::Startup { .. } => state_handlers::startup::handle(session, ui),
+        ClientState::Connecting => state_handlers::connecting::handle(session, ui, network_handle),
         ClientState::Authenticating { .. } => {
-            state_handlers::authenticating(session, ui, network_handle)
+            state_handlers::auth::handle(session, ui, network_handle)
         }
         ClientState::ChoosingUsername { .. } => {
-            state_handlers::choosing_username(session, ui, network_handle)
+            state_handlers::username::handle(session, ui, network_handle)
         }
-        ClientState::InChat => state_handlers::in_chat(session, ui, network_handle),
+        ClientState::InChat => state_handlers::chat::handle(session, ui, network_handle),
         ClientState::ChoosingDifficulty { .. } => {
-            state_handlers::choosing_difficulty(session, ui, network_handle)
+            state_handlers::difficulty::handle(session, ui, network_handle)
         }
-        ClientState::Countdown => state_handlers::countdown(session, ui, network_handle),
+        ClientState::Countdown => state_handlers::countdown::handle(session, ui, network_handle),
         ClientState::Disconnected { .. } => None,
-        ClientState::InGame { .. } => state_handlers::in_game(session, ui, network_handle),
+        ClientState::InGame { .. } => state_handlers::game::handle(session, ui, network_handle),
     };
 
     if let Some(new_state) = next_state_from_logic {

@@ -1,12 +1,12 @@
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::time::Duration;
-
-use renet_netcode::ConnectToken;
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    time::Duration,
+};
 
 use renet::RenetClient;
-use renet_netcode::NetcodeClientTransport;
+use renet_netcode::{ConnectToken, NetcodeClientTransport};
 
-use crate::state_handlers::{AppChannel, NetworkHandle};
+use shared::net::AppChannel;
 
 pub fn default_server_addr() -> SocketAddr {
     SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000)
@@ -41,6 +41,15 @@ impl<'a> RenetNetworkHandle<'a> {
     pub fn new(client: &'a mut RenetClient, transport: &'a mut NetcodeClientTransport) -> Self {
         Self { client, transport }
     }
+}
+
+pub trait NetworkHandle {
+    fn is_connected(&self) -> bool;
+    fn is_disconnected(&self) -> bool;
+    fn get_disconnect_reason(&self) -> String;
+    fn send_message(&mut self, channel: AppChannel, message: Vec<u8>);
+    fn receive_message(&mut self, channel: AppChannel) -> Option<Vec<u8>>;
+    fn rtt(&self) -> f64;
 }
 
 impl NetworkHandle for RenetNetworkHandle<'_> {

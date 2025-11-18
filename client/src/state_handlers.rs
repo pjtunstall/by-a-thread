@@ -1,30 +1,18 @@
-use bincode::{
-    config::standard,
-    serde::{decode_from_slice, encode_to_vec},
-};
-use shared::player::Player;
+pub mod auth;
+pub mod chat;
+pub mod connecting;
+pub mod countdown;
+pub mod difficulty;
+pub mod game;
+pub mod startup;
+pub mod username;
+
 use std::collections::HashMap;
 
-use crate::state::{
-    ClientSession, ClientState, MAX_ATTEMPTS, username_prompt, validate_username_input,
-};
-use crate::ui::{ClientUi, UiInputError};
-pub use shared::net::AppChannel;
-use shared::{
-    auth::Passcode,
-    chat::MAX_CHAT_MESSAGE_BYTES,
-    input::UiKey,
-    protocol::{ClientMessage, ServerMessage},
-};
-
-pub trait NetworkHandle {
-    fn is_connected(&self) -> bool;
-    fn is_disconnected(&self) -> bool;
-    fn get_disconnect_reason(&self) -> String;
-    fn send_message(&mut self, channel: AppChannel, message: Vec<u8>);
-    fn receive_message(&mut self, channel: AppChannel) -> Option<Vec<u8>>;
-    fn rtt(&self) -> f64;
-}
+use crate::state::{ClientSession, MAX_ATTEMPTS};
+use crate::ui::ClientUi;
+use shared::auth::Passcode;
+use shared::player::Player;
 
 pub fn print_player_list(
     ui: &mut dyn ClientUi,
@@ -46,421 +34,6 @@ pub fn print_player_list(
         ));
     }
     ui.show_sanitized_message("");
-}
-
-pub fn startup(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::Startup { .. }) {
-        panic!(
-            "called startup() when state was not Startup; current state: {:?}",
-            session.state()
-        );
-    }
-
-    match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
-        Ok(Some(input_string)) => {
-            if let Some(passcode) = parse_passcode_input(&input_string) {
-                session.store_first_passcode(passcode);
-                Some(ClientState::Connecting)
-            } else {
-                ui.show_sanitized_error("Invalid format. Please enter a 6-digit number.");
-                ui.show_sanitized_prompt(&passcode_prompt(MAX_ATTEMPTS));
-                None
-            }
-        }
-        Ok(None) => None,
-        Err(UiInputError::Disconnected) => Some(ClientState::Disconnected {
-            message: "input thread disconnected.".to_string(),
-        }),
-    }
-}
-
-pub fn connecting(
-    session: &mut ClientSession,
-    _ui: &mut dyn ClientUi,
-    network: &mut dyn NetworkHandle,
-) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::Connecting) {
-        panic!(
-            "called connecting() when state was not Connecting; current state: {:?}",
-            session.state()
-        );
-    }
-
-    if network.is_connected() {
-        if session.has_first_passcode() {
-            Some(ClientState::Authenticating {
-                waiting_for_input: false,
-                guesses_left: MAX_ATTEMPTS,
-            })
-        } else {
-            Some(ClientState::Disconnected {
-                message: "Internal error: No passcode to send.".to_string(),
-            })
-        }
-    } else if network.is_disconnected() {
-        Some(ClientState::Disconnected {
-            message: format!("Connection failed: {}.", network.get_disconnect_reason()),
-        })
-    } else {
-        None
-    }
-}
-
-pub fn authenticating(
-    session: &mut ClientSession,
-    ui: &mut dyn ClientUi,
-    network: &mut dyn NetworkHandle,
-) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::Authenticating { .. }) {
-        panic!(
-            "called authenticating() when state was not Authenticating; current state: {:?}",
-            session.state()
-        );
-    }
-
-    while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
-        match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((ServerMessage::ServerInfo { message }, _)) => {
-                ui.show_sanitized_message(&format!("Server: {}", message));
-
-                if message.starts_with("Authentication successful!") {
-                    return Some(ClientState::ChoosingUsername {
-                        prompt_printed: false,
-                        awaiting_confirmation: false,
-                    });
-                } else if message.starts_with("Incorrect passcode. Try again.") {
-                    if let ClientState::Authenticating {
-                        waiting_for_input,
-                        guesses_left,
-                    } = session.state_mut()
-                    {
-                        *guesses_left = guesses_left.saturating_sub(1);
-                        ui.show_sanitized_prompt(&passcode_prompt(*guesses_left));
-                        *waiting_for_input = true;
-                    }
-                } else if message.starts_with("Incorrect passcode. Disconnecting.") {
-                    return Some(ClientState::Disconnected {
-                        message: "Authentication failed.".to_string(),
-                    });
-                }
-            }
-            Ok((_, _)) => {}
-            Err(e) => ui.show_sanitized_error(&format!("[Deserialization error: {}]", e)),
-        }
-    }
-
-    if let ClientState::Authenticating {
-        waiting_for_input,
-        guesses_left,
-    } = session.state_mut()
-    {
-        if *waiting_for_input {
-            match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
-                Ok(Some(input_string)) => {
-                    if let Some(passcode) = parse_passcode_input(&input_string) {
-                        ui.show_sanitized_message("Sending new guess...");
-
-                        let message = ClientMessage::SendPasscode(passcode.bytes);
-                        let payload = encode_to_vec(&message, standard())
-                            .expect("failed to serialize SendPasscode");
-                        network.send_message(AppChannel::ReliableOrdered, payload);
-
-                        *waiting_for_input = false;
-                    } else {
-                        ui.show_sanitized_error(&format!(
-                            "Invalid format: {}. Please enter a 6-digit number.",
-                            input_string
-                        ));
-                        ui.show_sanitized_message(
-                            &format!(
-                                "Please type a new 6-digit passcode and press Enter. ({} guesses remaining.)",
-                                *guesses_left
-                            ),
-                        );
-                    }
-                }
-                Ok(None) => {}
-                Err(UiInputError::Disconnected) => {
-                    return Some(ClientState::Disconnected {
-                        message: "input thread disconnected.".to_string(),
-                    });
-                }
-            }
-        }
-    }
-
-    if network.is_disconnected() {
-        return Some(ClientState::Disconnected {
-            message: format!(
-                "Disconnected while authenticating: {}.",
-                network.get_disconnect_reason()
-            ),
-        });
-    }
-
-    None
-}
-
-pub fn choosing_username(
-    session: &mut ClientSession,
-    ui: &mut dyn ClientUi,
-    network: &mut dyn NetworkHandle,
-) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::ChoosingUsername { .. }) {
-        panic!(
-            "called choosing_username() when state was not ChoosingUsername; current state: {:?}",
-            session.state()
-        );
-    }
-
-    while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
-        match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((ServerMessage::Welcome { username }, _)) => {
-                ui.show_sanitized_message(&format!("Welcome, {}!", username));
-                return Some(ClientState::InChat);
-            }
-            Ok((ServerMessage::UsernameError { message }, _)) => {
-                ui.show_sanitized_error(&format!("Username error: {}", message));
-                ui.show_sanitized_message("Please try a different username.");
-                if let ClientState::ChoosingUsername {
-                    prompt_printed,
-                    awaiting_confirmation,
-                } = session.state_mut()
-                {
-                    *awaiting_confirmation = false;
-                    *prompt_printed = false;
-                }
-            }
-            Ok((_, _)) => {}
-            Err(e) => ui.show_sanitized_error(&format!("[Deserialization error: {}]", e)),
-        }
-    }
-
-    if let ClientState::ChoosingUsername {
-        prompt_printed,
-        awaiting_confirmation,
-    } = session.state_mut()
-    {
-        if !*awaiting_confirmation {
-            if !*prompt_printed {
-                ui.show_sanitized_prompt(&username_prompt());
-                *prompt_printed = true;
-            }
-
-            match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
-                Ok(Some(input)) => {
-                    let validation = validate_username_input(&input);
-                    match validation {
-                        Ok(username) => {
-                            let message = ClientMessage::SetUsername(username);
-                            let payload = encode_to_vec(&message, standard())
-                                .expect("failed to serialize SetUsername");
-                            network.send_message(AppChannel::ReliableOrdered, payload);
-
-                            *awaiting_confirmation = true;
-                        }
-                        Err(err) => {
-                            let message = err.to_string();
-                            ui.show_sanitized_error(&message);
-                            *prompt_printed = false;
-                        }
-                    }
-                }
-                Ok(None) => {}
-                Err(UiInputError::Disconnected) => {
-                    return Some(ClientState::Disconnected {
-                        message: "input thread disconnected.".to_string(),
-                    });
-                }
-            }
-        }
-    }
-
-    if network.is_disconnected() {
-        return Some(ClientState::Disconnected {
-            message: format!(
-                "Disconnected while choosing username: {}.",
-                network.get_disconnect_reason()
-            ),
-        });
-    }
-
-    None
-}
-
-pub fn in_chat(
-    session: &mut ClientSession,
-    ui: &mut dyn ClientUi,
-    network: &mut dyn NetworkHandle,
-) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::InChat) {
-        panic!(
-            "called in_chat() when state was not InChat; current state: {:?}",
-            session.state()
-        );
-    }
-
-    while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
-        match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((
-                ServerMessage::CountdownStarted {
-                    end_time,
-                    maze,
-                    players,
-                },
-                _,
-            )) => {
-                session.countdown_end_time = Some(end_time);
-                session.maze = Some(maze);
-                session.players = Some(players);
-                return Some(ClientState::Countdown);
-            }
-            Ok((ServerMessage::RequestDifficultyChoice, _)) => {
-                return Some(ClientState::ChoosingDifficulty {
-                    prompt_printed: false,
-                });
-            }
-            Ok((ServerMessage::ChatMessage { username, content }, _)) => {
-                if session.awaiting_initial_roster() {
-                    continue;
-                }
-                ui.show_sanitized_message(&format!("{}: {}", username, content));
-            }
-            Ok((ServerMessage::UserJoined { username }, _)) => {
-                if session.awaiting_initial_roster() {
-                    continue;
-                }
-                ui.show_sanitized_message(&format!("{} joined the chat.", username));
-            }
-            Ok((ServerMessage::UserLeft { username }, _)) => {
-                if session.awaiting_initial_roster() {
-                    continue;
-                }
-                ui.show_sanitized_message(&format!("{} left the chat.", username));
-            }
-            Ok((ServerMessage::Roster { online }, _)) => {
-                let msg = if online.is_empty() {
-                    "You are the only player online.".to_string()
-                } else {
-                    format!("Players online: {}", online.join(", "))
-                };
-                ui.show_sanitized_message(&msg);
-                session.mark_initial_roster_received();
-            }
-            Ok((ServerMessage::ServerInfo { message }, _)) => {
-                ui.show_sanitized_message(&format!("Server: {}", message));
-            }
-            Ok((_, _)) => {}
-            Err(e) => ui.show_sanitized_error(&format!("[Deserialization error: {}]", e)),
-        }
-    }
-
-    loop {
-        match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
-            Ok(Some(input)) => {
-                let trimmed_input = input.trim();
-                if !trimmed_input.is_empty() {
-                    let message = if trimmed_input == shared::auth::START_COUNTDOWN {
-                        ClientMessage::RequestStartGame
-                    } else {
-                        ClientMessage::SendChat(trimmed_input.to_string())
-                    };
-
-                    let payload =
-                        encode_to_vec(&message, standard()).expect("failed to serialize chat");
-                    network.send_message(AppChannel::ReliableOrdered, payload);
-                }
-            }
-            Ok(None) => break,
-            Err(UiInputError::Disconnected) => {
-                return Some(ClientState::Disconnected {
-                    message: "input thread disconnected.".to_string(),
-                });
-            }
-        }
-    }
-
-    if network.is_disconnected() {
-        Some(ClientState::Disconnected {
-            message: format!(
-                "Disconnected from chat: {}.",
-                network.get_disconnect_reason()
-            ),
-        })
-    } else {
-        None
-    }
-}
-
-pub fn countdown(
-    session: &mut ClientSession,
-    ui: &mut dyn ClientUi,
-    network: &mut dyn NetworkHandle,
-) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::Countdown) {
-        panic!(
-            "called countdown() when state was not Countdown; current state: {:?}",
-            session.state()
-        );
-    }
-
-    while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
-        match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((_, _)) => {}
-            Err(e) => ui.show_sanitized_status_line(&format!("[Deserialization error: {}.]", e)),
-        }
-    }
-
-    if let Some(end_time) = session.countdown_end_time {
-        let time_remaining_secs = end_time - session.estimated_server_time - 1.0;
-
-        if time_remaining_secs > 0.0 {
-            let status_message = format!("Game starting in {:.0}s...", time_remaining_secs.ceil());
-            ui.show_status_line(&status_message);
-        } else {
-            if let Some(maze) = session.maze.take() {
-                if let Some(players) = session.players.take() {
-                    return Some(ClientState::InGame { maze, players });
-                } else {
-                    return Some(ClientState::Disconnected {
-                        message: "Failed to receive players data.".to_string(),
-                    });
-                }
-            } else {
-                return Some(ClientState::Disconnected {
-                    message: "Failed to receive maze data".to_string(),
-                });
-            }
-        }
-    } else {
-        ui.show_status_line("Waiting for countdown info...");
-    }
-
-    if let Err(UiInputError::Disconnected) = ui.poll_single_key() {
-        return Some(ClientState::Disconnected {
-            message: "input thread disconnected.".to_string(),
-        });
-    }
-
-    None
-}
-
-pub fn in_game(
-    session: &mut ClientSession,
-    ui: &mut dyn ClientUi,
-    _network: &mut dyn NetworkHandle,
-) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::InGame { .. }) {
-        panic!(
-            "called in_game() when state was not InGame; current state: {:?}",
-            session.state()
-        );
-    }
-
-    ui.show_sanitized_message("Exiting for now.");
-    return Some(ClientState::Disconnected {
-        message: "".to_string(),
-    });
 }
 
 pub fn passcode_prompt(remaining: u8) -> String {
@@ -489,81 +62,24 @@ pub fn parse_passcode_input(input: &str) -> Option<Passcode> {
     None
 }
 
-pub fn choosing_difficulty(
-    session: &mut ClientSession,
-    ui: &mut dyn ClientUi,
-    network: &mut dyn NetworkHandle,
-) -> Option<ClientState> {
-    let is_correct_state = matches!(session.state(), ClientState::ChoosingDifficulty { .. });
-    if !is_correct_state {
-        panic!(
-            "called choosing_difficulty() when state was not ChoosingDifficulty; current state: {:?}",
-            session.state()
-        );
-    };
-
-    while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
-        match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((
-                ServerMessage::CountdownStarted {
-                    end_time,
-                    maze,
-                    players,
-                },
-                _,
-            )) => {
-                session.countdown_end_time = Some(end_time);
-                session.maze = Some(maze);
-                session.players = Some(players);
-                return Some(ClientState::Countdown);
-            }
-            Ok((ServerMessage::ServerInfo { message }, _)) => {
-                ui.show_sanitized_message(&format!("Server: {}", message));
-                if let ClientState::ChoosingDifficulty { prompt_printed } = session.state_mut() {
-                    *prompt_printed = false;
-                }
-            }
-            Ok((_, _)) => {}
-            Err(e) => ui.show_sanitized_error(&format!("[Deserialization error: {}]", e)),
-        }
-    }
-
-    match ui.poll_single_key() {
-        Ok(Some(key)) => {
-            let level = match key {
-                UiKey::Char('1') => Some(1),
-                UiKey::Char('2') => Some(2),
-                UiKey::Char('3') => Some(3),
-                _ => None,
-            };
-
-            if let Some(level) = level {
-                let msg = ClientMessage::SetDifficulty(level);
-                let payload =
-                    encode_to_vec(&msg, standard()).expect("failed to serialize SetDifficulty");
-                network.send_message(AppChannel::ReliableOrdered, payload);
-            }
-        }
-        Ok(None) => {}
-        Err(UiInputError::Disconnected) => {
-            return Some(ClientState::Disconnected {
-                message: "input disconnected.".to_string(),
-            });
-        }
-    }
-
-    None
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::VecDeque;
     use std::net::SocketAddr;
 
+    use bincode::{config::standard, serde::decode_from_slice, serde::encode_to_vec};
+
     use super::*;
-    use crate::state::ClientSession;
-    use crate::ui::{ClientUi, UiInputError};
-    use bincode::{config::standard, serde::encode_to_vec};
+    use crate::{
+        net::NetworkHandle,
+        state::{ClientSession, ClientState},
+        ui::{ClientUi, UiInputError},
+    };
+    use shared::{
+        input::UiKey,
+        net::AppChannel,
+        protocol::{ClientMessage, ServerMessage},
+    };
 
     #[derive(Default)]
     pub struct MockUi {
@@ -733,13 +249,13 @@ mod tests {
         let mut session = ClientSession::new(0);
         let mut ui = MockUi::default();
 
-        assert!(startup(&mut session, &mut ui).is_none());
+        assert!(startup::handle(&mut session, &mut ui).is_none());
         assert!(ui.prompts.is_empty());
 
         ui.messages.clear();
         ui.errors.clear();
 
-        assert!(startup(&mut session, &mut ui).is_none());
+        assert!(startup::handle(&mut session, &mut ui).is_none());
         assert!(ui.prompts.is_empty());
     }
 
@@ -748,7 +264,7 @@ mod tests {
         let mut session = ClientSession::new(0);
         let mut ui = MockUi::with_inputs([Ok(Some("123456".into()))]);
 
-        let next = startup(&mut session, &mut ui);
+        let next = startup::handle(&mut session, &mut ui);
         assert!(matches!(next, Some(ClientState::Connecting)));
         assert_eq!(session.take_first_passcode().unwrap().string, "123456");
     }
@@ -758,7 +274,7 @@ mod tests {
         let mut session = ClientSession::new(0);
         let mut ui = MockUi::with_inputs([Ok(Some("abc".into()))]);
 
-        assert!(startup(&mut session, &mut ui).is_none());
+        assert!(startup::handle(&mut session, &mut ui).is_none());
         assert_eq!(
             ui.errors,
             vec!["Invalid format. Please enter a 6-digit number.".to_string()]
@@ -771,7 +287,7 @@ mod tests {
         let mut session = ClientSession::new(0);
         let mut ui = MockUi::with_inputs([Err(UiInputError::Disconnected)]);
 
-        let next = startup(&mut session, &mut ui);
+        let next = startup::handle(&mut session, &mut ui);
         match next {
             Some(ClientState::Disconnected { message }) => {
                 assert_eq!(message, "input thread disconnected.");
@@ -794,7 +310,7 @@ mod tests {
             message: "Incorrect passcode. Try again.".to_string(),
         });
 
-        let next_state = authenticating(&mut session, &mut ui, &mut network);
+        let next_state = auth::handle(&mut session, &mut ui, &mut network);
 
         assert!(next_state.is_none());
         assert_eq!(
@@ -827,7 +343,7 @@ mod tests {
             session.transition(ClientState::Connecting);
             let mut ui = MockUi::default();
 
-            startup(&mut session, &mut ui);
+            startup::handle(&mut session, &mut ui);
         }
 
         #[test]
@@ -835,7 +351,7 @@ mod tests {
             let mut session = ClientSession::new(0);
             let mut ui = MockUi::default();
             assert!(
-                startup(&mut session, &mut ui).is_none(),
+                startup::handle(&mut session, &mut ui).is_none(),
                 "should not panic and should return None"
             );
         }
@@ -849,7 +365,7 @@ mod tests {
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
 
-            connecting(&mut session, &mut ui, &mut network);
+            connecting::handle(&mut session, &mut ui, &mut network);
         }
 
         #[test]
@@ -859,7 +375,7 @@ mod tests {
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
             assert!(
-                connecting(&mut session, &mut ui, &mut network).is_none(),
+                connecting::handle(&mut session, &mut ui, &mut network).is_none(),
                 "should not panic and should return None"
             );
         }
@@ -873,7 +389,7 @@ mod tests {
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
 
-            authenticating(&mut session, &mut ui, &mut network);
+            auth::handle(&mut session, &mut ui, &mut network);
         }
 
         #[test]
@@ -886,7 +402,7 @@ mod tests {
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
             assert!(
-                authenticating(&mut session, &mut ui, &mut network).is_none(),
+                auth::handle(&mut session, &mut ui, &mut network).is_none(),
                 "should not panic and should return None"
             );
         }
@@ -900,7 +416,7 @@ mod tests {
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
 
-            choosing_username(&mut session, &mut ui, &mut network);
+            username::handle(&mut session, &mut ui, &mut network);
         }
 
         #[test]
@@ -913,7 +429,7 @@ mod tests {
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
             assert!(
-                choosing_username(&mut session, &mut ui, &mut network).is_none(),
+                username::handle(&mut session, &mut ui, &mut network).is_none(),
                 "should not panic and should return None"
             );
         }
@@ -927,7 +443,7 @@ mod tests {
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
 
-            in_chat(&mut session, &mut ui, &mut network);
+            chat::handle(&mut session, &mut ui, &mut network);
         }
 
         #[test]
@@ -937,7 +453,7 @@ mod tests {
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
             assert!(
-                in_chat(&mut session, &mut ui, &mut network).is_none(),
+                chat::handle(&mut session, &mut ui, &mut network).is_none(),
                 "should not panic and should return None"
             );
         }
@@ -977,7 +493,7 @@ mod tests {
     fn test_choosing_difficulty_prints_prompt() {
         let (mut session, mut ui, mut network) = setup_choosing_difficulty_tests();
 
-        let next_state = choosing_difficulty(&mut session, &mut ui, &mut network);
+        let next_state = difficulty::handle(&mut session, &mut ui, &mut network);
 
         assert!(ui.messages.is_empty());
         assert!(ui.prompts.is_empty());
@@ -994,11 +510,11 @@ mod tests {
     fn test_choosing_difficulty_selects_level_2() {
         let (mut session, mut ui, mut network) = setup_choosing_difficulty_tests();
 
-        choosing_difficulty(&mut session, &mut ui, &mut network);
+        difficulty::handle(&mut session, &mut ui, &mut network);
 
         ui.keys.push_back(Ok(Some(UiKey::Char('2'))));
 
-        let next_state = choosing_difficulty(&mut session, &mut ui, &mut network);
+        let next_state = difficulty::handle(&mut session, &mut ui, &mut network);
 
         assert!(next_state.is_none());
         assert_eq!(network.sent_messages.len(), 1);
@@ -1014,15 +530,15 @@ mod tests {
     fn test_choosing_difficulty_ignores_invalid_key() {
         let (mut session, mut ui, mut network) = setup_choosing_difficulty_tests();
 
-        choosing_difficulty(&mut session, &mut ui, &mut network);
+        difficulty::handle(&mut session, &mut ui, &mut network);
 
         ui.keys.push_back(Ok(Some(UiKey::Char('a'))));
         ui.keys.push_back(Ok(Some(UiKey::Enter)));
         ui.keys.push_back(Ok(Some(UiKey::Char('5'))));
 
-        let next_state_1 = choosing_difficulty(&mut session, &mut ui, &mut network);
-        let next_state_2 = choosing_difficulty(&mut session, &mut ui, &mut network);
-        let next_state_3 = choosing_difficulty(&mut session, &mut ui, &mut network);
+        let next_state_1 = difficulty::handle(&mut session, &mut ui, &mut network);
+        let next_state_2 = difficulty::handle(&mut session, &mut ui, &mut network);
+        let next_state_3 = difficulty::handle(&mut session, &mut ui, &mut network);
 
         assert!(next_state_1.is_none());
         assert!(next_state_2.is_none());
@@ -1035,11 +551,11 @@ mod tests {
     fn test_choosing_difficulty_handles_disconnect() {
         let (mut session, mut ui, mut network) = setup_choosing_difficulty_tests();
 
-        choosing_difficulty(&mut session, &mut ui, &mut network);
+        difficulty::handle(&mut session, &mut ui, &mut network);
 
         ui.keys.push_back(Err(UiInputError::Disconnected));
 
-        let next_state = choosing_difficulty(&mut session, &mut ui, &mut network);
+        let next_state = difficulty::handle(&mut session, &mut ui, &mut network);
 
         assert!(network.sent_messages.is_empty());
         assert!(matches!(next_state, Some(ClientState::Disconnected { .. })));
@@ -1062,7 +578,7 @@ mod tests {
         };
         network_chat.queue_server_message(malicious_chat);
 
-        in_chat(&mut session_chat, &mut ui_chat, &mut network_chat);
+        chat::handle(&mut session_chat, &mut ui_chat, &mut network_chat);
 
         assert_eq!(ui_chat.messages.len(), 1);
         assert_eq!(ui_chat.messages[0], "User: HelloWorld");
@@ -1080,7 +596,7 @@ mod tests {
         };
         network_user.queue_server_message(malicious_error);
 
-        choosing_username(&mut session_user, &mut ui_user, &mut network_user);
+        username::handle(&mut session_user, &mut ui_user, &mut network_user);
 
         assert_eq!(ui_user.errors.len(), 1);
         assert_eq!(ui_user.errors[0], "Username error: NameTaken");
@@ -1100,7 +616,7 @@ mod tests {
         };
         network_auth.queue_server_message(malicious_info);
 
-        authenticating(&mut session_auth, &mut ui_auth, &mut network_auth);
+        auth::handle(&mut session_auth, &mut ui_auth, &mut network_auth);
 
         assert_eq!(ui_auth.messages.len(), 1);
         assert_eq!(
