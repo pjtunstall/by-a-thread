@@ -7,36 +7,7 @@ pub mod game;
 pub mod startup;
 pub mod username;
 
-use std::collections::HashMap;
-
-use crate::state::ClientSession;
-use crate::ui::ClientUi;
-use shared::{
-    auth::{MAX_ATTEMPTS, Passcode},
-    player::Player,
-};
-
-pub fn print_player_list(
-    ui: &mut dyn ClientUi,
-    session: &ClientSession,
-    players: &HashMap<u64, Player>,
-) {
-    ui.show_message("\nPlayers:");
-    for player in players.values() {
-        let is_self = if player.id == session.client_id {
-            "<--you"
-        } else {
-            ""
-        };
-        ui.show_sanitized_message(&format!(
-            " - {} ({}) {}",
-            player.name,
-            player.color.as_str(),
-            is_self
-        ));
-    }
-    ui.show_sanitized_message("");
-}
+use shared::auth::{MAX_ATTEMPTS, Passcode};
 
 pub fn passcode_prompt(remaining: u8) -> String {
     if remaining == MAX_ATTEMPTS {
@@ -66,157 +37,13 @@ pub fn parse_passcode_input(input: &str) -> Option<Passcode> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::VecDeque;
-    use std::net::SocketAddr;
-
-    use bincode::{config::standard, serde::decode_from_slice, serde::encode_to_vec};
-
     use super::*;
     use crate::{
-        net::NetworkHandle,
         state::{ClientSession, ClientState},
+        test_helpers::{MockNetwork, MockUi},
         ui::{ClientUi, UiInputError},
     };
-    use shared::{
-        input::UiKey,
-        net::AppChannel,
-        protocol::{ClientMessage, ServerMessage},
-    };
-
-    #[derive(Default)]
-    pub struct MockUi {
-        pub messages: Vec<String>,
-        pub errors: Vec<String>,
-        pub prompts: Vec<String>,
-        pub status_lines: Vec<String>,
-        pub inputs: VecDeque<Result<Option<String>, UiInputError>>,
-        pub keys: VecDeque<Result<Option<UiKey>, UiInputError>>,
-    }
-
-    impl MockUi {
-        fn with_inputs<I>(inputs: I) -> Self
-        where
-            I: IntoIterator<Item = Result<Option<String>, UiInputError>>,
-        {
-            Self {
-                inputs: inputs.into_iter().collect(),
-                ..Default::default()
-            }
-        }
-    }
-
-    impl MockUi {
-        pub fn new() -> Self {
-            Self {
-                messages: Vec::new(),
-                errors: Vec::new(),
-                prompts: Vec::new(),
-                status_lines: Vec::new(),
-                inputs: VecDeque::new(),
-                keys: VecDeque::new(),
-            }
-        }
-    }
-
-    impl ClientUi for MockUi {
-        fn show_message(&mut self, message: &str) {
-            self.messages.push(message.to_string());
-        }
-
-        fn show_error(&mut self, message: &str) {
-            self.errors.push(message.to_string());
-        }
-
-        fn show_prompt(&mut self, prompt: &str) {
-            self.prompts.push(prompt.to_string());
-        }
-
-        fn show_status_line(&mut self, message: &str) {
-            self.status_lines.push(message.to_string());
-        }
-
-        fn poll_input(&mut self, _limit: usize) -> Result<Option<String>, UiInputError> {
-            self.inputs
-                .pop_front()
-                .unwrap_or(Ok(None))
-                .map(|opt| opt.map(|s| s.to_string()))
-        }
-
-        fn poll_single_key(&mut self) -> Result<Option<UiKey>, UiInputError> {
-            self.keys.pop_front().unwrap_or(Ok(None))
-        }
-
-        fn print_client_banner(
-            &mut self,
-            protocol_id: u64,
-            server_addr: SocketAddr,
-            client_id: u64,
-        ) {
-            self.messages.push(format!(
-                "Client Banner: Protocol={}, Server={}, ClientID={}",
-                protocol_id, server_addr, client_id
-            ));
-        }
-    }
-
-    #[derive(Default)]
-    struct MockNetwork {
-        is_connected_val: bool,
-        is_disconnected_val: bool,
-        disconnect_reason_val: String,
-        messages_to_receive: VecDeque<Vec<u8>>,
-        sent_messages: VecDeque<(AppChannel, Vec<u8>)>,
-        rtt_val: f64,
-    }
-
-    impl MockNetwork {
-        fn new() -> Self {
-            Self::default()
-        }
-
-        #[allow(dead_code)]
-        fn set_connected(&mut self, connected: bool) {
-            self.is_connected_val = connected;
-        }
-
-        #[allow(dead_code)]
-        fn set_disconnected(&mut self, disconnected: bool, reason: &str) {
-            self.is_disconnected_val = disconnected;
-            self.disconnect_reason_val = reason.to_string();
-        }
-
-        fn queue_server_message(&mut self, message: ServerMessage) {
-            let data =
-                encode_to_vec(&message, standard()).expect("failed to serialize test message");
-            self.messages_to_receive.push_back(data);
-        }
-    }
-
-    impl NetworkHandle for MockNetwork {
-        fn is_connected(&self) -> bool {
-            self.is_connected_val
-        }
-
-        fn is_disconnected(&self) -> bool {
-            self.is_disconnected_val
-        }
-
-        fn get_disconnect_reason(&self) -> String {
-            self.disconnect_reason_val.clone()
-        }
-
-        fn send_message(&mut self, channel: AppChannel, message: Vec<u8>) {
-            self.sent_messages.push_back((channel, message));
-        }
-
-        fn receive_message(&mut self, _channel: AppChannel) -> Option<Vec<u8>> {
-            self.messages_to_receive.pop_front()
-        }
-
-        fn rtt(&self) -> f64 {
-            self.rtt_val
-        }
-    }
+    use shared::protocol::ServerMessage;
 
     #[test]
     fn parses_valid_passcode_input() {
@@ -477,90 +304,6 @@ mod tests {
         assert!(ui.errors.is_empty());
         assert!(ui.prompts.is_empty());
         assert!(ui.status_lines.is_empty());
-    }
-
-    fn setup_choosing_difficulty_tests() -> (ClientSession, MockUi, MockNetwork) {
-        let session = ClientSession {
-            state: ClientState::ChoosingDifficulty {
-                prompt_printed: false,
-            },
-            ..ClientSession::new(0)
-        };
-        let ui = MockUi::new();
-        let network = MockNetwork::new();
-        (session, ui, network)
-    }
-
-    #[test]
-    fn test_choosing_difficulty_prints_prompt() {
-        let (mut session, mut ui, mut network) = setup_choosing_difficulty_tests();
-
-        let next_state = difficulty::handle(&mut session, &mut ui, &mut network);
-
-        assert!(ui.messages.is_empty());
-        assert!(ui.prompts.is_empty());
-        assert!(matches!(
-            session.state(),
-            ClientState::ChoosingDifficulty {
-                prompt_printed: false
-            }
-        ));
-        assert!(next_state.is_none());
-    }
-
-    #[test]
-    fn test_choosing_difficulty_selects_level_2() {
-        let (mut session, mut ui, mut network) = setup_choosing_difficulty_tests();
-
-        difficulty::handle(&mut session, &mut ui, &mut network);
-
-        ui.keys.push_back(Ok(Some(UiKey::Char('2'))));
-
-        let next_state = difficulty::handle(&mut session, &mut ui, &mut network);
-
-        assert!(next_state.is_none());
-        assert_eq!(network.sent_messages.len(), 1);
-
-        let (channel, payload) = network.sent_messages.pop_front().unwrap();
-        assert_eq!(channel, AppChannel::ReliableOrdered);
-
-        let (msg, _) = decode_from_slice::<ClientMessage, _>(&payload, standard()).unwrap();
-        assert_eq!(msg, ClientMessage::SetDifficulty(2));
-    }
-
-    #[test]
-    fn test_choosing_difficulty_ignores_invalid_key() {
-        let (mut session, mut ui, mut network) = setup_choosing_difficulty_tests();
-
-        difficulty::handle(&mut session, &mut ui, &mut network);
-
-        ui.keys.push_back(Ok(Some(UiKey::Char('a'))));
-        ui.keys.push_back(Ok(Some(UiKey::Enter)));
-        ui.keys.push_back(Ok(Some(UiKey::Char('5'))));
-
-        let next_state_1 = difficulty::handle(&mut session, &mut ui, &mut network);
-        let next_state_2 = difficulty::handle(&mut session, &mut ui, &mut network);
-        let next_state_3 = difficulty::handle(&mut session, &mut ui, &mut network);
-
-        assert!(next_state_1.is_none());
-        assert!(next_state_2.is_none());
-        assert!(next_state_3.is_none());
-        assert!(network.sent_messages.is_empty());
-        assert!(ui.errors.is_empty());
-    }
-
-    #[test]
-    fn test_choosing_difficulty_handles_disconnect() {
-        let (mut session, mut ui, mut network) = setup_choosing_difficulty_tests();
-
-        difficulty::handle(&mut session, &mut ui, &mut network);
-
-        ui.keys.push_back(Err(UiInputError::Disconnected));
-
-        let next_state = difficulty::handle(&mut session, &mut ui, &mut network);
-
-        assert!(network.sent_messages.is_empty());
-        assert!(matches!(next_state, Some(ClientState::Disconnected { .. })));
     }
 
     #[test]

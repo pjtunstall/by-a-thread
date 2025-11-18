@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     io::stdout,
     net::{SocketAddr, UdpSocket},
     thread,
@@ -24,6 +25,7 @@ use shared::{
     self,
     auth::MAX_ATTEMPTS,
     net::AppChannel,
+    player::Player,
     protocol::{ClientMessage, ServerMessage},
 };
 
@@ -230,7 +232,7 @@ fn apply_client_transition(
         }
         ClientState::Countdown => {
             if let Some(players) = session.players.as_ref() {
-                state_handlers::print_player_list(ui, session, players);
+                print_player_list(ui, session, players);
             }
             execute!(stdout(), Hide).expect("failed to hide cursor");
         }
@@ -246,4 +248,26 @@ fn apply_client_transition(
         }
         _ => {}
     }
+}
+
+pub fn print_player_list(
+    ui: &mut dyn ClientUi,
+    session: &ClientSession,
+    players: &HashMap<u64, Player>,
+) {
+    ui.show_message("\nPlayers:");
+    for player in players.values() {
+        let is_self = if player.id == session.client_id {
+            "<--you"
+        } else {
+            ""
+        };
+        ui.show_sanitized_message(&format!(
+            " - {} ({}) {}",
+            player.name,
+            player.color.as_str(),
+            is_self
+        ));
+    }
+    ui.show_sanitized_message("");
 }
