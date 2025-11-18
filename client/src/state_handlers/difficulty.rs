@@ -100,7 +100,7 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_prints_prompt() {
+    fn prints_prompt() {
         let (mut session, mut ui, mut network) = setup_tests();
 
         let next_state = handle(&mut session, &mut ui, &mut network);
@@ -117,7 +117,7 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_selects_level_2() {
+    fn selects_level() {
         let (mut session, mut ui, mut network) = setup_tests();
 
         handle(&mut session, &mut ui, &mut network);
@@ -137,7 +137,7 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_ignores_invalid_key() {
+    fn ignores_invalid_key() {
         let (mut session, mut ui, mut network) = setup_tests();
 
         handle(&mut session, &mut ui, &mut network);
@@ -158,7 +158,7 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_handles_disconnect() {
+    fn disconnects() {
         let (mut session, mut ui, mut network) = setup_tests();
 
         handle(&mut session, &mut ui, &mut network);

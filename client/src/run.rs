@@ -188,7 +188,7 @@ fn apply_client_transition(
     match session.state_mut() {
         ClientState::Startup { prompt_printed } => {
             if !*prompt_printed {
-                ui.show_prompt(&state_handlers::passcode_prompt(MAX_ATTEMPTS));
+                ui.show_prompt(&state_handlers::auth::passcode_prompt(MAX_ATTEMPTS));
                 *prompt_printed = true;
             }
         }

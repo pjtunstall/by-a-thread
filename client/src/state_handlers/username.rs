@@ -10,7 +10,7 @@ use crate::{
 };
 use shared::net::AppChannel;
 use shared::{
-    chat::MAX_CHAT_MESSAGE_BYTES,
+    player::MAX_USERNAME_LENGTH,
     protocol::{ClientMessage, ServerMessage},
 };
 
@@ -60,7 +60,7 @@ pub fn handle(
                 *prompt_printed = true;
             }
 
-            match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
+            match ui.poll_input(MAX_USERNAME_LENGTH) {
                 Ok(Some(input)) => {
                     let validation = validate_username_input(&input);
                     match validation {
@@ -99,4 +99,129 @@ pub fn handle(
     }
 
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        state::{ClientSession, ClientState},
+        test_helpers::{MockNetwork, MockUi},
+    };
+    use shared::protocol::ServerMessage;
+
+    mod guards {
+        use super::*;
+        use crate::state::{ClientSession, ClientState};
+
+        #[test]
+        #[should_panic(
+            expected = "called username::handle() when state was not ChoosingUsername; current state: Startup"
+        )]
+        fn choosing_username_panics_if_not_in_choosing_username_state() {
+            let mut session = ClientSession::new(0);
+            let mut ui = MockUi::default();
+            let mut network = MockNetwork::new();
+
+            handle(&mut session, &mut ui, &mut network);
+        }
+
+        #[test]
+        fn choosing_username_does_not_panic_in_choosing_username_state() {
+            let mut session = ClientSession::new(0);
+            session.transition(ClientState::ChoosingUsername {
+                prompt_printed: false,
+                awaiting_confirmation: false,
+            });
+            let mut ui = MockUi::default();
+            let mut network = MockNetwork::new();
+            assert!(
+                handle(&mut session, &mut ui, &mut network).is_none(),
+                "should not panic and should return None"
+            );
+        }
+    }
+
+    #[test]
+    fn enforces_max_username_length() {
+        use shared::player::MAX_USERNAME_LENGTH;
+
+        let mut session = ClientSession::new(0);
+        session.transition(ClientState::ChoosingUsername {
+            prompt_printed: false,
+            awaiting_confirmation: false,
+        });
+
+        let long_name = "A".repeat(MAX_USERNAME_LENGTH + 1);
+
+        let mut ui = MockUi::with_inputs(vec![Ok(Some(long_name))]);
+        let mut network = MockNetwork::new();
+
+        handle(&mut session, &mut ui, &mut network);
+
+        assert_eq!(network.sent_messages.len(), 1);
+
+        let (_, payload) = network.sent_messages.pop_front().unwrap();
+        let (message, _) = decode_from_slice::<ClientMessage, _>(&payload, standard()).unwrap();
+
+        match message {
+            ClientMessage::SetUsername(name) => {
+                assert_eq!(name.len(), MAX_USERNAME_LENGTH);
+                assert_eq!(name, "A".repeat(MAX_USERNAME_LENGTH));
+            }
+            _ => panic!("Expected SetUsername message"),
+        }
+    }
+
+    #[test]
+    fn sanitizes_control_characters() {
+        let bad_char = "\x07";
+
+        let mut session_user = ClientSession::new(0);
+        session_user.transition(ClientState::ChoosingUsername {
+            prompt_printed: false,
+            awaiting_confirmation: false,
+        });
+        let mut ui_user = MockUi::new();
+        let mut network_user = MockNetwork::new();
+
+        let malicious_error = ServerMessage::UsernameError {
+            message: format!("NameTaken{}", bad_char),
+        };
+        network_user.queue_server_message(malicious_error);
+
+        handle(&mut session_user, &mut ui_user, &mut network_user);
+
+        assert_eq!(ui_user.errors.len(), 1);
+        assert_eq!(ui_user.errors[0], "Username error: NameTaken");
+
+        assert_eq!(ui_user.messages.len(), 1);
+        assert_eq!(ui_user.messages[0], "Please try a different username.");
+    }
+
+    #[test]
+    fn sanitizes_ansi() {
+        let esc = "\x1B[31mMalicious Text\x1B[0m";
+
+        let mut session_user = ClientSession::new(0);
+        session_user.transition(ClientState::ChoosingUsername {
+            prompt_printed: false,
+            awaiting_confirmation: false,
+        });
+
+        let mut ui_user = MockUi::new();
+        let mut network_user = MockNetwork::new();
+
+        let malicious_error = ServerMessage::UsernameError {
+            message: format!("NameTaken{}", esc),
+        };
+        network_user.queue_server_message(malicious_error);
+
+        handle(&mut session_user, &mut ui_user, &mut network_user);
+
+        assert_eq!(ui_user.errors.len(), 1);
+        assert_eq!(ui_user.errors[0], "Username error: NameTakenMalicious Text");
+        assert_eq!(ui_user.messages.len(), 1);
+        assert_eq!(ui_user.messages[0], "Please try a different username.");
+    }
 }

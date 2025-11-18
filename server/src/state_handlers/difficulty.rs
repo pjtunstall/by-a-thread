@@ -139,3 +139,61 @@ pub fn handle(
 
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use bincode::{config::standard, serde::decode_from_slice, serde::encode_to_vec};
+
+    use super::*;
+    use crate::{
+        state::{ChoosingDifficulty, Lobby},
+        test_helpers::MockServerNetwork,
+    };
+    use shared::protocol::{ClientMessage, ServerMessage};
+
+    #[test]
+    fn test_handle_choosing_difficulty_chat_sanitization() {
+        let mut network = MockServerNetwork::new();
+        let mut lobby_state = Lobby::new();
+
+        let host_id = 1;
+        let user_id = 2;
+
+        network.add_client(host_id);
+        lobby_state.register_connection(host_id);
+        lobby_state.mark_authenticated(host_id);
+        lobby_state.register_username(host_id, "Host");
+
+        network.add_client(user_id);
+        lobby_state.register_connection(user_id);
+        lobby_state.mark_authenticated(user_id);
+        lobby_state.register_username(user_id, "User");
+
+        let mut choosing_state = ChoosingDifficulty::new(&lobby_state);
+
+        let malicious_content = "  Hi\x07Host!\x1B[2J  ";
+        let expected_content = "HiHost![2J";
+
+        let msg = ClientMessage::SendChat(malicious_content.to_string());
+        let payload = encode_to_vec(&msg, standard()).unwrap();
+        network.queue_raw_message(user_id, payload);
+
+        let next_state = handle(&mut network, &mut choosing_state);
+
+        assert!(next_state.is_none());
+
+        let broadcasts = network.get_broadcast_messages_data();
+        assert_eq!(broadcasts.len(), 1);
+        let (msg, _) = decode_from_slice::<ServerMessage, _>(&broadcasts[0], standard()).unwrap();
+
+        if let ServerMessage::ChatMessage { username, content } = msg {
+            assert_eq!(username, "User");
+            assert_eq!(
+                content, expected_content,
+                "chat content was not properly sanitized"
+            );
+        } else {
+            panic!("expected ChatMessage, got {:?}", msg);
+        }
+    }
+}

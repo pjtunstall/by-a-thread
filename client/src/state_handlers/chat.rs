@@ -119,3 +119,103 @@ pub fn handle(
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        state::{ClientSession, ClientState},
+        test_helpers::MockNetwork,
+        test_helpers::MockUi,
+    };
+
+    mod guards {
+        use super::*;
+
+        #[test]
+        #[should_panic(
+            expected = "called chat::handle() when state was not InChat; current state: Startup"
+        )]
+        fn in_chat_panics_if_not_in_in_chat_state() {
+            let mut session = ClientSession::new(0);
+            let mut ui = MockUi::default();
+            let mut network = MockNetwork::new();
+
+            handle(&mut session, &mut ui, &mut network);
+        }
+
+        #[test]
+        fn in_chat_does_not_panic_in_in_chat_state() {
+            let mut session = ClientSession::new(0);
+            session.transition(ClientState::InChat);
+            let mut ui = MockUi::default();
+            let mut network = MockNetwork::new();
+            assert!(
+                handle(&mut session, &mut ui, &mut network).is_none(),
+                "should not panic and should return None"
+            );
+        }
+    }
+
+    #[test]
+    fn enforces_max_message_length() {
+        let mut session = ClientSession::new(0);
+        session.transition(ClientState::InChat);
+        session.mark_initial_roster_received();
+
+        let long_message = "a".repeat(MAX_CHAT_MESSAGE_BYTES + 1);
+
+        let mut ui = MockUi::with_inputs(vec![Ok(Some(long_message))]);
+        let mut network = MockNetwork::new();
+
+        handle(&mut session, &mut ui, &mut network);
+
+        assert_eq!(network.sent_messages.len(), 1);
+
+        let (_, payload) = network.sent_messages.pop_front().unwrap();
+        let (message, _) = decode_from_slice::<ClientMessage, _>(&payload, standard()).unwrap();
+
+        match message {
+            ClientMessage::SendChat(content) => {
+                assert_eq!(content.len(), MAX_CHAT_MESSAGE_BYTES);
+                assert_eq!(content, "a".repeat(MAX_CHAT_MESSAGE_BYTES));
+            }
+            _ => panic!("Expected SendChat message"),
+        }
+    }
+
+    #[test]
+    fn sanitizes_chat_messages_ansi_and_control_chars() {
+        let bell = "\x07"; // Control char.
+        let red = "\x1B[31m"; // ANSI start.
+        let reset = "\x1B[0m"; // ANSI end.
+
+        let mut session = ClientSession::new(0);
+        session.transition(ClientState::InChat);
+        // Mark the roster as received, otherwise the handler will ignore
+        // the chat message (see the `if session.awaiting_initial_roster()` check).
+        session.mark_initial_roster_received();
+
+        let mut ui = MockUi::new();
+        let mut network = MockNetwork::new();
+
+        // The username has a hidden Bell character.
+        // The content tries to turn the word "Danger" red.
+        let malicious_chat = ServerMessage::ChatMessage {
+            username: format!("Hacker{}", bell),
+            content: format!("This is {}Danger{}!", red, reset),
+        };
+
+        network.queue_server_message(malicious_chat);
+
+        handle(&mut session, &mut ui, &mut network);
+
+        assert_eq!(ui.messages.len(), 1);
+
+        // Expectation:
+        // 1. "Hacker\x07" becomes "Hacker"
+        // 2. "\x1B[31m" and "\x1B[0m" are stripped, but "Danger" remains.
+        // Format: "Username: Content"
+        assert_eq!(ui.messages[0], "Hacker: This is Danger!");
+    }
+}

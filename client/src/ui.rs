@@ -13,7 +13,7 @@ use crossterm::{
     terminal::{self, Clear, ClearType},
 };
 
-use shared::input::UiKey;
+use shared::input::{UiKey, sanitize};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiInputError {
@@ -40,23 +40,19 @@ pub trait ClientUi {
     fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr, client_id: u64);
 
     fn show_sanitized_message(&mut self, message: &str) {
-        let clean_message: String = message.chars().filter(|c| !c.is_control()).collect();
-        self.show_message(&clean_message);
+        self.show_message(&sanitize(message));
     }
 
     fn show_sanitized_error(&mut self, message: &str) {
-        let clean_message: String = message.chars().filter(|c| !c.is_control()).collect();
-        self.show_error(&clean_message);
+        self.show_error(&sanitize(message));
     }
 
     fn show_sanitized_prompt(&mut self, message: &str) {
-        let clean_message: String = message.chars().filter(|c| !c.is_control()).collect();
-        self.show_prompt(&clean_message);
+        self.show_prompt(&sanitize(message));
     }
 
     fn show_sanitized_status_line(&mut self, message: &str) {
-        let clean_message: String = message.chars().filter(|c| !c.is_control()).collect();
-        self.show_status_line(&clean_message);
+        self.show_status_line(&sanitize(message));
     }
 }
 

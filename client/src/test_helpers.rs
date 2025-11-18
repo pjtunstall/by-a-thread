@@ -61,11 +61,19 @@ impl ClientUi for MockUi {
         self.status_lines.push(message.to_string());
     }
 
-    fn poll_input(&mut self, _limit: usize) -> Result<Option<String>, UiInputError> {
-        self.inputs
-            .pop_front()
-            .unwrap_or(Ok(None))
-            .map(|opt| opt.map(|s| s.to_string()))
+    fn poll_input(&mut self, limit: usize) -> Result<Option<String>, UiInputError> {
+        self.inputs.pop_front().unwrap_or(Ok(None)).map(|opt| {
+            opt.map(|mut s| {
+                if s.len() > limit {
+                    while s.len() > limit {
+                        s.pop();
+                    }
+                    s
+                } else {
+                    s
+                }
+            })
+        })
     }
 
     fn poll_single_key(&mut self) -> Result<Option<UiKey>, UiInputError> {

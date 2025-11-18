@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
 use shared::auth::Passcode;
-use shared::chat::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username};
 use shared::maze::Maze;
-use shared::player::Player;
+use shared::player::{MAX_USERNAME_LENGTH, Player, UsernameError, sanitize_username};
 
 #[derive(Debug)]
 pub enum ClientState {
