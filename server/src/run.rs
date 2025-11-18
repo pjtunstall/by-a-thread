@@ -55,6 +55,8 @@ fn server_loop(
     let mut last_sync_time = Instant::now();
     let sync_interval = Duration::from_millis(50);
 
+    let target_tick_duration = Duration::from_micros(16667);
+
     loop {
         let now = Instant::now();
         let duration = now - last_updated;
@@ -75,7 +77,11 @@ fn server_loop(
         update_server_state(&mut network_handle, state, passcode);
 
         transport.send_packets(server);
-        thread::sleep(Duration::from_millis(16));
+
+        let elapsed = Instant::now() - last_updated;
+        if elapsed < target_tick_duration {
+            thread::sleep(target_tick_duration - elapsed);
+        }
     }
 }
 

@@ -69,6 +69,7 @@ fn client_loop(
     transport: &mut NetcodeClientTransport,
 ) {
     let mut last_updated = Instant::now();
+    let target_duration = Duration::from_micros(16667);
 
     loop {
         let now = Instant::now();
@@ -90,12 +91,14 @@ fn client_loop(
         }
 
         client.update(duration);
+        session.estimated_server_time += duration.as_secs_f64();
 
         {
             let mut network_handle = RenetNetworkHandle::new(client, transport);
             update_estimated_server_time(session, &mut network_handle);
             update_client_state(session, ui, &mut network_handle);
         }
+
         if matches!(session.state(), ClientState::Disconnected { .. }) {
             break;
         }
@@ -114,7 +117,10 @@ fn client_loop(
             break;
         }
 
-        thread::sleep(Duration::from_millis(16));
+        let elapsed = Instant::now() - last_updated;
+        if elapsed < target_duration {
+            thread::sleep(target_duration - elapsed);
+        }
     }
 }
 
@@ -152,7 +158,17 @@ fn update_estimated_server_time(session: &mut ClientSession, network: &mut Renet
             Ok((ServerMessage::ServerTime(server_sent_time), _)) => {
                 let rtt = network.rtt();
                 let one_way_latency = (rtt / 1000.0) / 2.0;
-                session.estimated_server_time = server_sent_time + one_way_latency;
+                let target_time = server_sent_time + one_way_latency;
+                let delta = target_time - session.estimated_server_time;
+
+                if delta.abs() > 1.0 {
+                    // Snap instantly if we are way off, e.g. on startup.
+                    session.estimated_server_time = target_time;
+                } else {
+                    // Otherwise move 10% of the way toward the target per update.
+                    let alpha = 0.1;
+                    session.estimated_server_time += delta * alpha;
+                }
             }
             _ => {}
         }

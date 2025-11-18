@@ -20,7 +20,7 @@ pub fn handle(
 
     if server_time < state.end_time {
         let remaining_secs = (state.end_time - server_time).as_secs();
-        let output = format!("Game starting in {:}s...", remaining_secs);
+        let output = format!("Game starting in {}s...", remaining_secs);
 
         execute!(
             stdout(),

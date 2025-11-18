@@ -299,8 +299,7 @@ impl<W: Write> ClientUi for TerminalUi<W> {
     }
 
     fn poll_input(&mut self, limit: usize) -> Result<Option<String>, UiInputError> {
-        let has_event =
-            event::poll(Duration::from_millis(50)).map_err(|_| UiInputError::Disconnected)?;
+        let has_event = event::poll(Duration::ZERO).map_err(|_| UiInputError::Disconnected)?;
 
         if !has_event {
             return Ok(None);
@@ -312,8 +311,7 @@ impl<W: Write> ClientUi for TerminalUi<W> {
     }
 
     fn poll_single_key(&mut self) -> Result<Option<UiKey>, UiInputError> {
-        let has_event =
-            event::poll(Duration::from_millis(50)).map_err(|_| UiInputError::Disconnected)?;
+        let has_event = event::poll(Duration::ZERO).map_err(|_| UiInputError::Disconnected)?;
 
         if !has_event {
             return Ok(None);

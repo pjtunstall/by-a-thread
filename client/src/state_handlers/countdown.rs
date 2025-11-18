@@ -27,10 +27,10 @@ pub fn handle(
     }
 
     if let Some(end_time) = session.countdown_end_time {
-        let time_remaining_secs = end_time - session.estimated_server_time - 1.0;
+        let time_remaining_secs = end_time - session.estimated_server_time;
 
         if time_remaining_secs > 0.0 {
-            let status_message = format!("Game starting in {:.0}s...", time_remaining_secs.ceil());
+            let status_message = format!("Game starting in {}s...", time_remaining_secs.floor());
             ui.show_status_line(&status_message);
         } else {
             if let Some(maze) = session.maze.take() {
