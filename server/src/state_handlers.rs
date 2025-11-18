@@ -3,11 +3,6 @@ pub mod difficulty;
 pub mod game;
 pub mod lobby;
 
-pub use countdown::handle_countdown;
-pub use difficulty::handle_choosing_difficulty;
-pub use game::handle_in_game;
-pub use lobby::handle_lobby;
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -33,7 +28,7 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let next_state = handle_lobby(&mut network, &mut lobby_state, &passcode);
+        let next_state = lobby::handle(&mut network, &mut lobby_state, &passcode);
 
         assert!(lobby_state.needs_username(1));
         assert!(next_state.is_none());
@@ -66,7 +61,7 @@ mod tests {
             network.queue_raw_message(1, payload);
         }
 
-        let next_state = handle_lobby(&mut network, &mut lobby_state, &passcode);
+        let next_state = lobby::handle(&mut network, &mut lobby_state, &passcode);
 
         assert_eq!(lobby_state.username(1), None);
         assert!(next_state.is_none());
@@ -104,7 +99,7 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(2, payload);
 
-        let next_state = handle_lobby(&mut network, &mut lobby_state, &passcode);
+        let next_state = lobby::handle(&mut network, &mut lobby_state, &passcode);
 
         assert_eq!(lobby_state.username(2), Some("Bob"));
         assert!(next_state.is_none());
@@ -163,7 +158,7 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let next_state = handle_lobby(&mut network, &mut lobby_state, &passcode);
+        let next_state = lobby::handle(&mut network, &mut lobby_state, &passcode);
 
         assert!(next_state.is_none());
 
@@ -204,7 +199,7 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let next_state = handle_lobby(&mut network, &mut lobby_state, &passcode);
+        let next_state = lobby::handle(&mut network, &mut lobby_state, &passcode);
 
         assert!(next_state.is_none());
 
@@ -252,7 +247,7 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(user_id, payload);
 
-        let next_state = handle_choosing_difficulty(&mut network, &mut choosing_state);
+        let next_state = difficulty::handle(&mut network, &mut choosing_state);
 
         assert!(next_state.is_none());
 

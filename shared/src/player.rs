@@ -52,16 +52,16 @@ pub enum Color {
 impl Color {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Color::RED => "Red",
-            Color::LIME => "Lime",
-            Color::PINK => "Pink",
-            Color::YELLOW => "Yellow",
-            Color::GREEN => "Green",
-            Color::BLUE => "Blue",
-            Color::MAROON => "Maroon",
-            Color::ORANGE => "Orange",
-            Color::PURPLE => "Purple",
-            Color::SKYBLUE => "Sky Blue",
+            Color::RED => "red",
+            Color::LIME => "lime",
+            Color::PINK => "pink",
+            Color::YELLOW => "yellow",
+            Color::GREEN => "green",
+            Color::BLUE => "blue",
+            Color::MAROON => "maroon",
+            Color::ORANGE => "orange",
+            Color::PURPLE => "purple",
+            Color::SKYBLUE => "sky blue",
         }
     }
 }

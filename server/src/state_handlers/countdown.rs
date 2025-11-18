@@ -12,7 +12,7 @@ use crate::{
     state::{Countdown, InGame, ServerState},
 };
 
-pub fn handle_countdown(
+pub fn handle(
     _network: &mut dyn ServerNetworkHandle,
     state: &mut Countdown,
 ) -> Option<ServerState> {

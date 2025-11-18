@@ -22,7 +22,7 @@ use shared::{
     protocol::{ClientMessage, ServerMessage},
 };
 
-pub fn handle_choosing_difficulty(
+pub fn handle(
     network: &mut dyn ServerNetworkHandle,
     state: &mut ChoosingDifficulty,
 ) -> Option<ServerState> {

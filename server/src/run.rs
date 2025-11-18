@@ -88,17 +88,15 @@ pub fn update_server_state(
 
     let next_state = match state {
         ServerState::Lobby(lobby_state) => {
-            state_handlers::lobby::handle_lobby(network, lobby_state, passcode)
+            state_handlers::lobby::handle(network, lobby_state, passcode)
         }
         ServerState::ChoosingDifficulty(difficulty_state) => {
-            state_handlers::difficulty::handle_choosing_difficulty(network, difficulty_state)
+            state_handlers::difficulty::handle(network, difficulty_state)
         }
         ServerState::Countdown(countdown_state) => {
-            state_handlers::countdown::handle_countdown(network, countdown_state)
+            state_handlers::countdown::handle(network, countdown_state)
         }
-        ServerState::InGame(in_game_state) => {
-            state_handlers::game::handle_in_game(network, in_game_state)
-        }
+        ServerState::InGame(in_game_state) => state_handlers::game::handle(network, in_game_state),
     };
 
     if let Some(new_state) = next_state {
@@ -127,7 +125,7 @@ fn apply_server_transition(
             let host_name = difficulty_state
                 .username(host_id)
                 .expect("host should have a username");
-            println!("Host, {}, is choosing a difficulty.", host_name);
+            println!("Host ({}) is choosing a difficulty.", host_name);
             let message = ServerMessage::RequestDifficultyChoice;
             let payload = encode_to_vec(&message, standard())
                 .expect("failed to serialize RequestDifficultyChoice");

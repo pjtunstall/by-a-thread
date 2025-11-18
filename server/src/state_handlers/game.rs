@@ -3,9 +3,6 @@ use crate::{
     state::{InGame, ServerState},
 };
 
-pub fn handle_in_game(
-    _network: &mut dyn ServerNetworkHandle,
-    _state: &mut InGame,
-) -> Option<ServerState> {
+pub fn handle(_network: &mut dyn ServerNetworkHandle, _state: &mut InGame) -> Option<ServerState> {
     None
 }

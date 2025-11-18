@@ -18,7 +18,7 @@ use shared::{
     protocol::{ClientMessage, ServerMessage},
 };
 
-pub fn handle_lobby(
+pub fn handle(
     network: &mut dyn ServerNetworkHandle,
     state: &mut Lobby,
     passcode: &Passcode,
