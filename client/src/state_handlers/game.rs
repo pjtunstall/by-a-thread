@@ -11,7 +11,7 @@ pub fn handle(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::InGame { .. }) {
         panic!(
-            "called in_game() when state was not InGame; current state: {:?}",
+            "called game::handle() when state was not InGame; current state: {:?}",
             session.state()
         );
     }

@@ -22,7 +22,7 @@ pub fn handle(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Authenticating { .. }) {
         panic!(
-            "called authenticating() when state was not Authenticating; current state: {:?}",
+            "called auth::handle() when state was not Authenticating; current state: {:?}",
             session.state()
         );
     }

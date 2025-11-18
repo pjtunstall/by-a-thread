@@ -24,7 +24,7 @@ pub fn handle(
     let is_correct_state = matches!(session.state(), ClientState::ChoosingDifficulty { .. });
     if !is_correct_state {
         panic!(
-            "called choosing_difficulty() when state was not ChoosingDifficulty; current state: {:?}",
+            "called difficulty::handle() when state was not ChoosingDifficulty; current state: {:?}",
             session.state()
         );
     };

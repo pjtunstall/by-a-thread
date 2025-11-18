@@ -14,7 +14,7 @@ pub fn handle(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Countdown) {
         panic!(
-            "called countdown() when state was not Countdown; current state: {:?}",
+            "called countdown::handle() when state was not Countdown; current state: {:?}",
             session.state()
         );
     }

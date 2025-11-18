@@ -23,7 +23,7 @@ pub fn handle(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::InChat) {
         panic!(
-            "called in_chat() when state was not InChat; current state: {:?}",
+            "called chat::handle() when state was not InChat; current state: {:?}",
             session.state()
         );
     }

@@ -8,7 +8,7 @@ use shared::chat::MAX_CHAT_MESSAGE_BYTES;
 pub fn handle(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Startup { .. }) {
         panic!(
-            "called startup() when state was not Startup; current state: {:?}",
+            "called startup::handle() when state was not Startup; current state: {:?}",
             session.state()
         );
     }

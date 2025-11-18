@@ -21,7 +21,7 @@ pub fn handle(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::ChoosingUsername { .. }) {
         panic!(
-            "called choosing_username() when state was not ChoosingUsername; current state: {:?}",
+            "called choosing_username::handle() when state was not ChoosingUsername; current state: {:?}",
             session.state()
         );
     }

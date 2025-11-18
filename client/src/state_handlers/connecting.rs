@@ -8,7 +8,7 @@ pub fn handle(
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Connecting) {
         panic!(
-            "called connecting() when state was not Connecting; current state: {:?}",
+            "called connecting::handle() when state was not Connecting; current state: {:?}",
             session.state()
         );
     }
