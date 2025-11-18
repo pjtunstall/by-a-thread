@@ -16,12 +16,13 @@ use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
 use crate::{
     net::{self, NetworkHandle, RenetNetworkHandle},
-    state::{self, ClientSession, ClientState, MAX_ATTEMPTS},
+    state::{self, ClientSession, ClientState},
     state_handlers,
     ui::ClientUi,
 };
 use shared::{
     self,
+    auth::MAX_ATTEMPTS,
     net::AppChannel,
     protocol::{ClientMessage, ServerMessage},
 };

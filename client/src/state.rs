@@ -5,8 +5,6 @@ use shared::chat::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username};
 use shared::maze::Maze;
 use shared::player::Player;
 
-pub const MAX_ATTEMPTS: u8 = 3;
-
 #[derive(Debug)]
 pub enum ClientState {
     Startup {

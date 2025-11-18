@@ -1,5 +1,9 @@
-use crate::state::{ClientSession, ClientState, MAX_ATTEMPTS};
-use crate::{net::NetworkHandle, ui::ClientUi};
+use crate::{
+    net::NetworkHandle,
+    state::{ClientSession, ClientState},
+    ui::ClientUi,
+};
+use shared::auth::MAX_ATTEMPTS;
 
 pub fn handle(
     session: &mut ClientSession,

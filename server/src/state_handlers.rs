@@ -6,7 +6,7 @@ pub mod lobby;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::{ChoosingDifficulty, Lobby, MAX_AUTH_ATTEMPTS};
+    use crate::state::{ChoosingDifficulty, Lobby, MAX_ATTEMPTS};
     use crate::test_helpers::MockServerNetwork;
     use bincode::config::standard;
     use bincode::serde::decode_from_slice;
@@ -55,7 +55,7 @@ mod tests {
         network.add_client(1);
         lobby_state.register_connection(1);
 
-        for _ in 0..MAX_AUTH_ATTEMPTS {
+        for _ in 0..MAX_ATTEMPTS {
             let msg = ClientMessage::SendPasscode(vec![0, 0, 0, 0, 0, 0]);
             let payload = encode_to_vec(&msg, standard()).unwrap();
             network.queue_raw_message(1, payload);

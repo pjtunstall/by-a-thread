@@ -9,10 +9,12 @@ pub mod username;
 
 use std::collections::HashMap;
 
-use crate::state::{ClientSession, MAX_ATTEMPTS};
+use crate::state::ClientSession;
 use crate::ui::ClientUi;
-use shared::auth::Passcode;
-use shared::player::Player;
+use shared::{
+    auth::{MAX_ATTEMPTS, Passcode},
+    player::Player,
+};
 
 pub fn print_player_list(
     ui: &mut dyn ClientUi,
@@ -336,7 +338,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "called startup() when state was not Startup; current state: Connecting"
+            expected = "called startup::handle() when state was not Startup; current state: Connecting"
         )]
         fn startup_panics_if_not_in_startup_state() {
             let mut session = ClientSession::new(0);
@@ -358,7 +360,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "called connecting() when state was not Connecting; current state: Startup"
+            expected = "called connecting::handle() when state was not Connecting; current state: Startup"
         )]
         fn connecting_panics_if_not_in_connecting_state() {
             let mut session = ClientSession::new(0);
@@ -382,7 +384,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "called authenticating() when state was not Authenticating; current state: Startup"
+            expected = "called auth::handle() when state was not Authenticating; current state: Startup"
         )]
         fn authenticating_panics_if_not_in_authenticating_state() {
             let mut session = ClientSession::new(0);
@@ -409,7 +411,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "called choosing_username() when state was not ChoosingUsername; current state: Startup"
+            expected = "called username::handle() when state was not ChoosingUsername; current state: Startup"
         )]
         fn choosing_username_panics_if_not_in_choosing_username_state() {
             let mut session = ClientSession::new(0);
@@ -436,7 +438,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "called in_chat() when state was not InChat; current state: Startup"
+            expected = "called chat::handle() when state was not InChat; current state: Startup"
         )]
         fn in_chat_panics_if_not_in_in_chat_state() {
             let mut session = ClientSession::new(0);

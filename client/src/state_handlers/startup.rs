@@ -1,9 +1,9 @@
 use super::{parse_passcode_input, passcode_prompt};
 use crate::{
-    state::{ClientSession, ClientState, MAX_ATTEMPTS},
+    state::{ClientSession, ClientState},
     ui::{ClientUi, UiInputError},
 };
-use shared::chat::MAX_CHAT_MESSAGE_BYTES;
+use shared::{auth::MAX_ATTEMPTS, chat::MAX_CHAT_MESSAGE_BYTES};
 
 pub fn handle(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Startup { .. }) {

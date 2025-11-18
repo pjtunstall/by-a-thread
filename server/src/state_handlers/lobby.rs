@@ -6,13 +6,12 @@ use bincode::{
 use crate::{
     net::ServerNetworkHandle,
     state::{
-        AuthAttemptOutcome, ChoosingDifficulty, Lobby, MAX_AUTH_ATTEMPTS, ServerState,
-        evaluate_passcode_attempt,
+        AuthAttemptOutcome, ChoosingDifficulty, Lobby, ServerState, evaluate_passcode_attempt,
     },
 };
 use shared::{
     self,
-    auth::Passcode,
+    auth::{MAX_ATTEMPTS, Passcode},
     chat::{MAX_CHAT_MESSAGE_BYTES, MAX_USERNAME_LENGTH, UsernameError, sanitize_username},
     net::AppChannel,
     protocol::{ClientMessage, ServerMessage},
@@ -46,7 +45,7 @@ pub fn handle(
                             passcode.bytes.as_slice(),
                             attempts_entry,
                             &guess_bytes,
-                            MAX_AUTH_ATTEMPTS,
+                            MAX_ATTEMPTS,
                         );
                         let count = *attempts_entry;
                         (outcome, count)
