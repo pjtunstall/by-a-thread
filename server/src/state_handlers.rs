@@ -6,13 +6,15 @@ pub mod lobby;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::{ChoosingDifficulty, Lobby, MAX_ATTEMPTS};
+    use crate::state::{ChoosingDifficulty, Lobby};
     use crate::test_helpers::MockServerNetwork;
     use bincode::config::standard;
     use bincode::serde::decode_from_slice;
     use bincode::serde::encode_to_vec;
-    use shared::auth::Passcode;
-    use shared::protocol::{ClientMessage, ServerMessage};
+    use shared::{
+        auth::{MAX_ATTEMPTS, Passcode},
+        protocol::{ClientMessage, ServerMessage},
+    };
 
     #[test]
     fn test_handle_lobby_auth_success() {
@@ -213,7 +215,7 @@ mod tests {
             assert_eq!(username, "Alice");
             assert_eq!(
                 content, expected_content,
-                "Chat content was not properly sanitized"
+                "chat content was not properly sanitized"
             );
         } else {
             panic!("expected ChatMessage, got {:?}", msg);
@@ -259,7 +261,7 @@ mod tests {
             assert_eq!(username, "User");
             assert_eq!(
                 content, expected_content,
-                "Chat content was not properly sanitized"
+                "chat content was not properly sanitized"
             );
         } else {
             panic!("expected ChatMessage, got {:?}", msg);

@@ -7,8 +7,6 @@ use crate::net::ServerNetworkHandle;
 use bincode::{config::standard, serde::encode_to_vec};
 use shared::{maze, net::AppChannel, player::Player, protocol::ServerMessage};
 
-pub const MAX_ATTEMPTS: u8 = 3;
-
 #[derive(Clone)]
 pub struct ChoosingDifficulty {
     pub lobby: Lobby,
