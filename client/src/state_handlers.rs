@@ -17,26 +17,6 @@ use shared::{
     protocol::{ClientMessage, ServerMessage},
 };
 
-fn show_sanitized_message(ui: &mut dyn ClientUi, message: &str) {
-    let clean_message: String = message.chars().filter(|c| !c.is_control()).collect();
-    ui.show_message(&clean_message);
-}
-
-fn show_sanitized_error(ui: &mut dyn ClientUi, message: &str) {
-    let clean_message: String = message.chars().filter(|c| !c.is_control()).collect();
-    ui.show_error(&clean_message);
-}
-
-fn show_sanitized_prompt(ui: &mut dyn ClientUi, message: &str) {
-    let clean_message: String = message.chars().filter(|c| !c.is_control()).collect();
-    ui.show_prompt(&clean_message);
-}
-
-fn show_sanitized_status_line(ui: &mut dyn ClientUi, message: &str) {
-    let clean_message: String = message.chars().filter(|c| !c.is_control()).collect();
-    ui.show_status_line(&clean_message);
-}
-
 pub trait NetworkHandle {
     fn is_connected(&self) -> bool;
     fn is_disconnected(&self) -> bool;
@@ -58,12 +38,14 @@ pub fn print_player_list(
         } else {
             ""
         };
-        show_sanitized_message(
-            ui,
-            &format!(" - {} ({}) {}", player.name, player.color.as_str(), is_self),
-        );
+        ui.show_sanitized_message(&format!(
+            " - {} ({}) {}",
+            player.name,
+            player.color.as_str(),
+            is_self
+        ));
     }
-    show_sanitized_message(ui, "");
+    ui.show_sanitized_message("");
 }
 
 pub fn startup(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<ClientState> {
@@ -80,8 +62,8 @@ pub fn startup(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<Cli
                 session.store_first_passcode(passcode);
                 Some(ClientState::Connecting)
             } else {
-                show_sanitized_error(ui, "Invalid format. Please enter a 6-digit number.");
-                show_sanitized_prompt(ui, &passcode_prompt(MAX_ATTEMPTS));
+                ui.show_sanitized_error("Invalid format. Please enter a 6-digit number.");
+                ui.show_sanitized_prompt(&passcode_prompt(MAX_ATTEMPTS));
                 None
             }
         }
@@ -139,7 +121,7 @@ pub fn authenticating(
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::ServerInfo { message }, _)) => {
-                show_sanitized_message(ui, &format!("Server: {}", message));
+                ui.show_sanitized_message(&format!("Server: {}", message));
 
                 if message.starts_with("Authentication successful!") {
                     return Some(ClientState::ChoosingUsername {
@@ -153,7 +135,7 @@ pub fn authenticating(
                     } = session.state_mut()
                     {
                         *guesses_left = guesses_left.saturating_sub(1);
-                        show_sanitized_prompt(ui, &passcode_prompt(*guesses_left)); // <-- And here
+                        ui.show_sanitized_prompt(&passcode_prompt(*guesses_left));
                         *waiting_for_input = true;
                     }
                 } else if message.starts_with("Incorrect passcode. Disconnecting.") {
@@ -163,7 +145,7 @@ pub fn authenticating(
                 }
             }
             Ok((_, _)) => {}
-            Err(e) => show_sanitized_message(ui, &format!("[Deserialization error: {}]", e)),
+            Err(e) => ui.show_sanitized_error(&format!("[Deserialization error: {}]", e)),
         }
     }
 
@@ -176,7 +158,7 @@ pub fn authenticating(
             match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
                 Ok(Some(input_string)) => {
                     if let Some(passcode) = parse_passcode_input(&input_string) {
-                        show_sanitized_message(ui, "Sending new guess...");
+                        ui.show_sanitized_message("Sending new guess...");
 
                         let message = ClientMessage::SendPasscode(passcode.bytes);
                         let payload = encode_to_vec(&message, standard())
@@ -185,15 +167,11 @@ pub fn authenticating(
 
                         *waiting_for_input = false;
                     } else {
-                        show_sanitized_error(
-                            ui,
-                            &format!(
-                                "Invalid format: {}. Please enter a 6-digit number.",
-                                input_string
-                            ),
-                        );
-                        show_sanitized_message(
-                            ui,
+                        ui.show_sanitized_error(&format!(
+                            "Invalid format: {}. Please enter a 6-digit number.",
+                            input_string
+                        ));
+                        ui.show_sanitized_message(
                             &format!(
                                 "Please type a new 6-digit passcode and press Enter. ({} guesses remaining.)",
                                 *guesses_left
@@ -238,12 +216,12 @@ pub fn choosing_username(
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::Welcome { username }, _)) => {
-                show_sanitized_message(ui, &format!("Welcome, {}!", username));
+                ui.show_sanitized_message(&format!("Welcome, {}!", username));
                 return Some(ClientState::InChat);
             }
             Ok((ServerMessage::UsernameError { message }, _)) => {
-                show_sanitized_message(ui, &format!("Username error: {}", message));
-                show_sanitized_message(ui, "Please try a different username.");
+                ui.show_sanitized_error(&format!("Username error: {}", message));
+                ui.show_sanitized_message("Please try a different username.");
                 if let ClientState::ChoosingUsername {
                     prompt_printed,
                     awaiting_confirmation,
@@ -254,7 +232,7 @@ pub fn choosing_username(
                 }
             }
             Ok((_, _)) => {}
-            Err(e) => show_sanitized_message(ui, &format!("[Deserialization error: {}]", e)),
+            Err(e) => ui.show_sanitized_error(&format!("[Deserialization error: {}]", e)),
         }
     }
 
@@ -265,7 +243,7 @@ pub fn choosing_username(
     {
         if !*awaiting_confirmation {
             if !*prompt_printed {
-                show_sanitized_prompt(ui, &username_prompt()); // <-- And here
+                ui.show_sanitized_prompt(&username_prompt());
                 *prompt_printed = true;
             }
 
@@ -283,7 +261,7 @@ pub fn choosing_username(
                         }
                         Err(err) => {
                             let message = err.to_string();
-                            show_sanitized_error(ui, &message);
+                            ui.show_sanitized_error(&message);
                             *prompt_printed = false;
                         }
                     }
@@ -346,19 +324,19 @@ pub fn in_chat(
                 if session.awaiting_initial_roster() {
                     continue;
                 }
-                show_sanitized_message(ui, &format!("{}: {}", username, content));
+                ui.show_sanitized_message(&format!("{}: {}", username, content));
             }
             Ok((ServerMessage::UserJoined { username }, _)) => {
                 if session.awaiting_initial_roster() {
                     continue;
                 }
-                show_sanitized_message(ui, &format!("{} joined the chat.", username));
+                ui.show_sanitized_message(&format!("{} joined the chat.", username));
             }
             Ok((ServerMessage::UserLeft { username }, _)) => {
                 if session.awaiting_initial_roster() {
                     continue;
                 }
-                show_sanitized_message(ui, &format!("{} left the chat.", username));
+                ui.show_sanitized_message(&format!("{} left the chat.", username));
             }
             Ok((ServerMessage::Roster { online }, _)) => {
                 let msg = if online.is_empty() {
@@ -366,14 +344,14 @@ pub fn in_chat(
                 } else {
                     format!("Players online: {}", online.join(", "))
                 };
-                show_sanitized_message(ui, &msg);
+                ui.show_sanitized_message(&msg);
                 session.mark_initial_roster_received();
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
-                show_sanitized_message(ui, &format!("Server: {}", message));
+                ui.show_sanitized_message(&format!("Server: {}", message));
             }
             Ok((_, _)) => {}
-            Err(e) => show_sanitized_message(ui, &format!("[Deserialization error: {}]", e)),
+            Err(e) => ui.show_sanitized_error(&format!("[Deserialization error: {}]", e)),
         }
     }
 
@@ -429,7 +407,7 @@ pub fn countdown(
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((_, _)) => {}
-            Err(e) => show_sanitized_status_line(ui, &format!("[Deserialization error: {}.]", e)),
+            Err(e) => ui.show_sanitized_status_line(&format!("[Deserialization error: {}.]", e)),
         }
     }
 
@@ -479,7 +457,7 @@ pub fn in_game(
         );
     }
 
-    show_sanitized_message(ui, "Exiting for now.");
+    ui.show_sanitized_message("Exiting for now.");
     return Some(ClientState::Disconnected {
         message: "".to_string(),
     });
@@ -540,13 +518,13 @@ pub fn choosing_difficulty(
                 return Some(ClientState::Countdown);
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
-                show_sanitized_message(ui, &format!("Server: {}", message));
+                ui.show_sanitized_message(&format!("Server: {}", message));
                 if let ClientState::ChoosingDifficulty { prompt_printed } = session.state_mut() {
                     *prompt_printed = false;
                 }
             }
             Ok((_, _)) => {}
-            Err(e) => show_sanitized_message(ui, &format!("[Deserialization error: {}]", e)),
+            Err(e) => ui.show_sanitized_error(&format!("[Deserialization error: {}]", e)),
         }
     }
 
@@ -1074,6 +1052,7 @@ mod tests {
 
         let mut session_chat = ClientSession::new(0);
         session_chat.transition(ClientState::InChat);
+        session_chat.mark_initial_roster_received();
         let mut ui_chat = MockUi::new();
         let mut network_chat = MockNetwork::new();
 
@@ -1103,9 +1082,10 @@ mod tests {
 
         choosing_username(&mut session_user, &mut ui_user, &mut network_user);
 
-        assert_eq!(ui_user.messages.len(), 2);
-        assert_eq!(ui_user.messages[0], "Username error: NameTaken");
-        assert_eq!(ui_user.messages[1], "Please try a different username.");
+        assert_eq!(ui_user.errors.len(), 1);
+        assert_eq!(ui_user.errors[0], "Username error: NameTaken");
+        assert_eq!(ui_user.messages.len(), 1);
+        assert_eq!(ui_user.messages[0], "Please try a different username.");
 
         let mut session_auth = ClientSession::new(0);
         session_auth.transition(ClientState::Authenticating {

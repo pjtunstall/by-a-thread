@@ -38,6 +38,26 @@ pub trait ClientUi {
     fn poll_single_key(&mut self) -> Result<Option<UiKey>, UiInputError>;
     fn show_status_line(&mut self, message: &str);
     fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr, client_id: u64);
+
+    fn show_sanitized_message(&mut self, message: &str) {
+        let clean_message: String = message.chars().filter(|c| !c.is_control()).collect();
+        self.show_message(&clean_message);
+    }
+
+    fn show_sanitized_error(&mut self, message: &str) {
+        let clean_message: String = message.chars().filter(|c| !c.is_control()).collect();
+        self.show_error(&clean_message);
+    }
+
+    fn show_sanitized_prompt(&mut self, message: &str) {
+        let clean_message: String = message.chars().filter(|c| !c.is_control()).collect();
+        self.show_prompt(&clean_message);
+    }
+
+    fn show_sanitized_status_line(&mut self, message: &str) {
+        let clean_message: String = message.chars().filter(|c| !c.is_control()).collect();
+        self.show_status_line(&clean_message);
+    }
 }
 
 pub struct TerminalUi<W: Write> {
