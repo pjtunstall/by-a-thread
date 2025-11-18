@@ -142,12 +142,12 @@ pub fn handle(
                         }
                         Err(err) => {
                             let error_text = match err {
-                                UsernameError::Empty => "Username must not be empty.",
-                                UsernameError::TooLong => "Username is too long.",
+                                UsernameError::Empty => "username must not be empty",
+                                UsernameError::TooLong => "username is too long",
                                 UsernameError::InvalidCharacter(_) => {
-                                    "Username contains invalid characters."
+                                    "username contains invalid characters"
                                 }
-                                UsernameError::Reserved => "That username is reserved.",
+                                UsernameError::Reserved => "that username is reserved",
                             };
                             send_username_error(network, client_id, error_text);
                         }
@@ -456,6 +456,40 @@ mod tests {
             );
         } else {
             panic!("expected ChatMessage, got {:?}", msg);
+        }
+    }
+
+    #[test]
+    fn reserved_username_is_rejected() {
+        let mut network = MockServerNetwork::new();
+        let mut lobby_state = Lobby::new();
+        let passcode =
+            Passcode::from_string("123456").expect("failed to create passcode from string");
+
+        network.add_client(1);
+        lobby_state.register_connection(1);
+        lobby_state.mark_authenticated(1);
+
+        let msg = ClientMessage::SetUsername("sErVeR".to_string());
+        let payload = encode_to_vec(&msg, standard()).unwrap();
+        network.queue_raw_message(1, payload);
+
+        let next_state = handle(&mut network, &mut lobby_state, &passcode);
+
+        assert!(next_state.is_none());
+        assert_eq!(lobby_state.username(1), None);
+
+        let client_msgs = network.get_sent_messages_data(1);
+        assert_eq!(client_msgs.len(), 1);
+
+        let msg = decode_from_slice::<ServerMessage, _>(&client_msgs[0], standard())
+            .unwrap()
+            .0;
+
+        if let ServerMessage::UsernameError { message } = msg {
+            assert_eq!(message, "that username is reserved");
+        } else {
+            panic!("expected UsernameError, got {:?}", msg);
         }
     }
 }
