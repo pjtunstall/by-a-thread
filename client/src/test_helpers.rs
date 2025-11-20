@@ -17,6 +17,7 @@ pub struct MockUi {
     pub status_lines: Vec<String>,
     pub inputs: VecDeque<Result<Option<String>, UiInputError>>,
     pub keys: VecDeque<Result<Option<UiKey>, UiInputError>>,
+    pub countdown_draws: Vec<String>,
 }
 
 impl MockUi {
@@ -40,6 +41,7 @@ impl MockUi {
             status_lines: Vec::new(),
             inputs: VecDeque::new(),
             keys: VecDeque::new(),
+            countdown_draws: Vec::new(),
         }
     }
 }
@@ -88,7 +90,7 @@ impl ClientUi for MockUi {
     }
 
     fn draw_countdown(&mut self, countdown_text: &str) {
-        todo!();
+        self.countdown_draws.push(countdown_text.to_string());
     }
 }
 
@@ -112,8 +114,7 @@ impl MockNetwork {
         self.is_connected_val = connected;
     }
 
-    #[allow(dead_code)]
-    fn set_disconnected(&mut self, disconnected: bool, reason: &str) {
+    pub fn set_disconnected(&mut self, disconnected: bool, reason: &str) {
         self.is_disconnected_val = disconnected;
         self.disconnect_reason_val = reason.to_string();
     }

@@ -1,11 +1,10 @@
+use crate::net::NetworkHandle;
+use crate::state::{ClientSession, ClientState, username_prompt, validate_username_input};
+use crate::ui::ClientUi;
 use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
 };
-
-use crate::net::NetworkHandle;
-use crate::state::{ClientSession, ClientState, username_prompt, validate_username_input};
-use crate::ui::ClientUi;
 use shared::net::AppChannel;
 use shared::protocol::{ClientMessage, ServerMessage};
 
@@ -51,6 +50,14 @@ pub fn handle(
         } = session.state_mut()
         {
             if !*awaiting_confirmation {
+                let trimmed_input = input.trim();
+
+                if trimmed_input.is_empty() {
+                    ui.show_sanitized_error("Username must not be empty.");
+                    *prompt_printed = false;
+                    return None;
+                }
+
                 let validation = validate_username_input(&input);
                 match validation {
                     Ok(username) => {
@@ -144,7 +151,7 @@ mod tests {
             awaiting_confirmation: false,
         });
 
-        let long_name = "A".repeat(MAX_USERNAME_LENGTH + 1);
+        let long_name = "A".repeat(MAX_USERNAME_LENGTH as usize + 1);
         session.add_input(long_name.clone());
 
         let mut ui = MockUi::default();
@@ -152,17 +159,34 @@ mod tests {
 
         handle(&mut session, &mut ui, &mut network);
 
-        assert_eq!(network.sent_messages.len(), 1);
+        assert_eq!(
+            network.sent_messages.len(),
+            0,
+            "packet was sent despite invalid username length."
+        );
 
-        let (_, payload) = network.sent_messages.pop_front().unwrap();
-        let (message, _) = decode_from_slice::<ClientMessage, _>(&payload, standard()).unwrap();
+        assert_eq!(ui.errors.len(), 1, "expected exactly one error message.");
+        assert!(
+            ui.errors[0].contains("too long"),
+            "UI error message did not contain 'too long'."
+        );
 
-        match message {
-            ClientMessage::SetUsername(name) => {
-                assert_eq!(name.len(), MAX_USERNAME_LENGTH);
-                assert_eq!(name, "A".repeat(MAX_USERNAME_LENGTH));
-            }
-            _ => panic!("Expected SetUsername message"),
+        if let ClientState::ChoosingUsername {
+            prompt_printed,
+            awaiting_confirmation,
+        } = session.state()
+        {
+            assert_eq!(
+                *prompt_printed, true,
+                "'prompt_printed' flag was not reset to true after validation failure"
+            );
+
+            assert_eq!(
+                *awaiting_confirmation, false,
+                "'awaiting_confirmation' flag was not reset to false"
+            );
+        } else {
+            panic!("state unexpectedly changed");
         }
     }
 
