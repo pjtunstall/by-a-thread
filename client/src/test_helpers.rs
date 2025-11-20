@@ -86,6 +86,10 @@ impl ClientUi for MockUi {
             protocol_id, server_addr, client_id
         ));
     }
+
+    fn draw_countdown(&mut self, countdown_text: &str) {
+        todo!();
+    }
 }
 
 #[derive(Default)]

@@ -1,11 +1,9 @@
 pub mod macroquad;
-pub mod terminal;
 
 use std::{fmt, net::SocketAddr};
 
 pub use macroquad::MacroquadUi;
 use shared::input::{UiKey, sanitize};
-pub use terminal::TerminalUi;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiInputError {
@@ -30,6 +28,7 @@ pub trait ClientUi {
     fn poll_single_key(&mut self) -> Result<Option<UiKey>, UiInputError>;
     fn show_status_line(&mut self, message: &str);
     fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr, client_id: u64);
+    fn draw_countdown(&mut self, countdown_text: &str);
 
     fn show_sanitized_message(&mut self, message: &str) {
         self.show_message(&sanitize(message));

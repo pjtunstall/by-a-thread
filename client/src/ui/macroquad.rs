@@ -197,4 +197,20 @@ impl ClientUi for MacroquadUi {
 
         Ok(None)
     }
+
+    fn draw_countdown(&mut self, countdown_text: &str) {
+        clear_background(BLACK);
+
+        let font_size = 120.0;
+        let text_color = WHITE;
+
+        let text_dimensions = measure_text(countdown_text, None, font_size as u16, 1.0);
+        let screen_center_x = screen_width() / 2.0;
+        let screen_center_y = screen_height() / 2.0;
+
+        let x_pos = screen_center_x - text_dimensions.width / 2.0;
+        let y_pos = screen_center_y + text_dimensions.height / 2.0;
+
+        draw_text(countdown_text, x_pos, y_pos, font_size, text_color);
+    }
 }
