@@ -94,6 +94,7 @@ pub async fn run_client_loop(
     );
 
     loop {
+        // Handle forced exit via Escape key when the client is NOT disconnected
         if is_key_pressed(KeyCode::Escape)
             && !matches!(runner.session.state(), ClientState::Disconnected { .. })
         {
@@ -112,8 +113,15 @@ pub async fn run_client_loop(
         runner.ui.draw();
 
         if matches!(runner.session.state(), ClientState::Disconnected { .. }) {
-            // FIX: If the client is disconnected (e.g., via Ctrl+C, error, or server),
-            // allow the loop to break on the next frame immediately after drawing.
+            loop {
+                runner.ui.draw();
+
+                if is_key_pressed(KeyCode::Escape) {
+                    break;
+                }
+
+                next_frame().await;
+            }
             break;
         }
 

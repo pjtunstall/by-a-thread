@@ -49,7 +49,6 @@ pub fn handle(
         }
     }
 
-    // CRITICAL FIX: Use session.take_input() instead of ui.poll_single_key()
     if let Some(input) = session.take_input() {
         let trimmed = input.trim();
         let level = match trimmed {
@@ -67,6 +66,7 @@ pub fn handle(
             let payload =
                 encode_to_vec(&msg, standard()).expect("failed to serialize SetDifficulty");
             network.send_message(AppChannel::ReliableOrdered, payload);
+            ui.show_status_line("Waiting for server...");
         }
     }
 

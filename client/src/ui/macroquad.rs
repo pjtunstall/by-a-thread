@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use macroquad::prelude::*;
 
 use crate::ui::{ClientUi, UiInputError};
-use shared::{auth, input::UiKey};
+use shared::input::UiKey;
 
 const FONT_SIZE: f32 = 24.0;
 const TEXT_COLOR: Color = WHITE;
@@ -102,6 +102,16 @@ impl ClientUi for MacroquadUi {
     }
 
     fn poll_input(&mut self, limit: usize) -> Result<Option<String>, UiInputError> {
+        if is_key_down(KeyCode::LeftControl) && is_key_pressed(KeyCode::C) {
+            return Err(UiInputError::Disconnected);
+        }
+
+        if is_key_pressed(KeyCode::Tab) {
+            self.input_buffer.clear();
+            self.cursor_pos = 0;
+            return Ok(Some("\t".to_string()));
+        }
+
         while let Some(char_code) = get_char_pressed() {
             let c = char_code as char;
             let at_limit = self.input_buffer.len() >= limit;
@@ -124,17 +134,9 @@ impl ClientUi for MacroquadUi {
             self.cursor_pos = self.input_buffer.len();
         }
 
-        if is_key_pressed(KeyCode::Tab) {
-            return Ok(Some(String::from(auth::START_COUNTDOWN)));
-        }
-
         if is_key_pressed(KeyCode::Escape) {
             self.input_buffer.clear();
             self.cursor_pos = 0;
-        }
-
-        if is_key_down(KeyCode::LeftControl) && is_key_pressed(KeyCode::C) {
-            return Err(UiInputError::Disconnected);
         }
 
         Ok(None)

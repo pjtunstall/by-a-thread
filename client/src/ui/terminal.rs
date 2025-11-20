@@ -165,7 +165,7 @@ impl<W: Write> TerminalUi<W> {
                         }
                         Ok(None)
                     }
-                    KeyCode::Tab => Ok(Some(String::from(shared::auth::START_COUNTDOWN))),
+                    KeyCode::Tab => Ok(Some(String::from(shared::auth::START_GAME))),
                     KeyCode::Char(c) => {
                         let at_limit = self.buffer.len() >= limit;
                         if !at_limit && !c.is_control() {

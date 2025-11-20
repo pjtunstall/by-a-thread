@@ -78,17 +78,23 @@ pub fn handle(
     }
 
     while let Some(input) = session.take_input() {
-        let trimmed_input = input.trim();
-        if !trimmed_input.is_empty() {
-            let message = if trimmed_input == shared::auth::START_COUNTDOWN {
-                ClientMessage::RequestStartGame
-            } else {
-                ClientMessage::SendChat(trimmed_input.to_string())
-            };
-
-            let payload = encode_to_vec(&message, standard()).expect("failed to serialize chat");
+        if input == "\t" {
+            let message = ClientMessage::RequestStartGame;
+            let payload = encode_to_vec(&message, standard()).expect("failed to serialize command");
             network.send_message(AppChannel::ReliableOrdered, payload);
+            continue;
         }
+
+        let trimmed_input = input.trim();
+
+        if trimmed_input.is_empty() {
+            continue;
+        }
+
+        let message = ClientMessage::SendChat(trimmed_input.to_string());
+
+        let payload = encode_to_vec(&message, standard()).expect("failed to serialize chat");
+        network.send_message(AppChannel::ReliableOrdered, payload);
     }
 
     if network.is_disconnected() {
