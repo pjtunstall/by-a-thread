@@ -82,6 +82,7 @@ pub fn handle(
             let message = ClientMessage::RequestStartGame;
             let payload = encode_to_vec(&message, standard()).expect("failed to serialize command");
             network.send_message(AppChannel::ReliableOrdered, payload);
+            ui.show_status_line("Waiting for server...");
             continue;
         }
 
@@ -95,6 +96,8 @@ pub fn handle(
 
         let payload = encode_to_vec(&message, standard()).expect("failed to serialize chat");
         network.send_message(AppChannel::ReliableOrdered, payload);
+
+        ui.show_status_line("Waiting for server...");
     }
 
     if network.is_disconnected() {

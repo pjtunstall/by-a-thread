@@ -48,7 +48,7 @@ pub fn handle(
             }
         }
     } else {
-        ui.show_status_line("Waiting for countdown info...");
+        ui.show_status_line("Waiting for server...");
     }
 
     if let Err(UiInputError::Disconnected) = ui.poll_single_key() {
