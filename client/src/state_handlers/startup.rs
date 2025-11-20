@@ -13,12 +13,10 @@ pub fn handle(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<Clie
         );
     }
 
-    // 1. Check for pre-loaded passcode (Highest Priority Transition)
     if session.has_first_passcode() {
         return Some(ClientState::Connecting);
     }
 
-    // 2. Handle input from the queue: If valid, store and transition.
     if let Some(input_string) = session.take_input() {
         if let Some(passcode) = parse_passcode_input(&input_string) {
             session.store_first_passcode(passcode);

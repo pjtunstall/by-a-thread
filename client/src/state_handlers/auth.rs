@@ -119,7 +119,7 @@ pub fn handle(
 
 pub fn passcode_prompt(remaining: u8) -> String {
     if remaining == MAX_ATTEMPTS {
-        format!("Passcode ({} guesses): ", remaining)
+        format!("Enter passcode ({} guesses): ", remaining)
     } else {
         format!(
             "Please enter new 6-digit passcode. ({} guesses remaining): ",
