@@ -42,6 +42,7 @@ pub fn handle(
             Ok((ServerMessage::RequestDifficultyChoice, _)) => {
                 return Some(ClientState::ChoosingDifficulty {
                     prompt_printed: false,
+                    choice_sent: false,
                 });
             }
             Ok((ServerMessage::ChatMessage { username, content }, _)) => {

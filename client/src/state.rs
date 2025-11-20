@@ -28,6 +28,7 @@ pub enum ClientState {
     },
     ChoosingDifficulty {
         prompt_printed: bool,
+        choice_sent: bool,
     },
     InGame {
         maze: Maze,

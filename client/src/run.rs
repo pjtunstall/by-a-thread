@@ -109,11 +109,23 @@ pub async fn run_client_loop(
 
         client_frame_update(&mut runner);
 
-        runner.ui.draw();
+        // Determine if we should show the input prompt
+        let show_input = !matches!(
+            runner.session.state(),
+            ClientState::ChoosingDifficulty {
+                choice_sent: true,
+                ..
+            } | ClientState::Countdown
+                | ClientState::Disconnected { .. }
+                | ClientState::TransitioningToDisconnected { .. }
+                | ClientState::InGame { .. }
+        );
+
+        runner.ui.draw(show_input);
 
         if matches!(runner.session.state(), ClientState::Disconnected { .. }) {
             loop {
-                runner.ui.draw();
+                runner.ui.draw(false);
 
                 if is_key_pressed(KeyCode::Escape) {
                     break;
@@ -283,8 +295,11 @@ fn apply_client_transition(
         ClientState::InChat => {
             session.expect_initial_roster();
         }
-        ClientState::ChoosingDifficulty { prompt_printed, .. } => {
-            if !*prompt_printed {
+        ClientState::ChoosingDifficulty {
+            prompt_printed,
+            choice_sent,
+        } => {
+            if !*prompt_printed && !*choice_sent {
                 ui.show_message("Server: Choose a difficulty level:");
                 ui.show_message("  1. Easy");
                 ui.show_message("  2. So-so");

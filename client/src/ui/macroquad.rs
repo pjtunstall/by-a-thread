@@ -82,12 +82,11 @@ impl MacroquadUi {
         }
     }
 
-    pub fn draw(&self) {
+    pub fn draw(&self, show_input: bool) {
         clear_background(BACKGROUND_COLOR);
 
         let line_height = FONT_SIZE * 1.2;
-        let prompt_y = screen_height() - line_height;
-        let mut y = prompt_y - line_height;
+        let mut y = screen_height() - line_height * 2.0;
 
         draw_text(&self.status_message, 10.0, 30.0, FONT_SIZE, ERROR_COLOR);
 
@@ -102,8 +101,11 @@ impl MacroquadUi {
             }
         }
 
-        let prompt_text = format!("> {}", self.input_buffer);
-        draw_text(&prompt_text, 10.0, prompt_y, FONT_SIZE, PROMPT_COLOR);
+        if show_input {
+            let prompt_y = screen_height() - line_height;
+            let prompt_text = format!("> {}", self.input_buffer);
+            draw_text(&prompt_text, 10.0, prompt_y, FONT_SIZE, PROMPT_COLOR);
+        }
     }
 }
 
