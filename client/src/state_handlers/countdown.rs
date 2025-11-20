@@ -37,12 +37,12 @@ pub fn handle(
                 if let Some(players) = session.players.take() {
                     return Some(ClientState::InGame { maze, players });
                 } else {
-                    return Some(ClientState::Disconnected {
+                    return Some(ClientState::TransitioningToDisconnected {
                         message: "Failed to receive players data.".to_string(),
                     });
                 }
             } else {
-                return Some(ClientState::Disconnected {
+                return Some(ClientState::TransitioningToDisconnected {
                     message: "Failed to receive maze data".to_string(),
                 });
             }
@@ -52,8 +52,17 @@ pub fn handle(
     }
 
     if let Err(UiInputError::Disconnected) = ui.poll_single_key() {
-        return Some(ClientState::Disconnected {
+        return Some(ClientState::TransitioningToDisconnected {
             message: "input thread disconnected.".to_string(),
+        });
+    }
+
+    if network.is_disconnected() {
+        return Some(ClientState::TransitioningToDisconnected {
+            message: format!(
+                "Disconnected during countdown: {}.",
+                network.get_disconnect_reason()
+            ),
         });
     }
 

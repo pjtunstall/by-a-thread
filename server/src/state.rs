@@ -29,8 +29,10 @@ impl ChoosingDifficulty {
     pub fn set_difficulty(&mut self, level: u8) {
         self.difficulty = level;
     }
+    // Implementation for remove_client is delegated to Lobby in ServerState::remove_client
 }
 
+#[derive(Clone)]
 pub struct Countdown {
     pub usernames: HashMap<u64, String>,
     pub players: HashMap<u64, Player>,
@@ -69,6 +71,7 @@ impl Countdown {
                 client_id
             );
         }
+        self.players.remove(&client_id);
     }
 }
 
@@ -114,14 +117,22 @@ impl ServerState {
         }
     }
 
-    pub fn register_connection(&mut self, client_id: u64) {
+    pub fn register_connection(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
         if let ServerState::Lobby(lobby) = self {
             lobby.register_connection(client_id);
         } else {
             eprintln!(
-                "Client {} connected, but server is not in Lobby state. Ignoring.",
+                "Client {} connected, but server is not in Lobby state. Sending disconnect message.",
                 client_id
             );
+
+            let message = ServerMessage::ServerInfo {
+                message: "The game has already started. Disconnecting.".to_string(),
+            };
+            let payload = encode_to_vec(&message, standard())
+                .expect("failed to serialize ServerInfo message");
+
+            network.send_message(client_id, AppChannel::ReliableOrdered, payload);
         }
     }
 
@@ -322,7 +333,7 @@ mod tests {
         let attempts = state
             .authentication_attempts(42)
             .expect("expected attempts entry");
-        assert_eq!(*attempts, 0);
+        assert_eq!(attempts, &mut 0);
         assert!(state.is_authenticating(42));
     }
 

@@ -168,7 +168,7 @@ pub fn process_events(network: &mut dyn ServerNetworkHandle, state: &mut ServerS
         match event {
             ServerNetworkEvent::ClientConnected { client_id } => {
                 println!("Client {} connected.", client_id);
-                state.register_connection(client_id);
+                state.register_connection(client_id, network);
             }
             ServerNetworkEvent::ClientDisconnected { client_id, reason } => {
                 if matches!(state, ServerState::Countdown(_)) {

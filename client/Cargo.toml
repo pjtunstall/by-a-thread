@@ -10,3 +10,4 @@ renet = "1.2.0"
 renet_netcode = "1.2.0"
 shared = { path = "../shared" }
 bincode = { version = "2.0.1", features = ["serde"] }
+macroquad = "0.4.14"

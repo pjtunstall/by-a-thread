@@ -1,7 +1,9 @@
+pub mod macroquad;
 pub mod terminal;
 
 use std::{fmt, net::SocketAddr};
 
+pub use macroquad::MacroquadUi;
 use shared::input::{UiKey, sanitize};
 pub use terminal::TerminalUi;
 

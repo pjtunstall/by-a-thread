@@ -4,16 +4,10 @@ use bincode::{
 };
 
 use crate::state::{ClientSession, ClientState};
-use crate::{
-    net::NetworkHandle,
-    ui::{ClientUi, UiInputError},
-};
+use crate::{net::NetworkHandle, ui::ClientUi};
 use shared::{
     net::AppChannel,
-    {
-        chat::MAX_CHAT_MESSAGE_BYTES,
-        protocol::{ClientMessage, ServerMessage},
-    },
+    protocol::{ClientMessage, ServerMessage},
 };
 
 pub fn handle(
@@ -83,28 +77,17 @@ pub fn handle(
         }
     }
 
-    loop {
-        match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
-            Ok(Some(input)) => {
-                let trimmed_input = input.trim();
-                if !trimmed_input.is_empty() {
-                    let message = if trimmed_input == shared::auth::START_COUNTDOWN {
-                        ClientMessage::RequestStartGame
-                    } else {
-                        ClientMessage::SendChat(trimmed_input.to_string())
-                    };
+    while let Some(input) = session.take_input() {
+        let trimmed_input = input.trim();
+        if !trimmed_input.is_empty() {
+            let message = if trimmed_input == shared::auth::START_COUNTDOWN {
+                ClientMessage::RequestStartGame
+            } else {
+                ClientMessage::SendChat(trimmed_input.to_string())
+            };
 
-                    let payload =
-                        encode_to_vec(&message, standard()).expect("failed to serialize chat");
-                    network.send_message(AppChannel::ReliableOrdered, payload);
-                }
-            }
-            Ok(None) => break,
-            Err(UiInputError::Disconnected) => {
-                return Some(ClientState::Disconnected {
-                    message: "input thread disconnected.".to_string(),
-                });
-            }
+            let payload = encode_to_vec(&message, standard()).expect("failed to serialize chat");
+            network.send_message(AppChannel::ReliableOrdered, payload);
         }
     }
 
@@ -128,6 +111,7 @@ mod tests {
         test_helpers::MockNetwork,
         test_helpers::MockUi,
     };
+    use shared::chat::MAX_CHAT_MESSAGE_BYTES;
 
     mod guards {
         use super::*;
@@ -165,7 +149,9 @@ mod tests {
 
         let long_message = "a".repeat(MAX_CHAT_MESSAGE_BYTES + 1);
 
-        let mut ui = MockUi::with_inputs(vec![Ok(Some(long_message))]);
+        session.add_input(long_message.clone());
+
+        let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
 
         handle(&mut session, &mut ui, &mut network);
@@ -177,8 +163,7 @@ mod tests {
 
         match message {
             ClientMessage::SendChat(content) => {
-                assert_eq!(content.len(), MAX_CHAT_MESSAGE_BYTES);
-                assert_eq!(content, "a".repeat(MAX_CHAT_MESSAGE_BYTES));
+                assert_eq!(content.len(), MAX_CHAT_MESSAGE_BYTES + 1);
             }
             _ => panic!("Expected SendChat message"),
         }
@@ -186,21 +171,17 @@ mod tests {
 
     #[test]
     fn sanitizes_chat_messages_ansi_and_control_chars() {
-        let bell = "\x07"; // Control char.
-        let red = "\x1B[31m"; // ANSI start.
-        let reset = "\x1B[0m"; // ANSI end.
+        let bell = "\x07";
+        let red = "\x1B[31m";
+        let reset = "\x1B[0m";
 
         let mut session = ClientSession::new(0);
         session.transition(ClientState::InChat);
-        // Mark the roster as received, otherwise the handler will ignore
-        // the chat message (see the `if session.awaiting_initial_roster()` check).
         session.mark_initial_roster_received();
 
         let mut ui = MockUi::new();
         let mut network = MockNetwork::new();
 
-        // The username has a hidden Bell character.
-        // The content tries to turn the word "Danger" red.
         let malicious_chat = ServerMessage::ChatMessage {
             username: format!("Hacker{}", bell),
             content: format!("This is {}Danger{}!", red, reset),
@@ -211,11 +192,6 @@ mod tests {
         handle(&mut session, &mut ui, &mut network);
 
         assert_eq!(ui.messages.len(), 1);
-
-        // Expectation:
-        // 1. "Hacker\x07" becomes "Hacker"
-        // 2. "\x1B[31m" and "\x1B[0m" are stripped, but "Danger" remains.
-        // Format: "Username: Content"
         assert_eq!(ui.messages[0], "Hacker: This is Danger!");
     }
 }

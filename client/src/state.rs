@@ -23,6 +23,9 @@ pub enum ClientState {
     Disconnected {
         message: String,
     },
+    TransitioningToDisconnected {
+        message: String,
+    },
     ChoosingDifficulty {
         prompt_printed: bool,
     },
@@ -41,6 +44,7 @@ pub struct ClientSession {
     pub countdown_end_time: Option<f64>,
     pub maze: Option<Maze>,
     pub players: Option<HashMap<u64, Player>>,
+    pub input_queue: Vec<String>,
 }
 
 impl ClientSession {
@@ -56,6 +60,7 @@ impl ClientSession {
             countdown_end_time: None,
             maze: None,
             players: None,
+            input_queue: Vec::new(),
         }
     }
 
@@ -105,6 +110,18 @@ impl ClientSession {
                 awaiting_confirmation,
             } => Some(f(prompt_printed, awaiting_confirmation)),
             _ => None,
+        }
+    }
+
+    pub fn add_input(&mut self, input: String) {
+        self.input_queue.push(input);
+    }
+
+    pub fn take_input(&mut self) -> Option<String> {
+        if self.input_queue.is_empty() {
+            None
+        } else {
+            Some(self.input_queue.remove(0))
         }
     }
 }
@@ -190,5 +207,17 @@ mod tests {
             validate_username_input(too_long),
             Err(UsernameError::TooLong)
         );
+    }
+
+    #[test]
+    fn input_queue_stores_and_retrieves_in_order() {
+        let mut session = ClientSession::new(0);
+
+        session.add_input("message one".to_string());
+        session.add_input("message two".to_string());
+
+        assert_eq!(session.take_input(), Some("message one".to_string()));
+        assert_eq!(session.take_input(), Some("message two".to_string()));
+        assert_eq!(session.take_input(), None);
     }
 }

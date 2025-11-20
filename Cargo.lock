@@ -142,6 +142,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "crossterm",
+ "macroquad",
  "rand",
  "renet",
  "renet_netcode",

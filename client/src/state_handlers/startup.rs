@@ -1,9 +1,9 @@
 use super::auth::{parse_passcode_input, passcode_prompt};
 use crate::{
     state::{ClientSession, ClientState},
-    ui::{ClientUi, UiInputError},
+    ui::ClientUi,
 };
-use shared::{auth::MAX_ATTEMPTS, chat::MAX_CHAT_MESSAGE_BYTES};
+use shared::auth::MAX_ATTEMPTS;
 
 pub fn handle(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Startup { .. }) {
@@ -13,22 +13,46 @@ pub fn handle(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<Clie
         );
     }
 
-    match ui.poll_input(MAX_CHAT_MESSAGE_BYTES) {
-        Ok(Some(input_string)) => {
-            if let Some(passcode) = parse_passcode_input(&input_string) {
-                session.store_first_passcode(passcode);
-                Some(ClientState::Connecting)
-            } else {
-                ui.show_sanitized_error("Invalid format. Please enter a 6-digit number.");
-                ui.show_sanitized_prompt(&passcode_prompt(MAX_ATTEMPTS));
-                None
-            }
-        }
-        Ok(None) => None,
-        Err(UiInputError::Disconnected) => Some(ClientState::Disconnected {
-            message: "input thread disconnected.".to_string(),
-        }),
+    // 1. Check for pre-loaded passcode (Highest Priority Transition)
+    if session.has_first_passcode() {
+        return Some(ClientState::Connecting);
     }
+
+    // 2. Handle input from the queue: If valid, store and transition.
+    if let Some(input_string) = session.take_input() {
+        if let Some(passcode) = parse_passcode_input(&input_string) {
+            session.store_first_passcode(passcode);
+            return Some(ClientState::Connecting);
+        } else {
+            ui.show_sanitized_error(&format!(
+                "Invalid format: \"{}\". Passcode must be a 6-digit number.",
+                input_string.trim()
+            ));
+
+            ui.show_sanitized_prompt(&passcode_prompt(MAX_ATTEMPTS));
+
+            if let ClientState::Startup { prompt_printed } = session.state_mut() {
+                *prompt_printed = true;
+            }
+            return None;
+        }
+    }
+
+    let needs_prompt = match session.state() {
+        ClientState::Startup { prompt_printed } => !prompt_printed,
+        _ => false,
+    };
+
+    if needs_prompt {
+        ui.show_prompt(&passcode_prompt(MAX_ATTEMPTS));
+
+        if let ClientState::Startup { prompt_printed } = session.state_mut() {
+            *prompt_printed = true;
+        }
+        return None;
+    }
+
+    None
 }
 
 #[cfg(test)]
@@ -64,54 +88,67 @@ mod tests {
     }
 
     #[test]
-    fn reprompts_after_invalid_passcode() {
+    fn transitions_to_connecting_if_passcode_is_present() {
         let mut session = ClientSession::new(0);
-        let mut ui = MockUi::with_inputs([Ok(Some("abc".into()))]);
+        let passcode = shared::auth::Passcode {
+            bytes: vec![1, 2, 3, 4, 5, 6],
+            string: "123456".to_string(),
+        };
+        session.store_first_passcode(passcode);
 
-        assert!(handle(&mut session, &mut ui).is_none());
-        assert_eq!(
-            ui.errors,
-            vec!["Invalid format. Please enter a 6-digit number.".to_string()]
-        );
-        assert_eq!(ui.prompts.len(), 1);
-    }
-
-    #[test]
-    fn returns_disconnected_when_input_thread_stops() {
-        let mut session = ClientSession::new(0);
-        let mut ui = MockUi::with_inputs([Err(UiInputError::Disconnected)]);
-
-        let next = handle(&mut session, &mut ui);
-        match next {
-            Some(ClientState::Disconnected { message }) => {
-                assert_eq!(message, "input thread disconnected.");
-            }
-            _ => panic!("unexpected transition: expected disconnection"),
-        }
-    }
-
-    #[test]
-    fn prompts_only_once_when_waiting_for_input() {
-        let mut session = ClientSession::new(0);
         let mut ui = MockUi::default();
 
-        assert!(handle(&mut session, &mut ui).is_none());
-        assert!(ui.prompts.is_empty());
+        let next = handle(&mut session, &mut ui);
 
-        ui.messages.clear();
-        ui.errors.clear();
-
-        assert!(handle(&mut session, &mut ui).is_none());
         assert!(ui.prompts.is_empty());
+        assert!(matches!(next, Some(ClientState::Connecting)));
     }
 
     #[test]
-    fn returns_connecting_when_valid_passcode_received() {
+    fn transitions_to_connecting_after_first_prompt() {
         let mut session = ClientSession::new(0);
-        let mut ui = MockUi::with_inputs([Ok(Some("123456".into()))]);
+        session.add_input("123456".to_string());
+
+        let mut ui = MockUi::default();
 
         let next = handle(&mut session, &mut ui);
+
+        assert!(ui.prompts.is_empty());
         assert!(matches!(next, Some(ClientState::Connecting)));
         assert_eq!(session.take_first_passcode().unwrap().string, "123456");
+    }
+
+    #[test]
+    fn handles_invalid_input_and_reprompts() {
+        let mut session = ClientSession::new(0);
+        session.add_input("abc".to_string());
+
+        let mut ui = MockUi::default();
+
+        // --- First run (consumes input, shows error, sets prompt_printed = true) ---
+        let next = handle(&mut session, &mut ui);
+
+        assert!(next.is_none());
+        assert_eq!(ui.errors.len(), 1);
+        assert_eq!(ui.prompts.len(), 1, "Should show one prompt for the retry");
+
+        // --- Second run (should show nothing, as prompt_printed is true and no input is present) ---
+        ui.errors.clear();
+        ui.prompts.clear();
+
+        let next_2 = handle(&mut session, &mut ui);
+
+        assert!(next_2.is_none());
+        assert!(
+            ui.prompts.is_empty(),
+            "Should not show a second prompt on the next frame"
+        );
+        assert!(ui.errors.is_empty());
+
+        if let ClientState::Startup { prompt_printed } = session.state() {
+            assert!(*prompt_printed);
+        } else {
+            panic!("Expected Startup state");
+        }
     }
 }

@@ -3,11 +3,16 @@ use crate::{
     state::{ClientSession, ClientState},
     ui::ClientUi,
 };
+use bincode::serde::decode_from_slice;
+use bincode::{config::standard, serde::encode_to_vec};
 use shared::auth::MAX_ATTEMPTS;
+use shared::net::AppChannel;
+use shared::protocol::ClientMessage;
+use shared::protocol::ServerMessage;
 
 pub fn handle(
     session: &mut ClientSession,
-    _ui: &mut dyn ClientUi,
+    ui: &mut dyn ClientUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Connecting) {
@@ -17,19 +22,45 @@ pub fn handle(
         );
     }
 
+    // Process immediate server messages (e.g., late connection rejection)
+    while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
+        match decode_from_slice::<ServerMessage, _>(&data, standard()) {
+            Ok((ServerMessage::ServerInfo { message }, _)) => {
+                if message.starts_with("The game has already started.") {
+                    ui.show_message(&message);
+                    return Some(ClientState::TransitioningToDisconnected { message });
+                }
+            }
+            Ok((_, _)) => {}
+            Err(_) => {}
+        }
+    }
+
     if network.is_connected() {
-        if session.has_first_passcode() {
+        if let Some(passcode) = session.take_first_passcode() {
+            ui.show_message(&format!(
+                "Transport connected. Sending passcode: {}.",
+                passcode.string
+            ));
+
+            let message = ClientMessage::SendPasscode(passcode.bytes);
+            let payload =
+                encode_to_vec(&message, standard()).expect("failed to serialize SendPasscode");
+            network.send_message(AppChannel::ReliableOrdered, payload);
+
             Some(ClientState::Authenticating {
                 waiting_for_input: false,
                 guesses_left: MAX_ATTEMPTS,
             })
         } else {
-            Some(ClientState::Disconnected {
-                message: "Internal error: No passcode to send.".to_string(),
+            Some(ClientState::Authenticating {
+                waiting_for_input: true,
+                guesses_left: MAX_ATTEMPTS,
             })
         }
     } else if network.is_disconnected() {
-        Some(ClientState::Disconnected {
+        // FIX: Use TransitioningToDisconnected for graceful exit
+        Some(ClientState::TransitioningToDisconnected {
             message: format!("Connection failed: {}.", network.get_disconnect_reason()),
         })
     } else {

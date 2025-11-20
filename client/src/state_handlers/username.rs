@@ -3,16 +3,11 @@ use bincode::{
     serde::{decode_from_slice, encode_to_vec},
 };
 
+use crate::net::NetworkHandle;
 use crate::state::{ClientSession, ClientState, username_prompt, validate_username_input};
-use crate::{
-    net::NetworkHandle,
-    ui::{ClientUi, UiInputError},
-};
+use crate::ui::ClientUi;
 use shared::net::AppChannel;
-use shared::{
-    player::MAX_USERNAME_LENGTH,
-    protocol::{ClientMessage, ServerMessage},
-};
+use shared::protocol::{ClientMessage, ServerMessage};
 
 pub fn handle(
     session: &mut ClientSession,
@@ -49,43 +44,41 @@ pub fn handle(
         }
     }
 
+    if let Some(input) = session.take_input() {
+        if let ClientState::ChoosingUsername {
+            prompt_printed,
+            awaiting_confirmation,
+        } = session.state_mut()
+        {
+            if !*awaiting_confirmation {
+                let validation = validate_username_input(&input);
+                match validation {
+                    Ok(username) => {
+                        let message = ClientMessage::SetUsername(username);
+                        let payload = encode_to_vec(&message, standard())
+                            .expect("failed to serialize SetUsername");
+                        network.send_message(AppChannel::ReliableOrdered, payload);
+
+                        *awaiting_confirmation = true;
+                    }
+                    Err(err) => {
+                        let message = err.to_string();
+                        ui.show_sanitized_error(&message);
+                        *prompt_printed = false;
+                    }
+                }
+            }
+        }
+    }
+
     if let ClientState::ChoosingUsername {
         prompt_printed,
         awaiting_confirmation,
     } = session.state_mut()
     {
-        if !*awaiting_confirmation {
-            if !*prompt_printed {
-                ui.show_sanitized_prompt(&username_prompt());
-                *prompt_printed = true;
-            }
-
-            match ui.poll_input(MAX_USERNAME_LENGTH) {
-                Ok(Some(input)) => {
-                    let validation = validate_username_input(&input);
-                    match validation {
-                        Ok(username) => {
-                            let message = ClientMessage::SetUsername(username);
-                            let payload = encode_to_vec(&message, standard())
-                                .expect("failed to serialize SetUsername");
-                            network.send_message(AppChannel::ReliableOrdered, payload);
-
-                            *awaiting_confirmation = true;
-                        }
-                        Err(err) => {
-                            let message = err.to_string();
-                            ui.show_sanitized_error(&message);
-                            *prompt_printed = false;
-                        }
-                    }
-                }
-                Ok(None) => {}
-                Err(UiInputError::Disconnected) => {
-                    return Some(ClientState::Disconnected {
-                        message: "input thread disconnected.".to_string(),
-                    });
-                }
-            }
+        if !*awaiting_confirmation && !*prompt_printed {
+            ui.show_sanitized_prompt(&username_prompt());
+            *prompt_printed = true;
         }
     }
 
@@ -108,6 +101,7 @@ mod tests {
         state::{ClientSession, ClientState},
         test_helpers::{MockNetwork, MockUi},
     };
+    use shared::player::MAX_USERNAME_LENGTH;
     use shared::protocol::ServerMessage;
 
     mod guards {
@@ -144,8 +138,6 @@ mod tests {
 
     #[test]
     fn enforces_max_username_length() {
-        use shared::player::MAX_USERNAME_LENGTH;
-
         let mut session = ClientSession::new(0);
         session.transition(ClientState::ChoosingUsername {
             prompt_printed: false,
@@ -153,8 +145,9 @@ mod tests {
         });
 
         let long_name = "A".repeat(MAX_USERNAME_LENGTH + 1);
+        session.add_input(long_name.clone());
 
-        let mut ui = MockUi::with_inputs(vec![Ok(Some(long_name))]);
+        let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
 
         handle(&mut session, &mut ui, &mut network);
@@ -223,5 +216,36 @@ mod tests {
         assert_eq!(ui_user.errors[0], "Username error: NameTakenMalicious Text");
         assert_eq!(ui_user.messages.len(), 1);
         assert_eq!(ui_user.messages[0], "Please try a different username.");
+    }
+
+    #[test]
+    fn handles_local_validation_error() {
+        let mut session = ClientSession::new(0);
+        session.transition(ClientState::ChoosingUsername {
+            prompt_printed: true,
+            awaiting_confirmation: false,
+        });
+
+        session.add_input("   ".to_string());
+
+        let mut ui = MockUi::default();
+        let mut network = MockNetwork::new();
+
+        handle(&mut session, &mut ui, &mut network);
+
+        assert_eq!(network.sent_messages.len(), 0);
+        assert_eq!(ui.errors.len(), 1);
+        assert!(ui.errors[0].contains("Username must not be empty"));
+
+        if let ClientState::ChoosingUsername {
+            prompt_printed,
+            awaiting_confirmation,
+        } = session.state()
+        {
+            assert_eq!(*prompt_printed, false);
+            assert_eq!(*awaiting_confirmation, false);
+        } else {
+            panic!("State unexpectedly changed");
+        }
     }
 }

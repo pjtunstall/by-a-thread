@@ -1,128 +1,192 @@
 use std::{
     collections::HashMap,
-    io::stdout,
+    io::Write,
     net::{SocketAddr, UdpSocket},
-    thread,
-    time::{Duration, Instant},
+    time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
-use bincode::{config::standard, serde::encode_to_vec};
-use crossterm::{
-    cursor::{Hide, MoveToColumn, Show},
-    execute,
-    terminal::{Clear, ClearType},
-};
 use renet::RenetClient;
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
+
+use macroquad::prelude::{KeyCode, is_key_pressed, next_frame};
 
 use crate::{
     net::{self, NetworkHandle, RenetNetworkHandle},
     state::{self, ClientSession, ClientState},
     state_handlers,
-    ui::ClientUi,
+    ui::{ClientUi, MacroquadUi, UiInputError},
 };
-use shared::{
-    self,
-    auth::MAX_ATTEMPTS,
-    net::AppChannel,
-    player::Player,
-    protocol::{ClientMessage, ServerMessage},
-};
+use shared::{self, auth::MAX_ATTEMPTS, net::AppChannel, player::Player, protocol::ServerMessage};
 
-pub fn run_client(
+pub struct ClientRunner {
+    session: ClientSession,
+    client: RenetClient,
+    transport: NetcodeClientTransport,
+    ui: MacroquadUi,
+    last_updated: Instant,
+}
+
+impl ClientRunner {
+    pub fn new(
+        socket: UdpSocket,
+        server_addr: SocketAddr,
+        private_key: [u8; 32],
+        ui: MacroquadUi,
+    ) -> Result<Self, String> {
+        let client_id = rand::random::<u64>();
+        let protocol_id = shared::protocol::version();
+
+        let current_time_duration = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("System time is before Unix epoch");
+
+        socket
+            .set_nonblocking(true)
+            .map_err(|e| format!("Failed to set socket as non-blocking: {}", e))?;
+
+        let connect_token = net::create_connect_token(
+            current_time_duration,
+            protocol_id,
+            client_id,
+            server_addr,
+            &private_key,
+        );
+
+        let authentication = ClientAuthentication::Secure { connect_token };
+
+        let transport = NetcodeClientTransport::new(current_time_duration, authentication, socket)
+            .map_err(|e| format!("Failed to create network transport: {}", e))?;
+
+        let connection_config = shared::net::connection_config();
+        let client = RenetClient::new(connection_config);
+        let session = ClientSession::new(client_id);
+
+        Ok(Self {
+            session,
+            client,
+            transport,
+            ui,
+            last_updated: Instant::now(),
+        })
+    }
+}
+
+pub async fn run_client_loop(
     socket: UdpSocket,
     server_addr: SocketAddr,
     private_key: [u8; 32],
-    ui: &mut dyn ClientUi,
+    ui: MacroquadUi,
 ) {
-    let client_id = rand::random::<u64>();
-    let protocol_id = shared::protocol::version();
-    let current_time = shared::time::now();
-    let connect_token = net::create_connect_token(
-        current_time,
-        protocol_id,
-        client_id,
-        server_addr,
-        &private_key,
-    );
-
-    let authentication = ClientAuthentication::Secure { connect_token };
-    let mut transport = match NetcodeClientTransport::new(current_time, authentication, socket) {
-        Ok(transport) => transport,
+    let mut runner = match ClientRunner::new(socket, server_addr, private_key, ui) {
+        Ok(r) => r,
         Err(e) => {
-            ui.show_message(&format!("Failed to create network transport: {}.", e));
+            eprintln!("{}", e);
             return;
         }
     };
 
-    let connection_config = shared::net::connection_config();
-    let mut client = RenetClient::new(connection_config);
-    let mut session = ClientSession::new(client_id);
+    let ui_ref: &mut dyn ClientUi = &mut runner.ui;
 
-    ui.print_client_banner(protocol_id, server_addr, client_id);
-    client_loop(&mut session, ui, &mut client, &mut transport);
-    ui.show_message("Client shutting down.");
-}
-
-fn client_loop(
-    session: &mut ClientSession,
-    ui: &mut dyn ClientUi,
-    client: &mut RenetClient,
-    transport: &mut NetcodeClientTransport,
-) {
-    let mut last_updated = Instant::now();
-    let target_duration = Duration::from_micros(16667);
+    ui_ref.print_client_banner(
+        shared::protocol::version(),
+        server_addr,
+        runner.session.client_id,
+    );
 
     loop {
-        let now = Instant::now();
-        let duration = now - last_updated;
-        last_updated = now;
-
-        if let Err(e) = transport.update(duration, client) {
-            apply_client_transition(
-                session,
-                ui,
-                None,
-                ClientState::Disconnected {
-                    message: format!("Transport error: {}.", e),
-                },
-            );
-        }
-        if matches!(session.state(), ClientState::Disconnected { .. }) {
-            break;
-        }
-
-        client.update(duration);
-        session.estimated_server_time += duration.as_secs_f64();
-
+        if is_key_pressed(KeyCode::Escape)
+            && !matches!(runner.session.state(), ClientState::Disconnected { .. })
         {
-            let mut network_handle = RenetNetworkHandle::new(client, transport);
-            update_estimated_server_time(session, &mut network_handle);
-            update_client_state(session, ui, &mut network_handle);
-        }
-
-        if matches!(session.state(), ClientState::Disconnected { .. }) {
-            break;
-        }
-
-        if let Err(e) = transport.send_packets(client) {
             apply_client_transition(
-                session,
-                ui,
+                &mut runner.session,
+                &mut runner.ui,
                 None,
-                ClientState::Disconnected {
-                    message: format!("Error sending packets: {}.", e),
+                ClientState::TransitioningToDisconnected {
+                    message: "Client closed by user.".to_string(),
                 },
             );
         }
-        if matches!(session.state(), ClientState::Disconnected { .. }) {
+
+        client_frame_update(&mut runner);
+
+        runner.ui.draw();
+
+        if matches!(runner.session.state(), ClientState::Disconnected { .. }) {
+            // FIX: If the client is disconnected (e.g., via Ctrl+C, error, or server),
+            // allow the loop to break on the next frame immediately after drawing.
             break;
         }
 
-        let elapsed = Instant::now() - last_updated;
-        if elapsed < target_duration {
-            thread::sleep(target_duration - elapsed);
+        next_frame().await;
+    }
+}
+
+fn client_frame_update(runner: &mut ClientRunner) {
+    let now = Instant::now();
+    let duration = now - runner.last_updated;
+    runner.last_updated = now;
+
+    if let Err(e) = runner.transport.update(duration, &mut runner.client) {
+        eprintln!("NETWORK ERROR: Transport Update Failed: {}", e);
+        std::io::stderr().flush().ok();
+
+        apply_client_transition(
+            &mut runner.session,
+            &mut runner.ui,
+            None,
+            ClientState::TransitioningToDisconnected {
+                message: format!("Transport error: {}.", e),
+            },
+        );
+        return;
+    }
+
+    if matches!(runner.session.state(), ClientState::Disconnected { .. }) {
+        return;
+    }
+
+    let ui_ref: &mut dyn ClientUi = &mut runner.ui;
+
+    match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES) {
+        Ok(Some(input)) => {
+            runner.session.add_input(input);
         }
+        Err(UiInputError::Disconnected) => {
+            apply_client_transition(
+                &mut runner.session,
+                &mut runner.ui,
+                None,
+                ClientState::TransitioningToDisconnected {
+                    message: "Input source disconnected (Ctrl+C or window closed).".to_string(),
+                },
+            );
+            return;
+        }
+        Ok(None) => {}
+    }
+
+    runner.client.update(duration);
+    runner.session.estimated_server_time += duration.as_secs_f64();
+
+    {
+        let mut network_handle = RenetNetworkHandle::new(&mut runner.client, &mut runner.transport);
+        update_estimated_server_time(&mut runner.session, &mut network_handle);
+        update_client_state(&mut runner.session, &mut runner.ui, &mut network_handle);
+    }
+
+    if matches!(runner.session.state(), ClientState::Disconnected { .. }) {
+        return;
+    }
+
+    if let Err(e) = runner.transport.send_packets(&mut runner.client) {
+        apply_client_transition(
+            &mut runner.session,
+            &mut runner.ui,
+            None,
+            ClientState::TransitioningToDisconnected {
+                message: format!("Error sending packets: {}.", e),
+            },
+        );
     }
 }
 
@@ -145,6 +209,7 @@ fn update_client_state(
             state_handlers::difficulty::handle(session, ui, network_handle)
         }
         ClientState::Countdown => state_handlers::countdown::handle(session, ui, network_handle),
+        ClientState::TransitioningToDisconnected { .. } => None,
         ClientState::Disconnected { .. } => None,
         ClientState::InGame { .. } => state_handlers::game::handle(session, ui, network_handle),
     };
@@ -164,10 +229,8 @@ fn update_estimated_server_time(session: &mut ClientSession, network: &mut Renet
                 let delta = target_time - session.estimated_server_time;
 
                 if delta.abs() > 1.0 {
-                    // Snap instantly if we are way off, e.g. on startup.
                     session.estimated_server_time = target_time;
                 } else {
-                    // Otherwise move 10% of the way toward the target per update.
                     let alpha = 0.1;
                     session.estimated_server_time += delta * alpha;
                 }
@@ -180,9 +243,16 @@ fn update_estimated_server_time(session: &mut ClientSession, network: &mut Renet
 fn apply_client_transition(
     session: &mut ClientSession,
     ui: &mut dyn ClientUi,
-    network: Option<&mut dyn NetworkHandle>,
+    _network: Option<&mut dyn NetworkHandle>,
     new_state: ClientState,
 ) {
+    if let ClientState::TransitioningToDisconnected { message } = new_state {
+        ui.show_status_line(&format!("Disconnected: {}", message));
+
+        session.transition(ClientState::Disconnected { message });
+        return;
+    }
+
     session.transition(new_state);
 
     match session.state_mut() {
@@ -192,21 +262,10 @@ fn apply_client_transition(
                 *prompt_printed = true;
             }
         }
-        ClientState::Authenticating { .. } => {
-            let network = network.expect("network handle required for Authenticating transition");
-            if let Some(passcode) = session.take_first_passcode() {
-                ui.show_message(&format!(
-                    "Transport connected. Sending passcode: {}.",
-                    passcode.string
-                ));
-
-                let message = ClientMessage::SendPasscode(passcode.bytes);
-                let payload =
-                    encode_to_vec(&message, standard()).expect("failed to serialize SendPasscode");
-                network.send_message(AppChannel::ReliableOrdered, payload);
-            } else {
-                ui.show_message("Internal error: No passcode to send.");
-            }
+        ClientState::Authenticating {
+            waiting_for_input, ..
+        } => {
+            *waiting_for_input = true;
         }
         ClientState::ChoosingUsername { prompt_printed, .. } => {
             if !*prompt_printed {
@@ -218,9 +277,6 @@ fn apply_client_transition(
             session.expect_initial_roster();
         }
         ClientState::ChoosingDifficulty { prompt_printed, .. } => {
-            execute!(stdout(), MoveToColumn(0), Clear(ClearType::CurrentLine))
-                .expect("failed to clear line");
-
             if !*prompt_printed {
                 ui.show_message("Server: Choose a difficulty level:");
                 ui.show_message("  1. Easy");
@@ -234,17 +290,9 @@ fn apply_client_transition(
             if let Some(players) = session.players.as_ref() {
                 print_player_list(ui, session, players);
             }
-            execute!(stdout(), Hide).expect("failed to hide cursor");
         }
         ClientState::Disconnected { message } => {
-            execute!(
-                stdout(),
-                MoveToColumn(0),
-                Clear(ClearType::CurrentLine),
-                Show
-            )
-            .expect("failed to show cursor and clear line");
-            ui.show_message(message);
+            ui.show_status_line(message);
         }
         _ => {}
     }
