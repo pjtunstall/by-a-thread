@@ -121,6 +121,7 @@ pub async fn run_client_loop(
         next_frame().await;
     }
 }
+
 fn client_frame_update(runner: &mut ClientRunner) {
     let now = Instant::now();
     let duration = now - runner.last_updated;
@@ -180,6 +181,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
         );
     }
 }
+
 fn update_client_state(
     session: &mut ClientSession,
     ui: &mut dyn ClientUi,
@@ -207,6 +209,7 @@ fn update_client_state(
         apply_client_transition(session, ui, Some(network_handle), new_state);
     }
 }
+
 fn update_estimated_server_time(session: &mut ClientSession, network: &mut RenetNetworkHandle) {
     while let Some(message) = network.receive_message(AppChannel::ServerTime) {
         match bincode::serde::decode_from_slice(&message, bincode::config::standard()) {
@@ -226,6 +229,7 @@ fn update_estimated_server_time(session: &mut ClientSession, network: &mut Renet
         }
     }
 }
+
 fn apply_client_transition(
     session: &mut ClientSession,
     ui: &mut dyn ClientUi,
@@ -283,6 +287,7 @@ fn apply_client_transition(
         _ => {}
     }
 }
+
 pub fn print_player_list(
     ui: &mut dyn ClientUi,
     session: &ClientSession,

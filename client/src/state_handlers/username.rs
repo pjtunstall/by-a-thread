@@ -164,7 +164,6 @@ mod tests {
             0,
             "packet was sent despite invalid username length."
         );
-
         assert_eq!(ui.errors.len(), 1, "expected exactly one error message.");
         assert!(
             ui.errors[0].contains("too long"),
