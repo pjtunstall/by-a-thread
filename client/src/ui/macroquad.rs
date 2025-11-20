@@ -32,15 +32,44 @@ impl MacroquadUi {
     }
 
     fn add_history(&mut self, message: &str, color: Color) {
-        let max_chars_per_line = (screen_width() / FONT_SIZE * 1.5) as usize;
+        let max_width = screen_width() - 20.0;
+
+        let font = None;
+        let line_spacing = 1.0;
+
         let mut wrapped_message = String::new();
+
         for line in message.lines() {
             if line.is_empty() {
                 wrapped_message.push('\n');
                 continue;
             }
-            for chunk in line.as_bytes().chunks(max_chars_per_line) {
-                wrapped_message.push_str(std::str::from_utf8(chunk).unwrap_or("..."));
+
+            let words: Vec<&str> = line.split_whitespace().collect();
+            let mut current_line = String::new();
+
+            for word in words {
+                let next_line_content = if current_line.is_empty() {
+                    word.to_string()
+                } else {
+                    format!("{} {}", current_line, word)
+                };
+
+                let text_dims =
+                    measure_text(&next_line_content, font, FONT_SIZE as u16, line_spacing);
+
+                if text_dims.width > max_width && !current_line.is_empty() {
+                    wrapped_message.push_str(&current_line);
+                    wrapped_message.push('\n');
+
+                    current_line = word.to_string();
+                } else {
+                    current_line = next_line_content;
+                }
+            }
+
+            if !current_line.is_empty() {
+                wrapped_message.push_str(&current_line);
                 wrapped_message.push('\n');
             }
         }
