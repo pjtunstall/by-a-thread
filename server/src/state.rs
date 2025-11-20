@@ -29,7 +29,6 @@ impl ChoosingDifficulty {
     pub fn set_difficulty(&mut self, level: u8) {
         self.difficulty = level;
     }
-    // Implementation for remove_client is delegated to Lobby in ServerState::remove_client
 }
 
 #[derive(Clone)]

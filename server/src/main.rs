@@ -1,38 +1,10 @@
-use std::{
-    io::{self, stdout},
-    process,
-};
-
-use crossterm::{
-    cursor::{MoveToColumn, Show},
-    execute,
-    style::Print,
-    terminal::{Clear, ClearType},
-};
+use std::{io, process};
 
 use server;
 use shared;
 
-struct Defer {}
-
-impl Defer {
-    fn new() -> Self {
-        execute!(stdout(), Show).ok();
-        Defer {}
-    }
-}
-
-impl Drop for Defer {
-    fn drop(&mut self) {
-        clean_up();
-    }
-}
-
 fn main() {
-    let _defer = Defer::new();
-
     ctrlc::set_handler(move || {
-        clean_up();
         println!("Server forced to shut down.");
         std::process::exit(0);
     })
@@ -57,15 +29,4 @@ fn main() {
     };
 
     server::run::run_server(socket, server_addr, private_key);
-}
-
-fn clean_up() {
-    execute!(
-        stdout(),
-        Show,
-        MoveToColumn(0),
-        Clear(ClearType::CurrentLine), // In particular, clear the "Game starting..." line.
-        Print("\r\n")                  // Print a newline for the shell prompt.
-    )
-    .ok();
 }

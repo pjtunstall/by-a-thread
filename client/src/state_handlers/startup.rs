@@ -123,14 +123,12 @@ mod tests {
 
         let mut ui = MockUi::default();
 
-        // --- First run (consumes input, shows error, sets prompt_printed = true) ---
         let next = handle(&mut session, &mut ui);
 
         assert!(next.is_none());
         assert_eq!(ui.errors.len(), 1);
         assert_eq!(ui.prompts.len(), 1, "Should show one prompt for the retry");
 
-        // --- Second run (should show nothing, as prompt_printed is true and no input is present) ---
         ui.errors.clear();
         ui.prompts.clear();
 

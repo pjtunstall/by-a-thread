@@ -122,7 +122,6 @@ pub fn sanitize_username(input: &str) -> Result<String, UsernameError> {
         return Err(UsernameError::InvalidCharacter(invalid));
     }
 
-    // Check for reserved names (case-insensitive).
     let lowercase = trimmed.to_lowercase();
     if lowercase == "server"
         || lowercase == "admin"

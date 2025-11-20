@@ -94,7 +94,6 @@ pub async fn run_client_loop(
     );
 
     loop {
-        // Handle forced exit via Escape key when the client is NOT disconnected
         if is_key_pressed(KeyCode::Escape)
             && !matches!(runner.session.state(), ClientState::Disconnected { .. })
         {
