@@ -60,7 +60,7 @@ impl MacroquadUi {
         let prompt_y = screen_height() - line_height;
         let mut y = prompt_y - line_height;
 
-        draw_text(&self.status_message, 10.0, 30.0, FONT_SIZE, BANNER_COLOR);
+        draw_text(&self.status_message, 10.0, 30.0, FONT_SIZE, ERROR_COLOR);
 
         for (message, color) in self.message_history.iter().rev() {
             let lines: Vec<&str> = message.lines().collect();
