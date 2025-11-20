@@ -109,7 +109,6 @@ pub async fn run_client_loop(
 
         client_frame_update(&mut runner);
 
-        // Determine if we should show the input prompt
         let show_input = !matches!(
             runner.session.state(),
             ClientState::ChoosingDifficulty {
