@@ -23,6 +23,8 @@ pub fn handle(
     }
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
+        ui.show_status_line("");
+
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((
                 ServerMessage::CountdownStarted {

@@ -22,7 +22,6 @@ pub fn handle(
         );
     }
 
-    // Process immediate server messages (e.g., late connection rejection)
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::ServerInfo { message }, _)) => {
@@ -37,6 +36,8 @@ pub fn handle(
     }
 
     if network.is_connected() {
+        ui.show_status_line("");
+
         if let Some(passcode) = session.take_first_passcode() {
             ui.show_message(&format!(
                 "Transport connected. Sending passcode: {}.",
@@ -59,7 +60,6 @@ pub fn handle(
             })
         }
     } else if network.is_disconnected() {
-        // FIX: Use TransitioningToDisconnected for graceful exit
         Some(ClientState::TransitioningToDisconnected {
             message: format!("Connection failed: {}.", network.get_disconnect_reason()),
         })
