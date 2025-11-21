@@ -93,7 +93,7 @@ pub async fn run_client_loop(
                 &mut runner.ui,
                 None,
                 ClientState::TransitioningToDisconnected {
-                    message: "Client closed by user.".to_string(),
+                    message: "client closed by user.".to_string(),
                 },
             );
         }
@@ -138,7 +138,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
             &mut runner.ui,
             None,
             ClientState::TransitioningToDisconnected {
-                message: format!("Transport error: {}.", e),
+                message: format!("transport error: {}.", e),
             },
         );
         return;
@@ -159,7 +159,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
                 &mut runner.ui,
                 None,
                 ClientState::TransitioningToDisconnected {
-                    message: "Input source disconnected (Ctrl+C or window closed).".to_string(),
+                    message: "input source disconnected (Ctrl+C or window closed).".to_string(),
                 },
             );
             return;
@@ -248,7 +248,7 @@ fn apply_client_transition(
     new_state: ClientState,
 ) {
     if let ClientState::TransitioningToDisconnected { message } = new_state {
-        ui.show_status_line(&format!("Oh no: {}.", message));
+        ui.show_status_line(&format!("Connection lost: {}.", message));
         session.transition(ClientState::Disconnected { message });
         return;
     }
