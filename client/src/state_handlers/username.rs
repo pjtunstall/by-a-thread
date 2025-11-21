@@ -71,6 +71,7 @@ pub fn handle(
                         let payload = encode_to_vec(&message, standard())
                             .expect("failed to serialize SetUsername");
                         network.send_message(AppChannel::ReliableOrdered, payload);
+                        ui.show_status_line("Waiting for server...");
 
                         *awaiting_confirmation = true;
                     }

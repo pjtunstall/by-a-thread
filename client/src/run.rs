@@ -186,7 +186,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
             &mut runner.ui,
             None,
             ClientState::TransitioningToDisconnected {
-                message: format!("error sending packets: {}", e),
+                message: format!("{}", e),
             },
         );
     }
@@ -248,7 +248,7 @@ fn apply_client_transition(
     new_state: ClientState,
 ) {
     if let ClientState::TransitioningToDisconnected { message } = new_state {
-        ui.show_status_line(&format!("Disconnected: {}", message));
+        ui.show_status_line(&format!("Oh no: {}.", message));
         session.transition(ClientState::Disconnected { message });
         return;
     }
