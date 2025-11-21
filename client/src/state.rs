@@ -14,8 +14,8 @@ pub enum ClientState {
     },
     ChoosingUsername {
         prompt_printed: bool,
-        awaiting_confirmation: bool,
     },
+    AwaitingUsernameConfirmation,
     InChat,
     Countdown,
     Disconnected {
@@ -42,6 +42,13 @@ impl ClientState {
         )
     }
 
+    pub fn allows_input_polling(&self) -> bool {
+        !matches!(
+            self,
+            ClientState::AwaitingUsernameConfirmation | ClientState::Countdown
+        )
+    }
+
     pub fn is_disconnected(&self) -> bool {
         matches!(self, ClientState::Disconnected { .. })
     }
@@ -56,6 +63,7 @@ impl ClientState {
                 | ClientState::Disconnected { .. }
                 | ClientState::TransitioningToDisconnected { .. }
                 | ClientState::InGame { .. }
+                | ClientState::AwaitingUsernameConfirmation
         )
     }
 }

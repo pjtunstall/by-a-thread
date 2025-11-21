@@ -148,23 +148,25 @@ fn client_frame_update(runner: &mut ClientRunner) {
         return;
     }
 
-    let ui_ref: &mut dyn ClientUi = &mut runner.ui;
-    match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES) {
-        Ok(Some(input)) => {
-            runner.session.add_input(input);
+    if runner.session.state().allows_input_polling() {
+        let ui_ref: &mut dyn ClientUi = &mut runner.ui;
+        match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES) {
+            Ok(Some(input)) => {
+                runner.session.add_input(input);
+            }
+            Err(UiInputError::Disconnected) => {
+                apply_client_transition(
+                    &mut runner.session,
+                    &mut runner.ui,
+                    None,
+                    ClientState::TransitioningToDisconnected {
+                        message: "input source disconnected (Ctrl+C or window closed).".to_string(),
+                    },
+                );
+                return;
+            }
+            Ok(None) => {}
         }
-        Err(UiInputError::Disconnected) => {
-            apply_client_transition(
-                &mut runner.session,
-                &mut runner.ui,
-                None,
-                ClientState::TransitioningToDisconnected {
-                    message: "input source disconnected (Ctrl+C or window closed).".to_string(),
-                },
-            );
-            return;
-        }
-        Ok(None) => {}
     }
 
     runner.client.update(duration);
@@ -205,6 +207,9 @@ fn update_client_state(
         }
         ClientState::ChoosingUsername { .. } => {
             state_handlers::username::handle(session, ui, network_handle)
+        }
+        ClientState::AwaitingUsernameConfirmation => {
+            state_handlers::waiting::handle(session, ui, network_handle)
         }
         ClientState::InChat => state_handlers::chat::handle(session, ui, network_handle),
         ClientState::ChoosingDifficulty { .. } => {
@@ -247,7 +252,7 @@ fn apply_client_transition(
         } => {
             *waiting_for_input = true;
         }
-        ClientState::ChoosingUsername { prompt_printed, .. } => {
+        ClientState::ChoosingUsername { prompt_printed } => {
             if !*prompt_printed {
                 ui.show_prompt(&session::username_prompt());
                 *prompt_printed = true;

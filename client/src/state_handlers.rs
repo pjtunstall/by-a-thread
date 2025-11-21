@@ -6,6 +6,7 @@ pub mod difficulty;
 pub mod game;
 pub mod startup;
 pub mod username;
+pub mod waiting;
 
 #[cfg(test)]
 mod tests {
@@ -61,7 +62,6 @@ mod tests {
         let mut session_user = ClientSession::new(0);
         session_user.transition(ClientState::ChoosingUsername {
             prompt_printed: true,
-            awaiting_confirmation: true,
         });
         let mut ui_user = MockUi::new();
         let mut network_user = MockNetwork::new();

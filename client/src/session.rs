@@ -74,13 +74,10 @@ impl ClientSession {
 
     pub fn with_choosing_username<F, R>(&mut self, f: F) -> Option<R>
     where
-        F: FnOnce(&mut bool, &mut bool) -> R,
+        F: FnOnce(&mut bool) -> R,
     {
         match &mut self.state {
-            ClientState::ChoosingUsername {
-                prompt_printed,
-                awaiting_confirmation,
-            } => Some(f(prompt_printed, awaiting_confirmation)),
+            ClientState::ChoosingUsername { prompt_printed } => Some(f(prompt_printed)),
             _ => None,
         }
     }

@@ -41,7 +41,6 @@ pub fn handle(
                 if message.starts_with("Authentication successful!") {
                     return Some(ClientState::ChoosingUsername {
                         prompt_printed: false,
-                        awaiting_confirmation: false,
                     });
                 } else if message.starts_with("Incorrect passcode. Try again.") {
                     if let ClientState::Authenticating {
