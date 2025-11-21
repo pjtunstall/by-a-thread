@@ -31,8 +31,8 @@ impl Drop for Defer {
 fn clean_up() {
     execute!(
         stdout(),
-        Show,
-        MoveToColumn(0),
+        Show,                          // Restore the cursor, which is hidden during the
+        MoveToColumn(0),               // countdown.
         Clear(ClearType::CurrentLine), // In particular, clear the "Game starting..." line.
         Print("\r\n")                  // Print a newline for the shell prompt.
     )
