@@ -85,9 +85,7 @@ pub async fn run_client_loop(
     );
 
     loop {
-        if is_key_pressed(KeyCode::Escape)
-            && !matches!(runner.session.state(), ClientState::Disconnected { .. })
-        {
+        if is_key_pressed(KeyCode::Escape) && runner.session.state().allows_user_disconnect() {
             apply_client_transition(
                 &mut runner.session,
                 &mut runner.ui,
@@ -100,34 +98,26 @@ pub async fn run_client_loop(
 
         client_frame_update(&mut runner);
 
-        let is_countdown_active = matches!(runner.session.state(), ClientState::Countdown)
-            && runner.session.countdown_end_time.is_some();
-        if !is_countdown_active {
-            let show_input = !matches!(
-                runner.session.state(),
-                ClientState::ChoosingDifficulty {
-                    choice_sent: true,
-                    ..
-                } | ClientState::Countdown
-                    | ClientState::Disconnected { .. }
-                    | ClientState::TransitioningToDisconnected { .. }
-                    | ClientState::InGame { .. }
-            );
+        if !runner.session.is_countdown_active() {
+            let show_input = runner.session.state().should_show_input_box();
             runner.ui.draw(show_input);
         }
 
-        let is_disconnected = matches!(runner.session.state(), ClientState::Disconnected { .. });
-        if is_disconnected {
-            loop {
-                runner.ui.draw(false);
-                if is_key_pressed(KeyCode::Escape) {
-                    break;
-                }
-                next_frame().await;
-            }
+        if runner.session.state().is_disconnected() {
+            handle_disconnected_ui_loop(&mut runner).await;
             break;
         }
 
+        next_frame().await;
+    }
+}
+
+async fn handle_disconnected_ui_loop(runner: &mut ClientRunner) {
+    loop {
+        runner.ui.draw(false);
+        if is_key_pressed(KeyCode::Escape) {
+            break;
+        }
         next_frame().await;
     }
 }
@@ -149,7 +139,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
         );
         return;
     }
-    if matches!(runner.session.state(), ClientState::Disconnected { .. }) {
+    if runner.session.state().is_disconnected() {
         return;
     }
     let ui_ref: &mut dyn ClientUi = &mut runner.ui;
@@ -177,7 +167,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
         update_estimated_server_time(&mut runner.session, &mut network_handle);
         update_client_state(&mut runner.session, &mut runner.ui, &mut network_handle);
     }
-    if matches!(runner.session.state(), ClientState::Disconnected { .. }) {
+    if runner.session.state().is_disconnected() {
         return;
     }
     if let Err(e) = runner.transport.send_packets(&mut runner.client) {

@@ -36,6 +36,32 @@ pub enum ClientState {
     },
 }
 
+impl ClientState {
+    pub fn allows_user_disconnect(&self) -> bool {
+        !matches!(
+            self,
+            ClientState::Disconnected { .. } | ClientState::TransitioningToDisconnected { .. }
+        )
+    }
+
+    pub fn is_disconnected(&self) -> bool {
+        matches!(self, ClientState::Disconnected { .. })
+    }
+
+    pub fn should_show_input_box(&self) -> bool {
+        !matches!(
+            self,
+            ClientState::ChoosingDifficulty {
+                choice_sent: true,
+                ..
+            } | ClientState::Countdown
+                | ClientState::Disconnected { .. }
+                | ClientState::TransitioningToDisconnected { .. }
+                | ClientState::InGame { .. }
+        )
+    }
+}
+
 pub struct ClientSession {
     pub client_id: u64,
     pub state: ClientState,
@@ -124,6 +150,10 @@ impl ClientSession {
         } else {
             Some(self.input_queue.remove(0))
         }
+    }
+
+    pub fn is_countdown_active(&self) -> bool {
+        matches!(self.state(), ClientState::Countdown) && self.countdown_end_time.is_some()
     }
 }
 
