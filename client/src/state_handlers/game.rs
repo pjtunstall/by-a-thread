@@ -1,8 +1,4 @@
-use crate::{
-    net::NetworkHandle,
-    state::{ClientSession, ClientState},
-    ui::ClientUi,
-};
+use crate::{net::NetworkHandle, session::ClientSession, state::ClientState, ui::ClientUi};
 
 pub fn handle(
     session: &mut ClientSession,

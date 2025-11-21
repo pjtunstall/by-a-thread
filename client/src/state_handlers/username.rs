@@ -5,7 +5,8 @@ use bincode::{
 
 use crate::{
     net::NetworkHandle,
-    state::{ClientSession, ClientState, username_prompt, validate_username_input},
+    session::{ClientSession, username_prompt, validate_username_input},
+    state::ClientState,
     ui::ClientUi,
 };
 use shared::{
@@ -109,16 +110,12 @@ pub fn handle(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        state::{ClientSession, ClientState},
-        test_helpers::{MockNetwork, MockUi},
-    };
+    use crate::test_helpers::{MockNetwork, MockUi};
     use shared::player::MAX_USERNAME_LENGTH;
     use shared::protocol::ServerMessage;
 
     mod guards {
         use super::*;
-        use crate::state::{ClientSession, ClientState};
 
         #[test]
         #[should_panic(

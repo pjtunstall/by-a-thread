@@ -4,7 +4,8 @@ use bincode::{
 };
 
 use crate::{
-    state::{ClientSession, ClientState},
+    session::ClientSession,
+    state::ClientState,
     {net::NetworkHandle, ui::ClientUi},
 };
 use shared::{

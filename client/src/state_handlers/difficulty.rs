@@ -3,11 +3,7 @@ use bincode::{
     serde::{decode_from_slice, encode_to_vec},
 };
 
-use crate::{
-    net::NetworkHandle,
-    state::{ClientSession, ClientState},
-    ui::ClientUi,
-};
+use crate::{net::NetworkHandle, session::ClientSession, state::ClientState, ui::ClientUi};
 use shared::{
     net::AppChannel,
     protocol::{ClientMessage, ServerMessage},

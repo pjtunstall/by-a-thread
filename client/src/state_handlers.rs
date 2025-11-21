@@ -11,7 +11,8 @@ pub mod username;
 mod tests {
     use super::*;
     use crate::{
-        state::{ClientSession, ClientState},
+        session::ClientSession,
+        state::ClientState,
         test_helpers::{MockNetwork, MockUi},
         ui::ClientUi,
     };

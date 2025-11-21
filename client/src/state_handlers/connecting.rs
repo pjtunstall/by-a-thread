@@ -1,10 +1,6 @@
 use bincode::{config::standard, serde::decode_from_slice, serde::encode_to_vec};
 
-use crate::{
-    net::NetworkHandle,
-    state::{ClientSession, ClientState},
-    ui::ClientUi,
-};
+use crate::{net::NetworkHandle, session::ClientSession, state::ClientState, ui::ClientUi};
 use shared::{
     auth::MAX_ATTEMPTS,
     net::AppChannel,
@@ -75,11 +71,7 @@ mod tests {
 
     mod guards {
         use super::*;
-        use crate::{
-            state::{ClientSession, ClientState},
-            test_helpers::MockNetwork,
-            test_helpers::MockUi,
-        };
+        use crate::{test_helpers::MockNetwork, test_helpers::MockUi};
 
         #[test]
         #[should_panic(

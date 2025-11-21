@@ -11,7 +11,8 @@ use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
 use crate::{
     net::{self, NetworkHandle, RenetNetworkHandle},
-    state::{self, ClientSession, ClientState},
+    session::{self, ClientSession},
+    state::ClientState,
     state_handlers,
     ui::{ClientUi, MacroquadUi, UiInputError},
 };
@@ -185,7 +186,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
             &mut runner.ui,
             None,
             ClientState::TransitioningToDisconnected {
-                message: format!("Error sending packets: {}.", e),
+                message: format!("error sending packets: {}", e),
             },
         );
     }
@@ -268,7 +269,7 @@ fn apply_client_transition(
         }
         ClientState::ChoosingUsername { prompt_printed, .. } => {
             if !*prompt_printed {
-                ui.show_prompt(&state::username_prompt());
+                ui.show_prompt(&session::username_prompt());
                 *prompt_printed = true;
             }
         }

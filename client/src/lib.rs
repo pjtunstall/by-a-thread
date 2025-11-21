@@ -1,5 +1,6 @@
 pub mod net;
 pub mod run;
+pub mod session;
 pub mod state;
 pub mod state_handlers;
 pub mod test_helpers;

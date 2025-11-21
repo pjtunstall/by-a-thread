@@ -1,8 +1,5 @@
 use super::auth::{parse_passcode_input, passcode_prompt};
-use crate::{
-    state::{ClientSession, ClientState},
-    ui::ClientUi,
-};
+use crate::{session::ClientSession, state::ClientState, ui::ClientUi};
 use shared::auth::MAX_ATTEMPTS;
 
 pub fn handle(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<ClientState> {
@@ -60,7 +57,6 @@ mod tests {
 
     mod guards {
         use super::*;
-        use crate::state::{ClientSession, ClientState};
 
         #[test]
         #[should_panic(

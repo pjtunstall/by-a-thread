@@ -3,11 +3,7 @@ use bincode::{
     serde::{decode_from_slice, encode_to_vec},
 };
 
-use crate::{
-    net::NetworkHandle,
-    state::{ClientSession, ClientState},
-    ui::ClientUi,
-};
+use crate::{net::NetworkHandle, session::ClientSession, state::ClientState, ui::ClientUi};
 use shared::{
     net::AppChannel,
     protocol::{ClientMessage, ServerMessage},
@@ -121,11 +117,7 @@ pub fn handle(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        state::{ClientSession, ClientState},
-        test_helpers::MockNetwork,
-        test_helpers::MockUi,
-    };
+    use crate::{test_helpers::MockNetwork, test_helpers::MockUi};
     use shared::chat::MAX_CHAT_MESSAGE_BYTES;
 
     mod guards {
