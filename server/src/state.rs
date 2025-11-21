@@ -7,6 +7,52 @@ use crate::net::ServerNetworkHandle;
 use bincode::{config::standard, serde::encode_to_vec};
 use shared::{maze, net::AppChannel, player::Player, protocol::ServerMessage};
 
+pub enum ServerState {
+    Lobby(Lobby),
+    ChoosingDifficulty(ChoosingDifficulty),
+    Countdown(Countdown),
+    InGame(InGame),
+}
+
+impl ServerState {
+    pub fn name(&self) -> &'static str {
+        match self {
+            ServerState::Lobby(_) => "Lobby",
+            ServerState::ChoosingDifficulty(_) => "ChoosingDifficulty",
+            ServerState::Countdown(_) => "Countdown",
+            ServerState::InGame(_) => "InGame",
+        }
+    }
+
+    pub fn register_connection(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
+        if let ServerState::Lobby(lobby) = self {
+            lobby.register_connection(client_id);
+        } else {
+            eprintln!(
+                "Client {} connected, but server is not in Lobby state. Sending disconnect message.",
+                client_id
+            );
+
+            let message = ServerMessage::ServerInfo {
+                message: "The game has already started. Disconnecting.".to_string(),
+            };
+            let payload = encode_to_vec(&message, standard())
+                .expect("failed to serialize ServerInfo message");
+
+            network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+        }
+    }
+
+    pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
+        match self {
+            ServerState::Lobby(lobby) => lobby.remove_client(client_id, network),
+            ServerState::ChoosingDifficulty(state) => state.lobby.remove_client(client_id, network),
+            ServerState::Countdown(countdown) => countdown.remove_client(client_id, network),
+            ServerState::InGame(in_game) => in_game.remove_client(client_id, network),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct ChoosingDifficulty {
     pub lobby: Lobby,
@@ -95,52 +141,6 @@ impl InGame {
             let payload =
                 encode_to_vec(&message, standard()).expect("failed to serialize UserLeft");
             network.broadcast_message(AppChannel::ReliableOrdered, payload);
-        }
-    }
-}
-
-pub enum ServerState {
-    Lobby(Lobby),
-    ChoosingDifficulty(ChoosingDifficulty),
-    Countdown(Countdown),
-    InGame(InGame),
-}
-
-impl ServerState {
-    pub fn name(&self) -> &'static str {
-        match self {
-            ServerState::Lobby(_) => "Lobby",
-            ServerState::ChoosingDifficulty(_) => "ChoosingDifficulty",
-            ServerState::Countdown(_) => "Countdown",
-            ServerState::InGame(_) => "InGame",
-        }
-    }
-
-    pub fn register_connection(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
-        if let ServerState::Lobby(lobby) = self {
-            lobby.register_connection(client_id);
-        } else {
-            eprintln!(
-                "Client {} connected, but server is not in Lobby state. Sending disconnect message.",
-                client_id
-            );
-
-            let message = ServerMessage::ServerInfo {
-                message: "The game has already started. Disconnecting.".to_string(),
-            };
-            let payload = encode_to_vec(&message, standard())
-                .expect("failed to serialize ServerInfo message");
-
-            network.send_message(client_id, AppChannel::ReliableOrdered, payload);
-        }
-    }
-
-    pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
-        match self {
-            ServerState::Lobby(lobby) => lobby.remove_client(client_id, network),
-            ServerState::ChoosingDifficulty(state) => state.lobby.remove_client(client_id, network),
-            ServerState::Countdown(countdown) => countdown.remove_client(client_id, network),
-            ServerState::InGame(in_game) => in_game.remove_client(client_id, network),
         }
     }
 }
