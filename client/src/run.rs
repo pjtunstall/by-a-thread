@@ -1,19 +1,22 @@
-use crate::{
-    net::{self, NetworkHandle, RenetNetworkHandle},
-    state::{self, ClientSession, ClientState},
-    state_handlers,
-    ui::{ClientUi, MacroquadUi, UiInputError},
-};
-use macroquad::prelude::{KeyCode, is_key_pressed, next_frame};
-use renet::RenetClient;
-use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
-use shared::{self, auth::MAX_ATTEMPTS, net::AppChannel, player::Player, protocol::ServerMessage};
 use std::{
     collections::HashMap,
     io::Write,
     net::{SocketAddr, UdpSocket},
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
+
+use macroquad::prelude::{KeyCode, is_key_pressed, next_frame};
+use renet::RenetClient;
+use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
+
+use crate::{
+    net::{self, NetworkHandle, RenetNetworkHandle},
+    state::{self, ClientSession, ClientState},
+    state_handlers,
+    ui::{ClientUi, MacroquadUi, UiInputError},
+};
+use shared::{self, auth::MAX_ATTEMPTS, net::AppChannel, player::Player, protocol::ServerMessage};
+
 pub struct ClientRunner {
     session: ClientSession,
     client: RenetClient,
@@ -21,6 +24,7 @@ pub struct ClientRunner {
     ui: MacroquadUi,
     last_updated: Instant,
 }
+
 impl ClientRunner {
     pub fn new(
         socket: UdpSocket,
@@ -58,6 +62,7 @@ impl ClientRunner {
         })
     }
 }
+
 pub async fn run_client_loop(
     socket: UdpSocket,
     server_addr: SocketAddr,

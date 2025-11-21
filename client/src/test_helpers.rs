@@ -1,5 +1,4 @@
-use std::collections::VecDeque;
-use std::net::SocketAddr;
+use std::{collections::VecDeque, net::SocketAddr};
 
 use bincode::{config::standard, serde::encode_to_vec};
 

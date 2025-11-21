@@ -1,8 +1,8 @@
 use bincode::{config::standard, serde::decode_from_slice};
 
-use crate::state::{ClientSession, ClientState};
 use crate::{
     net::NetworkHandle,
+    state::{ClientSession, ClientState},
     ui::{ClientUi, UiInputError},
 };
 use shared::{net::AppChannel, protocol::ServerMessage};

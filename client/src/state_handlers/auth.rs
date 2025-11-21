@@ -3,11 +3,15 @@ use bincode::{
     serde::{decode_from_slice, encode_to_vec},
 };
 
-use crate::state::{ClientSession, ClientState};
-use crate::{net::NetworkHandle, ui::ClientUi};
-use shared::auth::{MAX_ATTEMPTS, Passcode};
-use shared::net::AppChannel;
-use shared::protocol::{ClientMessage, ServerMessage};
+use crate::{
+    state::{ClientSession, ClientState},
+    {net::NetworkHandle, ui::ClientUi},
+};
+use shared::{
+    auth::{MAX_ATTEMPTS, Passcode},
+    net::AppChannel,
+    protocol::{ClientMessage, ServerMessage},
+};
 
 pub fn handle(
     session: &mut ClientSession,

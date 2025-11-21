@@ -1,12 +1,17 @@
-use crate::net::NetworkHandle;
-use crate::state::{ClientSession, ClientState, username_prompt, validate_username_input};
-use crate::ui::ClientUi;
 use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
 };
-use shared::net::AppChannel;
-use shared::protocol::{ClientMessage, ServerMessage};
+
+use crate::{
+    net::NetworkHandle,
+    state::{ClientSession, ClientState, username_prompt, validate_username_input},
+    ui::ClientUi,
+};
+use shared::{
+    net::AppChannel,
+    protocol::{ClientMessage, ServerMessage},
+};
 
 pub fn handle(
     session: &mut ClientSession,
