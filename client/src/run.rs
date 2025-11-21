@@ -53,6 +53,7 @@ impl ClientRunner {
         let connection_config = shared::net::connection_config();
         let client = RenetClient::new(connection_config);
         let session = ClientSession::new(client_id);
+
         Ok(Self {
             session,
             client,
@@ -118,6 +119,7 @@ async fn handle_disconnected_ui_loop(runner: &mut ClientRunner) {
         if is_key_pressed(KeyCode::Escape) {
             break;
         }
+
         next_frame().await;
     }
 }
@@ -126,6 +128,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
     let now = Instant::now();
     let duration = now - runner.last_updated;
     runner.last_updated = now;
+
     if let Err(e) = runner.transport.update(duration, &mut runner.client) {
         eprintln!("NETWORK ERROR: Transport Update Failed: {}.", e);
         std::io::stderr().flush().ok();
@@ -139,9 +142,11 @@ fn client_frame_update(runner: &mut ClientRunner) {
         );
         return;
     }
+
     if runner.session.state().is_disconnected() {
         return;
     }
+
     let ui_ref: &mut dyn ClientUi = &mut runner.ui;
     match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES) {
         Ok(Some(input)) => {
@@ -160,16 +165,20 @@ fn client_frame_update(runner: &mut ClientRunner) {
         }
         Ok(None) => {}
     }
+
     runner.client.update(duration);
     runner.session.estimated_server_time += duration.as_secs_f64();
+
     {
         let mut network_handle = RenetNetworkHandle::new(&mut runner.client, &mut runner.transport);
         update_estimated_server_time(&mut runner.session, &mut network_handle);
         update_client_state(&mut runner.session, &mut runner.ui, &mut network_handle);
     }
+
     if runner.session.state().is_disconnected() {
         return;
     }
+
     if let Err(e) = runner.transport.send_packets(&mut runner.client) {
         apply_client_transition(
             &mut runner.session,
@@ -242,7 +251,9 @@ fn apply_client_transition(
         session.transition(ClientState::Disconnected { message });
         return;
     }
+
     session.transition(new_state);
+
     match session.state_mut() {
         ClientState::Startup { prompt_printed } => {
             if !*prompt_printed {
