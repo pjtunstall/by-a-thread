@@ -28,11 +28,12 @@ pub fn handle(
     }
 
     if let Some(end_time) = session.countdown_end_time {
-        let time_remaining_secs = end_time - session.estimated_server_time;
+        let time_remaining = end_time - session.estimated_server_time;
 
-        if time_remaining_secs > 0.0 {
-            let countdown_value = time_remaining_secs.ceil() as u32;
-            let countdown_text = format!("{}", countdown_value.max(1));
+        if time_remaining > 0.0 {
+            let countdown_value_float = (time_remaining + 0.000001).trunc();
+            let countdown_value = (countdown_value_float as i64).max(1) as u32;
+            let countdown_text = format!("{}", countdown_value);
             ui.draw_countdown(&countdown_text);
         } else {
             if let Some(maze) = session.maze.take() {
