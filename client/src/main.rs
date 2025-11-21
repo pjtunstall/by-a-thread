@@ -1,9 +1,20 @@
+use macroquad::prelude::Conf;
+
 use std::net::UdpSocket;
 
 use client::{self, run, ui::MacroquadUi};
 use shared;
 
-#[macroquad::main("By a Thread")]
+fn window_conf() -> Conf {
+    Conf {
+        window_title: "By a Thread".to_owned(),
+        window_width: 1280,
+        window_height: 720,
+        ..Default::default()
+    }
+}
+
+#[macroquad::main(window_conf)]
 async fn main() {
     let server_addr = shared::net::server_address();
     let private_key = shared::auth::private_key();

@@ -14,6 +14,6 @@ pub fn handle(
 
     ui.show_sanitized_message("Exiting for now.");
     return Some(ClientState::TransitioningToDisconnected {
-        message: "".to_string(),
+        message: "next state not yet implemented".to_string(),
     });
 }

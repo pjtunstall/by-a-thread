@@ -233,7 +233,12 @@ fn apply_client_transition(
     new_state: ClientState,
 ) {
     if let ClientState::TransitioningToDisconnected { message } = new_state {
-        ui.show_status_line(&format!("Connection lost: {}.", message));
+        let rest = if message.is_empty() {
+            ".".to_string()
+        } else {
+            format!(": {}", message)
+        };
+        ui.show_status_line(&format!("Connection lost{}", rest));
         session.transition(ClientState::Disconnected { message });
         return;
     }
