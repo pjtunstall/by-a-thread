@@ -137,7 +137,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
     let duration = now - runner.last_updated;
     runner.last_updated = now;
     if let Err(e) = runner.transport.update(duration, &mut runner.client) {
-        eprintln!("NETWORK ERROR: Transport Update Failed: {}", e);
+        eprintln!("NETWORK ERROR: Transport Update Failed: {}.", e);
         std::io::stderr().flush().ok();
         apply_client_transition(
             &mut runner.session,
@@ -215,6 +215,7 @@ fn update_client_state(
         ClientState::Disconnected { .. } => None,
         ClientState::InGame { .. } => state_handlers::game::handle(session, ui, network_handle),
     };
+
     if let Some(new_state) = next_state_from_logic {
         apply_client_transition(session, ui, Some(network_handle), new_state);
     }
