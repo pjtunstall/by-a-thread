@@ -31,12 +31,8 @@ pub fn handle(
         let time_remaining_secs = end_time - session.estimated_server_time;
 
         if time_remaining_secs > 0.0 {
-            // FIX: Adjust the time remaining before taking the ceiling to synchronize with the server's count.
-            // This makes the number change when the fractional part drops to 0.0, instead of 0.000...001.
-            let countdown_value = (time_remaining_secs - 0.999999).ceil() as u32;
-
+            let countdown_value = time_remaining_secs.ceil() as u32;
             let countdown_text = format!("{}", countdown_value.max(1));
-
             ui.draw_countdown(&countdown_text);
         } else {
             if let Some(maze) = session.maze.take() {
