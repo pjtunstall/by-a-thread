@@ -16,7 +16,7 @@ use crate::{
     state_handlers,
     ui::{ClientUi, MacroquadUi, UiInputError},
 };
-use shared::{self, auth::MAX_ATTEMPTS, net::AppChannel, player::Player, protocol::ServerMessage};
+use shared::{self, auth::MAX_ATTEMPTS, player::Player};
 
 pub struct ClientRunner {
     session: ClientSession,
@@ -172,7 +172,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
 
     {
         let mut network_handle = RenetNetworkHandle::new(&mut runner.client, &mut runner.transport);
-        update_estimated_server_time(&mut runner.session, &mut network_handle);
+        crate::time::update_estimated_server_time(&mut runner.session, &mut network_handle);
         update_client_state(&mut runner.session, &mut runner.ui, &mut network_handle);
     }
 
@@ -218,26 +218,6 @@ fn update_client_state(
 
     if let Some(new_state) = next_state_from_logic {
         apply_client_transition(session, ui, Some(network_handle), new_state);
-    }
-}
-
-fn update_estimated_server_time(session: &mut ClientSession, network: &mut RenetNetworkHandle) {
-    while let Some(message) = network.receive_message(AppChannel::ServerTime) {
-        match bincode::serde::decode_from_slice(&message, bincode::config::standard()) {
-            Ok((ServerMessage::ServerTime(server_sent_time), _)) => {
-                let rtt = network.rtt();
-                let one_way_latency = (rtt / 1000.0) / 2.0;
-                let target_time = server_sent_time + one_way_latency;
-                let delta = target_time - session.estimated_server_time;
-                if delta.abs() > 1.0 {
-                    session.estimated_server_time = target_time;
-                } else {
-                    let alpha = 0.1;
-                    session.estimated_server_time += delta * alpha;
-                }
-            }
-            _ => {}
-        }
     }
 }
 
