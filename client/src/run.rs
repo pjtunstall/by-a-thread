@@ -76,12 +76,14 @@ pub async fn run_client_loop(
             return;
         }
     };
+
     let ui_ref: &mut dyn ClientUi = &mut runner.ui;
     ui_ref.print_client_banner(
         shared::protocol::version(),
         server_addr,
         runner.session.client_id,
     );
+
     loop {
         if is_key_pressed(KeyCode::Escape)
             && !matches!(runner.session.state(), ClientState::Disconnected { .. })
@@ -95,12 +97,12 @@ pub async fn run_client_loop(
                 },
             );
         }
+
         client_frame_update(&mut runner);
+
         let is_countdown_active = matches!(runner.session.state(), ClientState::Countdown)
             && runner.session.countdown_end_time.is_some();
-        let is_disconnected = matches!(runner.session.state(), ClientState::Disconnected { .. });
-        if is_countdown_active {
-        } else {
+        if !is_countdown_active {
             let show_input = !matches!(
                 runner.session.state(),
                 ClientState::ChoosingDifficulty {
@@ -113,6 +115,8 @@ pub async fn run_client_loop(
             );
             runner.ui.draw(show_input);
         }
+
+        let is_disconnected = matches!(runner.session.state(), ClientState::Disconnected { .. });
         if is_disconnected {
             loop {
                 runner.ui.draw(false);
@@ -123,6 +127,7 @@ pub async fn run_client_loop(
             }
             break;
         }
+
         next_frame().await;
     }
 }
