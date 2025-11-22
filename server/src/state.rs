@@ -25,21 +25,22 @@ impl ServerState {
     }
 
     pub fn register_connection(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
-        if let ServerState::Lobby(lobby) = self {
-            lobby.register_connection(client_id);
-        } else {
-            eprintln!(
-                "Client {} connected, but server is not in Lobby state. Sending disconnect message.",
-                client_id
-            );
+        match self {
+            ServerState::Lobby(lobby) => lobby.register_connection(client_id),
+            _ => {
+                eprintln!(
+                    "Client {} connected, but server is not in Lobby state. Informing and closing locally.",
+                    client_id
+                );
 
-            let message = ServerMessage::ServerInfo {
-                message: "The game has already started. Disconnecting.".to_string(),
-            };
-            let payload = encode_to_vec(&message, standard())
-                .expect("failed to serialize ServerInfo message");
+                let message = ServerMessage::ServerInfo {
+                    message: "game already started: disconnecting".to_string(),
+                };
+                let payload = encode_to_vec(&message, standard())
+                    .expect("failed to serialize ServerInfo message");
 
-            network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+                network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+            }
         }
     }
 
@@ -166,7 +167,7 @@ impl Lobby {
     pub fn set_host(&mut self, id: u64, network: &mut dyn ServerNetworkHandle) {
         self.host_client_id = Some(id);
         let message = ServerMessage::ServerInfo {
-            message: "  You have been appointed host.\r\n  Press TAB to start a game.".to_string(),
+            message: "You have been appointed host. Press TAB to begin.".to_string(),
         };
         let payload = encode_to_vec(&message, standard()).expect("failed to serialize ServerInfo");
         network.send_message(id, AppChannel::ReliableOrdered, payload);
@@ -252,6 +253,12 @@ impl Lobby {
                 }
             })
             .collect()
+    }
+
+    pub fn pending_clients(&self) -> Vec<u64> {
+        let mut pending: HashSet<u64> = self.auth_attempts.keys().cloned().collect();
+        pending.extend(self.pending_usernames.iter().cloned());
+        pending.into_iter().collect()
     }
 }
 

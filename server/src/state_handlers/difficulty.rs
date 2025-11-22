@@ -127,7 +127,16 @@ pub fn handle(
                         network.broadcast_message(AppChannel::ReliableOrdered, payload);
                     }
                 }
-                _ => {
+                ClientMessage::SendPasscode(_) | ClientMessage::SetUsername(_) => {
+                    let msg = ServerMessage::ServerInfo {
+                        message: "The game has already started. Disconnecting.".to_string(),
+                    };
+                    let payload =
+                        encode_to_vec(&msg, standard()).expect("failed to serialize ServerInfo");
+                    network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+                }
+                ClientMessage::RequestStartGame => {
+                    // Ignore: only host should be choosing difficulty and the game is already starting.
                     eprintln!(
                         "Client {} sent unexpected message in difficulty choice state.",
                         client_id

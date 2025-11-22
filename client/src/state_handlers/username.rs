@@ -1,4 +1,4 @@
-use bincode::{config::standard, serde::encode_to_vec};
+use bincode::{config::standard, serde::{decode_from_slice, encode_to_vec}};
 
 use crate::{
     net::NetworkHandle,
@@ -14,13 +14,21 @@ use shared::{
 pub fn handle(
     session: &mut ClientSession,
     ui: &mut dyn ClientUi,
-    _network: &mut dyn NetworkHandle,
+    network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::ChoosingUsername { .. }) {
         panic!(
             "called username::handle() when state was not ChoosingUsername; current state: {:?}",
             session.state()
         );
+    }
+
+    while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
+        if let Ok((msg, _)) = decode_from_slice::<ServerMessage, _>(&data, standard()) {
+            if let Some(next) = handle_server_message(session, ui, &msg) {
+                return Some(next);
+            }
+        }
     }
 
     if let Some(input) = session.take_input() {
@@ -43,7 +51,7 @@ pub fn handle(
                     let payload = encode_to_vec(&message, standard())
                         .expect("failed to serialize SetUsername");
 
-                    _network.send_message(AppChannel::ReliableOrdered, payload);
+                    network.send_message(AppChannel::ReliableOrdered, payload);
 
                     return Some(ClientState::AwaitingUsernameConfirmation);
                 }
@@ -63,11 +71,11 @@ pub fn handle(
         }
     }
 
-    if _network.is_disconnected() {
+    if network.is_disconnected() {
         return Some(ClientState::TransitioningToDisconnected {
             message: format!(
                 "disconnected while choosing username: {}",
-                _network.get_disconnect_reason()
+                network.get_disconnect_reason()
             ),
         });
     }
@@ -88,6 +96,13 @@ pub fn handle_server_message(
         );
         return Some(ClientState::ChoosingUsername {
             prompt_printed: false,
+        });
+    }
+    if let ServerMessage::ServerInfo { message } = message {
+        ui.show_sanitized_message(&format!("Server: {}", message));
+        ui.show_message("Server: Disconnecting.");
+        return Some(ClientState::TransitioningToDisconnected {
+            message: message.clone(),
         });
     }
     None

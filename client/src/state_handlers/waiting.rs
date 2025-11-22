@@ -38,6 +38,10 @@ pub fn handle(
                     prompt_printed: false,
                 });
             }
+            Ok((ServerMessage::ServerInfo { message }, _)) => {
+                ui.show_sanitized_message(&format!("Server: {}", message));
+                return Some(ClientState::TransitioningToDisconnected { message });
+            }
             Ok((_, _)) => {}
             Err(e) => ui.show_typed_error(
                 UiErrorKind::Deserialization,
@@ -127,5 +131,28 @@ mod tests {
         assert_eq!(ui.error_kinds, vec![UiErrorKind::UsernameServerError]);
         assert_eq!(ui.messages.len(), 1);
         assert_eq!(ui.messages[0], "Please try a different username.");
+    }
+
+    #[test]
+    fn handles_server_info_disconnecting() {
+        let mut session = ClientSession::new(0);
+        set_awaiting_state(&mut session);
+
+        let mut ui = MockUi::default();
+        let mut network = MockNetwork::new();
+        network.queue_server_message(ServerMessage::ServerInfo {
+            message: "The game has already started. Disconnecting.".to_string(),
+        });
+
+        let next_state = handle(&mut session, &mut ui, &mut network);
+
+        assert!(matches!(
+            next_state,
+            Some(ClientState::TransitioningToDisconnected { .. })
+        ));
+        assert_eq!(
+            ui.messages.last().unwrap(),
+            "Server: The game has already started. Disconnecting."
+        );
     }
 }

@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     io::stdout,
     net::{SocketAddr, UdpSocket},
     thread,
@@ -136,6 +137,38 @@ fn apply_server_transition(
             let payload = encode_to_vec(&message, standard())
                 .expect("failed to serialize RequestDifficultyChoice");
             network.send_message(host_id, AppChannel::ReliableOrdered, payload);
+
+            let pending: HashSet<u64> = difficulty_state
+                .lobby
+                .pending_clients()
+                .into_iter()
+                .collect();
+
+            for client_id in pending {
+                let message = ServerMessage::ServerInfo {
+                    message: "Game already started: disconnecting.".to_string(),
+                };
+                let payload =
+                    encode_to_vec(&message, standard()).expect("failed to serialize ServerInfo");
+                network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+            }
+
+            let info = ServerMessage::ServerInfo {
+                message: format!(
+                    "Waiting for host {} to choose a difficulty level.",
+                    host_name
+                ),
+            };
+            let info_payload =
+                encode_to_vec(&info, standard()).expect("failed to serialize ServerInfo");
+
+            for client_id in network.clients_id() {
+                let has_username = difficulty_state.lobby.username(client_id).is_some();
+                if client_id == host_id || !has_username {
+                    continue;
+                }
+                network.send_message(client_id, AppChannel::ReliableOrdered, info_payload.clone());
+            }
         }
 
         ServerState::Countdown(countdown_state) => {
