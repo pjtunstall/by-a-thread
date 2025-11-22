@@ -190,6 +190,12 @@ impl ClientSession {
 
         InputUiState { mode, status_line }
     }
+
+    pub fn prepare_ui_state(&mut self) -> InputUiState {
+        let waiting_active = matches!(self.input_mode(), InputMode::DisabledWaiting);
+        self.update_waiting_timer(waiting_active);
+        self.input_ui_state()
+    }
 }
 
 pub struct InputUiState {

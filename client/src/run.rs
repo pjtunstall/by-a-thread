@@ -87,22 +87,11 @@ pub async fn run_client_loop(
     );
 
     loop {
-        if is_key_pressed(KeyCode::Escape) && runner.session.state().allows_user_disconnect() {
-            apply_client_transition(
-                &mut runner.session,
-                &mut runner.ui,
-                None,
-                ClientState::TransitioningToDisconnected {
-                    message: "client closed by user.".to_string(),
-                },
-            );
-        }
+        handle_user_escape(&mut runner);
 
         client_frame_update(&mut runner);
 
-        let waiting_active = matches!(runner.session.input_mode(), InputMode::DisabledWaiting);
-        runner.session.update_waiting_timer(waiting_active);
-        let ui_state = runner.session.input_ui_state();
+        let ui_state = runner.session.prepare_ui_state();
 
         if !runner.session.is_countdown_active() {
             runner.ui.show_status_line(&ui_state.status_line);
@@ -130,6 +119,25 @@ async fn handle_disconnected_ui_loop(runner: &mut ClientRunner) {
     }
 }
 
+fn handle_user_escape(runner: &mut ClientRunner) {
+    if !is_key_pressed(KeyCode::Escape) {
+        return;
+    }
+
+    if !runner.session.state().allows_user_disconnect() {
+        return;
+    }
+
+    apply_client_transition(
+        &mut runner.session,
+        &mut runner.ui,
+        None,
+        ClientState::TransitioningToDisconnected {
+            message: "client closed by user".to_string(),
+        },
+    );
+}
+
 fn client_frame_update(runner: &mut ClientRunner) {
     let now = Instant::now();
     let duration = now - runner.last_updated;
@@ -143,7 +151,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
             &mut runner.ui,
             None,
             ClientState::TransitioningToDisconnected {
-                message: format!("transport error: {}.", e),
+                message: format!("transport error: {}", e),
             },
         );
         return;
@@ -165,7 +173,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
                     &mut runner.ui,
                     None,
                     ClientState::TransitioningToDisconnected {
-                        message: "input source disconnected (Ctrl+C or window closed).".to_string(),
+                        message: "input source disconnected (Ctrl+C or window closed)".to_string(),
                     },
                 );
                 return;
