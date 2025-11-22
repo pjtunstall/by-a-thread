@@ -6,7 +6,10 @@ use crate::{
     state::ClientState,
     ui::ClientUi,
 };
-use shared::{net::AppChannel, protocol::ClientMessage};
+use shared::{
+    net::AppChannel,
+    protocol::{ClientMessage, ServerMessage},
+};
 
 pub fn handle(
     session: &mut ClientSession,
@@ -70,6 +73,21 @@ pub fn handle(
     None
 }
 
+pub fn handle_server_message(
+    _session: &mut ClientSession,
+    ui: &mut dyn ClientUi,
+    message: &ServerMessage,
+) -> Option<ClientState> {
+    if let ServerMessage::UsernameError { message } = message {
+        let sanitized: String = message.chars().filter(|c| !c.is_control()).collect();
+        ui.show_sanitized_error(&format!("Username error: {}", sanitized));
+        return Some(ClientState::ChoosingUsername {
+            prompt_printed: false,
+        });
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -126,17 +144,16 @@ mod tests {
         assert_eq!(
             network.sent_messages.len(),
             0,
-            "No message should be sent to the network for invalid input."
+            "no message should be sent to the network for invalid input"
         );
         assert_eq!(
             ui.errors.len(),
             1,
-            "Exactly one error message should be displayed for invalid input."
+            "exactly one error message should be displayed for invalid input"
         );
         assert!(
             ui.errors[0].contains("too long"),
-            "UI error message for length constraint did not contain 'too long'. Actual error: {}",
-            ui.errors[0]
+            "ui error message for length constraint did not contain 'too long'"
         );
     }
 
@@ -162,21 +179,54 @@ mod tests {
         assert_eq!(
             ui.errors.len(),
             1,
-            "Exactly one error message should be displayed for empty input."
+            "exactly one error message should be displayed for empty input"
         );
         assert!(
             ui.errors[0].contains("Username must not be empty"),
-            "UI error message for empty input was incorrect; actual error: {}",
-            ui.errors[0]
+            "ui error message for empty input was incorrect"
         );
 
         if let ClientState::ChoosingUsername { prompt_printed } = session.state() {
             assert_eq!(
                 *prompt_printed, false,
-                "prompt_printed must be reset to false after an error."
+                "prompt_printed must be reset to false after an error"
             );
         } else {
             panic!("state unexpectedly changed from ChoosingUsername");
+        }
+    }
+
+    #[test]
+    fn sanitizes_server_username_error() {
+        let mut session = ClientSession::new(0);
+        session.transition(ClientState::AwaitingUsernameConfirmation);
+        let mut ui = MockUi::new();
+        let bell = '\x07';
+
+        let malicious_error = ServerMessage::UsernameError {
+            message: format!("Name{}Taken", bell),
+        };
+
+        let next_state = handle_server_message(&mut session, &mut ui, &malicious_error);
+
+        assert_eq!(
+            ui.errors.len(),
+            1,
+            "expected exactly one sanitized error from server message"
+        );
+        assert_eq!(
+            ui.errors[0], "Username error: NameTaken",
+            "server message was not correctly sanitized"
+        );
+
+        match next_state {
+            Some(ClientState::ChoosingUsername { prompt_printed }) => {
+                assert_eq!(
+                    prompt_printed, false,
+                    "state should transition to ChoosingUsername with prompt_printed false"
+                );
+            }
+            _ => panic!("expected transition to ChoosingUsername state"),
         }
     }
 }
