@@ -4,7 +4,7 @@ use bincode::{config::standard, serde::encode_to_vec};
 
 use crate::{
     net::NetworkHandle,
-    ui::{ClientUi, UiInputError},
+    ui::{ClientUi, UiErrorKind, UiInputError},
 };
 use shared::{input::UiKey, net::AppChannel, protocol::ServerMessage};
 
@@ -12,6 +12,7 @@ use shared::{input::UiKey, net::AppChannel, protocol::ServerMessage};
 pub struct MockUi {
     pub messages: Vec<String>,
     pub errors: Vec<String>,
+    pub error_kinds: Vec<UiErrorKind>,
     pub prompts: Vec<String>,
     pub status_lines: Vec<String>,
     pub inputs: VecDeque<Result<Option<String>, UiInputError>>,
@@ -36,6 +37,7 @@ impl MockUi {
         Self {
             messages: Vec::new(),
             errors: Vec::new(),
+            error_kinds: Vec::new(),
             prompts: Vec::new(),
             status_lines: Vec::new(),
             inputs: VecDeque::new(),
@@ -52,6 +54,11 @@ impl ClientUi for MockUi {
 
     fn show_error(&mut self, message: &str) {
         self.errors.push(message.to_string());
+    }
+
+    fn show_typed_error(&mut self, kind: UiErrorKind, message: &str) {
+        self.error_kinds.push(kind);
+        self.show_sanitized_error(message);
     }
 
     fn show_prompt(&mut self, prompt: &str) {

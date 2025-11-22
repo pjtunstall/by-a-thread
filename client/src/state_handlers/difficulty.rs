@@ -3,7 +3,12 @@ use bincode::{
     serde::{decode_from_slice, encode_to_vec},
 };
 
-use crate::{net::NetworkHandle, session::ClientSession, state::ClientState, ui::ClientUi};
+use crate::{
+    net::NetworkHandle,
+    session::ClientSession,
+    state::ClientState,
+    ui::{ClientUi, UiErrorKind},
+};
 use shared::{
     net::AppChannel,
     protocol::{ClientMessage, ServerMessage},
@@ -49,7 +54,10 @@ pub fn handle(
                 }
             }
             Ok((_, _)) => {}
-            Err(e) => ui.show_sanitized_error(&format!("[Deserialization error: {}]", e)),
+            Err(e) => ui.show_typed_error(
+                UiErrorKind::Other,
+                &format!("[Deserialization error: {}]", e),
+            ),
         }
     }
 
@@ -68,7 +76,10 @@ pub fn handle(
                 "2" => Some(2),
                 "3" => Some(3),
                 _ => {
-                    ui.show_sanitized_error("Invalid choice. Please press 1, 2, or 3.");
+                    ui.show_typed_error(
+                        UiErrorKind::DifficultyInvalidChoice,
+                        "Invalid choice. Please press 1, 2, or 3.",
+                    );
                     None
                 }
             };

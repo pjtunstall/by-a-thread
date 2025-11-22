@@ -6,7 +6,7 @@ use bincode::{
 use crate::{
     session::ClientSession,
     state::ClientState,
-    {net::NetworkHandle, ui::ClientUi},
+    {net::NetworkHandle, ui::{ClientUi, UiErrorKind}},
 };
 use shared::{
     auth::{MAX_ATTEMPTS, Passcode},
@@ -62,7 +62,10 @@ pub fn handle(
                 }
             }
             Ok((_, _)) => {}
-            Err(e) => ui.show_sanitized_error(&format!("[Deserialization error: {}]", e)),
+            Err(e) => ui.show_typed_error(
+                UiErrorKind::Other,
+                &format!("[Deserialization error: {}]", e),
+            ),
         }
     }
 
@@ -89,10 +92,13 @@ pub fn handle(
                     *waiting_for_input = false;
                     guess_sent_this_frame = true;
                 } else {
-                    ui.show_sanitized_error(&format!(
+                    ui.show_typed_error(
+                        UiErrorKind::PasscodeFormat,
+                        &format!(
                         "Invalid format: \"{}\". Passcode must be a 6-digit number.",
                         input_string.trim()
-                    ));
+                        ),
+                    );
 
                     ui.show_sanitized_prompt(&passcode_prompt(*guesses_left));
                 }

@@ -1,6 +1,11 @@
 use bincode::{config::standard, serde::decode_from_slice};
 
-use crate::{net::NetworkHandle, session::ClientSession, state::ClientState, ui::ClientUi};
+use crate::{
+    net::NetworkHandle,
+    session::ClientSession,
+    state::ClientState,
+    ui::{ClientUi, UiErrorKind},
+};
 use shared::{net::AppChannel, protocol::ServerMessage};
 
 pub fn handle(
@@ -22,7 +27,10 @@ pub fn handle(
                 return Some(ClientState::InChat);
             }
             Ok((ServerMessage::UsernameError { message }, _)) => {
-                ui.show_sanitized_error(&format!("Username error: {}", message));
+                ui.show_typed_error(
+                    UiErrorKind::UsernameServerError,
+                    &format!("Username error: {}", message),
+                );
                 ui.show_sanitized_message("Please try a different username.");
 
                 // Server rejected the username, transition back to ChoosingUsername
@@ -106,7 +114,7 @@ mod tests {
             })
         ));
         assert_eq!(ui.errors.len(), 1);
-        assert_eq!(ui.errors[0], "Username error: Name Taken");
+        assert_eq!(ui.error_kinds, vec![UiErrorKind::UsernameServerError]);
         assert_eq!(ui.messages.len(), 1);
         assert_eq!(ui.messages[0], "Please try a different username.");
     }

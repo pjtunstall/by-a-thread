@@ -4,7 +4,7 @@ use crate::{
     net::NetworkHandle,
     session::{ClientSession, username_prompt, validate_username_input},
     state::ClientState,
-    ui::ClientUi,
+    ui::{ClientUi, UiErrorKind},
 };
 use shared::{
     net::AppChannel,
@@ -28,7 +28,10 @@ pub fn handle(
             let trimmed_input = input.trim();
 
             if trimmed_input.is_empty() {
-                ui.show_sanitized_error("Username must not be empty.");
+                ui.show_typed_error(
+                    UiErrorKind::UsernameValidation(shared::player::UsernameError::Empty),
+                    "Username must not be empty.",
+                );
                 *prompt_printed = false;
                 return None;
             }
@@ -46,7 +49,7 @@ pub fn handle(
                 }
                 Err(err) => {
                     let message = err.to_string();
-                    ui.show_sanitized_error(&message);
+                    ui.show_typed_error(UiErrorKind::UsernameValidation(err), &message);
                     *prompt_printed = false;
                 }
             }
@@ -79,7 +82,10 @@ pub fn handle_server_message(
 ) -> Option<ClientState> {
     if let ServerMessage::UsernameError { message } = message {
         let sanitized: String = message.chars().filter(|c| !c.is_control()).collect();
-        ui.show_sanitized_error(&format!("Username error: {}", sanitized));
+        ui.show_typed_error(
+            UiErrorKind::UsernameServerError,
+            &format!("Username error: {}", sanitized),
+        );
         return Some(ClientState::ChoosingUsername {
             prompt_printed: false,
         });
@@ -91,7 +97,7 @@ pub fn handle_server_message(
 mod tests {
     use super::*;
     use crate::test_helpers::{MockNetwork, MockUi};
-    use shared::player::MAX_USERNAME_LENGTH;
+    use shared::player::{MAX_USERNAME_LENGTH, UsernameError};
 
     fn set_choosing_username(session: &mut ClientSession) {
         session.transition(ClientState::ChoosingUsername {
@@ -150,9 +156,9 @@ mod tests {
             1,
             "exactly one error message should be displayed for invalid input"
         );
-        assert!(
-            ui.errors[0].contains("too long"),
-            "ui error message for length constraint did not contain 'too long'"
+        assert_eq!(
+            ui.error_kinds,
+            vec![UiErrorKind::UsernameValidation(UsernameError::TooLong)]
         );
     }
 
@@ -180,9 +186,9 @@ mod tests {
             1,
             "exactly one error message should be displayed for empty input"
         );
-        assert!(
-            ui.errors[0].contains("Username must not be empty"),
-            "ui error message for empty input was incorrect"
+        assert_eq!(
+            ui.error_kinds,
+            vec![UiErrorKind::UsernameValidation(UsernameError::Empty)]
         );
 
         if let ClientState::ChoosingUsername { prompt_printed } = session.state() {
@@ -214,8 +220,8 @@ mod tests {
             "expected exactly one sanitized error from server message"
         );
         assert_eq!(
-            ui.errors[0], "Username error: NameTaken",
-            "server message was not correctly sanitized"
+            ui.error_kinds,
+            vec![UiErrorKind::UsernameServerError]
         );
 
         match next_state {

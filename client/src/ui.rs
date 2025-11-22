@@ -4,6 +4,16 @@ use std::{fmt, net::SocketAddr};
 
 pub use macroquad::MacroquadUi;
 use shared::input::{UiKey, sanitize};
+use shared::player::UsernameError;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UiErrorKind {
+    UsernameValidation(UsernameError),
+    UsernameServerError,
+    PasscodeFormat,
+    DifficultyInvalidChoice,
+    Other,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiInputError {
@@ -44,5 +54,9 @@ pub trait ClientUi {
 
     fn show_sanitized_status_line(&mut self, message: &str) {
         self.show_status_line(&sanitize(message));
+    }
+
+    fn show_typed_error(&mut self, _kind: UiErrorKind, message: &str) {
+        self.show_sanitized_error(message);
     }
 }

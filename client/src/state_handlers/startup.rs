@@ -1,5 +1,9 @@
 use super::auth::{parse_passcode_input, passcode_prompt};
-use crate::{session::ClientSession, state::ClientState, ui::ClientUi};
+use crate::{
+    session::ClientSession,
+    state::ClientState,
+    ui::{ClientUi, UiErrorKind},
+};
 use shared::auth::MAX_ATTEMPTS;
 
 pub fn handle(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<ClientState> {
@@ -19,10 +23,13 @@ pub fn handle(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<Clie
             session.store_first_passcode(passcode);
             return Some(ClientState::Connecting);
         } else {
-            ui.show_sanitized_error(&format!(
-                "Invalid format: \"{}\". Passcode must be a 6-digit number.",
-                input_string.trim()
-            ));
+            ui.show_typed_error(
+                UiErrorKind::PasscodeFormat,
+                &format!(
+                    "Invalid format: \"{}\". Passcode must be a 6-digit number.",
+                    input_string.trim()
+                ),
+            );
 
             ui.show_sanitized_prompt(&passcode_prompt(MAX_ATTEMPTS));
 
