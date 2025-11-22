@@ -12,7 +12,7 @@ use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 use crate::{
     net::{self, NetworkHandle, RenetNetworkHandle},
     session::{self, ClientSession},
-    state::ClientState,
+    state::{ClientState, InputMode},
     state_handlers,
     ui::{ClientUi, MacroquadUi, UiInputError},
 };
@@ -100,8 +100,11 @@ pub async fn run_client_loop(
 
         client_frame_update(&mut runner);
 
+        let ui_state = runner.session.input_ui_state();
+
         if !runner.session.is_countdown_active() {
-            let show_input = runner.session.state().should_show_input_box();
+            runner.ui.show_status_line(&ui_state.status_line);
+            let show_input = matches!(ui_state.mode, InputMode::Enabled);
             runner.ui.draw(show_input);
         }
 
@@ -148,7 +151,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
         return;
     }
 
-    if runner.session.state().allows_input_polling() {
+    if matches!(runner.session.input_mode(), InputMode::Enabled) {
         let ui_ref: &mut dyn ClientUi = &mut runner.ui;
         match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES) {
             Ok(Some(input)) => {
@@ -238,12 +241,14 @@ fn apply_client_transition(
         } else {
             format!(": {}", message)
         };
-        ui.show_status_line(&format!("Connection lost{}", rest));
+        session.set_status_line(&format!("Connection lost{}", rest));
         session.transition(ClientState::Disconnected { message });
         return;
     }
 
     session.transition(new_state);
+
+    let mut status_line_to_set: Option<String> = None;
 
     match session.state_mut() {
         ClientState::Startup { prompt_printed } => {
@@ -285,9 +290,13 @@ fn apply_client_transition(
             }
         }
         ClientState::Disconnected { message } => {
-            ui.show_status_line(message);
+            status_line_to_set = Some(message.clone());
         }
         _ => {}
+    }
+
+    if let Some(msg) = status_line_to_set {
+        session.set_status_line(msg);
     }
 }
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::state::ClientState;
+use crate::state::{ClientState, InputMode};
 use shared::{
     auth::Passcode,
     maze::Maze,
@@ -17,6 +17,9 @@ pub struct ClientSession {
     pub maze: Option<Maze>,
     pub players: Option<HashMap<u64, Player>>,
     pub input_queue: Vec<String>,
+    pub chat_waiting_for_server: bool,
+    pub auth_waiting_for_server: bool,
+    pub status_line: Option<String>,
 }
 
 impl ClientSession {
@@ -33,6 +36,9 @@ impl ClientSession {
             maze: None,
             players: None,
             input_queue: Vec::new(),
+            chat_waiting_for_server: false,
+            auth_waiting_for_server: false,
+            status_line: None,
         }
     }
 
@@ -97,6 +103,78 @@ impl ClientSession {
     pub fn is_countdown_active(&self) -> bool {
         matches!(self.state(), ClientState::Countdown) && self.countdown_end_time.is_some()
     }
+
+    pub fn set_chat_waiting_for_server(&mut self, waiting: bool) {
+        self.chat_waiting_for_server = waiting;
+    }
+
+    pub fn set_auth_waiting_for_server(&mut self, waiting: bool) {
+        self.auth_waiting_for_server = waiting;
+    }
+
+    pub fn set_status_line(&mut self, message: impl Into<String>) {
+        self.status_line = Some(message.into());
+    }
+
+    pub fn clear_status_line(&mut self) {
+        self.status_line = None;
+    }
+
+    pub fn input_mode(&self) -> InputMode {
+        match self.state() {
+            ClientState::Startup { .. } => InputMode::Enabled,
+            ClientState::Connecting => InputMode::Hidden,
+            ClientState::Authenticating {
+                waiting_for_input, ..
+            } => {
+                if self.auth_waiting_for_server {
+                    InputMode::DisabledWaiting
+                } else if *waiting_for_input {
+                    InputMode::Enabled
+                } else {
+                    InputMode::DisabledWaiting
+                }
+            }
+            ClientState::ChoosingUsername { .. } => InputMode::Enabled,
+            ClientState::AwaitingUsernameConfirmation => InputMode::DisabledWaiting,
+            ClientState::InChat => {
+                if self.chat_waiting_for_server {
+                    InputMode::DisabledWaiting
+                } else {
+                    InputMode::Enabled
+                }
+            }
+            ClientState::ChoosingDifficulty { choice_sent, .. } => {
+                if *choice_sent {
+                    InputMode::DisabledWaiting
+                } else {
+                    InputMode::Enabled
+                }
+            }
+            ClientState::Countdown => InputMode::Hidden,
+            ClientState::Disconnected { .. } => InputMode::Hidden,
+            ClientState::TransitioningToDisconnected { .. } => InputMode::Hidden,
+            ClientState::InGame { .. } => InputMode::Hidden,
+        }
+    }
+
+    pub fn input_ui_state(&self) -> InputUiState {
+        let mode = self.input_mode();
+        let status_line = if let Some(msg) = &self.status_line {
+            msg.clone()
+        } else if matches!(mode, InputMode::DisabledWaiting) {
+            "Waiting for server...".to_string()
+        } else {
+            "".to_string()
+        };
+
+        InputUiState { mode, status_line }
+    }
+}
+
+pub struct InputUiState {
+    pub mode: InputMode,
+    pub status_line: String,
 }
 
 pub fn username_prompt() -> String {

@@ -34,6 +34,13 @@ pub enum ClientState {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InputMode {
+    Hidden,
+    Enabled,
+    DisabledWaiting,
+}
+
 impl ClientState {
     pub fn allows_user_disconnect(&self) -> bool {
         !matches!(
@@ -42,28 +49,7 @@ impl ClientState {
         )
     }
 
-    pub fn allows_input_polling(&self) -> bool {
-        !matches!(
-            self,
-            ClientState::AwaitingUsernameConfirmation | ClientState::Countdown
-        )
-    }
-
     pub fn is_disconnected(&self) -> bool {
         matches!(self, ClientState::Disconnected { .. })
-    }
-
-    pub fn should_show_input_box(&self) -> bool {
-        !matches!(
-            self,
-            ClientState::ChoosingDifficulty {
-                choice_sent: true,
-                ..
-            } | ClientState::Countdown
-                | ClientState::Disconnected { .. }
-                | ClientState::TransitioningToDisconnected { .. }
-                | ClientState::InGame { .. }
-                | ClientState::AwaitingUsernameConfirmation
-        )
     }
 }

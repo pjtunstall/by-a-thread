@@ -31,6 +31,8 @@ pub fn handle(
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::ServerInfo { message }, _)) => {
+                session.set_auth_waiting_for_server(false);
+                session.clear_status_line();
                 if message.starts_with("The game has already started.") {
                     ui.show_message(&message);
                     return Some(ClientState::TransitioningToDisconnected { message });
@@ -68,6 +70,7 @@ pub fn handle(
     std::mem::swap(&mut session.input_queue, &mut input_to_process);
 
     for input_string in input_to_process {
+        let mut should_mark_waiting_for_server = false;
         if let ClientState::Authenticating {
             waiting_for_input,
             guesses_left,
@@ -82,6 +85,7 @@ pub fn handle(
                         .expect("failed to serialize SendPasscode");
                     network.send_message(AppChannel::ReliableOrdered, payload);
 
+                    should_mark_waiting_for_server = true;
                     *waiting_for_input = false;
                     guess_sent_this_frame = true;
                 } else {
@@ -97,15 +101,20 @@ pub fn handle(
         if !matches!(session.state(), ClientState::Authenticating { .. }) {
             break;
         }
+
+        if should_mark_waiting_for_server {
+            session.set_auth_waiting_for_server(true);
+        }
     }
 
+    let waiting_for_server = session.auth_waiting_for_server;
     if let ClientState::Authenticating {
         waiting_for_input, ..
     } = session.state_mut()
     {
         if guess_sent_this_frame {
             *waiting_for_input = false;
-        } else if !*waiting_for_input {
+        } else if !*waiting_for_input && !waiting_for_server {
             *waiting_for_input = true;
         }
     }

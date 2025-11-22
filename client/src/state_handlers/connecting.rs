@@ -33,7 +33,7 @@ pub fn handle(
     }
 
     if network.is_connected() {
-        ui.show_status_line("");
+        session.clear_status_line();
 
         if let Some(passcode) = session.take_first_passcode() {
             ui.show_message(&format!(
@@ -46,6 +46,7 @@ pub fn handle(
                 encode_to_vec(&message, standard()).expect("failed to serialize SendPasscode");
             network.send_message(AppChannel::ReliableOrdered, payload);
 
+            session.set_auth_waiting_for_server(true);
             Some(ClientState::Authenticating {
                 waiting_for_input: false,
                 guesses_left: MAX_ATTEMPTS,

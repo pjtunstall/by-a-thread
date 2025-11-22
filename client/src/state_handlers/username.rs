@@ -41,7 +41,6 @@ pub fn handle(
                         .expect("failed to serialize SetUsername");
 
                     _network.send_message(AppChannel::ReliableOrdered, payload);
-                    ui.show_status_line("Waiting for server...");
 
                     return Some(ClientState::AwaitingUsernameConfirmation);
                 }

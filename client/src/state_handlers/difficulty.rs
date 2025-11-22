@@ -44,9 +44,8 @@ pub fn handle(
                     choice_sent,
                 } = session.state_mut()
                 {
-                    if !*choice_sent {
-                        *prompt_printed = false;
-                    }
+                    *choice_sent = false;
+                    *prompt_printed = false;
                 }
             }
             Ok((_, _)) => {}
@@ -79,7 +78,6 @@ pub fn handle(
                 let payload =
                     encode_to_vec(&msg, standard()).expect("failed to serialize SetDifficulty");
                 network.send_message(AppChannel::ReliableOrdered, payload);
-                ui.show_status_line("Waiting for server...");
 
                 if let ClientState::ChoosingDifficulty { choice_sent, .. } = session.state_mut() {
                     *choice_sent = true;
@@ -100,4 +98,74 @@ pub fn handle(
     }
 
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{test_helpers::MockNetwork, test_helpers::MockUi};
+    use shared::protocol::ServerMessage;
+
+    #[test]
+    #[should_panic(
+        expected = "called difficulty::handle() when state was not ChoosingDifficulty; current state: Startup"
+    )]
+    fn guards_panics_if_not_in_correct_state() {
+        let mut session = ClientSession::new(0);
+        let mut ui = MockUi::default();
+        let mut network = MockNetwork::new();
+        handle(&mut session, &mut ui, &mut network);
+    }
+
+    #[test]
+    fn guards_does_not_panic_in_correct_state() {
+        let mut session = ClientSession::new(0);
+        session.transition(ClientState::ChoosingDifficulty {
+            prompt_printed: false,
+            choice_sent: false,
+        });
+        let mut ui = MockUi::default();
+        let mut network = MockNetwork::new();
+        assert!(
+            handle(&mut session, &mut ui, &mut network).is_none(),
+            "should not panic and should return None"
+        );
+    }
+
+    #[test]
+    fn re_enables_input_after_server_info() {
+        let mut session = ClientSession::new(0);
+        session.transition(ClientState::ChoosingDifficulty {
+            prompt_printed: true,
+            choice_sent: true,
+        });
+
+        let mut ui = MockUi::default();
+        let mut network = MockNetwork::new();
+        network.queue_server_message(ServerMessage::ServerInfo {
+            message: "Pick again".to_string(),
+        });
+
+        let next = handle(&mut session, &mut ui, &mut network);
+
+        assert!(next.is_none());
+        if let ClientState::ChoosingDifficulty {
+            prompt_printed,
+            choice_sent,
+        } = session.state()
+        {
+            assert!(!*choice_sent, "choice_sent should reset on server info");
+            assert!(
+                !*prompt_printed,
+                "prompt_printed should reset so prompt can be shown again"
+            );
+        } else {
+            panic!("state unexpectedly changed");
+        }
+        assert_eq!(
+            ui.messages.len(),
+            1,
+            "server info should be surfaced to the user"
+        );
+    }
 }
