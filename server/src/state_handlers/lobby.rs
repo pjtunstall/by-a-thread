@@ -18,6 +18,11 @@ use shared::{
     protocol::{ClientMessage, ServerMessage},
 };
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LobbyErrorKind {
+    UsernameValidation(UsernameError),
+}
+
 pub fn handle(
     network: &mut dyn ServerNetworkHandle,
     state: &mut Lobby,
@@ -105,6 +110,7 @@ pub fn handle(
                                     network,
                                     client_id,
                                     "Username is already taken.",
+                                    LobbyErrorKind::UsernameValidation(UsernameError::Reserved),
                                 );
                                 continue;
                             }
@@ -149,7 +155,12 @@ pub fn handle(
                                 }
                                 UsernameError::Reserved => "that username is reserved",
                             };
-                            send_username_error(network, client_id, error_text);
+                            send_username_error(
+                                network,
+                                client_id,
+                                error_text,
+                                LobbyErrorKind::UsernameValidation(err),
+                            );
                         }
                     }
                 }
@@ -203,7 +214,12 @@ pub fn handle(
     None
 }
 
-fn send_username_error(network: &mut dyn ServerNetworkHandle, client_id: u64, message: &str) {
+fn send_username_error(
+    network: &mut dyn ServerNetworkHandle,
+    client_id: u64,
+    message: &str,
+    _kind: LobbyErrorKind,
+) {
     let message = ServerMessage::UsernameError {
         message: message.to_string(),
     };
@@ -283,7 +299,14 @@ mod tests {
             .unwrap()
             .0;
         if let ServerMessage::ServerInfo { message } = msg {
-            assert!(message.starts_with("Incorrect passcode. Disconnecting."));
+            assert!(
+                !message.chars().any(|c| c.is_control()),
+                "disconnect reason should be sanitized"
+            );
+            assert!(
+                message.contains("Incorrect passcode"),
+                "disconnect reason should mention incorrect passcode"
+            );
         } else {
             panic!("expected ServerInfo message, got {:?}", msg);
         }
@@ -487,6 +510,7 @@ mod tests {
             .0;
 
         if let ServerMessage::UsernameError { message } = msg {
+            assert!(!message.chars().any(|c| c.is_control()));
             assert_eq!(message, "that username is reserved");
         } else {
             panic!("expected UsernameError, got {:?}", msg);

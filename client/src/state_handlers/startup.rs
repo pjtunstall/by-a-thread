@@ -60,7 +60,7 @@ pub fn handle(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<Clie
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::MockUi;
+    use crate::{test_helpers::MockUi, ui::UiErrorKind};
 
     mod guards {
         use super::*;
@@ -129,10 +129,11 @@ mod tests {
         let next = handle(&mut session, &mut ui);
 
         assert!(next.is_none());
-        assert_eq!(ui.errors.len(), 1);
+        assert_eq!(ui.error_kinds, vec![UiErrorKind::PasscodeFormat]);
         assert_eq!(ui.prompts.len(), 1, "should show one prompt for the retry");
 
         ui.errors.clear();
+        ui.error_kinds.clear();
         ui.prompts.clear();
 
         let next_2 = handle(&mut session, &mut ui);

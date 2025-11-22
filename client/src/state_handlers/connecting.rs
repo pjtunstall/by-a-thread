@@ -1,6 +1,11 @@
 use bincode::{config::standard, serde::decode_from_slice, serde::encode_to_vec};
 
-use crate::{net::NetworkHandle, session::ClientSession, state::ClientState, ui::ClientUi};
+use crate::{
+    net::NetworkHandle,
+    session::ClientSession,
+    state::ClientState,
+    ui::{ClientUi, UiErrorKind},
+};
 use shared::{
     auth::MAX_ATTEMPTS,
     net::AppChannel,
@@ -58,6 +63,10 @@ pub fn handle(
             })
         }
     } else if network.is_disconnected() {
+        ui.show_typed_error(
+            UiErrorKind::NetworkDisconnect,
+            &format!("Connection failed: {}.", network.get_disconnect_reason()),
+        );
         Some(ClientState::TransitioningToDisconnected {
             message: format!("Connection failed: {}.", network.get_disconnect_reason()),
         })

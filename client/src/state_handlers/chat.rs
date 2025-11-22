@@ -3,7 +3,12 @@ use bincode::{
     serde::{decode_from_slice, encode_to_vec},
 };
 
-use crate::{net::NetworkHandle, session::ClientSession, state::ClientState, ui::ClientUi};
+use crate::{
+    net::NetworkHandle,
+    session::ClientSession,
+    state::ClientState,
+    ui::{ClientUi, UiErrorKind},
+};
 use shared::{
     net::AppChannel,
     protocol::{ClientMessage, ServerMessage},
@@ -76,7 +81,10 @@ pub fn handle(
                 ui.show_sanitized_message(&format!("Server: {}", message));
             }
             Ok((_, _)) => {}
-            Err(e) => ui.show_sanitized_error(&format!("[Deserialization error: {}]", e)),
+            Err(e) => ui.show_typed_error(
+                UiErrorKind::Deserialization,
+                &format!("[Deserialization error: {}]", e),
+            ),
         }
     }
 
@@ -104,6 +112,13 @@ pub fn handle(
     }
 
     if network.is_disconnected() {
+        ui.show_typed_error(
+            UiErrorKind::NetworkDisconnect,
+            &format!(
+                "Disconnected from chat: {}.",
+                network.get_disconnect_reason()
+            ),
+        );
         Some(ClientState::Disconnected {
             message: format!(
                 "Disconnected from chat: {}.",

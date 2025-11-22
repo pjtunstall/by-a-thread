@@ -12,6 +12,8 @@ pub enum UiErrorKind {
     UsernameServerError,
     PasscodeFormat,
     DifficultyInvalidChoice,
+    NetworkDisconnect,
+    Deserialization,
     Other,
 }
 

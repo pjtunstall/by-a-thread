@@ -17,7 +17,11 @@ mod tests {
         test_helpers::{MockNetwork, MockUi},
         ui::ClientUi,
     };
-    use shared::{auth::MAX_ATTEMPTS, protocol::ServerMessage};
+    use shared::{
+        auth::MAX_ATTEMPTS,
+        input::sanitize,
+        protocol::ServerMessage,
+    };
 
     #[test]
     fn client_banner_is_printed_correctly() {
@@ -62,8 +66,9 @@ mod tests {
             "expected one chat message to be displayed"
         );
         assert_eq!(
-            ui_chat.messages[0], "User: HelloWorld",
-            "unsanitized chat message"
+            ui_chat.messages[0],
+            sanitize("User\x07: Hello\x1BWorld"),
+            "chat message was not sanitized"
         );
 
         let mut session_auth = ClientSession::new(0);

@@ -39,11 +39,21 @@ pub fn handle(
                 });
             }
             Ok((_, _)) => {}
-            Err(e) => ui.show_sanitized_error(&format!("[Deserialization error: {}]", e)),
+            Err(e) => ui.show_typed_error(
+                UiErrorKind::Deserialization,
+                &format!("[Deserialization error: {}]", e),
+            ),
         }
     }
 
     if network.is_disconnected() {
+        ui.show_typed_error(
+            UiErrorKind::NetworkDisconnect,
+            &format!(
+                "Disconnected while awaiting username confirmation: {}.",
+                network.get_disconnect_reason()
+            ),
+        );
         return Some(ClientState::TransitioningToDisconnected {
             message: format!(
                 "Disconnected while awaiting username confirmation: {}.",

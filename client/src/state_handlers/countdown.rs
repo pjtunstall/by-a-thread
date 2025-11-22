@@ -4,7 +4,7 @@ use crate::{
     net::NetworkHandle,
     session::ClientSession,
     state::ClientState,
-    ui::{ClientUi, UiInputError},
+    ui::{ClientUi, UiErrorKind, UiInputError},
 };
 use shared::{net::AppChannel, protocol::ServerMessage};
 
@@ -21,6 +21,13 @@ pub fn handle(
     }
 
     if network.is_disconnected() {
+        ui.show_typed_error(
+            UiErrorKind::NetworkDisconnect,
+            &format!(
+                "disconnected during countdown: {}",
+                network.get_disconnect_reason()
+            ),
+        );
         return Some(ClientState::TransitioningToDisconnected {
             message: format!(
                 "disconnected during countdown: {}",
@@ -41,7 +48,10 @@ pub fn handle(
             Ok((msg, _)) => {
                 let _ = msg;
             }
-            Err(e) => ui.show_sanitized_status_line(&format!("Deserialization error: {}.", e)),
+            Err(e) => ui.show_typed_error(
+                UiErrorKind::Deserialization,
+                &format!("Deserialization error: {}.", e),
+            ),
         }
     }
 
