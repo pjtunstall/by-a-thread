@@ -9,7 +9,8 @@ pub fn update_estimated_server_time(session: &mut ClientSession, network: &mut R
         match bincode::serde::decode_from_slice(&message, bincode::config::standard()) {
             Ok((ServerMessage::ServerTime(server_sent_time), _)) => {
                 let rtt = network.rtt();
-                let one_way_latency = (rtt / 1000.0) / 2.0;
+                let rtt_secs = rtt / 1000.0;
+                let one_way_latency = (rtt_secs) / 2.0;
                 let target_time = server_sent_time + one_way_latency;
                 let delta = target_time - session.estimated_server_time;
                 if delta.abs() > 1.0 {

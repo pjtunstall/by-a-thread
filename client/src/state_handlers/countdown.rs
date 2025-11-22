@@ -20,38 +20,13 @@ pub fn handle(
         );
     }
 
-    while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
-        match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((_, _)) => {}
-            Err(e) => ui.show_sanitized_status_line(&format!("[Deserialization error: {}.]", e)),
-        }
-    }
-
-    if let Some(end_time) = session.countdown_end_time {
-        let time_remaining = end_time - session.estimated_server_time;
-
-        if time_remaining > 0.0 {
-            let countdown_value_float = (time_remaining + 0.000001).trunc();
-            let countdown_value = (countdown_value_float as i64).max(1) as u32;
-            let countdown_text = format!("{}", countdown_value);
-            ui.draw_countdown(&countdown_text);
-        } else {
-            if let Some(maze) = session.maze.take() {
-                if let Some(players) = session.players.take() {
-                    return Some(ClientState::InGame { maze, players });
-                } else {
-                    return Some(ClientState::TransitioningToDisconnected {
-                        message: "Failed to receive players data.".to_string(),
-                    });
-                }
-            } else {
-                return Some(ClientState::TransitioningToDisconnected {
-                    message: "Failed to receive maze data".to_string(),
-                });
-            }
-        }
-    } else {
-        ui.show_status_line("Waiting for server to start countdown...");
+    if network.is_disconnected() {
+        return Some(ClientState::TransitioningToDisconnected {
+            message: format!(
+                "disconnected during countdown: {}",
+                network.get_disconnect_reason()
+            ),
+        });
     }
 
     if let Err(UiInputError::Disconnected) = ui.poll_single_key() {
@@ -60,16 +35,42 @@ pub fn handle(
         });
     }
 
-    if network.is_disconnected() {
-        return Some(ClientState::TransitioningToDisconnected {
-            message: format!(
-                "Disconnected during countdown: {}.",
-                network.get_disconnect_reason()
-            ),
-        });
+    // TODO: Handle relevant ServerMessages here if needed.
+    while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
+        match decode_from_slice::<ServerMessage, _>(&data, standard()) {
+            Ok((msg, _)) => {
+                let _ = msg;
+            }
+            Err(e) => ui.show_sanitized_status_line(&format!("Deserialization error: {}.", e)),
+        }
     }
 
-    None
+    let Some(end_time) = session.countdown_end_time else {
+        ui.show_status_line("Waiting for server to start countdown...");
+        return None;
+    };
+
+    let time_remaining = end_time - session.estimated_server_time;
+
+    if time_remaining > 0.0 {
+        let countdown_value = time_remaining.floor() as u64;
+        ui.draw_countdown(&format!("{}", countdown_value));
+        None
+    } else {
+        transition_to_game(session)
+    }
+}
+
+fn transition_to_game(session: &mut ClientSession) -> Option<ClientState> {
+    match (session.maze.take(), session.players.take()) {
+        (Some(maze), Some(players)) => Some(ClientState::InGame { maze, players }),
+        (None, _) => Some(ClientState::TransitioningToDisconnected {
+            message: "failed to receive maze data".to_string(),
+        }),
+        (_, None) => Some(ClientState::TransitioningToDisconnected {
+            message: "failed to receive players data.".to_string(),
+        }),
+    }
 }
 
 #[cfg(test)]
