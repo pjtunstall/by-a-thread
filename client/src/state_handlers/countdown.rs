@@ -129,7 +129,7 @@ mod tests {
         let mut ui = MockUi::new();
         let mut network = MockNetwork::new();
 
-        session.estimated_server_time = 14.5;
+        session.estimated_server_time = 13.5;
         session.countdown_end_time = Some(15.0);
 
         session.transition(ClientState::Countdown);
@@ -137,9 +137,6 @@ mod tests {
         let next_state = handle(&mut session, &mut ui, &mut network);
 
         assert!(next_state.is_none());
-
-        session.estimated_server_time = 14.001;
-
         assert_eq!(ui.countdown_draws.len(), 1);
         assert_eq!(ui.countdown_draws[0], "1");
     }

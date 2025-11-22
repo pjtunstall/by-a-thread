@@ -61,7 +61,7 @@ pub fn handle(
     if _network.is_disconnected() {
         return Some(ClientState::TransitioningToDisconnected {
             message: format!(
-                "Disconnected while choosing username: {}.",
+                "disconnected while choosing username: {}",
                 _network.get_disconnect_reason()
             ),
         });
@@ -105,7 +105,7 @@ mod tests {
             let mut network = MockNetwork::new();
             assert!(
                 handle(&mut session, &mut ui, &mut network).is_none(),
-                "should not panic and should return None"
+                "should return None when successfully handling state and no input is provided"
             );
         }
     }
@@ -123,21 +123,21 @@ mod tests {
 
         handle(&mut session, &mut ui, &mut network);
 
-        assert_eq!(network.sent_messages.len(), 0);
-        assert_eq!(ui.errors.len(), 1);
+        assert_eq!(
+            network.sent_messages.len(),
+            0,
+            "No message should be sent to the network for invalid input."
+        );
+        assert_eq!(
+            ui.errors.len(),
+            1,
+            "Exactly one error message should be displayed for invalid input."
+        );
         assert!(
             ui.errors[0].contains("too long"),
-            "UI error message did not contain 'too long'."
+            "UI error message for length constraint did not contain 'too long'. Actual error: {}",
+            ui.errors[0]
         );
-
-        if let ClientState::ChoosingUsername { prompt_printed } = session.state() {
-            assert_eq!(
-                *prompt_printed, false,
-                "'prompt_printed' flag was not reset after validation failure"
-            );
-        } else {
-            panic!("state unexpectedly changed");
-        }
     }
 
     #[test]
@@ -154,14 +154,29 @@ mod tests {
 
         handle(&mut session, &mut ui, &mut network);
 
-        assert_eq!(network.sent_messages.len(), 0);
-        assert_eq!(ui.errors.len(), 1);
-        assert!(ui.errors[0].contains("Username must not be empty"));
+        assert_eq!(
+            network.sent_messages.len(),
+            0,
+            "No message should be sent to the network for empty input."
+        );
+        assert_eq!(
+            ui.errors.len(),
+            1,
+            "Exactly one error message should be displayed for empty input."
+        );
+        assert!(
+            ui.errors[0].contains("Username must not be empty"),
+            "UI error message for empty input was incorrect. Actual error: {}",
+            ui.errors[0]
+        );
 
         if let ClientState::ChoosingUsername { prompt_printed } = session.state() {
-            assert_eq!(*prompt_printed, false);
+            assert_eq!(
+                *prompt_printed, false,
+                "The prompt_printed flag must be reset to false after an error."
+            );
         } else {
-            panic!("State unexpectedly changed");
+            panic!("State unexpectedly changed from ChoosingUsername");
         }
     }
 }

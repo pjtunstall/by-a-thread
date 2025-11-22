@@ -100,7 +100,7 @@ pub struct MockNetwork {
     disconnect_reason_val: String,
     messages_to_receive: VecDeque<Vec<u8>>,
     pub sent_messages: VecDeque<(AppChannel, Vec<u8>)>,
-    rtt_val: f64,
+    rtt: f64,
 }
 
 impl MockNetwork {
@@ -146,6 +146,6 @@ impl NetworkHandle for MockNetwork {
     }
 
     fn rtt(&self) -> f64 {
-        self.rtt_val
+        self.rtt
     }
 }
