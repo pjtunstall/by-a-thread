@@ -100,6 +100,8 @@ pub async fn run_client_loop(
 
         client_frame_update(&mut runner);
 
+        let waiting_active = matches!(runner.session.input_mode(), InputMode::DisabledWaiting);
+        runner.session.update_waiting_timer(waiting_active);
         let ui_state = runner.session.input_ui_state();
 
         if !runner.session.is_countdown_active() {

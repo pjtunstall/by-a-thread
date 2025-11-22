@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Instant};
 
 use crate::state::{ClientState, InputMode};
 use shared::{
@@ -20,6 +20,7 @@ pub struct ClientSession {
     pub chat_waiting_for_server: bool,
     pub auth_waiting_for_server: bool,
     pub status_line: Option<String>,
+    pub waiting_since: Option<Instant>,
 }
 
 impl ClientSession {
@@ -39,6 +40,7 @@ impl ClientSession {
             chat_waiting_for_server: false,
             auth_waiting_for_server: false,
             status_line: None,
+            waiting_since: None,
         }
     }
 
@@ -120,6 +122,16 @@ impl ClientSession {
         self.status_line = None;
     }
 
+    pub fn update_waiting_timer(&mut self, waiting_active: bool) {
+        if waiting_active {
+            if self.waiting_since.is_none() {
+                self.waiting_since = Some(Instant::now());
+            }
+        } else {
+            self.waiting_since = None;
+        }
+    }
+
     pub fn input_mode(&self) -> InputMode {
         match self.state() {
             ClientState::Startup { .. } => InputMode::Enabled,
@@ -163,7 +175,15 @@ impl ClientSession {
         let status_line = if let Some(msg) = &self.status_line {
             msg.clone()
         } else if matches!(mode, InputMode::DisabledWaiting) {
-            "Waiting for server...".to_string()
+            if let Some(start) = self.waiting_since {
+                if start.elapsed().as_millis() >= 300 {
+                    "Waiting for server...".to_string()
+                } else {
+                    "".to_string()
+                }
+            } else {
+                "".to_string()
+            }
         } else {
             "".to_string()
         };
