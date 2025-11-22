@@ -178,7 +178,7 @@ mod tests {
         if let Some(ClientState::TransitioningToDisconnected { message }) = next_state {
             assert!(message.contains("Server hung up."));
         } else {
-            panic!("Did not transition to disconnected state.");
+            panic!("did not transition to disconnected state");
         }
     }
 }

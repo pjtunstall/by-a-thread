@@ -103,9 +103,9 @@ mod tests {
         let grid = &maze.grid;
 
         let height = grid.len();
-        assert!(height != 0, "Maze should have some rows");
+        assert!(height != 0, "maze should have some rows");
         let width = grid[0].len();
-        assert!(width != 0, "Maze should have some columns");
+        assert!(width != 0, "maze should have some columns");
 
         let mut total_spaces = 0;
         let mut start_pos: Option<(usize, usize)> = None;
@@ -121,8 +121,8 @@ mod tests {
             }
         }
 
-        let (start_r, start_c) = start_pos.expect("There should be at least one space");
-        assert!(total_spaces > 1, "There should be more than one space");
+        let (start_r, start_c) = start_pos.expect("there should be at least one space");
+        assert!(total_spaces > 1, "there should be more than one space");
 
         let mut visited = vec![vec![false; width]; height];
         let mut queue: VecDeque<(usize, usize)> = VecDeque::new();
@@ -154,7 +154,7 @@ mod tests {
 
         assert!(
             total_spaces == visited_count,
-            "All spaces should be connected:\n{}",
+            "all spaces should be connected:\n{}",
             maze.log()
         );
     }

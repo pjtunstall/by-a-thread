@@ -37,7 +37,7 @@ impl ClientRunner {
         let protocol_id = shared::protocol::version();
         let current_time_duration = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .expect("System time is before Unix epoch");
+            .expect("system time is before unix epoch"); // If this problem occurs, open system's date and time settings and enable automatic time synchronization (NTP). On most Linux systems, try `timedatectl set-ntp true`. On non-systemd distros (like Alpine or Gentoo), use `rc-service ntpd start` or `rc-service chronyd start` instead.
         socket
             .set_nonblocking(true)
             .map_err(|e| format!("Failed to set socket as non-blocking: {}", e))?;

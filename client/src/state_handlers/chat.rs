@@ -172,7 +172,7 @@ mod tests {
             ClientMessage::SendChat(content) => {
                 assert_eq!(content.len(), MAX_CHAT_MESSAGE_BYTES + 1);
             }
-            _ => panic!("Expected SendChat message"),
+            _ => panic!("expected SendChat message"),
         }
     }
 

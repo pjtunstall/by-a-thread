@@ -123,7 +123,7 @@ mod tests {
 
         assert!(next.is_none());
         assert_eq!(ui.errors.len(), 1);
-        assert_eq!(ui.prompts.len(), 1, "Should show one prompt for the retry");
+        assert_eq!(ui.prompts.len(), 1, "should show one prompt for the retry");
 
         ui.errors.clear();
         ui.prompts.clear();
@@ -133,14 +133,14 @@ mod tests {
         assert!(next_2.is_none());
         assert!(
             ui.prompts.is_empty(),
-            "Should not show a second prompt on the next frame"
+            "should not show a second prompt on the next frame"
         );
         assert!(ui.errors.is_empty());
 
         if let ClientState::Startup { prompt_printed } = session.state() {
             assert!(*prompt_printed);
         } else {
-            panic!("Expected Startup state");
+            panic!("expected Startup state");
         }
     }
 }

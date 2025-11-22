@@ -299,19 +299,19 @@ mod tests {
         network.add_client(1);
         lobby_state.register_connection(1);
         lobby_state.mark_authenticated(1);
-        lobby_state.register_username(1, "Alice");
+        lobby_state.register_username(1, "alice");
 
         network.add_client(2);
         lobby_state.register_connection(2);
         lobby_state.mark_authenticated(2);
 
-        let msg = ClientMessage::SetUsername("Bob".to_string());
+        let msg = ClientMessage::SetUsername("bob".to_string());
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(2, payload);
 
         let next_state = handle(&mut network, &mut lobby_state, &passcode);
 
-        assert_eq!(lobby_state.username(2), Some("Bob"));
+        assert_eq!(lobby_state.username(2), Some("bob"));
         assert!(next_state.is_none());
 
         let bob_msgs = network.get_sent_messages_data(2);
@@ -321,7 +321,7 @@ mod tests {
             .unwrap()
             .0;
         if let ServerMessage::Welcome { username } = msg1 {
-            assert_eq!(username, "Bob");
+            assert_eq!(username, "bob");
         } else {
             panic!("expected Welcome message, got {:?}", msg1);
         }
@@ -330,7 +330,7 @@ mod tests {
             .unwrap()
             .0;
         if let ServerMessage::Roster { online } = msg2 {
-            assert_eq!(online, vec!["Alice"]);
+            assert_eq!(online, vec!["alice"]);
         } else {
             panic!("expected Roster message, got {:?}", msg2);
         }
@@ -341,7 +341,7 @@ mod tests {
             .unwrap()
             .0;
         if let ServerMessage::UserJoined { username } = msg_alice {
-            assert_eq!(username, "Bob");
+            assert_eq!(username, "bob");
         } else {
             panic!("expected UserJoined message, got {:?}", msg_alice);
         }
@@ -357,14 +357,14 @@ mod tests {
         network.add_client(1);
         lobby_state.register_connection(1);
         lobby_state.mark_authenticated(1);
-        lobby_state.register_username(1, "Alice");
+        lobby_state.register_username(1, "alice");
 
         network.add_client(2);
         lobby_state.register_connection(2);
         lobby_state.mark_authenticated(2);
-        lobby_state.register_username(2, "Bob");
+        lobby_state.register_username(2, "bob");
 
-        let msg = ClientMessage::SendChat("Hello Bob!".to_string());
+        let msg = ClientMessage::SendChat("Hello bob!".to_string());
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
@@ -378,8 +378,8 @@ mod tests {
             .unwrap()
             .0;
         if let ServerMessage::ChatMessage { username, content } = msg {
-            assert_eq!(username, "Alice");
-            assert_eq!(content, "Hello Bob!");
+            assert_eq!(username, "alice");
+            assert_eq!(content, "Hello bob!");
         } else {
             panic!("expected ChatMessage, got {:?}", msg);
         }
@@ -395,7 +395,7 @@ mod tests {
         network.add_client(1);
         lobby_state.register_connection(1);
         lobby_state.mark_authenticated(1);
-        lobby_state.register_username(1, "Alice");
+        lobby_state.register_username(1, "alice");
 
         let long_message = "a".repeat(MAX_CHAT_MESSAGE_BYTES + 1);
         let msg = ClientMessage::SendChat(long_message);
@@ -410,7 +410,7 @@ mod tests {
         assert_eq!(
             broadcasts.len(),
             0,
-            "Server broadcasted a message that exceeded the length limit"
+            "server broadcasted a message that exceeded the length limit"
         );
     }
 
@@ -424,15 +424,15 @@ mod tests {
         network.add_client(1);
         lobby_state.register_connection(1);
         lobby_state.mark_authenticated(1);
-        lobby_state.register_username(1, "Alice");
+        lobby_state.register_username(1, "alice");
 
         network.add_client(2);
         lobby_state.register_connection(2);
         lobby_state.mark_authenticated(2);
-        lobby_state.register_username(2, "Bob");
+        lobby_state.register_username(2, "bob");
 
-        let malicious_content = "  Hello\x07Bob!\x1B[2J  ";
-        let expected_content = "HelloBob!";
+        let malicious_content = "  Hello\x07bob!\x1B[2J  ";
+        let expected_content = "Hellobob!";
 
         let msg = ClientMessage::SendChat(malicious_content.to_string());
         let payload = encode_to_vec(&msg, standard()).unwrap();
@@ -449,7 +449,7 @@ mod tests {
             .0;
 
         if let ServerMessage::ChatMessage { username, content } = msg {
-            assert_eq!(username, "Alice");
+            assert_eq!(username, "alice");
             assert_eq!(
                 content, expected_content,
                 "chat content was not properly sanitized"

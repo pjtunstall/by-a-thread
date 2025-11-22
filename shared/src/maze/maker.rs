@@ -20,7 +20,7 @@ impl Cell {
     pub fn new(grid: &[Vec<u8>], x: usize, y: usize) -> Cell {
         debug_assert!(
             x < grid[0].len() || y < grid.len(),
-            "Cell coordinates are out of bounds"
+            "cell coordinates are out of bounds"
         );
 
         Cell { x, y }
@@ -51,7 +51,7 @@ impl Wall {
 
         debug_assert!(
             x < grid[0].len() || y < grid.len(),
-            "Wall coordinates are out of bounds"
+            "wall coordinates are out of bounds"
         );
 
         let orientation = if cell_1.x == cell_2.x {

@@ -100,14 +100,14 @@ fn chat_messages_are_broadcast_to_other_clients() {
 
     if let ServerState::Lobby(lobby) = &mut state {
         lobby.mark_authenticated(alice_id);
-        lobby.register_username(alice_id, "Alice");
+        lobby.register_username(alice_id, "alice");
         lobby.mark_authenticated(bob_id);
-        lobby.register_username(bob_id, "Bob");
+        lobby.register_username(bob_id, "bob");
     } else {
         panic!("state should be Lobby");
     }
 
-    let msg = ClientMessage::SendChat("Hello, Bob!".to_string());
+    let msg = ClientMessage::SendChat("Hello, bob!".to_string());
     let payload = encode_to_vec(&msg, standard()).expect("failed to serialize message");
     alice.send_message(AppChannel::ReliableOrdered, payload);
 
@@ -132,14 +132,14 @@ fn chat_messages_are_broadcast_to_other_clients() {
 
     let message_data = bob
         .receive_message(AppChannel::ReliableOrdered)
-        .expect("Bob should receive the chat message");
+        .expect("bob should receive the chat message");
     let message = decode_from_slice::<ServerMessage, _>(&message_data, standard())
         .expect("failed to deserialize message")
         .0;
 
     if let ServerMessage::ChatMessage { username, content } = message {
-        assert_eq!(username, "Alice");
-        assert_eq!(content, "Hello, Bob!");
+        assert_eq!(username, "alice");
+        assert_eq!(content, "Hello, bob!");
     } else {
         panic!("expected ChatMessage, got {:?}", message);
     }
@@ -169,13 +169,13 @@ fn players_are_notified_when_others_join_and_leave() {
 
     if let ServerState::Lobby(lobby) = &mut state {
         lobby.mark_authenticated(alice_id);
-        lobby.register_username(alice_id, "Alice");
+        lobby.register_username(alice_id, "alice");
         lobby.mark_authenticated(bob_id);
     } else {
         panic!("state should be Lobby");
     }
 
-    let msg = ClientMessage::SetUsername("Bob".to_string());
+    let msg = ClientMessage::SetUsername("bob".to_string());
     let payload = encode_to_vec(&msg, standard()).expect("failed to serialize message");
     bob.send_message(AppChannel::ReliableOrdered, payload);
 
@@ -200,13 +200,13 @@ fn players_are_notified_when_others_join_and_leave() {
 
     let join_data = alice
         .receive_message(AppChannel::ReliableOrdered)
-        .expect("Alice should be notified when Bob joins");
+        .expect("alice should be notified when bob joins");
     let join_message = decode_from_slice::<ServerMessage, _>(&join_data, standard())
         .expect("failed to deserialize join message")
         .0;
 
     if let ServerMessage::UserJoined { username } = join_message {
-        assert_eq!(username, "Bob");
+        assert_eq!(username, "bob");
     } else {
         panic!("expected UserJoined message, got {:?}", join_message);
     }
@@ -234,13 +234,13 @@ fn players_are_notified_when_others_join_and_leave() {
 
     let leave_data = alice
         .receive_message(AppChannel::ReliableOrdered)
-        .expect("Alice should be notified when Bob leaves");
+        .expect("alice should be notified when bob leaves");
     let leave_message = decode_from_slice::<ServerMessage, _>(&leave_data, standard())
         .expect("failed to deserialize leave message")
         .0;
 
     if let ServerMessage::UserLeft { username } = leave_message {
-        assert_eq!(username, "Bob");
+        assert_eq!(username, "bob");
     } else {
         panic!("expected UserLeft message, got {:?}", leave_message);
     }
@@ -270,13 +270,13 @@ fn test_handle_messages_username_success_and_broadcast() {
 
     if let ServerState::Lobby(lobby) = &mut state {
         lobby.mark_authenticated(alice_id);
-        lobby.register_username(alice_id, "Alice");
+        lobby.register_username(alice_id, "alice");
         lobby.mark_authenticated(bob_id);
     } else {
         panic!("state should be Lobby");
     }
 
-    let msg = ClientMessage::SetUsername("Bob".to_string());
+    let msg = ClientMessage::SetUsername("bob".to_string());
     let payload = encode_to_vec(&msg, standard()).expect("failed to serialize message");
     bob.send_message(AppChannel::ReliableOrdered, payload);
 
@@ -302,7 +302,7 @@ fn test_handle_messages_username_success_and_broadcast() {
     bob.update(Duration::from_millis(16));
 
     if let ServerState::Lobby(lobby) = &state {
-        assert_eq!(lobby.username(2), Some("Bob"));
+        assert_eq!(lobby.username(2), Some("bob"));
     } else {
         panic!("state should be Lobby");
     }
@@ -318,34 +318,34 @@ fn test_handle_messages_username_success_and_broadcast() {
     assert!(
         bob_msgs
             .iter()
-            .any(|msg| { matches!(msg, ServerMessage::Welcome { username } if username == "Bob") }),
-        "Bob did not receive a Welcome message"
+            .any(|msg| { matches!(msg, ServerMessage::Welcome { username } if username == "bob") }),
+        "bob did not receive a welcome message"
     );
 
     assert!(
         bob_msgs.iter().any(|msg| {
-            matches!(msg, ServerMessage::Roster { online } if online == &vec!["Alice".to_string()])
+            matches!(msg, ServerMessage::Roster { online } if online == &vec!["alice".to_string()])
         }),
-        "Bob did not receive a correct Roster message"
+        "bob did not receive a correct roster message"
     );
 
     assert!(
         !bob_msgs.iter().any(|msg| {
-            matches!(msg, ServerMessage::UserJoined { username } if username == "Bob")
+            matches!(msg, ServerMessage::UserJoined { username } if username == "bob")
         }),
-        "Bob should not be told that he himself joined"
+        "bob should not be told that he himself joined"
     );
 
     let alice_data = alice
         .receive_message(AppChannel::ReliableOrdered)
-        .expect("Alice should have received a message");
+        .expect("alice should have received a message");
     let alice_msg = decode_from_slice::<ServerMessage, _>(&alice_data, standard())
         .unwrap()
         .0;
 
     if let ServerMessage::UserJoined { username } = alice_msg {
-        assert_eq!(username, "Bob");
+        assert_eq!(username, "bob");
     } else {
-        panic!("Alice expected UserJoined message, got {:?}", alice_msg);
+        panic!("alice expected UserJoined message, got {:?}", alice_msg);
     }
 }
