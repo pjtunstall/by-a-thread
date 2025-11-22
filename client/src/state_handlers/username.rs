@@ -157,7 +157,7 @@ mod tests {
         assert_eq!(
             network.sent_messages.len(),
             0,
-            "No message should be sent to the network for empty input."
+            "no message should be sent to the network for empty input"
         );
         assert_eq!(
             ui.errors.len(),
@@ -166,17 +166,17 @@ mod tests {
         );
         assert!(
             ui.errors[0].contains("Username must not be empty"),
-            "UI error message for empty input was incorrect. Actual error: {}",
+            "UI error message for empty input was incorrect; actual error: {}",
             ui.errors[0]
         );
 
         if let ClientState::ChoosingUsername { prompt_printed } = session.state() {
             assert_eq!(
                 *prompt_printed, false,
-                "The prompt_printed flag must be reset to false after an error."
+                "prompt_printed must be reset to false after an error."
             );
         } else {
-            panic!("State unexpectedly changed from ChoosingUsername");
+            panic!("state unexpectedly changed from ChoosingUsername");
         }
     }
 }
