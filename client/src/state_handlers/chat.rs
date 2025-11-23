@@ -70,7 +70,7 @@ pub fn handle(
             }
             Ok((ServerMessage::Roster { online }, _)) => {
                 let msg = if online.is_empty() {
-                    "You are the only player online.".to_string()
+                    "Server: You are the only player online.".to_string()
                 } else {
                     format!("Players online: {}", online.join(", "))
                 };

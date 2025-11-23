@@ -23,7 +23,7 @@ pub fn handle(
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::Welcome { username }, _)) => {
-                ui.show_sanitized_message(&format!("Welcome, {}!", username));
+                ui.show_sanitized_message(&format!("Server: Welcome, {}!", username));
                 return Some(ClientState::InChat);
             }
             Ok((ServerMessage::UsernameError { message }, _)) => {
@@ -105,7 +105,7 @@ mod tests {
 
         assert!(matches!(next_state, Some(ClientState::InChat)));
         assert_eq!(ui.messages.len(), 1);
-        assert_eq!(ui.messages[0], "Welcome, TestUser!");
+        assert_eq!(ui.messages[0], "Server: Welcome, TestUser!");
     }
 
     #[test]
