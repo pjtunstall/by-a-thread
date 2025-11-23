@@ -257,7 +257,7 @@ mod tests {
         if let ServerState::Lobby(lobby) = &mut state {
             lobby.register_connection(1);
             lobby.mark_authenticated(1);
-            lobby.register_username(1, "alice");
+            lobby.register_username(1, "Alice");
         }
 
         network.queue_event(ServerNetworkEvent::ClientDisconnected {
@@ -279,7 +279,7 @@ mod tests {
             .unwrap()
             .0;
         if let ServerMessage::UserLeft { username } = msg {
-            assert_eq!(username, "alice");
+            assert_eq!(username, "Alice");
         } else {
             panic!("expected UserLeft message, got {:?}", msg);
         }

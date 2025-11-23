@@ -441,7 +441,7 @@ mod tests {
         let mut state = Lobby::new();
         let mut network = MockServerNetwork::new();
 
-        state.usernames.insert(1, "alice".to_string());
+        state.usernames.insert(1, "Alice".to_string());
         state.set_host(1, &mut network);
         assert_eq!(state.host_client_id, Some(1));
 
