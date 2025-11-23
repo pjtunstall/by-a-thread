@@ -159,74 +159,75 @@ impl MacroquadUi {
     fn wrap_text(&self, text: &str, max_width: f32) -> Vec<String> {
         let mut wrapped_lines = Vec::new();
 
-        for line in text.lines() {
-            if line.is_empty() {
-                wrapped_lines.push(String::new());
+        // for line in text.lines() {
+        //     if line.is_empty() {
+        //         wrapped_lines.push(String::new());
+        //         continue;
+        //     }
+
+        // This will be
+        let mut current_line = String::new();
+
+        let parts: Vec<&str> = text.split(' ').collect();
+
+        for (i, part) in parts.iter().enumerate() {
+            // Define 'word' (the chunk we are trying to fit).
+            // If i > 0, this part was preceded by a space, so we include it.
+            let word = if i == 0 {
+                part.to_string()
+            } else {
+                format!(" {}", part)
+            };
+
+            let line_with_word = format!("{}{}", current_line, word);
+            let line_with_word_width = self.measure_text_strict(&line_with_word);
+
+            // Case 1: Word fits on the current line.
+            if line_with_word_width <= max_width {
+                current_line = line_with_word;
                 continue;
             }
 
-            let mut current_line = String::new();
+            // Word doesn't fit - need to handle wrapping.
+            let word_width = self.measure_text_strict(&word);
+            let is_at_prompt_only = current_line.trim() == ">";
+            let word_fits_on_new_line = word_width <= max_width;
 
-            let parts: Vec<&str> = line.split(' ').collect();
+            // Case 2: Standard wrap - word fits on a new line and is not the prompt, >, so add it to the current line.
+            if word_fits_on_new_line && !is_at_prompt_only {
+                wrapped_lines.push(current_line);
+                current_line = word.to_string();
+            }
+            // Case 3: Force-split - either word is too wide OR we're at the prompt.
+            else {
+                // We enter this case when EITHER:
+                // a) The word is wider than the entire screen width, OR
+                // b) current_line is just the prompt (">") and we want to keep
+                //    the next word attached to it rather than wrapping the word
+                //    to a new line (which would leave ">" stranded alone)
 
-            for (i, part) in parts.iter().enumerate() {
-                // Define 'word' (the chunk we are trying to fit).
-                // If i > 0, this part was preceded by a space, so we include it.
-                let word = if i == 0 {
-                    part.to_string()
-                } else {
-                    format!(" {}", part)
-                };
+                // Important: we append characters to whatever is already in
+                // current_line (which might be ">"), so the prompt stays attached
+                for character in word.chars() {
+                    let line_with_char = format!("{}{}", current_line, character);
+                    let line_with_char_width = self.measure_text_strict(&line_with_char);
 
-                let line_with_word = format!("{}{}", current_line, word);
-                let line_with_word_width = self.measure_text_strict(&line_with_word);
-
-                // Case 1: Word fits on the current line.
-                if line_with_word_width <= max_width {
-                    current_line = line_with_word;
-                    continue;
-                }
-
-                // Word doesn't fit - need to handle wrapping.
-                let word_width = self.measure_text_strict(&word);
-                let is_at_prompt_only = current_line.trim() == ">";
-                let word_fits_on_new_line = word_width <= max_width;
-
-                // Case 2: Standard wrap - word fits on a new line and is not the prompt, >, so add it to the current line.
-                if word_fits_on_new_line && !is_at_prompt_only {
-                    wrapped_lines.push(current_line);
-                    current_line = word.to_string();
-                }
-                // Case 3: Force-split - either word is too wide OR we're at the prompt.
-                else {
-                    // We enter this case when EITHER:
-                    // a) The word is wider than the entire screen width, OR
-                    // b) current_line is just the prompt (">") and we want to keep
-                    //    the next word attached to it rather than wrapping the word
-                    //    to a new line (which would leave ">" stranded alone)
-
-                    // Important: we append characters to whatever is already in
-                    // current_line (which might be ">"), so the prompt stays attached
-                    for character in word.chars() {
-                        let line_with_char = format!("{}{}", current_line, character);
-                        let line_with_char_width = self.measure_text_strict(&line_with_char);
-
-                        if line_with_char_width > max_width {
-                            // Current line is now full - push it and start fresh
-                            wrapped_lines.push(current_line);
-                            current_line = character.to_string();
-                        } else {
-                            // Character fits - keep building on current_line
-                            current_line = line_with_char;
-                        }
+                    if line_with_char_width > max_width {
+                        // Current line is now full - push it and start fresh
+                        wrapped_lines.push(current_line);
+                        current_line = character.to_string();
+                    } else {
+                        // Character fits - keep building on current_line
+                        current_line = line_with_char;
                     }
                 }
             }
-
-            if !current_line.is_empty() {
-                wrapped_lines.push(current_line);
-            }
         }
+
+        if !current_line.is_empty() {
+            wrapped_lines.push(current_line);
+        }
+        // }
 
         wrapped_lines
     }
