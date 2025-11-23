@@ -5,14 +5,18 @@ use macroquad::prelude::*;
 use crate::ui::{ClientUi, UiInputError};
 use shared::input::UiKey;
 
+const PROMPT: &str = "> ";
 const FONT_SIZE: f32 = 24.0;
+const SIDE_PAD: f32 = 10.0;
+const TOP_PAD: f32 = 6.0;
+const BOTTOM_PAD: f32 = 20.0;
+
 const TEXT_COLOR: Color = WHITE;
 const ERROR_COLOR: Color = RED;
 const PROMPT_COLOR: Color = LIGHTGRAY;
 const INPUT_COLOR: Color = LIGHTGRAY;
 const BANNER_COLOR: Color = YELLOW;
 const BACKGROUND_COLOR: Color = BLACK;
-const PROMPT: &str = "> ";
 
 pub struct MacroquadUi {
     input_buffer: String,
@@ -41,100 +45,110 @@ impl MacroquadUi {
         }
     }
 
-    pub fn draw(&self, show_input: bool) {
+    pub fn draw(&self, should_show_input: bool) {
         clear_background(BACKGROUND_COLOR);
 
         let line_height = FONT_SIZE * 1.2;
-        let max_width = screen_width() - 20.0;
-        let top_pad = 30.0;
-        let bottom_pad = 20.0;
-        let side_pad = 10.0;
-        let mut current_y = screen_height() - bottom_pad;
+        let max_width = screen_width() - 2.0 * SIDE_PAD; // ... of a line of text.
 
-        // Status line text at the top of the window.
+        // Status line text at the top of the window for connetivity error messages.
+        self.draw_status_line(line_height);
+        // Starts at bottom.
+        let mut current_baseline = screen_height() - BOTTOM_PAD;
+
+        if should_show_input {
+            self.draw_input(&mut current_baseline, line_height, max_width);
+        } // ... and move current_baseline to the line above the input.
+        self.draw_chat_history(current_baseline, line_height, max_width);
+    }
+
+    fn draw_status_line(&self, line_height: f32) {
         draw_text(
             &self.status_message,
-            side_pad,
-            top_pad,
+            SIDE_PAD,
+            TOP_PAD + line_height,
             FONT_SIZE,
             ERROR_COLOR,
         );
+    }
 
-        // Print current input text.
-        if show_input {
-            let full_input_text = format!("{}{}", PROMPT, self.input_buffer);
-            let input_lines = self.wrap_text(&full_input_text, max_width);
+    fn draw_input(&self, current_baseline: &mut f32, line_height: f32, max_width: f32) {
+        let full_input_text = format!("{}{}", PROMPT, self.input_buffer);
+        let input_lines = self.wrap_text(&full_input_text, max_width);
 
-            let input_start_y = current_y - ((input_lines.len() as f32 - 1.0) * line_height);
-            let mut draw_y = input_start_y;
+        let input_start_y = *current_baseline - ((input_lines.len() as f32 - 1.0) * line_height);
+        let mut draw_y = input_start_y;
 
-            for line in input_lines.iter() {
-                draw_text(line, side_pad, draw_y, FONT_SIZE, INPUT_COLOR);
-                draw_y += line_height;
-            }
-
-            // Cursor.
-            if (get_time() * 2.0) as i32 % 2 == 0 {
-                // Determine the logical index of the cursor within the FULL text (including the prompt).
-                // We use CHAR indices because cursor_pos is a char count.
-                let prompt_len = PROMPT.chars().count();
-                let target_char_index = self.cursor_pos + prompt_len;
-
-                let mut chars_processed = 0;
-                let mut cursor_found = false;
-                let mut cursor_x = side_pad;
-                let mut cursor_y = input_start_y;
-
-                for (i, line) in input_lines.iter().enumerate() {
-                    let line_len = line.chars().count();
-
-                    // Check if the cursor sits on this line
-                    // We use <= because the cursor can be AT the very end of the line
-                    if target_char_index <= chars_processed + line_len {
-                        // The cursor is on this line!
-                        let index_in_line = target_char_index - chars_processed;
-
-                        // Get the text strictly BEFORE the cursor on this specific line
-                        let sub_string: String = line.chars().take(index_in_line).collect();
-
-                        let text_width = self.measure_text_strict(&sub_string);
-
-                        cursor_x = side_pad + text_width;
-                        cursor_y = input_start_y + (i as f32 * line_height);
-                        cursor_found = true;
-                        break;
-                    }
-
-                    chars_processed += line_len;
-                }
-
-                // Fallback: If cursor is at the very end of the entire text (and loop finished).
-                if !cursor_found && !input_lines.is_empty() {
-                    let last_idx = input_lines.len() - 1;
-                    let last_line = &input_lines[last_idx];
-                    let text_width = self.measure_text_strict(last_line);
-                    cursor_x = side_pad + text_width;
-                    cursor_y = input_start_y + (last_idx as f32 * line_height);
-                } else if input_lines.is_empty() {
-                    cursor_x = side_pad + self.measure_text_strict(PROMPT);
-                    cursor_y = input_start_y;
-                }
-
-                draw_rectangle(cursor_x, cursor_y - FONT_SIZE + 5.0, 2.0, FONT_SIZE, WHITE);
-            }
-
-            current_y -= input_lines.len() as f32 * line_height;
+        for line in input_lines.iter() {
+            draw_text(line, SIDE_PAD, draw_y, FONT_SIZE, INPUT_COLOR);
+            draw_y += line_height;
         }
 
-        // Chat history.
+        if (get_time() * 2.0) as i32 % 2 == 0 {
+            self.draw_cursor(input_start_y, &input_lines, line_height);
+        }
+
+        *current_baseline -= input_lines.len() as f32 * line_height;
+    }
+
+    fn draw_cursor(&self, input_start_y: f32, input_lines: &Vec<String>, line_height: f32) {
+        // Determine the logical index of the cursor within the FULL text (including the prompt).
+        // We use CHAR indices because cursor_pos is a char count.
+        let prompt_len = PROMPT.chars().count();
+        let target_char_index = self.cursor_pos + prompt_len;
+
+        let mut chars_processed = 0;
+        let mut cursor_found = false;
+        let mut cursor_x = SIDE_PAD;
+        let mut cursor_y = input_start_y;
+
+        for (i, line) in input_lines.iter().enumerate() {
+            let line_len = line.chars().count();
+
+            // Check if the cursor sits on this line
+            // We use <= because the cursor can be AT the very end of the line
+            if target_char_index <= chars_processed + line_len {
+                // The cursor is on this line!
+                let index_in_line = target_char_index - chars_processed;
+
+                // Get the text strictly BEFORE the cursor on this specific line
+                let sub_string: String = line.chars().take(index_in_line).collect();
+
+                let text_width = self.measure_text_strict(&sub_string);
+
+                cursor_x = SIDE_PAD + text_width;
+                cursor_y = input_start_y + (i as f32 * line_height);
+                cursor_found = true;
+                break;
+            }
+
+            chars_processed += line_len;
+        }
+
+        // Fallback: If cursor is at the very end of the entire text (and loop finished).
+        if !cursor_found && !input_lines.is_empty() {
+            let last_idx = input_lines.len() - 1;
+            let last_line = &input_lines[last_idx];
+            let text_width = self.measure_text_strict(last_line);
+            cursor_x = SIDE_PAD + text_width;
+            cursor_y = input_start_y + (last_idx as f32 * line_height);
+        } else if input_lines.is_empty() {
+            cursor_x = SIDE_PAD + self.measure_text_strict(PROMPT);
+            cursor_y = input_start_y;
+        }
+
+        draw_rectangle(cursor_x, cursor_y - FONT_SIZE + 5.0, 2.0, FONT_SIZE, WHITE);
+    }
+
+    fn draw_chat_history(&self, mut current_baseline: f32, line_height: f32, max_width: f32) {
         for (message, color) in self.message_history.iter().rev() {
             let lines = self.wrap_text(message, max_width);
             for line in lines.iter().rev() {
-                if current_y < line_height * 2.0 {
+                if current_baseline < line_height * 2.0 {
                     break;
                 }
-                draw_text(line, side_pad, current_y, FONT_SIZE, *color);
-                current_y -= line_height;
+                draw_text(line, SIDE_PAD, current_baseline, FONT_SIZE, *color);
+                current_baseline -= line_height;
             }
         }
     }

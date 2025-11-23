@@ -95,8 +95,8 @@ pub async fn run_client_loop(
 
         if !runner.session.is_countdown_active() {
             runner.ui.show_status_line(&ui_state.status_line);
-            let show_input = matches!(ui_state.mode, InputMode::Enabled);
-            runner.ui.draw(show_input);
+            let should_show_input = matches!(ui_state.mode, InputMode::Enabled);
+            runner.ui.draw(should_show_input);
         }
 
         if runner.session.state().is_disconnected() {
