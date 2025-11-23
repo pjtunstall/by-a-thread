@@ -36,7 +36,7 @@ pub trait ClientUi {
     fn show_message(&mut self, message: &str);
     fn show_error(&mut self, message: &str);
     fn show_prompt(&mut self, prompt: &str);
-    fn poll_input(&mut self, limit: usize) -> Result<Option<String>, UiInputError>;
+    fn poll_input(&mut self, limit: usize, is_host: bool) -> Result<Option<String>, UiInputError>;
     fn poll_single_key(&mut self) -> Result<Option<UiKey>, UiInputError>;
     fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr, client_id: u64);
     fn draw_countdown(&mut self, countdown_text: &str);

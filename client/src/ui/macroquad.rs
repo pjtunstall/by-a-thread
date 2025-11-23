@@ -260,16 +260,15 @@ impl ClientUi for MacroquadUi {
         self.add_history(&format!("  Your ID:       {}", client_id), BANNER_COLOR);
     }
 
-    fn poll_input(&mut self, limit: usize) -> Result<Option<String>, UiInputError> {
-        if is_key_down(KeyCode::LeftControl) && is_key_pressed(KeyCode::C) {
-            // TODO: Send a disconnect signal.
-            std::process::exit(0);
-        }
-
+    fn poll_input(&mut self, limit: usize, is_host: bool) -> Result<Option<String>, UiInputError> {
         if is_key_pressed(KeyCode::Tab) {
-            self.input_buffer.clear();
-            self.cursor_pos = 0;
-            return Ok(Some("\t".to_string()));
+            if is_host {
+                self.input_buffer.clear();
+                self.cursor_pos = 0;
+                return Ok(Some("\t".to_string()));
+            } else {
+                return Ok(None);
+            }
         }
 
         let char_count = self.input_buffer.chars().count();
@@ -328,10 +327,6 @@ impl ClientUi for MacroquadUi {
     }
 
     fn poll_single_key(&mut self) -> Result<Option<UiKey>, UiInputError> {
-        if is_key_down(KeyCode::LeftControl) && is_key_pressed(KeyCode::C) {
-            return Err(UiInputError::Disconnected);
-        }
-
         if let Some(key_code) = get_last_key_pressed() {
             let ui_key = match key_code {
                 KeyCode::Enter => Some(UiKey::Enter),

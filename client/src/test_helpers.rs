@@ -63,7 +63,7 @@ impl ClientUi for MockUi {
         self.prompts.push(prompt.to_string());
     }
 
-    fn poll_input(&mut self, limit: usize) -> Result<Option<String>, UiInputError> {
+    fn poll_input(&mut self, limit: usize, _is_host: bool) -> Result<Option<String>, UiInputError> {
         self.inputs.pop_front().unwrap_or(Ok(None)).map(|opt| {
             opt.map(|mut s| {
                 if s.len() > limit {

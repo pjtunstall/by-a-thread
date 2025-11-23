@@ -123,7 +123,9 @@ pub async fn run_client_loop(
                 }
             } else {
                 let ui_ref: &mut dyn ClientUi = &mut runner.ui;
-                match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES) {
+                match ui_ref
+                    .poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES, runner.session.is_host)
+                {
                     Ok(Some(input)) => {
                         runner.session.add_input(input);
                     }
@@ -240,7 +242,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
         }
 
         let ui_ref: &mut dyn ClientUi = &mut runner.ui;
-        match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES) {
+        match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES, false) {
             Ok(Some(input)) => {
                 runner.session.add_input(input);
             }
