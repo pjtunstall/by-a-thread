@@ -28,7 +28,6 @@ pub fn handle(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         session.set_chat_waiting_for_server(false);
-        session.clear_status_line();
 
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((
@@ -216,5 +215,28 @@ mod tests {
 
         assert_eq!(ui.messages.len(), 1);
         assert_eq!(ui.messages[0], "Hacker: This is Danger!");
+    }
+
+    #[test]
+    fn sends_start_game_request_on_tab_input() {
+        let mut session = ClientSession::new(0);
+        session.transition(ClientState::InChat);
+        session.mark_initial_roster_received();
+
+        let mut ui = MockUi::new();
+        let mut network = MockNetwork::new();
+
+        session.add_input("\t".to_string());
+
+        let next_state = handle(&mut session, &mut ui, &mut network);
+
+        assert!(next_state.is_none());
+        assert_eq!(network.sent_messages.len(), 1);
+        let (channel, payload) = network.sent_messages.pop_front().unwrap();
+        assert_eq!(channel, AppChannel::ReliableOrdered);
+
+        let (message, _) = decode_from_slice::<ClientMessage, _>(&payload, standard()).unwrap();
+        assert!(matches!(message, ClientMessage::RequestStartGame));
+        assert!(session.chat_waiting_for_server);
     }
 }

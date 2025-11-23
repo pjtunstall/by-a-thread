@@ -1,4 +1,7 @@
-use bincode::{config::standard, serde::{decode_from_slice, encode_to_vec}};
+use bincode::{
+    config::standard,
+    serde::{decode_from_slice, encode_to_vec},
+};
 
 use crate::{
     net::NetworkHandle,
@@ -234,10 +237,7 @@ mod tests {
             1,
             "expected exactly one sanitized error from server message"
         );
-        assert_eq!(
-            ui.error_kinds,
-            vec![UiErrorKind::UsernameServerError]
-        );
+        assert_eq!(ui.error_kinds, vec![UiErrorKind::UsernameServerError]);
 
         match next_state {
             Some(ClientState::ChoosingUsername { prompt_printed }) => {

@@ -56,7 +56,6 @@ pub fn handle(
     }
 
     let Some(end_time) = session.countdown_end_time else {
-        ui.show_status_line("Waiting for server to start countdown...");
         return None;
     };
 
@@ -105,10 +104,8 @@ mod tests {
         assert!(next_state.is_none());
         assert!(matches!(session.state(), ClientState::Countdown));
 
-        assert_eq!(ui.status_lines.len(), 1);
-        assert!(ui.status_lines[0].contains("Waiting for server to start countdown"));
-
         assert!(ui.countdown_draws.is_empty());
+        assert!(ui.messages.is_empty());
     }
 
     #[test]

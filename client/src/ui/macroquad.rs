@@ -8,7 +8,6 @@ use shared::input::UiKey;
 const PROMPT: &str = "> ";
 const FONT_SIZE: f32 = 24.0;
 const SIDE_PAD: f32 = 10.0;
-const TOP_PAD: f32 = 6.0;
 const BOTTOM_PAD: f32 = 20.0;
 
 const TEXT_COLOR: Color = WHITE;
@@ -21,7 +20,6 @@ const BACKGROUND_COLOR: Color = BLACK;
 pub struct MacroquadUi {
     input_buffer: String,
     pub message_history: Vec<(String, Color)>,
-    status_message: String,
     max_history_lines: usize,
     cursor_pos: usize,
 }
@@ -31,7 +29,6 @@ impl MacroquadUi {
         Self {
             input_buffer: String::new(),
             message_history: Vec::new(),
-            status_message: String::new(),
             max_history_lines: 20,
             cursor_pos: 0,
         }
@@ -45,34 +42,28 @@ impl MacroquadUi {
         }
     }
 
-    pub fn draw(&self, should_show_input: bool) {
+    pub fn draw(&self, should_show_input: bool, show_cursor: bool) {
         clear_background(BACKGROUND_COLOR);
 
         let line_height = FONT_SIZE * 1.2;
         let max_width = screen_width() - 2.0 * SIDE_PAD; // ... of a line of text.
 
-        // Status line text at the top of the window for connetivity error messages.
-        self.draw_status_line(line_height);
         // Starts at bottom.
         let mut current_baseline = screen_height() - BOTTOM_PAD;
 
         if should_show_input {
-            self.draw_input(&mut current_baseline, line_height, max_width);
+            self.draw_input(&mut current_baseline, line_height, max_width, show_cursor);
         } // ... and move current_baseline to the line above the input.
         self.draw_chat_history(current_baseline, line_height, max_width);
     }
 
-    fn draw_status_line(&self, line_height: f32) {
-        draw_text(
-            &self.status_message,
-            SIDE_PAD,
-            TOP_PAD + line_height,
-            FONT_SIZE,
-            ERROR_COLOR,
-        );
-    }
-
-    fn draw_input(&self, current_baseline: &mut f32, line_height: f32, max_width: f32) {
+    fn draw_input(
+        &self,
+        current_baseline: &mut f32,
+        line_height: f32,
+        max_width: f32,
+        show_cursor: bool,
+    ) {
         let full_input_text = format!("{}{}", PROMPT, self.input_buffer);
         let input_lines = self.wrap_text(&full_input_text, max_width);
 
@@ -84,7 +75,7 @@ impl MacroquadUi {
             draw_y += line_height;
         }
 
-        if (get_time() * 2.0) as i32 % 2 == 0 {
+        if show_cursor && (get_time() * 2.0) as i32 % 2 == 0 {
             self.draw_cursor(input_start_y, &input_lines, line_height);
         }
 
@@ -263,10 +254,6 @@ impl ClientUi for MacroquadUi {
         self.add_history(prompt, PROMPT_COLOR);
     }
 
-    fn show_status_line(&mut self, message: &str) {
-        self.status_message = message.to_string();
-    }
-
     fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr, client_id: u64) {
         self.add_history(&format!("  Game version:  {}", protocol_id), BANNER_COLOR);
         self.add_history(&format!("  Connecting to: {}", server_addr), BANNER_COLOR);
@@ -277,6 +264,12 @@ impl ClientUi for MacroquadUi {
         if is_key_down(KeyCode::LeftControl) && is_key_pressed(KeyCode::C) {
             // TODO: Send a disconnect signal.
             std::process::exit(0);
+        }
+
+        if is_key_pressed(KeyCode::Tab) {
+            self.input_buffer.clear();
+            self.cursor_pos = 0;
+            return Ok(Some("\t".to_string()));
         }
 
         let char_count = self.input_buffer.chars().count();

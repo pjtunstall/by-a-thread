@@ -17,11 +17,7 @@ mod tests {
         test_helpers::{MockNetwork, MockUi},
         ui::ClientUi,
     };
-    use shared::{
-        auth::MAX_ATTEMPTS,
-        input::sanitize,
-        protocol::ServerMessage,
-    };
+    use shared::{auth::MAX_ATTEMPTS, input::sanitize, protocol::ServerMessage};
 
     #[test]
     fn client_banner_is_printed_correctly() {
@@ -38,7 +34,6 @@ mod tests {
         assert_eq!(ui.messages, vec![expected_banner]);
         assert!(ui.errors.is_empty());
         assert!(ui.prompts.is_empty());
-        assert!(ui.status_lines.is_empty());
     }
 
     #[test]

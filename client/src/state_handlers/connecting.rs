@@ -38,8 +38,6 @@ pub fn handle(
     }
 
     if network.is_connected() {
-        session.clear_status_line();
-
         if let Some(passcode) = session.take_first_passcode() {
             ui.show_message(&format!(
                 "Transport connected. Sending passcode: {}.",

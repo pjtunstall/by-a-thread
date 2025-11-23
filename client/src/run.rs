@@ -92,11 +92,62 @@ pub async fn run_client_loop(
         client_frame_update(&mut runner);
 
         let ui_state = runner.session.prepare_ui_state();
+        let is_difficulty_choice = matches!(
+            runner.session.state(),
+            ClientState::ChoosingDifficulty { .. }
+        );
+
+        if ui_state.show_waiting_message {
+            runner.ui.show_error("Waiting for server...");
+        }
+
+        if matches!(runner.session.input_mode(), InputMode::Enabled) {
+            if is_difficulty_choice {
+                match runner.ui.poll_single_key() {
+                    Ok(Some(shared::input::UiKey::Char(c))) if matches!(c, '1' | '2' | '3') => {
+                        runner.session.add_input(c.to_string());
+                    }
+                    Err(UiInputError::Disconnected) => {
+                        apply_client_transition(
+                            &mut runner.session,
+                            &mut runner.ui,
+                            None,
+                            ClientState::TransitioningToDisconnected {
+                                message: "input source disconnected (Ctrl+C or window closed)"
+                                    .to_string(),
+                            },
+                        );
+                        break;
+                    }
+                    _ => {}
+                }
+            } else {
+                let ui_ref: &mut dyn ClientUi = &mut runner.ui;
+                match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES) {
+                    Ok(Some(input)) => {
+                        runner.session.add_input(input);
+                    }
+                    Err(UiInputError::Disconnected) => {
+                        apply_client_transition(
+                            &mut runner.session,
+                            &mut runner.ui,
+                            None,
+                            ClientState::TransitioningToDisconnected {
+                                message: "input source disconnected (Ctrl+C or window closed)"
+                                    .to_string(),
+                            },
+                        );
+                        break;
+                    }
+                    Ok(None) => {}
+                }
+            }
+        }
 
         if !runner.session.is_countdown_active() {
-            runner.ui.show_status_line(&ui_state.status_line);
             let should_show_input = matches!(ui_state.mode, InputMode::Enabled);
-            runner.ui.draw(should_show_input);
+            let show_cursor = should_show_input && !is_difficulty_choice;
+            runner.ui.draw(should_show_input, show_cursor);
         }
 
         if runner.session.state().is_disconnected() {
@@ -110,7 +161,7 @@ pub async fn run_client_loop(
 
 async fn handle_disconnected_ui_loop(runner: &mut ClientRunner) {
     loop {
-        runner.ui.draw(false);
+        runner.ui.draw(false, false);
         if is_key_pressed(KeyCode::Escape) {
             break;
         }
@@ -145,7 +196,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
 
     if let Err(e) = runner.transport.update(duration, &mut runner.client) {
         eprintln!("NETWORK ERROR: Transport Update Failed: {}.", e);
-        std::io::stderr().flush().ok();
+        std::io::stderr().flush().ok(); // keep error visible in stderr
         apply_client_transition(
             &mut runner.session,
             &mut runner.ui,
@@ -162,6 +213,32 @@ fn client_frame_update(runner: &mut ClientRunner) {
     }
 
     if matches!(runner.session.input_mode(), InputMode::Enabled) {
+        let is_difficulty_choice = matches!(
+            runner.session.state(),
+            ClientState::ChoosingDifficulty { .. }
+        );
+
+        if is_difficulty_choice {
+            match runner.ui.poll_single_key() {
+                Ok(Some(shared::input::UiKey::Char(c))) if matches!(c, '1' | '2' | '3') => {
+                    runner.session.add_input(c.to_string());
+                }
+                Err(UiInputError::Disconnected) => {
+                    apply_client_transition(
+                        &mut runner.session,
+                        &mut runner.ui,
+                        None,
+                        ClientState::TransitioningToDisconnected {
+                            message: "input source disconnected (Ctrl+C or window closed)"
+                                .to_string(),
+                        },
+                    );
+                    return;
+                }
+                _ => {}
+            }
+        }
+
         let ui_ref: &mut dyn ClientUi = &mut runner.ui;
         match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES) {
             Ok(Some(input)) => {
@@ -251,14 +328,12 @@ fn apply_client_transition(
         } else {
             format!(": {}", message)
         };
-        session.set_status_line(&format!("Connection lost{}", rest));
+        ui.show_sanitized_error(&format!("No connection{}", rest));
         session.transition(ClientState::Disconnected { message });
         return;
     }
 
     session.transition(new_state);
-
-    let mut status_line_to_set: Option<String> = None;
 
     match session.state_mut() {
         ClientState::Startup { prompt_printed } => {
@@ -299,14 +374,8 @@ fn apply_client_transition(
                 print_player_list(ui, session, players);
             }
         }
-        ClientState::Disconnected { message } => {
-            status_line_to_set = Some(message.clone());
-        }
+        ClientState::Disconnected { message } => ui.show_sanitized_error(message),
         _ => {}
-    }
-
-    if let Some(msg) = status_line_to_set {
-        session.set_status_line(msg);
     }
 }
 

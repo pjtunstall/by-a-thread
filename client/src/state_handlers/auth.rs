@@ -6,7 +6,10 @@ use bincode::{
 use crate::{
     session::ClientSession,
     state::ClientState,
-    {net::NetworkHandle, ui::{ClientUi, UiErrorKind}},
+    {
+        net::NetworkHandle,
+        ui::{ClientUi, UiErrorKind},
+    },
 };
 use shared::{
     auth::{MAX_ATTEMPTS, Passcode},
@@ -32,7 +35,6 @@ pub fn handle(
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 session.set_auth_waiting_for_server(false);
-                session.clear_status_line();
                 if message.starts_with("The game has already started.") {
                     ui.show_message(&message);
                     return Some(ClientState::TransitioningToDisconnected { message });
@@ -95,8 +97,8 @@ pub fn handle(
                     ui.show_typed_error(
                         UiErrorKind::PasscodeFormat,
                         &format!(
-                        "Invalid format: \"{}\". Passcode must be a 6-digit number.",
-                        input_string.trim()
+                            "Invalid format: \"{}\". Passcode must be a 6-digit number.",
+                            input_string.trim()
                         ),
                     );
 

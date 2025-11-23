@@ -19,8 +19,8 @@ pub struct ClientSession {
     pub input_queue: Vec<String>,
     pub chat_waiting_for_server: bool,
     pub auth_waiting_for_server: bool,
-    pub status_line: Option<String>,
-    pub waiting_since: Option<Instant>,
+    waiting_since: Option<Instant>,
+    waiting_message_shown: bool,
 }
 
 impl ClientSession {
@@ -39,8 +39,8 @@ impl ClientSession {
             input_queue: Vec::new(),
             chat_waiting_for_server: false,
             auth_waiting_for_server: false,
-            status_line: None,
             waiting_since: None,
+            waiting_message_shown: false,
         }
     }
 
@@ -114,24 +114,6 @@ impl ClientSession {
         self.auth_waiting_for_server = waiting;
     }
 
-    pub fn set_status_line(&mut self, message: impl Into<String>) {
-        self.status_line = Some(message.into());
-    }
-
-    pub fn clear_status_line(&mut self) {
-        self.status_line = None;
-    }
-
-    pub fn update_waiting_timer(&mut self, waiting_active: bool) {
-        if waiting_active {
-            if self.waiting_since.is_none() {
-                self.waiting_since = Some(Instant::now());
-            }
-        } else {
-            self.waiting_since = None;
-        }
-    }
-
     pub fn input_mode(&self) -> InputMode {
         match self.state() {
             ClientState::Startup { .. } => InputMode::Enabled,
@@ -170,37 +152,41 @@ impl ClientSession {
         }
     }
 
-    pub fn input_ui_state(&self) -> InputUiState {
-        let mode = self.input_mode();
-        let status_line = if let Some(msg) = &self.status_line {
-            msg.clone()
-        } else if matches!(mode, InputMode::DisabledWaiting) {
-            if let Some(start) = self.waiting_since {
-                if start.elapsed().as_millis() >= 300 {
-                    "Waiting for server...".to_string()
-                } else {
-                    "".to_string()
-                }
-            } else {
-                "".to_string()
+    pub fn prepare_ui_state(&mut self) -> InputUiState {
+        let waiting_active = matches!(self.input_mode(), InputMode::DisabledWaiting)
+            || matches!(self.state(), ClientState::Connecting);
+
+        if waiting_active {
+            if self.waiting_since.is_none() {
+                self.waiting_since = Some(Instant::now());
+                self.waiting_message_shown = false;
             }
         } else {
-            "".to_string()
-        };
+            self.waiting_since = None;
+            self.waiting_message_shown = false;
+        }
 
-        InputUiState { mode, status_line }
-    }
+        let show_waiting_message = waiting_active
+            && !self.waiting_message_shown
+            && self
+                .waiting_since
+                .map(|start| start.elapsed().as_millis() >= 300)
+                .unwrap_or(false);
 
-    pub fn prepare_ui_state(&mut self) -> InputUiState {
-        let waiting_active = matches!(self.input_mode(), InputMode::DisabledWaiting);
-        self.update_waiting_timer(waiting_active);
-        self.input_ui_state()
+        if show_waiting_message {
+            self.waiting_message_shown = true;
+        }
+
+        InputUiState {
+            mode: self.input_mode(),
+            show_waiting_message,
+        }
     }
 }
 
 pub struct InputUiState {
     pub mode: InputMode,
-    pub status_line: String,
+    pub show_waiting_message: bool,
 }
 
 pub fn username_prompt() -> String {
@@ -218,6 +204,7 @@ pub fn validate_username_input(input: &str) -> Result<String, UsernameError> {
 mod tests {
     use super::*;
     use shared::{auth::Passcode, player::UsernameError};
+    use std::time::Duration;
 
     #[test]
     fn new_session_starts_in_startup_state() {
@@ -296,5 +283,45 @@ mod tests {
         assert_eq!(session.take_input(), Some("message one".to_string()));
         assert_eq!(session.take_input(), Some("message two".to_string()));
         assert_eq!(session.take_input(), None);
+    }
+
+    #[test]
+    fn waiting_message_flags_after_delay() {
+        let mut session = ClientSession::new(0);
+        session.transition(ClientState::InChat);
+        session.set_chat_waiting_for_server(true);
+
+        let first_state = session.prepare_ui_state();
+        assert!(!first_state.show_waiting_message);
+
+        std::thread::sleep(Duration::from_millis(320));
+
+        let second_state = session.prepare_ui_state();
+        assert!(second_state.show_waiting_message);
+
+        let third_state = session.prepare_ui_state();
+        assert!(
+            !third_state.show_waiting_message,
+            "should only fire once per wait"
+        );
+
+        session.set_chat_waiting_for_server(false);
+        let fourth_state = session.prepare_ui_state();
+        assert!(!fourth_state.show_waiting_message);
+        assert!(session.waiting_since.is_none());
+    }
+
+    #[test]
+    fn waiting_message_triggers_during_connecting() {
+        let mut session = ClientSession::new(0);
+        session.transition(ClientState::Connecting);
+
+        let first_state = session.prepare_ui_state();
+        assert!(!first_state.show_waiting_message);
+
+        std::thread::sleep(Duration::from_millis(320));
+
+        let second_state = session.prepare_ui_state();
+        assert!(second_state.show_waiting_message);
     }
 }

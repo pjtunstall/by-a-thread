@@ -38,7 +38,6 @@ pub trait ClientUi {
     fn show_prompt(&mut self, prompt: &str);
     fn poll_input(&mut self, limit: usize) -> Result<Option<String>, UiInputError>;
     fn poll_single_key(&mut self) -> Result<Option<UiKey>, UiInputError>;
-    fn show_status_line(&mut self, message: &str);
     fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr, client_id: u64);
     fn draw_countdown(&mut self, countdown_text: &str);
 
@@ -52,10 +51,6 @@ pub trait ClientUi {
 
     fn show_sanitized_prompt(&mut self, message: &str) {
         self.show_prompt(&sanitize(message));
-    }
-
-    fn show_sanitized_status_line(&mut self, message: &str) {
-        self.show_status_line(&sanitize(message));
     }
 
     fn show_typed_error(&mut self, _kind: UiErrorKind, message: &str) {

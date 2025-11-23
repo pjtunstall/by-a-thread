@@ -14,7 +14,6 @@ pub struct MockUi {
     pub errors: Vec<String>,
     pub error_kinds: Vec<UiErrorKind>,
     pub prompts: Vec<String>,
-    pub status_lines: Vec<String>,
     pub inputs: VecDeque<Result<Option<String>, UiInputError>>,
     pub keys: VecDeque<Result<Option<UiKey>, UiInputError>>,
     pub countdown_draws: Vec<String>,
@@ -39,7 +38,6 @@ impl MockUi {
             errors: Vec::new(),
             error_kinds: Vec::new(),
             prompts: Vec::new(),
-            status_lines: Vec::new(),
             inputs: VecDeque::new(),
             keys: VecDeque::new(),
             countdown_draws: Vec::new(),
@@ -63,10 +61,6 @@ impl ClientUi for MockUi {
 
     fn show_prompt(&mut self, prompt: &str) {
         self.prompts.push(prompt.to_string());
-    }
-
-    fn show_status_line(&mut self, message: &str) {
-        self.status_lines.push(message.to_string());
     }
 
     fn poll_input(&mut self, limit: usize) -> Result<Option<String>, UiInputError> {
