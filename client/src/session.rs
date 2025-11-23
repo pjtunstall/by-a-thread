@@ -9,6 +9,7 @@ use shared::{
 
 pub struct ClientSession {
     pub client_id: u64,
+    pub is_host: bool,
     pub state: ClientState,
     pub first_passcode: Option<Passcode>,
     pub awaiting_initial_roster: bool,
@@ -27,6 +28,7 @@ impl ClientSession {
     pub fn new(client_id: u64) -> Self {
         Self {
             client_id,
+            is_host: false,
             state: ClientState::Startup {
                 prompt_printed: false,
             },

@@ -35,6 +35,8 @@ pub enum ServerMessage {
         message: String,
     },
     RequestDifficultyChoice,
+    AppointHost,
+    NotHost, // Refusal to non-host client who asked to choose a difficulty level.
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]

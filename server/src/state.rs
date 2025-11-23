@@ -166,9 +166,7 @@ impl Lobby {
 
     pub fn set_host(&mut self, id: u64, network: &mut dyn ServerNetworkHandle) {
         self.host_client_id = Some(id);
-        let message = ServerMessage::ServerInfo {
-            message: "You have been appointed host. Press TAB to begin.".to_string(),
-        };
+        let message = ServerMessage::AppointHost;
         let payload = encode_to_vec(&message, standard()).expect("failed to serialize ServerInfo");
         network.send_message(id, AppChannel::ReliableOrdered, payload);
     }

@@ -49,6 +49,10 @@ pub fn handle(
                     choice_sent: false,
                 });
             }
+            // Client asked to choose difficulty, but was not the host, so restore input prompt.
+            Ok((ServerMessage::NotHost, _)) => {
+                session.set_chat_waiting_for_server(false);
+            }
             Ok((ServerMessage::ChatMessage { username, content }, _)) => {
                 if session.awaiting_initial_roster() {
                     continue;
@@ -79,6 +83,10 @@ pub fn handle(
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));
             }
+            Ok((ServerMessage::AppointHost, _)) => {
+                session.is_host = true;
+                ui.show_sanitized_message("You have been appointed host. Press TAB to begin.");
+            }
             Ok((_, _)) => {}
             Err(e) => ui.show_typed_error(
                 UiErrorKind::Deserialization,
@@ -89,10 +97,13 @@ pub fn handle(
 
     while let Some(input) = session.take_input() {
         if input == "\t" {
-            let message = ClientMessage::RequestStartGame;
-            let payload = encode_to_vec(&message, standard()).expect("failed to serialize command");
-            network.send_message(AppChannel::ReliableOrdered, payload);
-            session.set_chat_waiting_for_server(true);
+            if session.is_host {
+                let message = ClientMessage::RequestStartGame;
+                let payload =
+                    encode_to_vec(&message, standard()).expect("failed to serialize command");
+                network.send_message(AppChannel::ReliableOrdered, payload);
+                session.set_chat_waiting_for_server(true);
+            }
             continue;
         }
 

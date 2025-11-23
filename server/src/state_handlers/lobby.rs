@@ -198,7 +198,13 @@ pub fn handle(
                             state,
                         )));
                     } else {
+                        // Send refusal message to client so they can exit "Waiting for server..."
+                        // 'state' and restore their input prompt.
                         eprintln!("Client {}, not host, tried to start game.", client_id);
+                        let message = ServerMessage::NotHost;
+                        let payload = encode_to_vec(&message, standard())
+                            .expect("failed to serialize NoHost message");
+                        network.send_message(client_id, AppChannel::ReliableOrdered, payload);
                     }
                 }
                 ClientMessage::SetDifficulty(_) => {
