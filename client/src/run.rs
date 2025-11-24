@@ -98,7 +98,7 @@ pub async fn run_client_loop(
         );
 
         if ui_state.show_waiting_message {
-            runner.ui.show_error("Waiting for server...");
+            runner.ui.show_warning("Waiting for server...");
         }
 
         if matches!(runner.session.input_mode(), InputMode::Enabled) {
@@ -177,7 +177,11 @@ fn handle_user_escape(runner: &mut ClientRunner) {
         return;
     }
 
-    if !runner.session.state().allows_user_disconnect() {
+    if !runner
+        .session
+        .state()
+        .already_disconnecting_or_disconnected()
+    {
         return;
     }
 

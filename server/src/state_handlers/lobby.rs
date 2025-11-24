@@ -199,9 +199,11 @@ pub fn handle(
                         )));
                     } else {
                         // Send refusal message to client so they can exit "Waiting for server..."
-                        // 'state' and restore their input prompt.
+                        // 'state' and restore their input prompt. The client code should
+                        // prevent a non-host client from asking to move to the difficulty
+                        // choice state. This is just an extra layer of protection.
                         eprintln!("Client {}, not host, tried to start game.", client_id);
-                        let message = ServerMessage::NotHost;
+                        let message = ServerMessage::DenyDifficultySelection;
                         let payload = encode_to_vec(&message, standard())
                             .expect("failed to serialize NoHost message");
                         network.send_message(client_id, AppChannel::ReliableOrdered, payload);

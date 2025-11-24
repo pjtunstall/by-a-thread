@@ -43,14 +43,15 @@ pub fn handle(
                 session.players = Some(players);
                 return Some(ClientState::Countdown);
             }
-            Ok((ServerMessage::RequestDifficultyChoice, _)) => {
+            Ok((ServerMessage::BeginDifficultySelection, _)) => {
                 return Some(ClientState::ChoosingDifficulty {
                     prompt_printed: false,
                     choice_sent: false,
                 });
             }
             // Client asked to choose difficulty, but was not the host, so restore input prompt.
-            Ok((ServerMessage::NotHost, _)) => {
+            // This shouldn't happen, but we have this mechanism as an extra layer of protection.
+            Ok((ServerMessage::DenyDifficultySelection, _)) => {
                 session.set_chat_waiting_for_server(false);
             }
             Ok((ServerMessage::ChatMessage { username, content }, _)) => {

@@ -18,6 +18,7 @@ pub enum ServerMessage {
     UsernameError {
         message: String,
     },
+    AppointHost,
     Roster {
         online: Vec<String>,
     },
@@ -34,9 +35,8 @@ pub enum ServerMessage {
     ServerInfo {
         message: String,
     },
-    RequestDifficultyChoice,
-    AppointHost,
-    NotHost, // Refusal to non-host client who asked to choose a difficulty level.
+    BeginDifficultySelection, // Allow host to move to phase where they choose a difficulty.
+    DenyDifficultySelection,  // Refuse non-host client who asks to choose a difficulty level.
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]

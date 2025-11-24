@@ -34,15 +34,8 @@ pub enum ClientState {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InputMode {
-    Hidden,
-    Enabled,
-    DisabledWaiting,
-}
-
 impl ClientState {
-    pub fn allows_user_disconnect(&self) -> bool {
+    pub fn already_disconnecting_or_disconnected(&self) -> bool {
         !matches!(
             self,
             ClientState::Disconnected { .. } | ClientState::TransitioningToDisconnected { .. }
@@ -52,4 +45,11 @@ impl ClientState {
     pub fn is_disconnected(&self) -> bool {
         matches!(self, ClientState::Disconnected { .. })
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InputMode {
+    Hidden,
+    Enabled,
+    DisabledWaiting,
 }

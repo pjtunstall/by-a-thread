@@ -11,6 +11,7 @@ use shared::{input::UiKey, net::AppChannel, protocol::ServerMessage};
 #[derive(Default)]
 pub struct MockUi {
     pub messages: Vec<String>,
+    pub warnings: Vec<String>,
     pub errors: Vec<String>,
     pub error_kinds: Vec<UiErrorKind>,
     pub prompts: Vec<String>,
@@ -35,6 +36,7 @@ impl MockUi {
     pub fn new() -> Self {
         Self {
             messages: Vec::new(),
+            warnings: Vec::new(),
             errors: Vec::new(),
             error_kinds: Vec::new(),
             prompts: Vec::new(),
@@ -52,6 +54,10 @@ impl ClientUi for MockUi {
 
     fn show_error(&mut self, message: &str) {
         self.errors.push(message.to_string());
+    }
+
+    fn show_warning(&mut self, message: &str) {
+        self.warnings.push(message.to_string());
     }
 
     fn show_typed_error(&mut self, kind: UiErrorKind, message: &str) {

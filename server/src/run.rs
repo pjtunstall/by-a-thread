@@ -133,9 +133,9 @@ fn apply_server_transition(
                 .username(host_id)
                 .expect("host should have a username");
             println!("Host ({}) is choosing a difficulty.", host_name);
-            let message = ServerMessage::RequestDifficultyChoice;
+            let message = ServerMessage::BeginDifficultySelection;
             let payload = encode_to_vec(&message, standard())
-                .expect("failed to serialize RequestDifficultyChoice");
+                .expect("failed to serialize BeginDifficultySelection");
             network.send_message(host_id, AppChannel::ReliableOrdered, payload);
 
             let pending: HashSet<u64> = difficulty_state

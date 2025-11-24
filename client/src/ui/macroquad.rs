@@ -11,6 +11,7 @@ const SIDE_PAD: f32 = 10.0;
 const BOTTOM_PAD: f32 = 20.0;
 
 const TEXT_COLOR: Color = WHITE;
+const WARNING_COLOR: Color = YELLOW;
 const ERROR_COLOR: Color = RED;
 const PROMPT_COLOR: Color = LIGHTGRAY;
 const INPUT_COLOR: Color = LIGHTGRAY;
@@ -248,6 +249,10 @@ impl ClientUi for MacroquadUi {
 
     fn show_error(&mut self, message: &str) {
         self.add_history(&format!("[ERROR] {}", message), ERROR_COLOR);
+    }
+
+    fn show_warning(&mut self, message: &str) {
+        self.add_history(&format!("{}", message), WARNING_COLOR);
     }
 
     fn show_prompt(&mut self, prompt: &str) {
