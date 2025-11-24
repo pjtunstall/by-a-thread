@@ -19,12 +19,12 @@ use crate::{
 use shared::{self, auth::MAX_ATTEMPTS, player::Player};
 
 // This enum is used to control how to transiton between states.
-// For most transitions, the plain MoveTo is sufficient.
+// For most transitions, the plain ChangeTo is sufficient.
 // StartGame is a special transition with logic to move the
 // maze and player data rather than cloning it.
 pub enum TransitionAction {
     // Move to a simple state (Disconnected, Lobby, etc).
-    MoveTo(ClientState),
+    ChangeTo(ClientState),
     // Signal to perform the zero-copy swap from Countdown to InGame.
     StartGame,
 }
@@ -123,7 +123,7 @@ pub async fn run_client_loop(
                             &mut runner.session,
                             &mut runner.ui,
                             None,
-                            TransitionAction::MoveTo(ClientState::TransitioningToDisconnected {
+                            TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
                                 message: "input source disconnected (Ctrl+C or window closed)"
                                     .to_string(),
                             }),
@@ -145,7 +145,7 @@ pub async fn run_client_loop(
                             &mut runner.session,
                             &mut runner.ui,
                             None,
-                            TransitionAction::MoveTo(ClientState::TransitioningToDisconnected {
+                            TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
                                 message: "input source disconnected (Ctrl+C or window closed)"
                                     .to_string(),
                             }),
@@ -200,7 +200,7 @@ fn handle_user_escape(runner: &mut ClientRunner) {
         &mut runner.session,
         &mut runner.ui,
         None,
-        TransitionAction::MoveTo(ClientState::TransitioningToDisconnected {
+        TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
             message: "client closed by user".to_string(),
         }),
     );
@@ -218,7 +218,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
             &mut runner.session,
             &mut runner.ui,
             None,
-            TransitionAction::MoveTo(ClientState::TransitioningToDisconnected {
+            TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
                 message: format!("transport error: {}", e),
             }),
         );
@@ -246,7 +246,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
                         &mut runner.session,
                         &mut runner.ui,
                         None,
-                        TransitionAction::MoveTo(ClientState::TransitioningToDisconnected {
+                        TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
                             message: "input source disconnected (Ctrl+C or window closed)"
                                 .to_string(),
                         }),
@@ -267,7 +267,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
                     &mut runner.session,
                     &mut runner.ui,
                     None,
-                    TransitionAction::MoveTo(ClientState::TransitioningToDisconnected {
+                    TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
                         message: "input source disconnected (Ctrl+C or window closed)".to_string(),
                     }),
                 );
@@ -295,7 +295,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
             &mut runner.session,
             &mut runner.ui,
             None,
-            TransitionAction::MoveTo(ClientState::TransitioningToDisconnected {
+            TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
                 message: format!("{}", e),
             }),
         );
@@ -348,7 +348,7 @@ fn update_client_state(
             session,
             ui,
             Some(network_handle),
-            TransitionAction::MoveTo(new_state),
+            TransitionAction::ChangeTo(new_state),
         );
     }
 }
@@ -360,7 +360,7 @@ fn apply_client_transition(
     action: TransitionAction,
 ) {
     match action {
-        TransitionAction::MoveTo(new_state) => {
+        TransitionAction::ChangeTo(new_state) => {
             if let ClientState::TransitioningToDisconnected { message } = &new_state {
                 let rest = if message.is_empty() {
                     ".".to_string()
