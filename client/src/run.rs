@@ -365,7 +365,7 @@ fn apply_client_transition(
                 let rest = if message.is_empty() {
                     ".".to_string()
                 } else {
-                    format!(": {}.", message)
+                    format!(": {}.", message.trim_end_matches('.'))
                 };
                 ui.show_sanitized_error(&format!("No connection{}", rest));
                 session.transition(ClientState::Disconnected {
