@@ -246,13 +246,18 @@ impl ClientUi for MacroquadUi {
     fn show_message(&mut self, message: &str) {
         self.add_history(message, TEXT_COLOR);
     }
-
     fn show_error(&mut self, message: &str) {
-        self.add_history(&format!("[ERROR] {}", message), ERROR_COLOR);
+        self.add_history(
+            &format!("[ERROR] {}.", message.trim_end_matches('.')),
+            ERROR_COLOR,
+        );
     }
 
     fn show_warning(&mut self, message: &str) {
-        self.add_history(&format!("{}", message), WARNING_COLOR);
+        self.add_history(
+            &format!("{}.", message.trim_end_matches('.')),
+            WARNING_COLOR,
+        );
     }
 
     fn show_prompt(&mut self, prompt: &str) {

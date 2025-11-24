@@ -26,7 +26,10 @@ pub fn handle(
     network: &mut dyn ServerNetworkHandle,
     state: &mut ChoosingDifficulty,
 ) -> Option<ServerState> {
-    let host_id = state.host_id();
+    let Some(host_id) = state.host_id() else {
+        eprintln!("Difficulty selection has no host; ignoring inputs.");
+        return None;
+    };
 
     for client_id in network.clients_id() {
         while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {

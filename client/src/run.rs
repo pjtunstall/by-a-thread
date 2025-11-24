@@ -99,67 +99,37 @@ pub async fn run_client_loop(
 
     loop {
         handle_user_escape(&mut runner);
-
         client_frame_update(&mut runner);
 
         let ui_state = runner.session.prepare_ui_state();
-        let is_difficulty_choice = matches!(
-            runner.session.state(),
-            ClientState::ChoosingDifficulty { .. }
-        );
-
         if ui_state.show_waiting_message {
             runner.ui.show_warning("Waiting for server...");
         }
 
         if matches!(runner.session.input_mode(), InputMode::Enabled) {
-            if is_difficulty_choice {
-                match runner.ui.poll_single_key() {
-                    Ok(Some(shared::input::UiKey::Char(c))) if matches!(c, '1' | '2' | '3') => {
-                        runner.session.add_input(c.to_string());
-                    }
-                    Err(UiInputError::Disconnected) => {
-                        apply_client_transition(
-                            &mut runner.session,
-                            &mut runner.ui,
-                            None,
-                            TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
-                                message: "input source disconnected (Ctrl+C or window closed)"
-                                    .to_string(),
-                            }),
-                        );
-                        break;
-                    }
-                    _ => {}
+            let ui_ref: &mut dyn ClientUi = &mut runner.ui;
+            match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES, runner.session.is_host) {
+                Ok(Some(input)) => {
+                    runner.session.add_input(input);
                 }
-            } else {
-                let ui_ref: &mut dyn ClientUi = &mut runner.ui;
-                match ui_ref
-                    .poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES, runner.session.is_host)
-                {
-                    Ok(Some(input)) => {
-                        runner.session.add_input(input);
-                    }
-                    Err(UiInputError::Disconnected) => {
-                        apply_client_transition(
-                            &mut runner.session,
-                            &mut runner.ui,
-                            None,
-                            TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
-                                message: "input source disconnected (Ctrl+C or window closed)"
-                                    .to_string(),
-                            }),
-                        );
-                        break;
-                    }
-                    Ok(None) => {}
+                Err(e @ UiInputError::Disconnected) => {
+                    apply_client_transition(
+                        &mut runner.session,
+                        &mut runner.ui,
+                        None,
+                        TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
+                            message: e.to_string(),
+                        }),
+                    );
+                    break;
                 }
+                Ok(None) => {}
             }
         }
 
         if !runner.session.is_countdown_active() {
             let should_show_input = matches!(ui_state.mode, InputMode::Enabled);
-            let show_cursor = should_show_input && !is_difficulty_choice;
+            let show_cursor = should_show_input;
             runner.ui.draw(should_show_input, show_cursor);
         }
 
@@ -231,44 +201,18 @@ fn client_frame_update(runner: &mut ClientRunner) {
 
     // Input processing during update (for prediction or immediate network handling).
     if matches!(runner.session.input_mode(), InputMode::Enabled) {
-        let is_difficulty_choice = matches!(
-            runner.session.state(),
-            ClientState::ChoosingDifficulty { .. }
-        );
-
-        if is_difficulty_choice {
-            match runner.ui.poll_single_key() {
-                Ok(Some(shared::input::UiKey::Char(c))) if matches!(c, '1' | '2' | '3') => {
-                    runner.session.add_input(c.to_string());
-                }
-                Err(UiInputError::Disconnected) => {
-                    apply_client_transition(
-                        &mut runner.session,
-                        &mut runner.ui,
-                        None,
-                        TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
-                            message: "input source disconnected (Ctrl+C or window closed)"
-                                .to_string(),
-                        }),
-                    );
-                    return;
-                }
-                _ => {}
-            }
-        }
-
         let ui_ref: &mut dyn ClientUi = &mut runner.ui;
         match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES, false) {
             Ok(Some(input)) => {
                 runner.session.add_input(input);
             }
-            Err(UiInputError::Disconnected) => {
+            Err(e @ UiInputError::Disconnected) => {
                 apply_client_transition(
                     &mut runner.session,
                     &mut runner.ui,
                     None,
                     TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
-                        message: "input source disconnected (Ctrl+C or window closed)".to_string(),
+                        message: e.to_string(),
                     }),
                 );
                 return;
@@ -360,6 +304,13 @@ fn apply_client_transition(
     action: TransitionAction,
 ) {
     match action {
+        TransitionAction::StartGame => {
+            if session.transition_to_game().is_err() {
+                ui.show_sanitized_error("Tried to start game from invalid state.");
+                ui.show_message("GO!");
+                return;
+            }
+        }
         TransitionAction::ChangeTo(new_state) => {
             if let ClientState::TransitioningToDisconnected { message } = &new_state {
                 let rest = if message.is_empty() {
@@ -375,11 +326,6 @@ fn apply_client_transition(
             }
 
             session.transition(new_state);
-        }
-        TransitionAction::StartGame => {
-            if session.transition_to_game().is_err() {
-                ui.show_sanitized_error("Error: Tried to start game from invalid state");
-            }
         }
     }
 
@@ -418,13 +364,11 @@ fn apply_client_transition(
                 ui.show_message("  1. Easy");
                 ui.show_message("  2. So-so");
                 ui.show_message("  3. Next level");
-                ui.show_prompt("Press 1, 2, or 3: ");
+                ui.show_prompt("Press 1, 2, or 3.");
                 *prompt_printed = true;
             }
         }
-        ClientState::InGame { .. } => {
-            ui.show_message("GO!");
-        }
+        ClientState::InGame { .. } => {}
         ClientState::Disconnected { message } => ui.show_sanitized_error(message),
         _ => {}
     }

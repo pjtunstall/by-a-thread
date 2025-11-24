@@ -109,7 +109,7 @@ pub fn handle(
                                 send_username_error(
                                     network,
                                     client_id,
-                                    "Username is already taken.",
+                                    "username is already taken",
                                     LobbyErrorKind::UsernameValidation(UsernameError::Reserved),
                                 );
                                 continue;

@@ -41,7 +41,7 @@ pub fn handle(
             if trimmed_input.is_empty() {
                 ui.show_typed_error(
                     UiErrorKind::UsernameValidation(shared::player::UsernameError::Empty),
-                    "Username must not be empty.",
+                    "username must not be empty",
                 );
                 *prompt_printed = false;
                 return None;

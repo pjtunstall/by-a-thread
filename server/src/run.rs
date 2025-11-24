@@ -128,7 +128,9 @@ fn apply_server_transition(
         ServerState::Lobby(_) => {}
 
         ServerState::ChoosingDifficulty(difficulty_state) => {
-            let host_id = difficulty_state.host_id();
+            let host_id = difficulty_state
+                .host_id()
+                .expect("host should be set when entering difficulty selection");
             let host_name = difficulty_state
                 .username(host_id)
                 .expect("host should have a username");

@@ -58,17 +58,22 @@ impl ServerState {
 pub struct ChoosingDifficulty {
     pub lobby: Lobby,
     pub difficulty: u8,
+    pub host_id: Option<u64>,
 }
 
 impl ChoosingDifficulty {
     pub fn new(lobby: &Lobby) -> Self {
+        let host_id = lobby
+            .host_client_id
+            .or_else(|| lobby.usernames.keys().copied().next());
         Self {
             lobby: lobby.clone(),
             difficulty: 1,
+            host_id,
         }
     }
-    pub fn host_id(&self) -> u64 {
-        self.lobby.host_client_id.unwrap_or(0)
+    pub fn host_id(&self) -> Option<u64> {
+        self.host_id
     }
     pub fn username(&self, client_id: u64) -> Option<&str> {
         self.lobby.username(client_id)
@@ -82,6 +87,7 @@ impl ChoosingDifficulty {
 pub struct Countdown {
     pub usernames: HashMap<u64, String>,
     pub players: HashMap<u64, Player>,
+    pub host_id: Option<u64>,
     pub end_time: Instant,
     pub maze: maze::Maze,
 }
@@ -96,6 +102,7 @@ impl Countdown {
         Self {
             usernames: state.lobby.usernames.clone(),
             players,
+            host_id: state.host_id,
             end_time,
             maze,
         }
@@ -118,17 +125,34 @@ impl Countdown {
             );
         }
         self.players.remove(&client_id);
+
+        let host_was_removed = self.host_id == Some(client_id);
+        let no_host = self.host_id.is_none();
+        if self.players.is_empty() {
+            self.host_id = None;
+        } else if host_was_removed || no_host {
+            if let Some((&new_host_id, _)) = self.players.iter().next() {
+                self.host_id = Some(new_host_id);
+                notify_new_host(network, new_host_id);
+                println!("Host reassigned to client {}", new_host_id);
+            }
+        }
     }
 }
 
 pub struct InGame {
     pub players: HashMap<u64, Player>,
     pub maze: maze::Maze,
+    pub host_id: Option<u64>,
 }
 
 impl InGame {
-    pub fn new(players: HashMap<u64, Player>, maze: maze::Maze) -> Self {
-        Self { players, maze }
+    pub fn new(players: HashMap<u64, Player>, maze: maze::Maze, host_id: Option<u64>) -> Self {
+        Self {
+            players,
+            maze,
+            host_id,
+        }
     }
 
     pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
@@ -143,6 +167,18 @@ impl InGame {
                 encode_to_vec(&message, standard()).expect("failed to serialize UserLeft");
             network.broadcast_message(AppChannel::ReliableOrdered, payload);
         }
+
+        let host_was_removed = self.host_id == Some(client_id);
+        let no_host = self.host_id.is_none();
+        if self.players.is_empty() {
+            self.host_id = None;
+        } else if host_was_removed || no_host {
+            if let Some((&new_host_id, _)) = self.players.iter().next() {
+                self.host_id = Some(new_host_id);
+                notify_new_host(network, new_host_id);
+                println!("Host reassigned to client {}", new_host_id);
+            }
+        }
     }
 }
 
@@ -152,6 +188,12 @@ pub struct Lobby {
     pending_usernames: HashSet<u64>,
     pub usernames: HashMap<u64, String>,
     host_client_id: Option<u64>,
+}
+
+fn notify_new_host(network: &mut dyn ServerNetworkHandle, id: u64) {
+    let message = ServerMessage::AppointHost;
+    let payload = encode_to_vec(&message, standard()).expect("failed to serialize AppointHost");
+    network.send_message(id, AppChannel::ReliableOrdered, payload);
 }
 
 impl Lobby {
@@ -166,9 +208,7 @@ impl Lobby {
 
     pub fn set_host(&mut self, id: u64, network: &mut dyn ServerNetworkHandle) {
         self.host_client_id = Some(id);
-        let message = ServerMessage::AppointHost;
-        let payload = encode_to_vec(&message, standard()).expect("failed to serialize ServerInfo");
-        network.send_message(id, AppChannel::ReliableOrdered, payload);
+        notify_new_host(network, id);
     }
 
     pub fn is_host(&self, client_id: u64) -> bool {
@@ -202,6 +242,12 @@ impl Lobby {
             } else {
                 self.host_client_id = None;
                 println!("Host left and no clients remain; host cleared.");
+            }
+        } else if self.host_client_id.is_none() && self.usernames.len() == 1 {
+            // All but one user removed and host was unset; promote the remaining user.
+            if let Some((&remaining_id, _)) = self.usernames.iter().next() {
+                self.set_host(remaining_id, network);
+                println!("Host assigned to remaining client {}", remaining_id);
             }
         }
     }
@@ -446,5 +492,100 @@ mod tests {
         state.remove_client(1, &mut network);
 
         assert_eq!(state.host_client_id, None);
+    }
+
+    #[test]
+    fn countdown_reassigns_host_and_notifies_when_host_leaves() {
+        let mut network = MockServerNetwork::new();
+        network.add_client(1);
+        network.add_client(2);
+
+        let mut countdown = Countdown {
+            usernames: HashMap::from([
+                (1, "Alice".to_string()),
+                (2, "Bob".to_string()),
+            ]),
+            players: HashMap::from([
+                (
+                    1,
+                    Player::new(
+                        1,
+                        "Alice".to_string(),
+                        shared::math::Vec3::ZERO,
+                        shared::math::Vec3::ZERO,
+                        shared::player::Color::RED,
+                    ),
+                ),
+                (
+                    2,
+                    Player::new(
+                        2,
+                        "Bob".to_string(),
+                        shared::math::Vec3::ZERO,
+                        shared::math::Vec3::ZERO,
+                        shared::player::Color::BLUE,
+                    ),
+                ),
+            ]),
+            host_id: Some(1),
+            end_time: Instant::now(),
+            maze: maze::Maze::new(maze::Algorithm::Backtrack),
+        };
+
+        countdown.remove_client(1, &mut network);
+
+        assert_eq!(countdown.host_id, Some(2));
+        let messages = network.get_sent_messages_data(2);
+        assert!(
+            messages
+                .iter()
+                .any(|m| matches!(decode_from_slice::<ServerMessage, _>(m, standard()).unwrap().0, ServerMessage::AppointHost)),
+            "expected AppointHost message to new host"
+        );
+    }
+
+    #[test]
+    fn in_game_reassigns_host_and_notifies_when_host_leaves() {
+        let mut network = MockServerNetwork::new();
+        network.add_client(10);
+        network.add_client(20);
+
+        let mut game = InGame {
+            players: HashMap::from([
+                (
+                    10,
+                    Player::new(
+                        10,
+                        "Alice".to_string(),
+                        shared::math::Vec3::ZERO,
+                        shared::math::Vec3::ZERO,
+                        shared::player::Color::RED,
+                    ),
+                ),
+                (
+                    20,
+                    Player::new(
+                        20,
+                        "Bob".to_string(),
+                        shared::math::Vec3::ZERO,
+                        shared::math::Vec3::ZERO,
+                        shared::player::Color::BLUE,
+                    ),
+                ),
+            ]),
+            maze: maze::Maze::new(maze::Algorithm::Backtrack),
+            host_id: Some(10),
+        };
+
+        game.remove_client(10, &mut network);
+
+        assert_eq!(game.host_id, Some(20));
+        let messages = network.get_sent_messages_data(20);
+        assert!(
+            messages
+                .iter()
+                .any(|m| matches!(decode_from_slice::<ServerMessage, _>(m, standard()).unwrap().0, ServerMessage::AppointHost)),
+            "expected AppointHost message to new host"
+        );
     }
 }

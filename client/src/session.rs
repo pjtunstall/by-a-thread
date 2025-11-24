@@ -174,13 +174,13 @@ impl ClientSession {
                 if *choice_sent {
                     InputMode::DisabledWaiting
                 } else {
-                    InputMode::Enabled
+                    InputMode::SingleKey
                 }
             }
             ClientState::Countdown { .. } => InputMode::Hidden,
             ClientState::Disconnected { .. } => InputMode::Hidden,
             ClientState::TransitioningToDisconnected { .. } => InputMode::Hidden,
-            ClientState::InGame { .. } => InputMode::Hidden,
+            ClientState::InGame { .. } => InputMode::SingleKey,
         }
     }
 

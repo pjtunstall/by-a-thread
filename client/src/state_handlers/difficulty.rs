@@ -6,13 +6,39 @@ use bincode::{
 use crate::{
     net::NetworkHandle,
     session::ClientSession,
-    state::ClientState,
-    ui::{ClientUi, UiErrorKind},
+    state::{ClientState, InputMode},
+    ui::{ClientUi, UiErrorKind, UiInputError},
 };
 use shared::{
+    input::UiKey,
     net::AppChannel,
     protocol::{ClientMessage, ServerMessage},
 };
+
+const INVALID_CHOICE_MESSAGE: &str = "Invalid choice. Please press 1, 2, or 3.";
+
+fn enqueue_difficulty_input(
+    session: &mut ClientSession,
+    ui: &mut dyn ClientUi,
+) -> Option<ClientState> {
+    if !matches!(session.input_mode(), InputMode::SingleKey) {
+        return None;
+    }
+
+    match ui.poll_single_key() {
+        Ok(Some(UiKey::Char(c))) if matches!(c, '1' | '2' | '3') => {
+            session.add_input(c.to_string());
+        }
+        Err(e @ UiInputError::Disconnected) => {
+            return Some(ClientState::TransitioningToDisconnected {
+                message: e.to_string(),
+            });
+        }
+        _ => {}
+    }
+
+    None
+}
 
 pub fn handle(
     session: &mut ClientSession,
@@ -26,6 +52,10 @@ pub fn handle(
             session.state()
         );
     };
+
+    if let Some(next_state) = enqueue_difficulty_input(session, ui) {
+        return Some(next_state);
+    }
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
@@ -57,7 +87,7 @@ pub fn handle(
             Ok((_, _)) => {}
             Err(e) => ui.show_typed_error(
                 UiErrorKind::Deserialization,
-                &format!("[Deserialization error: {}]", e),
+                &format!("[DESERIALIZATION ERROR: {}]", e),
             ),
         }
     }
@@ -79,7 +109,7 @@ pub fn handle(
                 _ => {
                     ui.show_typed_error(
                         UiErrorKind::DifficultyInvalidChoice,
-                        "Invalid choice. Please press 1, 2, or 3.",
+                        INVALID_CHOICE_MESSAGE,
                     );
                     None
                 }
@@ -103,7 +133,7 @@ pub fn handle(
     if network.is_disconnected() {
         return Some(ClientState::TransitioningToDisconnected {
             message: format!(
-                "Disconnected while choosing difficulty: {}.",
+                "disconnected while choosing difficulty: {}",
                 network.get_disconnect_reason()
             ),
         });
@@ -116,7 +146,7 @@ pub fn handle(
 mod tests {
     use super::*;
     use crate::{test_helpers::MockNetwork, test_helpers::MockUi};
-    use shared::protocol::ServerMessage;
+    use shared::protocol::{ClientMessage, ServerMessage};
 
     #[test]
     #[should_panic(
@@ -155,29 +185,86 @@ mod tests {
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
         network.queue_server_message(ServerMessage::ServerInfo {
-            message: "Pick again".to_string(),
+            message: INVALID_CHOICE_MESSAGE.to_string(),
         });
 
         let next = handle(&mut session, &mut ui, &mut network);
 
         assert!(next.is_none());
-        if let ClientState::ChoosingDifficulty {
-            prompt_printed,
-            choice_sent,
-        } = session.state()
-        {
-            assert!(!*choice_sent, "choice_sent should reset on server info");
-            assert!(
-                !*prompt_printed,
-                "prompt_printed should reset so prompt can be shown again"
-            );
-        } else {
-            panic!("state unexpectedly changed");
-        }
+
+        assert!(
+            matches!(
+                session.state(),
+                ClientState::ChoosingDifficulty {
+                    prompt_printed: false,
+                    choice_sent: false
+                }
+            ),
+            "state should reset prompt_printed and choice_sent to false"
+        );
+
         assert_eq!(
             ui.messages.len(),
             1,
             "server info should be surfaced to the user"
+        );
+    }
+
+    #[test]
+    fn polls_single_key_for_choice() {
+        let mut session = ClientSession::new(0);
+        session.transition(ClientState::ChoosingDifficulty {
+            prompt_printed: true,
+            choice_sent: false,
+        });
+
+        let mut ui = MockUi::default();
+        ui.keys.push_back(Ok(Some(UiKey::Char('2'))));
+        let mut network = MockNetwork::new();
+
+        let next = handle(&mut session, &mut ui, &mut network);
+
+        assert!(next.is_none());
+
+        assert!(
+            matches!(
+                session.state(),
+                ClientState::ChoosingDifficulty {
+                    choice_sent: true,
+                    ..
+                }
+            ),
+            "choice should be marked as sent after pressing a key"
+        );
+
+        let (channel, payload) = network
+            .sent_messages
+            .pop_front()
+            .expect("expected difficulty choice to be sent");
+        assert_eq!(channel, AppChannel::ReliableOrdered);
+        let (msg, _) =
+            decode_from_slice::<ClientMessage, _>(&payload, standard()).expect("decode message");
+        assert_eq!(msg, ClientMessage::SetDifficulty(2));
+    }
+
+    #[test]
+    fn returns_disconnect_on_input_source_drop() {
+        let mut session = ClientSession::new(0);
+        session.transition(ClientState::ChoosingDifficulty {
+            prompt_printed: true,
+            choice_sent: false,
+        });
+
+        let mut ui = MockUi::default();
+        ui.keys.push_back(Err(UiInputError::Disconnected));
+        let mut network = MockNetwork::new();
+
+        let next = handle(&mut session, &mut ui, &mut network);
+
+        assert!(
+            matches!(next, Some(ClientState::TransitioningToDisconnected { .. })),
+            "expected transition to disconnected, got {:?}",
+            next
         );
     }
 }

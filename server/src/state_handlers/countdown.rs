@@ -45,6 +45,7 @@ pub fn handle(
         Some(ServerState::InGame(InGame::new(
             state.players.clone(),
             state.maze.clone(),
+            state.host_id,
         )))
     }
 }
