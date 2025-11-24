@@ -8,7 +8,7 @@ use crate::math::{Vec3, vec3};
 pub use maker::Algorithm;
 use maker::MazeMaker;
 
-pub const CELL_SIZE: f32 = 16.0;
+pub const CELL_SIZE: f32 = 64.0;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Maze {

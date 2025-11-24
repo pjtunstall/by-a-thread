@@ -21,7 +21,11 @@ impl MazeExtension for Maze {
 
                 // Necessary because Macrquad's built-in `draw_cube` function doesn't orient faces in a way that will keep the texture the right way up for all of them.
                 draw_custom_cuboid(
-                    vec3(corner_x + CELL_SIZE / 2.0, 32.0, corner_z + CELL_SIZE / 2.0),
+                    vec3(
+                        corner_x + CELL_SIZE / 2.0,
+                        CELL_SIZE / 2.0,
+                        corner_z + CELL_SIZE / 2.0,
+                    ),
                     vec3(CELL_SIZE, CELL_SIZE, CELL_SIZE),
                     wall_texture,
                     WHITE,

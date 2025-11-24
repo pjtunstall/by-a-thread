@@ -107,10 +107,11 @@ pub async fn run_client_loop(
         if let ClientState::InGame(game_state) = runner.session.state() {
             let yaw: f32 = 0.0;
             let pitch: f32 = 0.1;
+
             let mut position = Default::default();
             for (id, player) in &game_state.players {
-                if *id == 0 {
-                    position = vec3(player.position.x, player.position.y, player.position.z)
+                if *id == runner.session.client_id {
+                    position = vec3(player.position.x, 24.0, player.position.z)
                 }
             }
 
