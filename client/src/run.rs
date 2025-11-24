@@ -174,27 +174,6 @@ pub async fn run_client_loop(
             runner.ui.show_warning("Waiting for server...");
         }
 
-        if matches!(runner.session.input_mode(), InputMode::Enabled) {
-            let ui_ref: &mut dyn ClientUi = &mut runner.ui;
-            match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES, runner.session.is_host) {
-                Ok(Some(input)) => {
-                    runner.session.add_input(input);
-                }
-                Err(e @ UiInputError::Disconnected) => {
-                    apply_client_transition(
-                        &mut runner.session,
-                        &mut runner.ui,
-                        None,
-                        TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
-                            message: e.to_string(),
-                        }),
-                    );
-                    break;
-                }
-                Ok(None) => {}
-            }
-        }
-
         if !runner.session.is_countdown_active() {
             let should_show_input = matches!(ui_state.mode, InputMode::Enabled);
             let show_cursor = should_show_input;
@@ -249,27 +228,27 @@ fn client_frame_update(runner: &mut ClientRunner) {
         return;
     }
 
-    // // Lobby input.
-    // if matches!(runner.session.input_mode(), InputMode::Enabled) {
-    //     let ui_ref: &mut dyn ClientUi = &mut runner.ui;
-    //     match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES, false) {
-    //         Ok(Some(input)) => {
-    //             runner.session.add_input(input);
-    //         }
-    //         Err(e @ UiInputError::Disconnected) => {
-    //             apply_client_transition(
-    //                 &mut runner.session,
-    //                 &mut runner.ui,
-    //                 None,
-    //                 TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
-    //                     message: e.to_string(),
-    //                 }),
-    //             );
-    //             return;
-    //         }
-    //         Ok(None) => {}
-    //     }
-    // }
+    // Lobby input.
+    if matches!(runner.session.input_mode(), InputMode::Enabled) {
+        let ui_ref: &mut dyn ClientUi = &mut runner.ui;
+        match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES, runner.session.is_host) {
+            Ok(Some(input)) => {
+                runner.session.add_input(input);
+            }
+            Err(e @ UiInputError::Disconnected) => {
+                apply_client_transition(
+                    &mut runner.session,
+                    &mut runner.ui,
+                    None,
+                    TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
+                        message: e.to_string(),
+                    }),
+                );
+                return;
+            }
+            Ok(None) => {}
+        }
+    }
 
     // State machine: let state handlers send messages if they need to.
     let mut network_handle = RenetNetworkHandle::new(&mut runner.client, &mut runner.transport);
