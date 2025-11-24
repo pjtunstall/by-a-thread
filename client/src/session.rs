@@ -215,21 +215,18 @@ impl ClientSession {
         }
     }
 
-    // Use this INSTEAD of transition() when moving from Countdown -> Game
     pub fn transition_to_game(&mut self) -> Result<(), ()> {
-        // 1. Create a cheap placeholder (Startup)
-        let placeholder = ClientState::Startup {
-            prompt_printed: false,
-        };
-
-        // 2. SWAP: Put placeholder in, take old state out.
+        // The 'Indiana Jones trick'. Necessary because we only have
+        // a mutable reference, not ownership of self. `take` is like
+        // `replace`, except that we don't need to supply an explicit placeholder.
+        // Put placeholder (default) in, take old state out.
         // We now have full ownership of 'old_state' and its data.
-        let old_state = std::mem::replace(&mut self.state, placeholder);
+        let old_state = std::mem::take(&mut self.state);
 
-        // 3. Transform the data
+        // Transform the data
         match old_state {
             ClientState::Countdown { maze, players, .. } => {
-                // We reuse the maze/players variables here! No cloning!
+                // Move the maze/players variables; no need to clone.
                 self.state = ClientState::InGame(Game { maze, players });
                 Ok(())
             }
@@ -240,21 +237,6 @@ impl ClientSession {
             }
         }
     }
-
-    // pub fn transition_to_game(&mut self) {
-    //     // 'Indiana Jones trick': momentarily replace state with a placeholder.
-    //     // Necessary because we only have a mutable reference to self; we don't
-    //     // own it. The placeholder is Default::default().
-    //     let old_state = std::mem::take(&mut self.state);
-
-    //     // If we're in Countdiwn and have a maze and players, transition to to InGame.
-    //     if let ClientState::Countdown { maze, players, .. } = old_state {
-    //         self.state = ClientState::InGame { maze, players };
-    //     } else {
-    //         // Otherwise, stay in old state.
-    //         self.state = old_state;
-    //     }
-    // }
 }
 
 impl Default for ClientState {

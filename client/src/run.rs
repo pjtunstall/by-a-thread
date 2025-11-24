@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    io::Write,
     net::{SocketAddr, UdpSocket},
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
@@ -78,6 +77,29 @@ impl ClientRunner {
             resources,
         })
     }
+
+    pub fn pump_network(&mut self) -> Result<(), String> {
+        let now = Instant::now();
+        let duration = now - self.last_updated;
+        self.last_updated = now;
+
+        if let Err(e) = self.transport.update(duration, &mut self.client) {
+            return Err(format!("Transport Update Failed: {}", e));
+        }
+
+        self.client.update(duration);
+
+        {
+            let mut network_handle = RenetNetworkHandle::new(&mut self.client, &mut self.transport);
+            crate::time::update_clock(&mut self.session, &mut network_handle, duration);
+        }
+
+        if let Err(e) = self.transport.send_packets(&mut self.client) {
+            return Err(format!("Packet Send Failed: {}", e));
+        }
+
+        Ok(())
+    }
 }
 
 pub async fn run_client_loop(
@@ -103,6 +125,18 @@ pub async fn run_client_loop(
 
     loop {
         handle_user_escape(&mut runner);
+
+        if let Err(e) = runner.pump_network() {
+            apply_client_transition(
+                &mut runner.session,
+                &mut runner.ui,
+                None,
+                TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
+                    message: format!("transport error: {}", e),
+                }),
+            );
+            return;
+        }
 
         if let ClientState::InGame(game_state) = runner.session.state() {
             let yaw: f32 = 0.0;
@@ -211,73 +245,35 @@ fn handle_user_escape(runner: &mut ClientRunner) {
 }
 
 fn client_frame_update(runner: &mut ClientRunner) {
-    let now = Instant::now();
-    let duration = now - runner.last_updated;
-    runner.last_updated = now;
-
-    if let Err(e) = runner.transport.update(duration, &mut runner.client) {
-        eprintln!("NETWORK ERROR: Transport Update Failed: {}.", e);
-        std::io::stderr().flush().ok();
-        apply_client_transition(
-            &mut runner.session,
-            &mut runner.ui,
-            None,
-            TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
-                message: format!("transport error: {}", e),
-            }),
-        );
-        return;
-    }
-
     if runner.session.state().is_disconnected() {
         return;
     }
 
-    // Input processing during update (for prediction or immediate network handling).
-    if matches!(runner.session.input_mode(), InputMode::Enabled) {
-        let ui_ref: &mut dyn ClientUi = &mut runner.ui;
-        match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES, false) {
-            Ok(Some(input)) => {
-                runner.session.add_input(input);
-            }
-            Err(e @ UiInputError::Disconnected) => {
-                apply_client_transition(
-                    &mut runner.session,
-                    &mut runner.ui,
-                    None,
-                    TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
-                        message: e.to_string(),
-                    }),
-                );
-                return;
-            }
-            Ok(None) => {}
-        }
-    }
+    // // Lobby input.
+    // if matches!(runner.session.input_mode(), InputMode::Enabled) {
+    //     let ui_ref: &mut dyn ClientUi = &mut runner.ui;
+    //     match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES, false) {
+    //         Ok(Some(input)) => {
+    //             runner.session.add_input(input);
+    //         }
+    //         Err(e @ UiInputError::Disconnected) => {
+    //             apply_client_transition(
+    //                 &mut runner.session,
+    //                 &mut runner.ui,
+    //                 None,
+    //                 TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
+    //                     message: e.to_string(),
+    //                 }),
+    //             );
+    //             return;
+    //         }
+    //         Ok(None) => {}
+    //     }
+    // }
 
-    runner.client.update(duration);
-    runner.session.estimated_server_time += duration.as_secs_f64();
-
-    {
-        let mut network_handle = RenetNetworkHandle::new(&mut runner.client, &mut runner.transport);
-        crate::time::update_estimated_server_time(&mut runner.session, &mut network_handle);
-        update_client_state(&mut runner.session, &mut runner.ui, &mut network_handle);
-    }
-
-    if runner.session.state().is_disconnected() {
-        return;
-    }
-
-    if let Err(e) = runner.transport.send_packets(&mut runner.client) {
-        apply_client_transition(
-            &mut runner.session,
-            &mut runner.ui,
-            None,
-            TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
-                message: format!("{}", e),
-            }),
-        );
-    }
+    // State machine: let state handlers send messages if they need to.
+    let mut network_handle = RenetNetworkHandle::new(&mut runner.client, &mut runner.transport);
+    update_client_state(&mut runner.session, &mut runner.ui, &mut network_handle);
 }
 
 fn update_client_state(

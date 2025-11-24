@@ -1,10 +1,20 @@
+use std::time::Duration;
+
 use crate::{
     net::{NetworkHandle, RenetNetworkHandle},
     session::ClientSession,
 };
 use shared::{self, net::AppChannel, protocol::ServerMessage};
 
-pub fn update_estimated_server_time(session: &mut ClientSession, network: &mut RenetNetworkHandle) {
+pub fn update_clock(
+    session: &mut ClientSession,
+    network: &mut RenetNetworkHandle,
+    interval: Duration,
+) {
+    // Increment by interval. This determines the simulation rate.
+    session.estimated_server_time += interval.as_secs_f64();
+
+    // Get time messages that the server sent for us to sync our clock.
     // Only process the most recent message, discard older queued ones.
     let mut latest_message = None;
     while let Some(message) = network.receive_message(AppChannel::ServerTime) {
