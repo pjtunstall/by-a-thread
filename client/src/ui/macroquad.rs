@@ -1,4 +1,7 @@
-use std::net::SocketAddr;
+use std::{
+    net::SocketAddr,
+    time::{Duration, Instant},
+};
 
 use macroquad::prelude::*;
 
@@ -23,6 +26,9 @@ pub struct MacroquadUi {
     pub message_history: Vec<(String, Color)>,
     max_history_lines: usize,
     cursor_pos: usize,
+    right_arrow_last_pressed: Option<Instant>,
+    left_arrow_last_pressed: Option<Instant>,
+    backspace_last_pressed: Option<Instant>,
 }
 
 impl MacroquadUi {
@@ -32,6 +38,9 @@ impl MacroquadUi {
             message_history: Vec::new(),
             max_history_lines: 20,
             cursor_pos: 0,
+            right_arrow_last_pressed: None,
+            left_arrow_last_pressed: None,
+            backspace_last_pressed: None,
         }
     }
 
@@ -281,14 +290,35 @@ impl ClientUi for MacroquadUi {
             }
         }
 
+        let delay = Duration::from_millis(32);
         let char_count = self.input_buffer.chars().count();
 
-        if is_key_pressed(KeyCode::Left) && self.cursor_pos > 0 {
-            self.cursor_pos -= 1;
+        if is_key_down(KeyCode::Left) && self.cursor_pos > 0 {
+            if let Some(last_pressed) = self.left_arrow_last_pressed {
+                if Instant::now().saturating_duration_since(last_pressed + delay) == Duration::ZERO
+                {
+                    // Do nothing: left arrow recently pressed.
+                } else {
+                    self.left_arrow_last_pressed = None;
+                }
+            } else {
+                self.cursor_pos -= 1;
+                self.left_arrow_last_pressed = Some(Instant::now());
+            }
         }
 
-        if is_key_pressed(KeyCode::Right) && self.cursor_pos < char_count {
-            self.cursor_pos += 1;
+        if is_key_down(KeyCode::Right) && self.cursor_pos < char_count {
+            if let Some(last_pressed) = self.right_arrow_last_pressed {
+                if Instant::now().saturating_duration_since(last_pressed + delay) == Duration::ZERO
+                {
+                    // Do nothing: left arrow recently pressed.
+                } else {
+                    self.right_arrow_last_pressed = None;
+                }
+            } else {
+                self.cursor_pos += 1;
+                self.right_arrow_last_pressed = Some(Instant::now());
+            }
         }
 
         while let Some(char_code) = get_char_pressed() {
@@ -308,17 +338,28 @@ impl ClientUi for MacroquadUi {
             }
         }
 
-        if is_key_pressed(KeyCode::Backspace) && self.cursor_pos > 0 {
-            self.cursor_pos -= 1;
+        if is_key_down(KeyCode::Backspace) && self.cursor_pos > 0 {
+            if let Some(last_pressed) = self.backspace_last_pressed {
+                if Instant::now().saturating_duration_since(last_pressed + delay) == Duration::ZERO
+                {
+                    // Do nothing: backspace arrow recently pressed.
+                } else {
+                    self.backspace_last_pressed = None;
+                }
+            } else {
+                self.cursor_pos -= 1;
 
-            let byte_index = self
-                .input_buffer
-                .char_indices()
-                .map(|(i, _)| i)
-                .nth(self.cursor_pos)
-                .unwrap_or(self.input_buffer.len());
+                let byte_index = self
+                    .input_buffer
+                    .char_indices()
+                    .map(|(i, _)| i)
+                    .nth(self.cursor_pos)
+                    .unwrap_or(self.input_buffer.len());
 
-            self.input_buffer.remove(byte_index);
+                self.input_buffer.remove(byte_index);
+
+                self.backspace_last_pressed = Some(Instant::now());
+            }
         }
 
         if is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::KpEnter) {
