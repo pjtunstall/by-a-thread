@@ -2,10 +2,11 @@ pub mod maker;
 
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 use crate::math::{Vec3, vec3};
 pub use maker::Algorithm;
 use maker::MazeMaker;
-use serde::{Deserialize, Serialize};
 
 pub const CELL_SIZE: f32 = 16.0;
 

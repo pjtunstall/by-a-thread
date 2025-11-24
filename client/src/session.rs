@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::state::{ClientState, InputMode};
+use crate::state::{ClientState, Game, InputMode};
 use shared::player::{MAX_USERNAME_LENGTH, UsernameError};
 
 pub struct ClientSession {
@@ -230,7 +230,7 @@ impl ClientSession {
         match old_state {
             ClientState::Countdown { maze, players, .. } => {
                 // We reuse the maze/players variables here! No cloning!
-                self.state = ClientState::InGame { maze, players };
+                self.state = ClientState::InGame(Game { maze, players });
                 Ok(())
             }
             _ => {

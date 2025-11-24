@@ -1,4 +1,5 @@
 pub mod net;
+pub mod resources;
 pub mod run;
 pub mod session;
 pub mod state;

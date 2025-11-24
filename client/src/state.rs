@@ -1,5 +1,8 @@
 use std::collections::HashMap;
 
+use macroquad::prelude::*;
+
+use crate::world::maze::MazeExtension;
 use shared::{auth::Passcode, maze::Maze, player::Player};
 
 #[derive(Debug)]
@@ -38,10 +41,7 @@ pub enum ClientState {
         prompt_printed: bool,
         choice_sent: bool,
     },
-    InGame {
-        maze: Maze,
-        players: HashMap<u64, Player>,
-    },
+    InGame(Game),
 }
 
 impl ClientState {
@@ -63,4 +63,16 @@ pub enum InputMode {
     SingleKey,
     Enabled,
     DisabledWaiting,
+}
+
+#[derive(Debug)]
+pub struct Game {
+    pub maze: Maze,
+    pub players: HashMap<u64, Player>,
+}
+
+impl Game {
+    pub fn draw(&self, texture: &Texture2D) {
+        self.maze.draw(texture);
+    }
 }

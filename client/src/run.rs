@@ -5,12 +5,13 @@ use std::{
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
-use macroquad::prelude::{KeyCode, is_key_pressed, next_frame};
+use macroquad::{color, prelude::*, window::clear_background};
 use renet::RenetClient;
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
 use crate::{
     net::{self, NetworkHandle, RenetNetworkHandle},
+    resources::Resources,
     session::{self, ClientSession},
     state::{ClientState, InputMode},
     state_handlers,
@@ -35,16 +36,18 @@ pub struct ClientRunner {
     transport: NetcodeClientTransport,
     ui: MacroquadUi,
     last_updated: Instant,
+    resources: Resources,
 }
 
 impl ClientRunner {
-    pub fn new(
+    pub async fn new(
         socket: UdpSocket,
         server_addr: SocketAddr,
         private_key: [u8; 32],
         ui: MacroquadUi,
     ) -> Result<Self, String> {
-        let client_id = rand::random::<u64>();
+        let resources = Resources::load().await;
+        let client_id = ::rand::random::<u64>();
         let protocol_id = shared::protocol::version();
         let current_time_duration = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -72,6 +75,7 @@ impl ClientRunner {
             transport,
             ui,
             last_updated: Instant::now(),
+            resources,
         })
     }
 }
@@ -82,7 +86,7 @@ pub async fn run_client_loop(
     private_key: [u8; 32],
     ui: MacroquadUi,
 ) {
-    let mut runner = match ClientRunner::new(socket, server_addr, private_key, ui) {
+    let mut runner = match ClientRunner::new(socket, server_addr, private_key, ui).await {
         Ok(r) => r,
         Err(e) => {
             eprintln!("{}", e);
@@ -99,6 +103,35 @@ pub async fn run_client_loop(
 
     loop {
         handle_user_escape(&mut runner);
+
+        if let ClientState::InGame(game_state) = runner.session.state() {
+            let yaw: f32 = 0.0;
+            let pitch: f32 = 0.1;
+            let mut position = Default::default();
+            for (id, player) in &game_state.players {
+                if *id == 0 {
+                    position = vec3(player.position.x, player.position.y, player.position.z)
+                }
+            }
+
+            set_camera(&Camera3D {
+                position,
+                target: position
+                    + vec3(
+                        yaw.sin() * pitch.cos(),
+                        pitch.sin(),
+                        yaw.cos() * pitch.cos(),
+                    ),
+                up: vec3(0.0, 1.0, 0.0),
+                ..Default::default()
+            });
+
+            clear_background(color::BLACK);
+            game_state.draw(&runner.resources.wall_texture);
+            next_frame().await;
+            continue;
+        }
+
         client_frame_update(&mut runner);
 
         let ui_state = runner.session.prepare_ui_state();
