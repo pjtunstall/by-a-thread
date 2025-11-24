@@ -23,7 +23,7 @@ use shared::{self, auth::MAX_ATTEMPTS, player::Player};
 // StartGame is a special transition with logic to move the
 // maze and player data rather than cloning it.
 pub enum TransitionAction {
-    // Move to a simple state (Disconnected, Lobby, etc).
+    // Change to a simple state (Disconnected, Lobby, etc).
     ChangeTo(ClientState),
     // Signal to perform the zero-copy swap from Countdown to InGame.
     StartGame,
