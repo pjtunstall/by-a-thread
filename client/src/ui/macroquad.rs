@@ -249,6 +249,17 @@ impl MacroquadUi {
 
         wrapped_lines
     }
+
+    fn delete_previous_char(&mut self) {
+        let byte_index = self
+            .input_buffer
+            .char_indices()
+            .map(|(i, _)| i)
+            .nth(self.cursor_pos)
+            .unwrap_or(self.input_buffer.len());
+
+        self.input_buffer.remove(byte_index);
+    }
 }
 
 impl ClientUi for MacroquadUi {
@@ -290,35 +301,43 @@ impl ClientUi for MacroquadUi {
             }
         }
 
-        let delay = Duration::from_millis(32);
         let char_count = self.input_buffer.chars().count();
 
+        let initial_delay = Duration::from_millis(500);
+        let repeat_rate = Duration::from_millis(32);
+
         if is_key_down(KeyCode::Left) && self.cursor_pos > 0 {
-            if let Some(last_pressed) = self.left_arrow_last_pressed {
-                if Instant::now().saturating_duration_since(last_pressed + delay) == Duration::ZERO
-                {
-                    // Do nothing: left arrow recently pressed.
-                } else {
-                    self.left_arrow_last_pressed = None;
+            match self.left_arrow_last_pressed {
+                Some(last) => {
+                    if last.elapsed() >= repeat_rate {
+                        self.cursor_pos -= 1;
+                        self.left_arrow_last_pressed = Some(Instant::now());
+                    }
                 }
-            } else {
-                self.cursor_pos -= 1;
-                self.left_arrow_last_pressed = Some(Instant::now());
+                None => {
+                    self.cursor_pos -= 1;
+                    self.left_arrow_last_pressed = Some(Instant::now() + initial_delay);
+                }
             }
+        } else {
+            self.left_arrow_last_pressed = None;
         }
 
         if is_key_down(KeyCode::Right) && self.cursor_pos < char_count {
-            if let Some(last_pressed) = self.right_arrow_last_pressed {
-                if Instant::now().saturating_duration_since(last_pressed + delay) == Duration::ZERO
-                {
-                    // Do nothing: left arrow recently pressed.
-                } else {
-                    self.right_arrow_last_pressed = None;
+            match self.right_arrow_last_pressed {
+                Some(last) => {
+                    if last.elapsed() >= repeat_rate {
+                        self.cursor_pos += 1;
+                        self.right_arrow_last_pressed = Some(Instant::now());
+                    }
                 }
-            } else {
-                self.cursor_pos += 1;
-                self.right_arrow_last_pressed = Some(Instant::now());
+                None => {
+                    self.cursor_pos += 1;
+                    self.right_arrow_last_pressed = Some(Instant::now() + initial_delay);
+                }
             }
+        } else {
+            self.right_arrow_last_pressed = None;
         }
 
         while let Some(char_code) = get_char_pressed() {
@@ -339,27 +358,22 @@ impl ClientUi for MacroquadUi {
         }
 
         if is_key_down(KeyCode::Backspace) && self.cursor_pos > 0 {
-            if let Some(last_pressed) = self.backspace_last_pressed {
-                if Instant::now().saturating_duration_since(last_pressed + delay) == Duration::ZERO
-                {
-                    // Do nothing: backspace arrow recently pressed.
-                } else {
-                    self.backspace_last_pressed = None;
+            match self.backspace_last_pressed {
+                Some(last) => {
+                    if last.elapsed() >= repeat_rate {
+                        self.cursor_pos -= 1;
+                        self.delete_previous_char();
+                        self.backspace_last_pressed = Some(Instant::now());
+                    }
                 }
-            } else {
-                self.cursor_pos -= 1;
-
-                let byte_index = self
-                    .input_buffer
-                    .char_indices()
-                    .map(|(i, _)| i)
-                    .nth(self.cursor_pos)
-                    .unwrap_or(self.input_buffer.len());
-
-                self.input_buffer.remove(byte_index);
-
-                self.backspace_last_pressed = Some(Instant::now());
+                None => {
+                    self.cursor_pos -= 1;
+                    self.delete_previous_char();
+                    self.backspace_last_pressed = Some(Instant::now() + initial_delay);
+                }
             }
+        } else {
+            self.backspace_last_pressed = None;
         }
 
         if is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::KpEnter) {
