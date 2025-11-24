@@ -50,8 +50,10 @@ pub fn handle(
                     choice_sent: false,
                 });
             }
-            // Client asked to choose difficulty, but was not the host, so restore input prompt.
-            // This shouldn't happen, but we have this mechanism as an extra layer of protection.
+            // Client asked to choose difficulty, but was not the host,
+            // so restore input prompt.
+            // This shouldn't happen, but we have this mechanism as an
+            // extra layer of protection.
             Ok((ServerMessage::DenyDifficultySelection, _)) => {
                 session.set_chat_waiting_for_server(false);
             }
