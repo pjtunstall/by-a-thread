@@ -17,7 +17,7 @@ pub fn handle(
     ui: &mut dyn ClientUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::Connecting) {
+    if !matches!(session.state(), ClientState::Connecting { .. }) {
         panic!(
             "called connecting::handle() when state was not Connecting; current state: {:?}",
             session.state()
@@ -38,7 +38,12 @@ pub fn handle(
     }
 
     if network.is_connected() {
-        if let Some(passcode) = session.take_first_passcode() {
+        let passcode = match session.state_mut() {
+            ClientState::Connecting { pending_passcode } => pending_passcode.take(),
+            _ => None,
+        };
+
+        if let Some(passcode) = passcode {
             ui.show_message(&format!(
                 "Transport connected. Sending passcode: {}.",
                 passcode.string
@@ -49,14 +54,15 @@ pub fn handle(
                 encode_to_vec(&message, standard()).expect("failed to serialize SendPasscode");
             network.send_message(AppChannel::ReliableOrdered, payload);
 
-            session.set_auth_waiting_for_server(true);
             Some(ClientState::Authenticating {
                 waiting_for_input: false,
+                waiting_for_server: true,
                 guesses_left: MAX_ATTEMPTS,
             })
         } else {
             Some(ClientState::Authenticating {
                 waiting_for_input: true,
+                waiting_for_server: false,
                 guesses_left: MAX_ATTEMPTS,
             })
         }
@@ -96,7 +102,9 @@ mod tests {
         #[test]
         fn connecting_does_not_panic_in_connecting_state() {
             let mut session = ClientSession::new(0);
-            session.transition(ClientState::Connecting);
+            session.transition(ClientState::Connecting {
+                pending_passcode: None,
+            });
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
             assert!(

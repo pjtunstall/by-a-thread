@@ -427,10 +427,10 @@ mod tests {
         let msg = decode_from_slice::<ServerMessage, _>(&messages[0], standard())
             .unwrap()
             .0;
-        if let ServerMessage::ServerInfo { message } = msg {
-            assert!(message.contains("You have been appointed host"));
+        if let ServerMessage::AppointHost = msg {
+            // Expected; client will show its own message on receipt.
         } else {
-            panic!("expected ServerInfo message, got {:?}", msg);
+            panic!("expected AppointHost message, got {:?}", msg);
         }
     }
 

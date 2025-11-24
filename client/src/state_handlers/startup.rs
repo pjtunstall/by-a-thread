@@ -14,14 +14,11 @@ pub fn handle(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<Clie
         );
     }
 
-    if session.has_first_passcode() {
-        return Some(ClientState::Connecting);
-    }
-
     if let Some(input_string) = session.take_input() {
         if let Some(passcode) = parse_passcode_input(&input_string) {
-            session.store_first_passcode(passcode);
-            return Some(ClientState::Connecting);
+            return Some(ClientState::Connecting {
+                pending_passcode: Some(passcode),
+            });
         } else {
             ui.show_typed_error(
                 UiErrorKind::PasscodeFormat,
@@ -71,7 +68,9 @@ mod tests {
         )]
         fn startup_panics_if_not_in_startup_state() {
             let mut session = ClientSession::new(0);
-            session.transition(ClientState::Connecting);
+            session.transition(ClientState::Connecting {
+                pending_passcode: None,
+            });
             let mut ui = MockUi::default();
 
             handle(&mut session, &mut ui);
@@ -89,23 +88,6 @@ mod tests {
     }
 
     #[test]
-    fn transitions_to_connecting_if_passcode_is_present() {
-        let mut session = ClientSession::new(0);
-        let passcode = shared::auth::Passcode {
-            bytes: vec![1, 2, 3, 4, 5, 6],
-            string: "123456".to_string(),
-        };
-        session.store_first_passcode(passcode);
-
-        let mut ui = MockUi::default();
-
-        let next = handle(&mut session, &mut ui);
-
-        assert!(ui.prompts.is_empty());
-        assert!(matches!(next, Some(ClientState::Connecting)));
-    }
-
-    #[test]
     fn transitions_to_connecting_after_first_prompt() {
         let mut session = ClientSession::new(0);
         session.add_input("123456".to_string());
@@ -115,8 +97,12 @@ mod tests {
         let next = handle(&mut session, &mut ui);
 
         assert!(ui.prompts.is_empty());
-        assert!(matches!(next, Some(ClientState::Connecting)));
-        assert_eq!(session.take_first_passcode().unwrap().string, "123456");
+        match next {
+            Some(ClientState::Connecting {
+                pending_passcode: Some(passcode),
+            }) => assert_eq!(passcode.string, "123456"),
+            other => panic!("unexpected next state: {:?}", other),
+        }
     }
 
     #[test]

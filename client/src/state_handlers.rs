@@ -42,7 +42,10 @@ mod tests {
         let esc = '\x1B';
 
         let mut session_chat = ClientSession::new(0);
-        session_chat.transition(ClientState::InChat);
+        session_chat.transition(ClientState::InChat {
+            awaiting_initial_roster: true,
+            waiting_for_server: false,
+        });
         session_chat.mark_initial_roster_received();
         let mut ui_chat = MockUi::new();
         let mut network_chat = MockNetwork::new();
@@ -69,6 +72,7 @@ mod tests {
         let mut session_auth = ClientSession::new(0);
         session_auth.transition(ClientState::Authenticating {
             waiting_for_input: false,
+            waiting_for_server: false,
             guesses_left: MAX_ATTEMPTS,
         });
         let mut ui_auth = MockUi::new();

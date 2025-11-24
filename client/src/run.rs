@@ -18,6 +18,17 @@ use crate::{
 };
 use shared::{self, auth::MAX_ATTEMPTS, player::Player};
 
+// This enum is used to control how to transiton between states.
+// For most transitions, the plain MoveTo is sufficient.
+// StartGame is a special transition with logic to move the
+// maze and player data rather than cloning it.
+pub enum TransitionAction {
+    // Move to a simple state (Disconnected, Lobby, etc).
+    MoveTo(ClientState),
+    // Signal to perform the zero-copy swap from Countdown to InGame.
+    StartGame,
+}
+
 pub struct ClientRunner {
     session: ClientSession,
     client: RenetClient,
@@ -37,7 +48,7 @@ impl ClientRunner {
         let protocol_id = shared::protocol::version();
         let current_time_duration = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .expect("system time is before unix epoch"); // If this problem occurs, open system's date and time settings and enable automatic time synchronization (NTP). On most Linux systems, try `timedatectl set-ntp true`. On non-systemd distros (like Alpine or Gentoo), use `rc-service ntpd start` or `rc-service chronyd start` instead.
+            .expect("system time is before unix epoch");
         socket
             .set_nonblocking(true)
             .map_err(|e| format!("Failed to set socket as non-blocking: {}", e))?;
@@ -112,10 +123,10 @@ pub async fn run_client_loop(
                             &mut runner.session,
                             &mut runner.ui,
                             None,
-                            ClientState::TransitioningToDisconnected {
+                            TransitionAction::MoveTo(ClientState::TransitioningToDisconnected {
                                 message: "input source disconnected (Ctrl+C or window closed)"
                                     .to_string(),
-                            },
+                            }),
                         );
                         break;
                     }
@@ -134,10 +145,10 @@ pub async fn run_client_loop(
                             &mut runner.session,
                             &mut runner.ui,
                             None,
-                            ClientState::TransitioningToDisconnected {
+                            TransitionAction::MoveTo(ClientState::TransitioningToDisconnected {
                                 message: "input source disconnected (Ctrl+C or window closed)"
                                     .to_string(),
-                            },
+                            }),
                         );
                         break;
                     }
@@ -180,7 +191,7 @@ fn handle_user_escape(runner: &mut ClientRunner) {
     if !runner
         .session
         .state()
-        .already_disconnecting_or_disconnected()
+        .not_already_disconnecting_or_disconnected()
     {
         return;
     }
@@ -189,9 +200,9 @@ fn handle_user_escape(runner: &mut ClientRunner) {
         &mut runner.session,
         &mut runner.ui,
         None,
-        ClientState::TransitioningToDisconnected {
+        TransitionAction::MoveTo(ClientState::TransitioningToDisconnected {
             message: "client closed by user".to_string(),
-        },
+        }),
     );
 }
 
@@ -202,14 +213,14 @@ fn client_frame_update(runner: &mut ClientRunner) {
 
     if let Err(e) = runner.transport.update(duration, &mut runner.client) {
         eprintln!("NETWORK ERROR: Transport Update Failed: {}.", e);
-        std::io::stderr().flush().ok(); // keep error visible in stderr
+        std::io::stderr().flush().ok();
         apply_client_transition(
             &mut runner.session,
             &mut runner.ui,
             None,
-            ClientState::TransitioningToDisconnected {
+            TransitionAction::MoveTo(ClientState::TransitioningToDisconnected {
                 message: format!("transport error: {}", e),
-            },
+            }),
         );
         return;
     }
@@ -218,6 +229,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
         return;
     }
 
+    // Input processing during update (for prediction or immediate network handling).
     if matches!(runner.session.input_mode(), InputMode::Enabled) {
         let is_difficulty_choice = matches!(
             runner.session.state(),
@@ -234,10 +246,10 @@ fn client_frame_update(runner: &mut ClientRunner) {
                         &mut runner.session,
                         &mut runner.ui,
                         None,
-                        ClientState::TransitioningToDisconnected {
+                        TransitionAction::MoveTo(ClientState::TransitioningToDisconnected {
                             message: "input source disconnected (Ctrl+C or window closed)"
                                 .to_string(),
-                        },
+                        }),
                     );
                     return;
                 }
@@ -255,9 +267,9 @@ fn client_frame_update(runner: &mut ClientRunner) {
                     &mut runner.session,
                     &mut runner.ui,
                     None,
-                    ClientState::TransitioningToDisconnected {
+                    TransitionAction::MoveTo(ClientState::TransitioningToDisconnected {
                         message: "input source disconnected (Ctrl+C or window closed)".to_string(),
-                    },
+                    }),
                 );
                 return;
             }
@@ -283,9 +295,9 @@ fn client_frame_update(runner: &mut ClientRunner) {
             &mut runner.session,
             &mut runner.ui,
             None,
-            ClientState::TransitioningToDisconnected {
+            TransitionAction::MoveTo(ClientState::TransitioningToDisconnected {
                 message: format!("{}", e),
-            },
+            }),
         );
     }
 }
@@ -295,9 +307,21 @@ fn update_client_state(
     ui: &mut dyn ClientUi,
     network_handle: &mut RenetNetworkHandle,
 ) {
+    if session.is_countdown_finished() {
+        apply_client_transition(
+            session,
+            ui,
+            Some(network_handle),
+            TransitionAction::StartGame,
+        );
+        return;
+    }
+
     let next_state_from_logic = match session.state() {
         ClientState::Startup { .. } => state_handlers::startup::handle(session, ui),
-        ClientState::Connecting => state_handlers::connecting::handle(session, ui, network_handle),
+        ClientState::Connecting { .. } => {
+            state_handlers::connecting::handle(session, ui, network_handle)
+        }
         ClientState::Authenticating { .. } => {
             state_handlers::auth::handle(session, ui, network_handle)
         }
@@ -307,18 +331,25 @@ fn update_client_state(
         ClientState::AwaitingUsernameConfirmation => {
             state_handlers::waiting::handle(session, ui, network_handle)
         }
-        ClientState::InChat => state_handlers::chat::handle(session, ui, network_handle),
+        ClientState::InChat { .. } => state_handlers::chat::handle(session, ui, network_handle),
         ClientState::ChoosingDifficulty { .. } => {
             state_handlers::difficulty::handle(session, ui, network_handle)
         }
-        ClientState::Countdown => state_handlers::countdown::handle(session, ui, network_handle),
+        ClientState::Countdown { .. } => {
+            state_handlers::countdown::handle(session, ui, network_handle)
+        }
         ClientState::TransitioningToDisconnected { .. } => None,
         ClientState::Disconnected { .. } => None,
         ClientState::InGame { .. } => state_handlers::game::handle(session, ui, network_handle),
     };
 
     if let Some(new_state) = next_state_from_logic {
-        apply_client_transition(session, ui, Some(network_handle), new_state);
+        apply_client_transition(
+            session,
+            ui,
+            Some(network_handle),
+            TransitionAction::MoveTo(new_state),
+        );
     }
 }
 
@@ -326,21 +357,33 @@ fn apply_client_transition(
     session: &mut ClientSession,
     ui: &mut dyn ClientUi,
     _network: Option<&mut dyn NetworkHandle>,
-    new_state: ClientState,
+    action: TransitionAction,
 ) {
-    if let ClientState::TransitioningToDisconnected { message } = new_state {
-        let rest = if message.is_empty() {
-            ".".to_string()
-        } else {
-            format!(": {}", message)
-        };
-        ui.show_sanitized_error(&format!("No connection{}", rest));
-        session.transition(ClientState::Disconnected { message });
-        return;
+    match action {
+        TransitionAction::MoveTo(new_state) => {
+            if let ClientState::TransitioningToDisconnected { message } = &new_state {
+                let rest = if message.is_empty() {
+                    ".".to_string()
+                } else {
+                    format!(": {}.", message)
+                };
+                ui.show_sanitized_error(&format!("No connection{}", rest));
+                session.transition(ClientState::Disconnected {
+                    message: message.clone(),
+                });
+                return;
+            }
+
+            session.transition(new_state);
+        }
+        TransitionAction::StartGame => {
+            if session.transition_to_game().is_err() {
+                ui.show_sanitized_error("Error: Tried to start game from invalid state");
+            }
+        }
     }
 
-    session.transition(new_state);
-
+    // Handle UI side-effects (post-transition).
     match session.state_mut() {
         ClientState::Startup { prompt_printed } => {
             if !*prompt_printed {
@@ -349,9 +392,13 @@ fn apply_client_transition(
             }
         }
         ClientState::Authenticating {
-            waiting_for_input, ..
+            waiting_for_input,
+            waiting_for_server,
+            ..
         } => {
-            *waiting_for_input = true;
+            if !*waiting_for_server {
+                *waiting_for_input = true;
+            }
         }
         ClientState::ChoosingUsername { prompt_printed } => {
             if !*prompt_printed {
@@ -359,7 +406,7 @@ fn apply_client_transition(
                 *prompt_printed = true;
             }
         }
-        ClientState::InChat => {
+        ClientState::InChat { .. } => {
             session.expect_initial_roster();
         }
         ClientState::ChoosingDifficulty {
@@ -375,10 +422,10 @@ fn apply_client_transition(
                 *prompt_printed = true;
             }
         }
-        ClientState::Countdown => {
-            if let Some(players) = session.players.as_ref() {
-                print_player_list(ui, session, players);
-            }
+        ClientState::InGame { .. } => {
+            // The Countdown logic is handled by the state swap.
+            // We just need to signal the visual start.
+            ui.show_message("GO!");
         }
         ClientState::Disconnected { message } => ui.show_sanitized_error(message),
         _ => {}

@@ -1,23 +1,33 @@
 use std::collections::HashMap;
 
-use shared::{maze::Maze, player::Player};
+use shared::{auth::Passcode, maze::Maze, player::Player};
 
 #[derive(Debug)]
 pub enum ClientState {
     Startup {
         prompt_printed: bool,
     },
-    Connecting,
+    Connecting {
+        pending_passcode: Option<Passcode>,
+    },
     Authenticating {
         waiting_for_input: bool,
         guesses_left: u8,
+        waiting_for_server: bool,
     },
     ChoosingUsername {
         prompt_printed: bool,
     },
     AwaitingUsernameConfirmation,
-    InChat,
-    Countdown,
+    InChat {
+        awaiting_initial_roster: bool,
+        waiting_for_server: bool,
+    },
+    Countdown {
+        end_time: f64,
+        maze: Maze,
+        players: HashMap<u64, Player>,
+    },
     Disconnected {
         message: String,
     },
@@ -35,7 +45,7 @@ pub enum ClientState {
 }
 
 impl ClientState {
-    pub fn already_disconnecting_or_disconnected(&self) -> bool {
+    pub fn not_already_disconnecting_or_disconnected(&self) -> bool {
         !matches!(
             self,
             ClientState::Disconnected { .. } | ClientState::TransitioningToDisconnected { .. }

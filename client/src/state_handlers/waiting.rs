@@ -24,7 +24,10 @@ pub fn handle(
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::Welcome { username }, _)) => {
                 ui.show_sanitized_message(&format!("Server: Welcome, {}!", username));
-                return Some(ClientState::InChat);
+                return Some(ClientState::InChat {
+                    awaiting_initial_roster: true,
+                    waiting_for_server: false,
+                });
             }
             Ok((ServerMessage::UsernameError { message }, _)) => {
                 ui.show_typed_error(
@@ -103,7 +106,13 @@ mod tests {
 
         let next_state = handle(&mut session, &mut ui, &mut network);
 
-        assert!(matches!(next_state, Some(ClientState::InChat)));
+        assert!(matches!(
+            next_state,
+            Some(ClientState::InChat {
+                awaiting_initial_roster: true,
+                waiting_for_server: false
+            })
+        ));
         assert_eq!(ui.messages.len(), 1);
         assert_eq!(ui.messages[0], "Server: Welcome, TestUser!");
     }

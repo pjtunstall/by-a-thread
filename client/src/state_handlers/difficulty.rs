@@ -37,10 +37,11 @@ pub fn handle(
                 },
                 _,
             )) => {
-                session.countdown_end_time = Some(end_time);
-                session.maze = Some(maze);
-                session.players = Some(players);
-                return Some(ClientState::Countdown);
+                return Some(ClientState::Countdown {
+                    end_time,
+                    maze,
+                    players,
+                });
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));

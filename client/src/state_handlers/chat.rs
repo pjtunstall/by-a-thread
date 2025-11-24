@@ -19,7 +19,7 @@ pub fn handle(
     ui: &mut dyn ClientUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::InChat) {
+    if !matches!(session.state(), ClientState::InChat { .. }) {
         panic!(
             "called chat::handle() when state was not InChat; current state: {:?}",
             session.state()
@@ -38,10 +38,11 @@ pub fn handle(
                 },
                 _,
             )) => {
-                session.countdown_end_time = Some(end_time);
-                session.maze = Some(maze);
-                session.players = Some(players);
-                return Some(ClientState::Countdown);
+                return Some(ClientState::Countdown {
+                    end_time,
+                    maze,
+                    players,
+                });
             }
             Ok((ServerMessage::BeginDifficultySelection, _)) => {
                 return Some(ClientState::ChoosingDifficulty {
@@ -165,7 +166,10 @@ mod tests {
         #[test]
         fn in_chat_does_not_panic_in_in_chat_state() {
             let mut session = ClientSession::new(0);
-            session.transition(ClientState::InChat);
+            session.transition(ClientState::InChat {
+                awaiting_initial_roster: true,
+                waiting_for_server: false,
+            });
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
             assert!(
@@ -178,8 +182,12 @@ mod tests {
     #[test]
     fn enforces_max_message_length() {
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::InChat);
+        session.transition(ClientState::InChat {
+            awaiting_initial_roster: true,
+            waiting_for_server: false,
+        });
         session.mark_initial_roster_received();
+        session.is_host = true;
 
         let long_message = "a".repeat(MAX_CHAT_MESSAGE_BYTES + 1);
 
@@ -210,8 +218,12 @@ mod tests {
         let reset = "\x1B[0m";
 
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::InChat);
+        session.transition(ClientState::InChat {
+            awaiting_initial_roster: true,
+            waiting_for_server: false,
+        });
         session.mark_initial_roster_received();
+        session.is_host = true;
 
         let mut ui = MockUi::new();
         let mut network = MockNetwork::new();
@@ -232,8 +244,12 @@ mod tests {
     #[test]
     fn sends_start_game_request_on_tab_input() {
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::InChat);
+        session.transition(ClientState::InChat {
+            awaiting_initial_roster: true,
+            waiting_for_server: false,
+        });
         session.mark_initial_roster_received();
+        session.is_host = true;
 
         let mut ui = MockUi::new();
         let mut network = MockNetwork::new();
@@ -249,6 +265,6 @@ mod tests {
 
         let (message, _) = decode_from_slice::<ClientMessage, _>(&payload, standard()).unwrap();
         assert!(matches!(message, ClientMessage::RequestStartGame));
-        assert!(session.chat_waiting_for_server);
+        assert!(session.chat_waiting_for_server());
     }
 }

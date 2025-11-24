@@ -79,6 +79,7 @@ pub fn handle(
         if let ClientState::Authenticating {
             waiting_for_input,
             guesses_left,
+            waiting_for_server,
         } = session.state_mut()
         {
             if *waiting_for_input {
@@ -91,6 +92,7 @@ pub fn handle(
                     network.send_message(AppChannel::ReliableOrdered, payload);
 
                     should_mark_waiting_for_server = true;
+                    *waiting_for_server = true;
                     *waiting_for_input = false;
                     guess_sent_this_frame = true;
                 } else {
@@ -115,7 +117,7 @@ pub fn handle(
         }
     }
 
-    let waiting_for_server = session.auth_waiting_for_server;
+    let waiting_for_server = session.auth_waiting_for_server();
     if let ClientState::Authenticating {
         waiting_for_input, ..
     } = session.state_mut()

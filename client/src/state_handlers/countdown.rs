@@ -13,7 +13,7 @@ pub fn handle(
     ui: &mut dyn ClientUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::Countdown) {
+    if !matches!(session.state(), ClientState::Countdown { .. }) {
         panic!(
             "called countdown::handle() when state was not Countdown; current state: {:?}",
             session.state()
@@ -42,7 +42,6 @@ pub fn handle(
         });
     }
 
-    // TODO: Handle relevant ServerMessages here if needed.
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((msg, _)) => {
@@ -55,40 +54,44 @@ pub fn handle(
         }
     }
 
-    let Some(end_time) = session.countdown_end_time else {
-        return None;
+    let end_time = match session.state() {
+        ClientState::Countdown { end_time, .. } => *end_time,
+        _ => return None,
     };
 
     let time_remaining = end_time - session.estimated_server_time;
 
-    if time_remaining > 0.0 {
-        let countdown_value = time_remaining.floor() as u64;
-        ui.draw_countdown(&format!("{}", countdown_value));
-        None
+    let countdown_value = if time_remaining < 0.0 {
+        0
     } else {
-        transition_to_game(session)
-    }
-}
+        time_remaining.floor() as u64
+    };
 
-fn transition_to_game(session: &mut ClientSession) -> Option<ClientState> {
-    match (session.maze.take(), session.players.take()) {
-        (Some(maze), Some(players)) => Some(ClientState::InGame { maze, players }),
-        (None, _) => Some(ClientState::TransitioningToDisconnected {
-            message: "failed to receive maze data".to_string(),
-        }),
-        (_, None) => Some(ClientState::TransitioningToDisconnected {
-            message: "failed to receive players data.".to_string(),
-        }),
-    }
+    ui.draw_countdown(&format!("{}", countdown_value));
+
+    // We return None here.
+    // If the time reaches 0, run.rs detects it and performs the
+    // Zero-Copy swap via TransitionAction::StartGame.
+    None
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use shared::maze::Algorithm;
 
     use super::*;
     use crate::test_helpers::{MockNetwork, MockUi};
     use shared::maze::Maze;
+
+    fn countdown_state_with(end_time: f64) -> ClientState {
+        ClientState::Countdown {
+            end_time,
+            maze: Maze::new(Algorithm::Backtrack),
+            players: HashMap::new(),
+        }
+    }
 
     #[test]
     fn test_countdown_waiting_for_time() {
@@ -97,15 +100,19 @@ mod tests {
         let mut ui = MockUi::new();
         let mut network = MockNetwork::new();
 
-        session.transition(ClientState::Countdown);
+        session.estimated_server_time = 0.1;
+        session.transition(countdown_state_with(0.4));
 
         let next_state = handle(&mut session, &mut ui, &mut network);
 
-        assert!(next_state.is_none());
-        assert!(matches!(session.state(), ClientState::Countdown));
+        assert!(
+            next_state.is_none(),
+            "should remain in countdown while time remains"
+        );
+        assert!(matches!(session.state(), ClientState::Countdown { .. }));
 
-        assert!(ui.countdown_draws.is_empty());
-        assert!(ui.messages.is_empty());
+        assert_eq!(ui.countdown_draws, vec!["0".to_string()]);
+        assert!(ui.messages.is_empty(), "no messages should be emitted");
     }
 
     #[test]
@@ -116,14 +123,12 @@ mod tests {
         let mut network = MockNetwork::new();
 
         session.estimated_server_time = 10.0;
-        session.countdown_end_time = Some(15.0);
-
-        session.transition(ClientState::Countdown);
+        session.transition(countdown_state_with(15.0));
 
         let next_state = handle(&mut session, &mut ui, &mut network);
 
         assert!(next_state.is_none());
-        assert!(matches!(session.state(), ClientState::Countdown));
+        assert!(matches!(session.state(), ClientState::Countdown { .. }));
 
         assert_eq!(ui.countdown_draws.len(), 1);
         assert_eq!(ui.countdown_draws[0], "5");
@@ -137,9 +142,7 @@ mod tests {
         let mut network = MockNetwork::new();
 
         session.estimated_server_time = 13.5;
-        session.countdown_end_time = Some(15.0);
-
-        session.transition(ClientState::Countdown);
+        session.transition(countdown_state_with(15.0));
 
         let next_state = handle(&mut session, &mut ui, &mut network);
 
@@ -149,24 +152,21 @@ mod tests {
     }
 
     #[test]
-    fn test_countdown_game_start() {
+    fn test_countdown_remains_none_when_finished() {
+        // This test confirms that handle() relies on the external runner
+        // to perform the transition. The handler itself simply updates
+        // the view until that external event fires.
         let client_id = 123;
         let mut session = ClientSession::new(client_id);
         let mut ui = MockUi::new();
         let mut network = MockNetwork::new();
 
-        session.maze = Some(Maze::new(Algorithm::Backtrack));
-        session.players = Some(std::collections::HashMap::new());
-
         session.estimated_server_time = 10.0;
-        session.countdown_end_time = Some(9.0);
-
-        session.transition(ClientState::Countdown);
+        session.transition(countdown_state_with(9.0));
 
         let next_state = handle(&mut session, &mut ui, &mut network);
 
-        assert!(next_state.is_some());
-        assert!(matches!(next_state, Some(ClientState::InGame { .. })));
+        assert!(next_state.is_none());
     }
 
     #[test]
@@ -176,7 +176,7 @@ mod tests {
         let mut ui = MockUi::new();
         let mut network = MockNetwork::new();
 
-        session.transition(ClientState::Countdown);
+        session.transition(countdown_state_with(15.0));
         network.set_disconnected(true, "Server hung up.");
 
         let next_state = handle(&mut session, &mut ui, &mut network);
