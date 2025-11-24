@@ -423,8 +423,6 @@ fn apply_client_transition(
             }
         }
         ClientState::InGame { .. } => {
-            // The Countdown logic is handled by the state swap.
-            // We just need to signal the visual start.
             ui.show_message("GO!");
         }
         ClientState::Disconnected { message } => ui.show_sanitized_error(message),
