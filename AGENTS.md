@@ -15,3 +15,13 @@ rather than
 use shared::input::{UiKey, sanitize};
 use shared::player::UsernameError;
 ```
+
+3. By default, error messages should follow the Rust convention: all lowercase, no trailing punctuation, thus
+
+```rust
+format!("packet send failed: {}", e)
+```
+
+This is the rule for all error messages that might be propagated, for developer-facing error messages, for messages delivered by the panic macro, assert, and except. The one exception is messages that we know are user-facing, such as the outermost error message that wraps all others. User-facing messages should follow normal English punctuation rules.
+
+4. Comments should follow normal English punctuation, thus `// This is a comment.` rather than `// Yee haw, I'm a bit slapdash`.
