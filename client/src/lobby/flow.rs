@@ -20,7 +20,6 @@ pub async fn update(
     is_host: bool,
 ) -> LobbyStep {
     if session.state().is_disconnected() {
-        handle_disconnected_ui_loop(ui).await;
         return LobbyStep::Continue;
     }
 
@@ -42,7 +41,7 @@ pub async fn update(
         return LobbyStep::StartGame;
     }
 
-    if let Some(next_state) = update_lobby_state(session, ui, network_handle) {
+    if let Some(next_state) = transition(session, ui, network_handle) {
         return LobbyStep::Transition(next_state);
     }
 
@@ -60,7 +59,7 @@ pub async fn update(
     LobbyStep::Continue
 }
 
-fn update_lobby_state(
+fn transition(
     session: &mut ClientSession,
     ui: &mut dyn crate::lobby::ui::LobbyUi,
     network_handle: &mut RenetNetworkHandle<'_>,
@@ -91,16 +90,5 @@ fn update_lobby_state(
         ClientState::Disconnected { .. } => None,
         ClientState::Game(_) => None,
         ClientState::Debrief => None,
-    }
-}
-
-async fn handle_disconnected_ui_loop(ui: &mut dyn crate::lobby::ui::LobbyUi) {
-    loop {
-        ui.draw(false, false);
-        if is_key_pressed(KeyCode::Escape) || is_quit_requested() {
-            break;
-        }
-
-        next_frame().await;
     }
 }

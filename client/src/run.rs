@@ -153,8 +153,11 @@ async fn update_client_state(runner: &mut ClientRunner) {
         ClientState::Disconnected { .. } => {
             runner.ui.draw(false, false);
         }
-        _ => {
+        ClientState::Lobby(_) => {
             lobby::handlers::update(runner).await;
+        }
+        _ => {
+            todo!();
         }
     }
 }
