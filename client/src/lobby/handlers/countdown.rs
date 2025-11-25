@@ -1,10 +1,10 @@
 use bincode::{config::standard, serde::decode_from_slice};
 
 use crate::{
+    lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
     net::NetworkHandle,
     session::ClientSession,
-    state::{ClientState, LobbyState},
-    lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
+    state::{ClientState, Lobby},
 };
 use shared::{net::AppChannel, protocol::ServerMessage};
 
@@ -13,10 +13,7 @@ pub fn handle(
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    if !matches!(
-        session.state(),
-        ClientState::Lobby(LobbyState::Countdown { .. })
-    ) {
+    if !matches!(session.state(), ClientState::Lobby(Lobby::Countdown { .. })) {
         panic!(
             "called countdown::handle() when state was not Countdown; current state: {:?}",
             session.state()
@@ -59,7 +56,7 @@ pub fn handle(
     }
 
     let end_time = match session.state() {
-        ClientState::Lobby(LobbyState::Countdown { end_time, .. }) => *end_time,
+        ClientState::Lobby(Lobby::Countdown { end_time, .. }) => *end_time,
         _ => return None,
     };
 
@@ -90,7 +87,7 @@ mod tests {
     use shared::maze::Maze;
 
     fn countdown_state_with(end_time: f64) -> ClientState {
-        ClientState::Lobby(LobbyState::Countdown {
+        ClientState::Lobby(Lobby::Countdown {
             end_time,
             maze: Maze::new(Algorithm::Backtrack),
             players: HashMap::new(),
@@ -115,7 +112,7 @@ mod tests {
         );
         assert!(matches!(
             session.state(),
-            ClientState::Lobby(LobbyState::Countdown { .. })
+            ClientState::Lobby(Lobby::Countdown { .. })
         ));
 
         assert_eq!(ui.countdown_draws, vec!["0".to_string()]);
@@ -137,7 +134,7 @@ mod tests {
         assert!(next_state.is_none());
         assert!(matches!(
             session.state(),
-            ClientState::Lobby(LobbyState::Countdown { .. })
+            ClientState::Lobby(Lobby::Countdown { .. })
         ));
 
         assert_eq!(ui.countdown_draws.len(), 1);

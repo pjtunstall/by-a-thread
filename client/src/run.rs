@@ -9,14 +9,14 @@ use renet::RenetClient;
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
 use crate::{
-    net::{self, RenetNetworkHandle},
-    resources::Resources,
-    session::ClientSession,
-    state::{ClientState, InputMode, LobbyState},
     lobby::{
         handlers,
         ui::{LobbyUi, MacroquadLobbyUi, UiInputError},
     },
+    net::{self, RenetNetworkHandle},
+    resources::Resources,
+    session::ClientSession,
+    state::{ClientState, InputMode, Lobby},
 };
 use shared::{self, player::Player};
 
@@ -273,26 +273,26 @@ fn update_client_state(
     }
 
     let next_state_from_logic = match session.state() {
-        ClientState::Lobby(LobbyState::Startup { .. }) => handlers::startup::handle(session, ui),
-        ClientState::Lobby(LobbyState::Connecting { .. }) => {
+        ClientState::Lobby(Lobby::Startup { .. }) => handlers::startup::handle(session, ui),
+        ClientState::Lobby(Lobby::Connecting { .. }) => {
             handlers::connecting::handle(session, ui, network_handle)
         }
-        ClientState::Lobby(LobbyState::Authenticating { .. }) => {
+        ClientState::Lobby(Lobby::Authenticating { .. }) => {
             handlers::auth::handle(session, ui, network_handle)
         }
-        ClientState::Lobby(LobbyState::ChoosingUsername { .. }) => {
+        ClientState::Lobby(Lobby::ChoosingUsername { .. }) => {
             handlers::username::handle(session, ui, network_handle)
         }
-        ClientState::Lobby(LobbyState::AwaitingUsernameConfirmation) => {
+        ClientState::Lobby(Lobby::AwaitingUsernameConfirmation) => {
             handlers::waiting::handle(session, ui, network_handle)
         }
-        ClientState::Lobby(LobbyState::InChat { .. }) => {
+        ClientState::Lobby(Lobby::InChat { .. }) => {
             handlers::chat::handle(session, ui, network_handle)
         }
-        ClientState::Lobby(LobbyState::ChoosingDifficulty { .. }) => {
+        ClientState::Lobby(Lobby::ChoosingDifficulty { .. }) => {
             handlers::difficulty::handle(session, ui, network_handle)
         }
-        ClientState::Lobby(LobbyState::Countdown { .. }) => {
+        ClientState::Lobby(Lobby::Countdown { .. }) => {
             handlers::countdown::handle(session, ui, network_handle)
         }
         ClientState::TransitioningToDisconnected { .. } => None,
@@ -306,7 +306,11 @@ fn update_client_state(
     }
 }
 
-fn apply_client_transition(session: &mut ClientSession, ui: &mut dyn LobbyUi, action: TransitionAction) {
+fn apply_client_transition(
+    session: &mut ClientSession,
+    ui: &mut dyn LobbyUi,
+    action: TransitionAction,
+) {
     match action {
         TransitionAction::StartGame => {
             if session.transition_to_game().is_err() {

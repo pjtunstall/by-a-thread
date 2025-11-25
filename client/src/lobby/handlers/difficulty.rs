@@ -4,10 +4,10 @@ use bincode::{
 };
 
 use crate::{
+    lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
     net::NetworkHandle,
     session::ClientSession,
-    state::{ClientState, InputMode, LobbyState},
-    lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
+    state::{ClientState, InputMode, Lobby},
 };
 use shared::{
     input::UiKey,
@@ -48,7 +48,7 @@ pub fn handle(
 ) -> Option<ClientState> {
     let is_correct_state = matches!(
         session.state(),
-        ClientState::Lobby(LobbyState::ChoosingDifficulty { .. })
+        ClientState::Lobby(Lobby::ChoosingDifficulty { .. })
     );
     if !is_correct_state {
         panic!(
@@ -61,7 +61,7 @@ pub fn handle(
         return Some(next_state);
     }
 
-    if let ClientState::Lobby(LobbyState::ChoosingDifficulty {
+    if let ClientState::Lobby(Lobby::ChoosingDifficulty {
         prompt_printed,
         choice_sent,
     }) = session.state_mut()
@@ -86,7 +86,7 @@ pub fn handle(
                 },
                 _,
             )) => {
-                return Some(ClientState::Lobby(LobbyState::Countdown {
+                return Some(ClientState::Lobby(Lobby::Countdown {
                     end_time,
                     maze,
                     players,
@@ -94,7 +94,7 @@ pub fn handle(
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));
-                if let ClientState::Lobby(LobbyState::ChoosingDifficulty {
+                if let ClientState::Lobby(Lobby::ChoosingDifficulty {
                     prompt_printed,
                     choice_sent,
                 }) = session.state_mut()
@@ -111,8 +111,9 @@ pub fn handle(
         }
     }
 
-    let choice_already_sent = if let ClientState::Lobby(LobbyState::ChoosingDifficulty {
-        choice_sent, ..
+    let choice_already_sent = if let ClientState::Lobby(Lobby::ChoosingDifficulty {
+        choice_sent,
+        ..
     }) = session.state()
     {
         *choice_sent
@@ -142,7 +143,7 @@ pub fn handle(
                     encode_to_vec(&msg, standard()).expect("failed to serialize SetDifficulty");
                 network.send_message(AppChannel::ReliableOrdered, payload);
 
-                if let ClientState::Lobby(LobbyState::ChoosingDifficulty { choice_sent, .. }) =
+                if let ClientState::Lobby(Lobby::ChoosingDifficulty { choice_sent, .. }) =
                     session.state_mut()
                 {
                     *choice_sent = true;
@@ -192,7 +193,7 @@ mod tests {
     #[test]
     fn guards_does_not_panic_in_correct_state() {
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::Lobby(LobbyState::ChoosingDifficulty {
+        session.transition(ClientState::Lobby(Lobby::ChoosingDifficulty {
             prompt_printed: false,
             choice_sent: false,
         }));
@@ -207,7 +208,7 @@ mod tests {
     #[test]
     fn re_enables_input_after_server_info() {
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::Lobby(LobbyState::ChoosingDifficulty {
+        session.transition(ClientState::Lobby(Lobby::ChoosingDifficulty {
             prompt_printed: true,
             choice_sent: true,
         }));
@@ -225,7 +226,7 @@ mod tests {
         assert!(
             matches!(
                 session.state(),
-                ClientState::Lobby(LobbyState::ChoosingDifficulty {
+                ClientState::Lobby(Lobby::ChoosingDifficulty {
                     prompt_printed: false,
                     choice_sent: false
                 })
@@ -243,7 +244,7 @@ mod tests {
     #[test]
     fn polls_single_key_for_choice() {
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::Lobby(LobbyState::ChoosingDifficulty {
+        session.transition(ClientState::Lobby(Lobby::ChoosingDifficulty {
             prompt_printed: true,
             choice_sent: false,
         }));
@@ -259,7 +260,7 @@ mod tests {
         assert!(
             matches!(
                 session.state(),
-                ClientState::Lobby(LobbyState::ChoosingDifficulty {
+                ClientState::Lobby(Lobby::ChoosingDifficulty {
                     choice_sent: true,
                     ..
                 })
@@ -280,7 +281,7 @@ mod tests {
     #[test]
     fn returns_disconnect_on_input_source_drop() {
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::Lobby(LobbyState::ChoosingDifficulty {
+        session.transition(ClientState::Lobby(Lobby::ChoosingDifficulty {
             prompt_printed: true,
             choice_sent: false,
         }));

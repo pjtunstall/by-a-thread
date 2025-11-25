@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use shared::{auth::Passcode, maze::Maze, player::Player};
 
 #[derive(Debug)]
-pub enum LobbyState {
+pub enum Lobby {
     Startup {
         prompt_printed: bool,
     },

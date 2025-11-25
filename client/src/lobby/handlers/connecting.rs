@@ -1,10 +1,10 @@
 use bincode::{config::standard, serde::decode_from_slice, serde::encode_to_vec};
 
 use crate::{
+    lobby::ui::{LobbyUi, UiErrorKind},
     net::NetworkHandle,
     session::ClientSession,
-    state::{ClientState, LobbyState},
-    lobby::ui::{LobbyUi, UiErrorKind},
+    state::{ClientState, Lobby},
 };
 use shared::{
     auth::MAX_ATTEMPTS,
@@ -19,7 +19,7 @@ pub fn handle(
 ) -> Option<ClientState> {
     if !matches!(
         session.state(),
-        ClientState::Lobby(LobbyState::Connecting { .. })
+        ClientState::Lobby(Lobby::Connecting { .. })
     ) {
         panic!(
             "called connecting::handle() when state was not Connecting; current state: {:?}",
@@ -42,9 +42,7 @@ pub fn handle(
 
     if network.is_connected() {
         let passcode = match session.state_mut() {
-            ClientState::Lobby(LobbyState::Connecting { pending_passcode }) => {
-                pending_passcode.take()
-            }
+            ClientState::Lobby(Lobby::Connecting { pending_passcode }) => pending_passcode.take(),
             _ => None,
         };
 
@@ -59,13 +57,13 @@ pub fn handle(
                 encode_to_vec(&message, standard()).expect("failed to serialize SendPasscode");
             network.send_message(AppChannel::ReliableOrdered, payload);
 
-            Some(ClientState::Lobby(LobbyState::Authenticating {
+            Some(ClientState::Lobby(Lobby::Authenticating {
                 waiting_for_input: false,
                 waiting_for_server: true,
                 guesses_left: MAX_ATTEMPTS,
             }))
         } else {
-            Some(ClientState::Lobby(LobbyState::Authenticating {
+            Some(ClientState::Lobby(Lobby::Authenticating {
                 waiting_for_input: true,
                 waiting_for_server: false,
                 guesses_left: MAX_ATTEMPTS,
@@ -107,7 +105,7 @@ mod tests {
         #[test]
         fn connecting_does_not_panic_in_connecting_state() {
             let mut session = ClientSession::new(0);
-            session.transition(ClientState::Lobby(LobbyState::Connecting {
+            session.transition(ClientState::Lobby(Lobby::Connecting {
                 pending_passcode: None,
             }));
             let mut ui = MockUi::default();

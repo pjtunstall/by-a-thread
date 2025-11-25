@@ -12,10 +12,10 @@ pub mod waiting;
 mod tests {
     use super::*;
     use crate::{
+        lobby::{state::Lobby, ui::LobbyUi},
         session::ClientSession,
-        state::{ClientState, LobbyState},
+        state::ClientState,
         test_helpers::{MockNetwork, MockUi},
-        lobby::ui::LobbyUi,
     };
     use shared::{auth::MAX_ATTEMPTS, input::sanitize, protocol::ServerMessage};
 
@@ -42,7 +42,7 @@ mod tests {
         let esc = '\x1B';
 
         let mut session_chat = ClientSession::new(0);
-        session_chat.transition(ClientState::Lobby(LobbyState::InChat {
+        session_chat.transition(ClientState::Lobby(Lobby::InChat {
             awaiting_initial_roster: true,
             waiting_for_server: false,
         }));
@@ -70,7 +70,7 @@ mod tests {
         );
 
         let mut session_auth = ClientSession::new(0);
-        session_auth.transition(ClientState::Lobby(LobbyState::Authenticating {
+        session_auth.transition(ClientState::Lobby(Lobby::Authenticating {
             waiting_for_input: false,
             waiting_for_server: false,
             guesses_left: MAX_ATTEMPTS,

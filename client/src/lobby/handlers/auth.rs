@@ -4,10 +4,10 @@ use bincode::{
 };
 
 use crate::{
-    session::ClientSession,
-    state::{ClientState, LobbyState},
     lobby::ui::{LobbyUi, UiErrorKind},
     net::NetworkHandle,
+    session::ClientSession,
+    state::{ClientState, Lobby},
 };
 use shared::{
     auth::{MAX_ATTEMPTS, Passcode},
@@ -22,7 +22,7 @@ pub fn handle(
 ) -> Option<ClientState> {
     if !matches!(
         session.state(),
-        ClientState::Lobby(LobbyState::Authenticating { .. })
+        ClientState::Lobby(Lobby::Authenticating { .. })
     ) {
         panic!(
             "called auth::handle() when state was not Authenticating; current state: {:?}",
@@ -44,11 +44,11 @@ pub fn handle(
                 ui.show_sanitized_message(&format!("Server: {}", message));
 
                 if message.starts_with("Authentication successful!") {
-                    return Some(ClientState::Lobby(LobbyState::ChoosingUsername {
+                    return Some(ClientState::Lobby(Lobby::ChoosingUsername {
                         prompt_printed: false,
                     }));
                 } else if message.starts_with("Incorrect passcode. Try again.") {
-                    if let ClientState::Lobby(LobbyState::Authenticating {
+                    if let ClientState::Lobby(Lobby::Authenticating {
                         waiting_for_input,
                         guesses_left,
                         ..
@@ -77,7 +77,7 @@ pub fn handle(
 
     for input_string in input_to_process {
         let mut should_mark_waiting_for_server = false;
-        if let ClientState::Lobby(LobbyState::Authenticating {
+        if let ClientState::Lobby(Lobby::Authenticating {
             waiting_for_input,
             guesses_left,
             waiting_for_server,
@@ -111,7 +111,7 @@ pub fn handle(
         }
         if !matches!(
             session.state(),
-            ClientState::Lobby(LobbyState::Authenticating { .. })
+            ClientState::Lobby(Lobby::Authenticating { .. })
         ) {
             break;
         }
@@ -122,7 +122,7 @@ pub fn handle(
     }
 
     let waiting_for_server = session.auth_waiting_for_server();
-    if let ClientState::Lobby(LobbyState::Authenticating {
+    if let ClientState::Lobby(Lobby::Authenticating {
         waiting_for_input, ..
     }) = session.state_mut()
     {

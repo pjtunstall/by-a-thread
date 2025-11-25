@@ -4,10 +4,10 @@ use bincode::{
 };
 
 use crate::{
+    lobby::ui::{LobbyUi, UiErrorKind},
     net::NetworkHandle,
     session::{ClientSession, username_prompt, validate_username_input},
-    state::{ClientState, LobbyState},
-    lobby::ui::{LobbyUi, UiErrorKind},
+    state::{ClientState, Lobby},
 };
 use shared::{
     net::AppChannel,
@@ -21,7 +21,7 @@ pub fn handle(
 ) -> Option<ClientState> {
     if !matches!(
         session.state(),
-        ClientState::Lobby(LobbyState::ChoosingUsername { .. })
+        ClientState::Lobby(Lobby::ChoosingUsername { .. })
     ) {
         panic!(
             "called username::handle() when state was not ChoosingUsername; current state: {:?}",
@@ -38,8 +38,7 @@ pub fn handle(
     }
 
     if let Some(input) = session.take_input() {
-        if let ClientState::Lobby(LobbyState::ChoosingUsername { prompt_printed }) =
-            session.state_mut()
+        if let ClientState::Lobby(Lobby::ChoosingUsername { prompt_printed }) = session.state_mut()
         {
             let trimmed_input = input.trim();
 
@@ -61,22 +60,18 @@ pub fn handle(
 
                     network.send_message(AppChannel::ReliableOrdered, payload);
 
-                return Some(ClientState::Lobby(
-                    LobbyState::AwaitingUsernameConfirmation,
-                ));
-            }
-            Err(err) => {
-                let message = err.to_string();
-                ui.show_typed_error(UiErrorKind::UsernameValidation(err), &message);
-                *prompt_printed = false;
+                    return Some(ClientState::Lobby(Lobby::AwaitingUsernameConfirmation));
+                }
+                Err(err) => {
+                    let message = err.to_string();
+                    ui.show_typed_error(UiErrorKind::UsernameValidation(err), &message);
+                    *prompt_printed = false;
                 }
             }
         }
     }
 
-    if let ClientState::Lobby(LobbyState::ChoosingUsername { prompt_printed }) =
-        session.state_mut()
-    {
+    if let ClientState::Lobby(Lobby::ChoosingUsername { prompt_printed }) = session.state_mut() {
         if !*prompt_printed {
             ui.show_sanitized_prompt(&username_prompt());
             *prompt_printed = true;
@@ -106,7 +101,7 @@ pub fn handle_server_message(
             UiErrorKind::UsernameServerError,
             &format!("Username error: {}", sanitized),
         );
-        return Some(ClientState::Lobby(LobbyState::ChoosingUsername {
+        return Some(ClientState::Lobby(Lobby::ChoosingUsername {
             prompt_printed: false,
         }));
     }
@@ -127,7 +122,7 @@ mod tests {
     use shared::player::{MAX_USERNAME_LENGTH, UsernameError};
 
     fn set_choosing_username(session: &mut ClientSession) {
-        session.transition(ClientState::Lobby(LobbyState::ChoosingUsername {
+        session.transition(ClientState::Lobby(Lobby::ChoosingUsername {
             prompt_printed: false,
         }));
     }
@@ -192,7 +187,7 @@ mod tests {
     #[test]
     fn handles_local_validation_error() {
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::Lobby(LobbyState::ChoosingUsername {
+        session.transition(ClientState::Lobby(Lobby::ChoosingUsername {
             prompt_printed: true,
         }));
 
@@ -219,7 +214,7 @@ mod tests {
         );
 
         match session.state() {
-            ClientState::Lobby(LobbyState::ChoosingUsername { prompt_printed }) => {
+            ClientState::Lobby(Lobby::ChoosingUsername { prompt_printed }) => {
                 assert!(
                     !*prompt_printed,
                     "prompt_printed must be reset to false after an error"
@@ -232,9 +227,7 @@ mod tests {
     #[test]
     fn sanitizes_server_username_error() {
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::Lobby(
-            LobbyState::AwaitingUsernameConfirmation,
-        ));
+        session.transition(ClientState::Lobby(Lobby::AwaitingUsernameConfirmation));
         let mut ui = MockUi::new();
         let bell = '\x07';
 
@@ -252,7 +245,7 @@ mod tests {
         assert_eq!(ui.error_kinds, vec![UiErrorKind::UsernameServerError]);
 
         match next_state {
-            Some(ClientState::Lobby(LobbyState::ChoosingUsername { prompt_printed })) => {
+            Some(ClientState::Lobby(Lobby::ChoosingUsername { prompt_printed })) => {
                 assert_eq!(
                     prompt_printed, false,
                     "state should transition to ChoosingUsername with prompt_printed false"

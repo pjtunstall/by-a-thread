@@ -1,10 +1,10 @@
 use bincode::{config::standard, serde::decode_from_slice};
 
 use crate::{
+    lobby::ui::{LobbyUi, UiErrorKind},
     net::NetworkHandle,
     session::ClientSession,
-    state::{ClientState, LobbyState},
-    lobby::ui::{LobbyUi, UiErrorKind},
+    state::{ClientState, Lobby},
 };
 use shared::{net::AppChannel, protocol::ServerMessage};
 
@@ -15,7 +15,7 @@ pub fn handle(
 ) -> Option<ClientState> {
     if !matches!(
         session.state(),
-        ClientState::Lobby(LobbyState::AwaitingUsernameConfirmation)
+        ClientState::Lobby(Lobby::AwaitingUsernameConfirmation)
     ) {
         panic!(
             "called awaiting_confirmation::handle() when state was not AwaitingUsernameConfirmation; current state: {:?}",
@@ -27,7 +27,7 @@ pub fn handle(
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::Welcome { username }, _)) => {
                 ui.show_sanitized_message(&format!("Server: Welcome, {}!", username));
-                return Some(ClientState::Lobby(LobbyState::InChat {
+                return Some(ClientState::Lobby(Lobby::InChat {
                     awaiting_initial_roster: true,
                     waiting_for_server: false,
                 }));
@@ -40,7 +40,7 @@ pub fn handle(
                 ui.show_sanitized_message("Please try a different username.");
 
                 // Server rejected the username, transition back to ChoosingUsername
-                return Some(ClientState::Lobby(LobbyState::ChoosingUsername {
+                return Some(ClientState::Lobby(Lobby::ChoosingUsername {
                     prompt_printed: false,
                 }));
             }
@@ -82,9 +82,7 @@ mod tests {
     use shared::protocol::ServerMessage;
 
     fn set_awaiting_state(session: &mut ClientSession) {
-        session.transition(ClientState::Lobby(
-            LobbyState::AwaitingUsernameConfirmation,
-        ));
+        session.transition(ClientState::Lobby(Lobby::AwaitingUsernameConfirmation));
     }
 
     #[test]
@@ -113,7 +111,7 @@ mod tests {
 
         assert!(matches!(
             next_state,
-            Some(ClientState::Lobby(LobbyState::InChat {
+            Some(ClientState::Lobby(Lobby::InChat {
                 awaiting_initial_roster: true,
                 waiting_for_server: false
             }))
@@ -137,7 +135,7 @@ mod tests {
 
         assert!(matches!(
             next_state,
-            Some(ClientState::Lobby(LobbyState::ChoosingUsername {
+            Some(ClientState::Lobby(Lobby::ChoosingUsername {
                 prompt_printed: false
             }))
         ));
