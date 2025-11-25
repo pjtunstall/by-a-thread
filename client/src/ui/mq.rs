@@ -58,12 +58,12 @@ impl MacroquadUi {
         let line_height = FONT_SIZE * 1.2;
         let max_width = screen_width() - 2.0 * SIDE_PAD; // ... of a line of text.
 
-        // Starts at bottom.
+        // Start at the bottom,
         let mut current_baseline = screen_height() - BOTTOM_PAD;
 
         if should_show_input {
             self.draw_input(&mut current_baseline, line_height, max_width, show_cursor);
-        } // ... and move current_baseline to the line above the input.
+        } // and move the current_baseline to the line above the input.
         self.draw_chat_history(current_baseline, line_height, max_width);
     }
 
@@ -93,8 +93,7 @@ impl MacroquadUi {
     }
 
     fn draw_cursor(&self, input_start_y: f32, input_lines: &Vec<String>, line_height: f32) {
-        // Determine the logical index of the cursor within the FULL text (including the prompt).
-        // We use CHAR indices because cursor_pos is a char count.
+        // Determine the logical index of the cursor within the FULL text (including the prompt). We use char indices because cursor_pos is a char count.
         let prompt_len = PROMPT.chars().count();
         let target_char_index = self.cursor_pos + prompt_len;
 
@@ -109,10 +108,10 @@ impl MacroquadUi {
             // Check if the cursor sits on this line
             // We use <= because the cursor can be AT the very end of the line
             if target_char_index <= chars_processed + line_len {
-                // The cursor is on this line!
+                // The cursor is on this line.
                 let index_in_line = target_char_index - chars_processed;
 
-                // Get the text strictly BEFORE the cursor on this specific line
+                // Get the text strictly before the cursor on this specific line.
                 let sub_string: String = line.chars().take(index_in_line).collect();
 
                 let text_width = self.measure_text_strict(&sub_string);
@@ -126,7 +125,8 @@ impl MacroquadUi {
             chars_processed += line_len;
         }
 
-        // Fallback: If cursor is at the very end of the entire text (and loop finished).
+        // Fallback: If the cursor is at the very end of the entire text
+        // (loop finished).
         if !cursor_found && !input_lines.is_empty() {
             let last_idx = input_lines.len() - 1;
             let last_line = &input_lines[last_idx];
@@ -154,16 +154,14 @@ impl MacroquadUi {
         }
     }
 
-    /// Measures text width, forcing the inclusion of trailing spaces.
+    // Measure text width, forcing the inclusion of trailing spaces.
     fn measure_text_strict(&self, text: &str) -> f32 {
-        // We use the constants defined at the top of the file.
-        // If these ever need to be dynamic, you would pass them as arguments instead.
         let font: Option<&Font> = None;
         let font_size = FONT_SIZE as u16;
         let line_spacing = 1.0;
 
         if text.ends_with(' ') {
-            // Trick: Append a pipe '|', measure, then subtract the pipe's width.
+            // Trick: append a pipe '|', measure, then subtract the pipe's width.
             // This forces the engine to account for the pixels of the trailing space.
             let temp = format!("{}|", text);
             let temp_width = measure_text(&temp, font, font_size, line_spacing).width;
@@ -183,7 +181,7 @@ impl MacroquadUi {
                 continue;
             }
 
-            // This will be
+            // This will become a row of text as it appears on screen.
             let mut current_line = String::new();
 
             let parts: Vec<&str> = line.split(' ').collect();

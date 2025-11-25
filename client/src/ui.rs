@@ -1,8 +1,8 @@
-pub mod macroquad;
+pub mod mq;
 
 use std::{fmt, net::SocketAddr};
 
-pub use macroquad::MacroquadUi;
+pub use mq::MacroquadUi;
 use shared::input::{UiKey, sanitize};
 use shared::player::UsernameError;
 
