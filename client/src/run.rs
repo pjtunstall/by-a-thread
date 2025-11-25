@@ -9,14 +9,14 @@ use renet::RenetClient;
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
 use crate::{
-    net::{self, NetworkHandle, RenetNetworkHandle},
+    net::{self, RenetNetworkHandle},
     resources::Resources,
-    session::{self, ClientSession},
+    session::ClientSession,
     state::{ClientState, InputMode},
     state_handlers,
     ui::{ClientUi, MacroquadUi, UiInputError},
 };
-use shared::{self, auth::MAX_ATTEMPTS, player::Player};
+use shared::{self, player::Player};
 
 // This enum is used to control how to transiton between states.
 // For most transitions, the plain ChangeTo is sufficient.
@@ -127,10 +127,12 @@ pub async fn run_client_loop(
         handle_user_escape(&mut runner);
 
         if let Err(e) = runner.pump_network() {
+            runner
+                .ui
+                .show_sanitized_error(&format!("No connection: {}.", e));
             apply_client_transition(
                 &mut runner.session,
                 &mut runner.ui,
-                None,
                 TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
                     message: format!("transport error: {}", e),
                 }),
@@ -213,10 +215,12 @@ fn handle_user_escape(runner: &mut ClientRunner) {
         return;
     }
 
+    runner
+        .ui
+        .show_sanitized_error("No connection: client closed by user.");
     apply_client_transition(
         &mut runner.session,
         &mut runner.ui,
-        None,
         TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
             message: "client closed by user".to_string(),
         }),
@@ -236,10 +240,12 @@ fn client_frame_update(runner: &mut ClientRunner) {
                 runner.session.add_input(input);
             }
             Err(e @ UiInputError::Disconnected) => {
+                runner
+                    .ui
+                    .show_sanitized_error(&format!("No connection: {}.", e));
                 apply_client_transition(
                     &mut runner.session,
                     &mut runner.ui,
-                    None,
                     TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
                         message: e.to_string(),
                     }),
@@ -250,7 +256,6 @@ fn client_frame_update(runner: &mut ClientRunner) {
         }
     }
 
-    // State machine: let state handlers send messages if they need to.
     let mut network_handle = RenetNetworkHandle::new(&mut runner.client, &mut runner.transport);
     update_client_state(&mut runner.session, &mut runner.ui, &mut network_handle);
 }
@@ -261,12 +266,7 @@ fn update_client_state(
     network_handle: &mut RenetNetworkHandle,
 ) {
     if session.is_countdown_finished() {
-        apply_client_transition(
-            session,
-            ui,
-            Some(network_handle),
-            TransitionAction::StartGame,
-        );
+        apply_client_transition(session, ui, TransitionAction::StartGame);
         return;
     }
 
@@ -297,19 +297,13 @@ fn update_client_state(
     };
 
     if let Some(new_state) = next_state_from_logic {
-        apply_client_transition(
-            session,
-            ui,
-            Some(network_handle),
-            TransitionAction::ChangeTo(new_state),
-        );
+        apply_client_transition(session, ui, TransitionAction::ChangeTo(new_state));
     }
 }
 
 fn apply_client_transition(
     session: &mut ClientSession,
     ui: &mut dyn ClientUi,
-    _network: Option<&mut dyn NetworkHandle>,
     action: TransitionAction,
 ) {
     match action {
@@ -321,65 +315,15 @@ fn apply_client_transition(
             }
         }
         TransitionAction::ChangeTo(new_state) => {
-            if let ClientState::TransitioningToDisconnected { message } = &new_state {
-                let rest = if message.is_empty() {
-                    ".".to_string()
-                } else {
-                    format!(": {}.", message.trim_end_matches('.'))
-                };
-                ui.show_sanitized_error(&format!("No connection{}", rest));
-                session.transition(ClientState::Disconnected {
-                    message: message.clone(),
-                });
-                return;
-            }
+            let target_state = match new_state {
+                ClientState::TransitioningToDisconnected { message } => {
+                    ClientState::Disconnected { message }
+                }
+                other => other,
+            };
 
-            session.transition(new_state);
+            session.transition(target_state);
         }
-    }
-
-    // Handle UI side-effects (post-transition).
-    match session.state_mut() {
-        ClientState::Startup { prompt_printed } => {
-            if !*prompt_printed {
-                ui.show_prompt(&state_handlers::auth::passcode_prompt(MAX_ATTEMPTS));
-                *prompt_printed = true;
-            }
-        }
-        ClientState::Authenticating {
-            waiting_for_input,
-            waiting_for_server,
-            ..
-        } => {
-            if !*waiting_for_server {
-                *waiting_for_input = true;
-            }
-        }
-        ClientState::ChoosingUsername { prompt_printed } => {
-            if !*prompt_printed {
-                ui.show_prompt(&session::username_prompt());
-                *prompt_printed = true;
-            }
-        }
-        ClientState::InChat { .. } => {
-            session.expect_initial_roster();
-        }
-        ClientState::ChoosingDifficulty {
-            prompt_printed,
-            choice_sent,
-        } => {
-            if !*prompt_printed && !*choice_sent {
-                ui.show_message("Server: Choose a difficulty level:");
-                ui.show_message("  1. Easy");
-                ui.show_message("  2. So-so");
-                ui.show_message("  3. Next level");
-                ui.show_prompt("Press 1, 2, or 3.");
-                *prompt_printed = true;
-            }
-        }
-        ClientState::InGame { .. } => {}
-        ClientState::Disconnected { message } => ui.show_sanitized_error(message),
-        _ => {}
     }
 }
 

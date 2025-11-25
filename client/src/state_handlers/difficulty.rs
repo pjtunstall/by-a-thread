@@ -30,6 +30,7 @@ fn enqueue_difficulty_input(
             session.add_input(c.to_string());
         }
         Err(e @ UiInputError::Disconnected) => {
+            ui.show_sanitized_error(&format!("No connection: {}.", e));
             return Some(ClientState::TransitioningToDisconnected {
                 message: e.to_string(),
             });
@@ -55,6 +56,21 @@ pub fn handle(
 
     if let Some(next_state) = enqueue_difficulty_input(session, ui) {
         return Some(next_state);
+    }
+
+    if let ClientState::ChoosingDifficulty {
+        prompt_printed,
+        choice_sent,
+    } = session.state_mut()
+    {
+        if !*prompt_printed && !*choice_sent {
+            ui.show_message("Server: Choose a difficulty level:");
+            ui.show_message("  1. Easy");
+            ui.show_message("  2. So-so");
+            ui.show_message("  3. Next level");
+            ui.show_prompt("Press 1, 2, or 3.");
+            *prompt_printed = true;
+        }
     }
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
@@ -131,6 +147,13 @@ pub fn handle(
     }
 
     if network.is_disconnected() {
+        ui.show_typed_error(
+            UiErrorKind::NetworkDisconnect,
+            &format!(
+                "disconnected while choosing difficulty: {}",
+                network.get_disconnect_reason()
+            ),
+        );
         return Some(ClientState::TransitioningToDisconnected {
             message: format!(
                 "disconnected while choosing difficulty: {}",

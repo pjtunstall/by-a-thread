@@ -131,6 +131,10 @@ pub fn handle(
 
     if network.is_disconnected() {
         let reason = network.get_disconnect_reason();
+        ui.show_typed_error(
+            UiErrorKind::NetworkDisconnect,
+            &format!("Disconnected while authenticating: {}.", reason),
+        );
 
         return Some(ClientState::TransitioningToDisconnected {
             message: format!("Disconnected while authenticating: {}.", reason),
