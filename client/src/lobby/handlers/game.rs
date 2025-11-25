@@ -5,9 +5,9 @@ pub fn handle(
     _ui: &mut dyn LobbyUi,
     _network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::InGame(_)) {
+    if !matches!(session.state(), ClientState::Game(_)) {
         panic!(
-            "called game::handle() when state was not InGame; current state: {:?}",
+            "called game::handle() when state was not Game; current state: {:?}",
             session.state()
         );
     }

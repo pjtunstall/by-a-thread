@@ -7,10 +7,10 @@ pub fn handle_frame(
     resources: &Resources,
 ) -> Option<ClientState> {
     let game_state = match session.state() {
-        ClientState::InGame(game) => game,
+        ClientState::Game(game) => game,
         other => {
             panic!(
-                "called in_game::handle_frame when not in InGame state: {:?}",
+                "called game::handle_frame when not in Game state: {:?}",
                 other
             );
         }

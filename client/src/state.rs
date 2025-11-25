@@ -1,11 +1,11 @@
-pub use crate::in_game::Game;
+pub use crate::game::Game;
 pub use crate::lobby::LobbyState;
 pub use crate::lobby::LobbyState as Lobby;
 
 #[derive(Debug)]
 pub enum ClientState {
     Lobby(LobbyState),
-    InGame(Game),
+    Game(Game),
     Debrief,
     Disconnected { message: String },
 }

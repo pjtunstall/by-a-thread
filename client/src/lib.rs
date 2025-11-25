@@ -1,4 +1,4 @@
-pub mod in_game;
+pub mod game;
 pub mod lobby;
 pub mod net;
 pub mod resources;

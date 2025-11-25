@@ -177,7 +177,7 @@ impl ClientSession {
             }
             ClientState::Lobby(LobbyState::Countdown { .. }) => InputMode::Hidden,
             ClientState::Disconnected { .. } => InputMode::Hidden,
-            ClientState::InGame(_) => InputMode::SingleKey,
+            ClientState::Game(_) => InputMode::SingleKey,
             ClientState::Debrief => InputMode::Hidden,
         }
     }

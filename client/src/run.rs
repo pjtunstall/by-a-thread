@@ -9,11 +9,10 @@ use renet::RenetClient;
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
 use crate::{
-    in_game,
+    game,
     lobby::{
-        flow::{LobbyStep, lobby_frame},
-        ui::Gui,
-        ui::LobbyUi,
+        flow::{lobby_frame, LobbyStep},
+        ui::{Gui, LobbyUi},
     },
     net::{self, RenetNetworkHandle},
     resources::Resources,
@@ -139,9 +138,9 @@ pub async fn run_client_loop(
 
 async fn client_frame_update(runner: &mut ClientRunner) {
     match runner.session.state() {
-        ClientState::InGame(_) => {
+        ClientState::Game(_) => {
             if let Some(next_state) =
-                in_game::handler::handle_frame(&mut runner.session, &runner.resources)
+                game::handler::handle_frame(&mut runner.session, &runner.resources)
             {
                 apply_client_transition(&mut runner.session, next_state);
             }
@@ -184,7 +183,7 @@ fn perform_start_game(session: &mut ClientSession) -> Result<(), ()> {
     let old_state = std::mem::take(session.state_mut());
     match old_state {
         ClientState::Lobby(LobbyState::Countdown { maze, players, .. }) => {
-            session.transition(ClientState::InGame(in_game::Game { maze, players }));
+            session.transition(ClientState::Game(game::Game { maze, players }));
             Ok(())
         }
         other => {

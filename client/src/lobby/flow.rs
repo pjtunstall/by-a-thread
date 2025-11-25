@@ -89,7 +89,7 @@ fn update_lobby_state(
             handlers::countdown::handle(session, ui, network_handle)
         }
         ClientState::Disconnected { .. } => None,
-        ClientState::InGame(_) => None,
+        ClientState::Game(_) => None,
         ClientState::Debrief => None,
     }
 }
