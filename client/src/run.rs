@@ -108,6 +108,26 @@ impl ClientRunner {
         }
     }
 
+    async fn update_client_state(&mut self) {
+        match self.session.state() {
+            ClientState::Game(_) => {
+                if let Some(next_state) = game::handlers::update(&mut self.session, &self.resources)
+                {
+                    self.session.transition(next_state);
+                }
+            }
+            ClientState::Disconnected { .. } => {
+                self.ui.draw(false, false);
+            }
+            ClientState::Lobby(_) => {
+                lobby::handlers::update(self).await;
+            }
+            _ => {
+                todo!();
+            }
+        }
+    }
+
     pub fn start_game(&mut self) -> Result<(), ()> {
         let old_state = std::mem::take(self.session.state_mut());
         match old_state {
@@ -153,30 +173,9 @@ pub async fn run_client_loop(
         }
 
         runner.pump_network();
-
-        update_client_state(&mut runner).await;
+        runner.update_client_state().await;
 
         next_frame().await;
-    }
-}
-
-async fn update_client_state(runner: &mut ClientRunner) {
-    match runner.session.state() {
-        ClientState::Game(_) => {
-            if let Some(next_state) = game::handlers::update(&mut runner.session, &runner.resources)
-            {
-                runner.session.transition(next_state);
-            }
-        }
-        ClientState::Disconnected { .. } => {
-            runner.ui.draw(false, false);
-        }
-        ClientState::Lobby(_) => {
-            lobby::handlers::update(runner).await;
-        }
-        _ => {
-            todo!();
-        }
     }
 }
 
