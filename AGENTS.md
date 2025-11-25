@@ -24,4 +24,10 @@ format!("packet send failed: {}", e)
 
 This is the rule for all error messages that might be propagated, for developer-facing error messages, for messages delivered by the panic macro, assert, and except. The one exception is messages that we know are user-facing, such as the outermost error message that wraps all others. User-facing messages should follow normal English punctuation rules.
 
+```rust
+runner
+    .ui
+    .show_sanitized_error(&format!("No connection: {}.", e));
+```
+
 4. Comments should follow normal English punctuation, thus `// This is a comment.` rather than `// Yee haw, I'm a bit slapdash`.

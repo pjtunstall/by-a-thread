@@ -70,13 +70,15 @@ impl ClientRunner {
         })
     }
 
-    pub fn pump_network(&mut self) -> Result<(), String> {
+    pub fn pump_network(&mut self) {
         let now = Instant::now();
         let duration = now - self.last_updated;
         self.last_updated = now;
 
+        let mut result: Result<(), String> = Ok(());
+
         if let Err(e) = self.transport.update(duration, &mut self.client) {
-            return Err(format!("transport update failed: {}", e));
+            result = Err(format!("transport update failed: {}", e));
         }
 
         self.client.update(duration);
@@ -87,10 +89,22 @@ impl ClientRunner {
         }
 
         if let Err(e) = self.transport.send_packets(&mut self.client) {
-            return Err(format!("packet send failed: {}", e));
+            result = Err(format!("packet send failed: {}", e));
         }
 
-        Ok(())
+        match result {
+            Ok(()) => {}
+            Err(e) => {
+                self.ui
+                    .show_sanitized_error(&format!("No connection: {}.", e));
+                apply_client_transition(
+                    &mut self.session,
+                    ClientState::Disconnected {
+                        message: format!("transport error: {}", e),
+                    },
+                );
+            }
+        }
     }
 }
 
@@ -115,12 +129,11 @@ pub async fn run_client_loop(
     );
 
     loop {
-        if is_quit_requested()
-            || is_key_pressed(KeyCode::Escape)
-            || pump_network_failed(&mut runner)
-        {
+        if is_quit_requested() || is_key_pressed(KeyCode::Escape) {
             break;
         }
+
+        runner.pump_network();
 
         client_frame_update(&mut runner).await;
     }
@@ -193,24 +206,6 @@ fn apply_start_game(session: &mut ClientSession, ui: &mut dyn LobbyUi) {
 async fn disconnected_frame(ui: &mut dyn LobbyUi) {
     ui.draw(false, false);
     next_frame().await;
-}
-
-fn pump_network_failed(runner: &mut ClientRunner) -> bool {
-    match runner.pump_network() {
-        Ok(_) => false,
-        Err(e) => {
-            runner
-                .ui
-                .show_sanitized_error(&format!("No connection: {}.", e));
-            apply_client_transition(
-                &mut runner.session,
-                ClientState::Disconnected {
-                    message: format!("transport error: {}", e),
-                },
-            );
-            true
-        }
-    }
 }
 
 pub fn print_player_list(
