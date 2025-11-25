@@ -24,7 +24,7 @@ pub async fn update(runner: &mut ClientRunner) {
     {
         LobbyStep::Continue => {}
         LobbyStep::StartGame => {
-            let _ = crate::run::start_game(&mut runner.session, &mut runner.ui);
+            let _ = runner.start_game();
         }
         LobbyStep::Transition(new_state) => runner.session.transition(new_state),
     }

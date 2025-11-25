@@ -107,6 +107,24 @@ impl ClientRunner {
             }
         }
     }
+
+    pub fn start_game(&mut self) -> Result<(), ()> {
+        let old_state = std::mem::take(self.session.state_mut());
+        match old_state {
+            ClientState::Lobby(Lobby::Countdown { maze, players, .. }) => {
+                self.session
+                    .transition(ClientState::Game(game::Game { maze, players }));
+                Ok(())
+            }
+            other => {
+                self.ui.show_sanitized_error(&format!(
+                    "Tried to start game from invalid state: {:#?}.",
+                    other
+                ));
+                Err(())
+            }
+        }
+    }
 }
 
 pub async fn run_client_loop(
@@ -158,23 +176,6 @@ async fn update_client_state(runner: &mut ClientRunner) {
         }
         _ => {
             todo!();
-        }
-    }
-}
-
-pub fn start_game(session: &mut ClientSession, ui: &mut dyn LobbyUi) -> Result<(), ()> {
-    let old_state = std::mem::take(session.state_mut());
-    match old_state {
-        ClientState::Lobby(Lobby::Countdown { maze, players, .. }) => {
-            session.transition(ClientState::Game(game::Game { maze, players }));
-            Ok(())
-        }
-        other => {
-            ui.show_sanitized_error(&format!(
-                "Tried to start game from invalid state: {:#?}.",
-                other
-            ));
-            Err(())
         }
     }
 }
