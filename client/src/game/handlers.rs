@@ -35,7 +35,7 @@ pub fn update(session: &mut ClientSession, resources: &Resources) -> Option<Clie
         ..Default::default()
     });
 
-    clear_background(color::BLACK);
+    clear_background(color::BEIGE);
     game_state.draw(&resources.wall_texture);
 
     None

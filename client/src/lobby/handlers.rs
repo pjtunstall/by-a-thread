@@ -3,7 +3,6 @@ pub mod chat;
 pub mod connecting;
 pub mod countdown;
 pub mod difficulty;
-pub mod game;
 pub mod startup;
 pub mod username;
 pub mod waiting;
