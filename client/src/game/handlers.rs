@@ -2,10 +2,7 @@ use macroquad::{color, prelude::*, window::clear_background};
 
 use crate::{resources::Resources, session::ClientSession, state::ClientState};
 
-pub fn handle_frame(
-    session: &mut ClientSession,
-    resources: &Resources,
-) -> Option<ClientState> {
+pub fn update(session: &mut ClientSession, resources: &Resources) -> Option<ClientState> {
     let game_state = match session.state() {
         ClientState::Game(game) => game,
         other => {
@@ -16,7 +13,6 @@ pub fn handle_frame(
         }
     };
 
-    // Placeholder camera and drawing logic (previously in run.rs).
     let yaw: f32 = 0.0;
     let pitch: f32 = 0.1;
 

@@ -1,4 +1,4 @@
-pub use crate::{game::Game, lobby::Lobby};
+pub use crate::{game::Game, lobby::state::Lobby};
 
 #[derive(Debug)]
 pub enum ClientState {

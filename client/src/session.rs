@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use crate::{
-    lobby::Lobby,
+    lobby::state::Lobby,
     state::{ClientState, InputMode},
 };
 use shared::player::{MAX_USERNAME_LENGTH, UsernameError};

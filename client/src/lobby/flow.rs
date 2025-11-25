@@ -13,7 +13,7 @@ pub enum LobbyStep {
     Transition(ClientState),
 }
 
-pub async fn lobby_frame(
+pub async fn update(
     session: &mut ClientSession,
     ui: &mut dyn crate::lobby::ui::LobbyUi,
     network_handle: &mut RenetNetworkHandle<'_>,

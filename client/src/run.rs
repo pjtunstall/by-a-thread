@@ -11,7 +11,7 @@ use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 use crate::{
     game,
     lobby::{
-        flow::{LobbyStep, lobby_frame},
+        self,
         ui::{Gui, LobbyUi},
     },
     net::{self, RenetNetworkHandle},
@@ -22,10 +22,10 @@ use crate::{
 use shared::{self, player::Player};
 
 pub struct ClientRunner {
-    session: ClientSession,
-    client: RenetClient,
-    transport: NetcodeClientTransport,
-    ui: Gui,
+    pub session: ClientSession,
+    pub client: RenetClient,
+    pub transport: NetcodeClientTransport,
+    pub ui: Gui,
     last_updated: Instant,
     resources: Resources,
 }
@@ -101,12 +101,9 @@ impl ClientRunner {
             Err(e) => {
                 self.ui
                     .show_sanitized_error(&format!("No connection: {}.", e));
-                apply_client_transition(
-                    &mut self.session,
-                    ClientState::Disconnected {
-                        message: format!("transport error: {}", e),
-                    },
-                );
+                self.session.transition(ClientState::Disconnected {
+                    message: format!("transport error: {}", e),
+                });
             }
         }
     }
@@ -140,53 +137,29 @@ pub async fn run_client_loop(
         runner.pump_network();
 
         update_client_state(&mut runner).await;
+
+        next_frame().await;
     }
 }
 
 async fn update_client_state(runner: &mut ClientRunner) {
     match runner.session.state() {
         ClientState::Game(_) => {
-            if let Some(next_state) =
-                game::handler::handle_frame(&mut runner.session, &runner.resources)
+            if let Some(next_state) = game::handlers::update(&mut runner.session, &runner.resources)
             {
-                apply_client_transition(&mut runner.session, next_state);
+                runner.session.transition(next_state);
             }
-            next_frame().await;
         }
         ClientState::Disconnected { .. } => {
-            disconnected_frame(&mut runner.ui).await;
+            runner.ui.draw(false, false);
         }
         _ => {
-            lobby_frame_update(runner).await;
+            lobby::handlers::update(runner).await;
         }
     }
 }
 
-async fn lobby_frame_update(runner: &mut ClientRunner) {
-    let mut network_handle = RenetNetworkHandle::new(&mut runner.client, &mut runner.transport);
-    let is_host = runner.session.is_host;
-
-    match lobby_frame(
-        &mut runner.session,
-        &mut runner.ui,
-        &mut network_handle,
-        is_host,
-    )
-    .await
-    {
-        LobbyStep::Continue => {}
-        LobbyStep::StartGame => apply_start_game(&mut runner.session, &mut runner.ui),
-        LobbyStep::Transition(new_state) => apply_client_transition(&mut runner.session, new_state),
-    }
-
-    next_frame().await;
-}
-
-fn apply_client_transition(session: &mut ClientSession, new_state: ClientState) {
-    session.transition(new_state);
-}
-
-fn perform_start_game(session: &mut ClientSession) -> Result<(), ()> {
+pub fn start_game(session: &mut ClientSession, ui: &mut dyn LobbyUi) -> Result<(), ()> {
     let old_state = std::mem::take(session.state_mut());
     match old_state {
         ClientState::Lobby(Lobby::Countdown { maze, players, .. }) => {
@@ -194,22 +167,13 @@ fn perform_start_game(session: &mut ClientSession) -> Result<(), ()> {
             Ok(())
         }
         other => {
-            session.transition(other);
+            ui.show_sanitized_error(&format!(
+                "Tried to start game from invalid state: {:#?}.",
+                other
+            ));
             Err(())
         }
     }
-}
-
-fn apply_start_game(session: &mut ClientSession, ui: &mut dyn LobbyUi) {
-    if perform_start_game(session).is_err() {
-        ui.show_sanitized_error("Tried to start game from invalid state.");
-        ui.show_message("GO!");
-    }
-}
-
-async fn disconnected_frame(ui: &mut dyn LobbyUi) {
-    ui.draw(false, false);
-    next_frame().await;
 }
 
 pub fn print_player_list(

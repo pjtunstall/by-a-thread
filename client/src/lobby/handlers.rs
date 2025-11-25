@@ -8,6 +8,29 @@ pub mod startup;
 pub mod username;
 pub mod waiting;
 
+use super::flow::LobbyStep;
+use crate::{net::RenetNetworkHandle, run::ClientRunner};
+
+pub async fn update(runner: &mut ClientRunner) {
+    let mut network_handle = RenetNetworkHandle::new(&mut runner.client, &mut runner.transport);
+    let is_host = runner.session.is_host;
+
+    match super::flow::update(
+        &mut runner.session,
+        &mut runner.ui,
+        &mut network_handle,
+        is_host,
+    )
+    .await
+    {
+        LobbyStep::Continue => {}
+        LobbyStep::StartGame => {
+            let _ = crate::run::start_game(&mut runner.session, &mut runner.ui);
+        }
+        LobbyStep::Transition(new_state) => runner.session.transition(new_state),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
