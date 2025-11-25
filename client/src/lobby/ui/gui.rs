@@ -21,9 +21,9 @@ const INPUT_COLOR: Color = LIGHTGRAY;
 const BANNER_COLOR: Color = YELLOW;
 const BACKGROUND_COLOR: Color = BLACK;
 
-pub struct MacroquadLobbyUi {
-    input_buffer: String,
+pub struct Gui {
     pub message_history: Vec<(String, Color)>,
+    input_buffer: String,
     max_history_lines: usize,
     cursor_pos: usize,
     right_arrow_last_pressed: Option<Instant>,
@@ -31,7 +31,7 @@ pub struct MacroquadLobbyUi {
     backspace_last_pressed: Option<Instant>,
 }
 
-impl MacroquadLobbyUi {
+impl Gui {
     pub fn new() -> Self {
         Self {
             input_buffer: String::new(),
@@ -260,7 +260,7 @@ impl MacroquadLobbyUi {
     }
 }
 
-impl LobbyUi for MacroquadLobbyUi {
+impl LobbyUi for Gui {
     fn show_message(&mut self, message: &str) {
         self.add_history(message, TEXT_COLOR);
     }

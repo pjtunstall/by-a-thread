@@ -2,7 +2,7 @@ use macroquad::prelude::Conf;
 
 use std::net::UdpSocket;
 
-use client::{self, lobby::ui::MacroquadLobbyUi, run};
+use client::{self, lobby::ui::Gui, run};
 use shared;
 
 fn window_conf() -> Conf {
@@ -27,7 +27,7 @@ async fn main() {
         }
     };
 
-    let ui = MacroquadLobbyUi::new();
+    let ui = Gui::new();
 
     run::run_client_loop(socket, server_addr, private_key, ui).await;
 }

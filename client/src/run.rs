@@ -11,7 +11,7 @@ use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 use crate::{
     lobby::{
         handlers,
-        ui::{LobbyUi, MacroquadLobbyUi, UiInputError},
+        ui::{Gui, LobbyUi, UiInputError},
     },
     net::{self, RenetNetworkHandle},
     resources::Resources,
@@ -35,7 +35,7 @@ pub struct ClientRunner {
     session: ClientSession,
     client: RenetClient,
     transport: NetcodeClientTransport,
-    ui: MacroquadLobbyUi,
+    ui: Gui,
     last_updated: Instant,
     resources: Resources,
 }
@@ -45,7 +45,7 @@ impl ClientRunner {
         socket: UdpSocket,
         server_addr: SocketAddr,
         private_key: [u8; 32],
-        ui: MacroquadLobbyUi,
+        ui: Gui,
     ) -> Result<Self, String> {
         let resources = Resources::load().await;
         let client_id = ::rand::random::<u64>();
@@ -108,7 +108,7 @@ pub async fn run_client_loop(
     socket: UdpSocket,
     server_addr: SocketAddr,
     private_key: [u8; 32],
-    ui: MacroquadLobbyUi,
+    ui: Gui,
 ) {
     let mut runner = match ClientRunner::new(socket, server_addr, private_key, ui).await {
         Ok(r) => r,

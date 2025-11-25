@@ -1,10 +1,12 @@
-pub mod macroquad;
+pub mod gui;
 
 use std::{fmt, net::SocketAddr};
 
-pub use macroquad::MacroquadLobbyUi;
-use shared::input::{sanitize, UiKey};
-use shared::player::UsernameError;
+pub use gui::Gui;
+use shared::{
+    input::{UiKey, sanitize},
+    player::UsernameError,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiErrorKind {
