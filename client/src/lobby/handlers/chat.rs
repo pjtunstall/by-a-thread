@@ -19,9 +19,9 @@ pub fn handle(
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::Lobby(Lobby::InChat { .. })) {
+    if !matches!(session.state(), ClientState::Lobby(Lobby::Chat { .. })) {
         panic!(
-            "called chat::handle() when state was not InChat; current state: {:?}",
+            "called chat::handle() when state was not Chat; current state: {:?}",
             session.state()
         );
     }
@@ -155,9 +155,9 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "called chat::handle() when state was not InChat; current state: Lobby(Startup { prompt_printed: false })"
+            expected = "called chat::handle() when state was not Chat; current state: Lobby(Startup { prompt_printed: false })"
         )]
-        fn in_chat_panics_if_not_in_in_chat_state() {
+        fn chat_panics_if_not_in_chat_state() {
             let mut session = ClientSession::new(0);
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
@@ -166,9 +166,9 @@ mod tests {
         }
 
         #[test]
-        fn in_chat_does_not_panic_in_in_chat_state() {
+        fn chat_does_not_panic_in_chat_state() {
             let mut session = ClientSession::new(0);
-            session.transition(ClientState::Lobby(Lobby::InChat {
+            session.transition(ClientState::Lobby(Lobby::Chat {
                 awaiting_initial_roster: true,
                 waiting_for_server: false,
             }));
@@ -184,7 +184,7 @@ mod tests {
     #[test]
     fn enforces_max_message_length() {
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::Lobby(Lobby::InChat {
+        session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: true,
             waiting_for_server: false,
         }));
@@ -220,7 +220,7 @@ mod tests {
         let reset = "\x1B[0m";
 
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::Lobby(Lobby::InChat {
+        session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: true,
             waiting_for_server: false,
         }));
@@ -246,7 +246,7 @@ mod tests {
     #[test]
     fn sends_start_game_request_on_tab_input() {
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::Lobby(Lobby::InChat {
+        session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: true,
             waiting_for_server: false,
         }));

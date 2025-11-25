@@ -9,7 +9,7 @@ use crossterm::{
 
 use crate::{
     net::ServerNetworkHandle,
-    state::{Countdown, InGame, ServerState},
+    state::{Countdown, Game, ServerState},
 };
 
 pub fn handle(
@@ -42,7 +42,7 @@ pub fn handle(
 
         println!();
 
-        Some(ServerState::InGame(InGame::new(
+        Some(ServerState::Game(Game::new(
             state.players.clone(),
             state.maze.clone(),
             state.host_id,

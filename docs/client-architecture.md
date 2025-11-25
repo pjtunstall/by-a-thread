@@ -1,6 +1,6 @@
 # Client architecture notes
 
-Observations on how the current client pieces fit together and options for moving toward a clearer three-phase split (Lobby, InGame, Debrief) for the Macroquad-based multiplayer FPS.
+Observations on how the current client pieces fit together and options for moving toward a clearer three-phase split (Lobby, Game, Debrief) for the Macroquad-based multiplayer FPS.
 
 ## Current roles
 
@@ -13,17 +13,17 @@ Observations on how the current client pieces fit together and options for movin
 ## Friction in the current layout
 
 - Responsibilities blur between `ClientRunner` (transition orchestration), `ClientSession` (state data + UI gating + timers), and the handlers (logic + side-effects). Side-effects currently sit in both `apply_client_transition` (e.g., printing prompts) and the handlers, so mental model of “who mutates UI/session and when” is spread out.
-- `ClientState` mixes connection micro-states (startup/authentication/username) with long-lived phases (`InChat`, `InGame`). This increases the state surface and makes it harder to reason about high-level phase transitions.
+- `ClientState` mixes connection micro-states (startup/authentication/username) with long-lived phases (`Chat`, `Game`). This increases the state surface and makes it harder to reason about high-level phase transitions.
 - Input is coupled to the chat-style lobby; in-game currently bypasses the shared pipeline (custom camera setup in `run.rs`). The `InputMode` gating lives inside `ClientSession`, meaning UI rules are partly in state data.
 - Transition actions have two pathways (generic ChangeTo vs. StartGame swap) that are special-cased in `run.rs`, not in a shared transition manager.
 
-## Targeting Lobby → InGame → Debrief
+## Targeting Lobby → Game → Debrief
 
 Think in terms of three coarse phases, each owning its own set of substates and presentation. Options:
 
 1. **Hierarchical state machine (phases with sub-states)**
 
-   - Top-level enum `Phase { Lobby(LobbyState), InGame(GameState), Debrief(DebriefState) }`.
+   - Top-level enum `Phase { Lobby(LobbyState), Game(GameState), Debrief(DebriefState) }`.
    - `LobbyState` would absorb current startup/auth/username/chat/difficulty/countdown substates. `GameState` covers active play; `DebriefState` can manage scoreboards/summary/return-to-lobby decisions.
    - A single dispatcher can call `Phase::update(...)` which delegates to the sub-handler for the active phase. Transitions stay inside the phase module (returning `PhaseTransition` describing next phase + payload).
 
@@ -41,7 +41,7 @@ Think in terms of three coarse phases, each owning its own set of substates and 
 - **Clarify responsibilities**: Move UI-side-effects for transitions into the phase/handler modules so `ClientRunner` only applies the transition outcome. Let `ClientSession` hold state data and timing, but push UI gating (`InputMode`) decisions into the active phase handler or UI adapter.
 - **Normalize transitions**: Replace `TransitionAction` with a richer `PhaseTransition` struct (target phase, optional payload, disconnect flag, reason). Centralize the countdown-to-game handoff there instead of a bespoke `StartGame` path.
 - **Lobby module**: Encapsulate auth/username/chat/difficulty/countdown as an internal mini-state machine under a `LobbyPhase`, reducing the surface of `ClientState` exposed to the rest of the client. This is also the right place to manage host-only actions (start match) and roster visibility.
-- **InGame module**: Separate render/update loop pieces so input handling, camera control, and networking updates are driven through the same phase interface (instead of `run.rs` special-casing it). Prepare data structures for player prediction/interp and map assets to support FPS controls.
+- **Game module**: Separate render/update loop pieces so input handling, camera control, and networking updates are driven through the same phase interface (instead of `run.rs` special-casing it). Prepare data structures for player prediction/interp and map assets to support FPS controls.
 - **Debrief module**: Design for match results, chat/rematch voting, and transition back to lobby. It likely needs read-only access to the final `GameData` snapshot and minimal network messaging.
 - **Shared services**: Consider a small `ClientContext` passed to phases containing `NetworkHandle`, `Resources`, `Time`, and `Ui` references. This simplifies signatures and makes future testing/mocking easier.
 
@@ -49,5 +49,5 @@ Think in terms of three coarse phases, each owning its own set of substates and 
 
 - Sketch the new phase enum/trait and map existing states into Lobby sub-states. Decide whether `ClientSession` remains or is split into `CoreSession` (id/time/host flags) plus per-phase data pods.
 - Pull transition UI effects into the handlers/phases and make `apply_client_transition` a pure state swapper.
-- Define the Debrief requirements (what data to show, how to exit) so Lobby ↔ InGame ↔ Debrief transitions can be described in terms of explicit payloads.
+- Define the Debrief requirements (what data to show, how to exit) so Lobby ↔ Game ↔ Debrief transitions can be described in terms of explicit payloads.
 - Align input handling: unify chat/prompt input and in-game controls under the phase system so Macroquad UI only renders what the phase asks for.

@@ -103,7 +103,7 @@ pub fn update_server_state(
         ServerState::Countdown(countdown_state) => {
             state_handlers::countdown::handle(network, countdown_state)
         }
-        ServerState::InGame(in_game_state) => state_handlers::game::handle(network, in_game_state),
+        ServerState::Game(game_state) => state_handlers::game::handle(network, game_state),
     };
 
     if let Some(new_state) = next_state {
@@ -194,7 +194,7 @@ fn apply_server_transition(
             execute!(stdout(), Hide).expect("failed to hide cursor");
         }
 
-        ServerState::InGame(_) => {}
+        ServerState::Game(_) => {}
     }
 }
 

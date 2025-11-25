@@ -27,7 +27,7 @@ pub fn handle(
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::Welcome { username }, _)) => {
                 ui.show_sanitized_message(&format!("Server: Welcome, {}!", username));
-                return Some(ClientState::Lobby(Lobby::InChat {
+                return Some(ClientState::Lobby(Lobby::Chat {
                     awaiting_initial_roster: true,
                     waiting_for_server: false,
                 }));
@@ -111,7 +111,7 @@ mod tests {
 
         assert!(matches!(
             next_state,
-            Some(ClientState::Lobby(Lobby::InChat {
+            Some(ClientState::Lobby(Lobby::Chat {
                 awaiting_initial_roster: true,
                 waiting_for_server: false
             }))
@@ -158,10 +158,7 @@ mod tests {
 
         let next_state = handle(&mut session, &mut ui, &mut network);
 
-        assert!(matches!(
-            next_state,
-            Some(ClientState::Disconnected { .. })
-        ));
+        assert!(matches!(next_state, Some(ClientState::Disconnected { .. })));
         assert_eq!(
             ui.messages.last().unwrap(),
             "Server: The game has already started. Disconnecting."

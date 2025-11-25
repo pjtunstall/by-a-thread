@@ -4,7 +4,7 @@ use crate::{
     lobby::handlers,
     net::RenetNetworkHandle,
     session::ClientSession,
-    state::{ClientState, LobbyState},
+    state::{ClientState, Lobby},
 };
 
 pub enum LobbyStep {
@@ -66,26 +66,26 @@ fn update_lobby_state(
     network_handle: &mut RenetNetworkHandle<'_>,
 ) -> Option<ClientState> {
     match session.state() {
-        ClientState::Lobby(LobbyState::Startup { .. }) => handlers::startup::handle(session, ui),
-        ClientState::Lobby(LobbyState::Connecting { .. }) => {
+        ClientState::Lobby(Lobby::Startup { .. }) => handlers::startup::handle(session, ui),
+        ClientState::Lobby(Lobby::Connecting { .. }) => {
             handlers::connecting::handle(session, ui, network_handle)
         }
-        ClientState::Lobby(LobbyState::Authenticating { .. }) => {
+        ClientState::Lobby(Lobby::Authenticating { .. }) => {
             handlers::auth::handle(session, ui, network_handle)
         }
-        ClientState::Lobby(LobbyState::ChoosingUsername { .. }) => {
+        ClientState::Lobby(Lobby::ChoosingUsername { .. }) => {
             handlers::username::handle(session, ui, network_handle)
         }
-        ClientState::Lobby(LobbyState::AwaitingUsernameConfirmation) => {
+        ClientState::Lobby(Lobby::AwaitingUsernameConfirmation) => {
             handlers::waiting::handle(session, ui, network_handle)
         }
-        ClientState::Lobby(LobbyState::InChat { .. }) => {
+        ClientState::Lobby(Lobby::Chat { .. }) => {
             handlers::chat::handle(session, ui, network_handle)
         }
-        ClientState::Lobby(LobbyState::ChoosingDifficulty { .. }) => {
+        ClientState::Lobby(Lobby::ChoosingDifficulty { .. }) => {
             handlers::difficulty::handle(session, ui, network_handle)
         }
-        ClientState::Lobby(LobbyState::Countdown { .. }) => {
+        ClientState::Lobby(Lobby::Countdown { .. }) => {
             handlers::countdown::handle(session, ui, network_handle)
         }
         ClientState::Disconnected { .. } => None,

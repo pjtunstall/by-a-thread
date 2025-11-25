@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use shared::{auth::Passcode, maze::Maze, player::Player};
 
 #[derive(Debug)]
-pub enum LobbyState {
+pub enum Lobby {
     Startup {
         prompt_printed: bool,
     },
@@ -19,7 +19,7 @@ pub enum LobbyState {
         prompt_printed: bool,
     },
     AwaitingUsernameConfirmation,
-    InChat {
+    Chat {
         awaiting_initial_roster: bool,
         waiting_for_server: bool,
     },
@@ -33,6 +33,3 @@ pub enum LobbyState {
         choice_sent: bool,
     },
 }
-
-// Temporary alias to ease transition while callers migrate to LobbyState.
-pub type Lobby = LobbyState;

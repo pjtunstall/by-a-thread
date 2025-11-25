@@ -17,7 +17,7 @@ use crate::{
     net::{self, RenetNetworkHandle},
     resources::Resources,
     session::ClientSession,
-    state::{ClientState, LobbyState},
+    state::{ClientState, Lobby},
 };
 use shared::{self, player::Player};
 
@@ -139,11 +139,11 @@ pub async fn run_client_loop(
 
         runner.pump_network();
 
-        client_frame_update(&mut runner).await;
+        update_client_state(&mut runner).await;
     }
 }
 
-async fn client_frame_update(runner: &mut ClientRunner) {
+async fn update_client_state(runner: &mut ClientRunner) {
     match runner.session.state() {
         ClientState::Game(_) => {
             if let Some(next_state) =
@@ -189,7 +189,7 @@ fn apply_client_transition(session: &mut ClientSession, new_state: ClientState) 
 fn perform_start_game(session: &mut ClientSession) -> Result<(), ()> {
     let old_state = std::mem::take(session.state_mut());
     match old_state {
-        ClientState::Lobby(LobbyState::Countdown { maze, players, .. }) => {
+        ClientState::Lobby(Lobby::Countdown { maze, players, .. }) => {
             session.transition(ClientState::Game(game::Game { maze, players }));
             Ok(())
         }

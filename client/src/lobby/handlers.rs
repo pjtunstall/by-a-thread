@@ -42,7 +42,7 @@ mod tests {
         let esc = '\x1B';
 
         let mut session_chat = ClientSession::new(0);
-        session_chat.transition(ClientState::Lobby(Lobby::InChat {
+        session_chat.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: true,
             waiting_for_server: false,
         }));

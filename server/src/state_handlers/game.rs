@@ -1,8 +1,8 @@
 use crate::{
     net::ServerNetworkHandle,
-    state::{InGame, ServerState},
+    state::{Game, ServerState},
 };
 
-pub fn handle(_network: &mut dyn ServerNetworkHandle, _state: &mut InGame) -> Option<ServerState> {
+pub fn handle(_network: &mut dyn ServerNetworkHandle, _state: &mut Game) -> Option<ServerState> {
     None
 }

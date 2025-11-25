@@ -11,7 +11,7 @@ pub enum ServerState {
     Lobby(Lobby),
     ChoosingDifficulty(ChoosingDifficulty),
     Countdown(Countdown),
-    InGame(InGame),
+    Game(Game),
 }
 
 impl ServerState {
@@ -20,7 +20,7 @@ impl ServerState {
             ServerState::Lobby(_) => "Lobby",
             ServerState::ChoosingDifficulty(_) => "ChoosingDifficulty",
             ServerState::Countdown(_) => "Countdown",
-            ServerState::InGame(_) => "InGame",
+            ServerState::Game(_) => "Game",
         }
     }
 
@@ -49,7 +49,7 @@ impl ServerState {
             ServerState::Lobby(lobby) => lobby.remove_client(client_id, network),
             ServerState::ChoosingDifficulty(state) => state.lobby.remove_client(client_id, network),
             ServerState::Countdown(countdown) => countdown.remove_client(client_id, network),
-            ServerState::InGame(in_game) => in_game.remove_client(client_id, network),
+            ServerState::Game(game) => game.remove_client(client_id, network),
         }
     }
 }
@@ -140,13 +140,13 @@ impl Countdown {
     }
 }
 
-pub struct InGame {
+pub struct Game {
     pub players: HashMap<u64, Player>,
     pub maze: maze::Maze,
     pub host_id: Option<u64>,
 }
 
-impl InGame {
+impl Game {
     pub fn new(players: HashMap<u64, Player>, maze: maze::Maze, host_id: Option<u64>) -> Self {
         Self {
             players,
@@ -501,10 +501,7 @@ mod tests {
         network.add_client(2);
 
         let mut countdown = Countdown {
-            usernames: HashMap::from([
-                (1, "Alice".to_string()),
-                (2, "Bob".to_string()),
-            ]),
+            usernames: HashMap::from([(1, "Alice".to_string()), (2, "Bob".to_string())]),
             players: HashMap::from([
                 (
                     1,
@@ -537,20 +534,23 @@ mod tests {
         assert_eq!(countdown.host_id, Some(2));
         let messages = network.get_sent_messages_data(2);
         assert!(
-            messages
-                .iter()
-                .any(|m| matches!(decode_from_slice::<ServerMessage, _>(m, standard()).unwrap().0, ServerMessage::AppointHost)),
+            messages.iter().any(|m| matches!(
+                decode_from_slice::<ServerMessage, _>(m, standard())
+                    .unwrap()
+                    .0,
+                ServerMessage::AppointHost
+            )),
             "expected AppointHost message to new host"
         );
     }
 
     #[test]
-    fn in_game_reassigns_host_and_notifies_when_host_leaves() {
+    fn game_reassigns_host_and_notifies_when_host_leaves() {
         let mut network = MockServerNetwork::new();
         network.add_client(10);
         network.add_client(20);
 
-        let mut game = InGame {
+        let mut game = Game {
             players: HashMap::from([
                 (
                     10,
@@ -582,9 +582,12 @@ mod tests {
         assert_eq!(game.host_id, Some(20));
         let messages = network.get_sent_messages_data(20);
         assert!(
-            messages
-                .iter()
-                .any(|m| matches!(decode_from_slice::<ServerMessage, _>(m, standard()).unwrap().0, ServerMessage::AppointHost)),
+            messages.iter().any(|m| matches!(
+                decode_from_slice::<ServerMessage, _>(m, standard())
+                    .unwrap()
+                    .0,
+                ServerMessage::AppointHost
+            )),
             "expected AppointHost message to new host"
         );
     }

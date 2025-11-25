@@ -1,10 +1,8 @@
-pub use crate::game::Game;
-pub use crate::lobby::LobbyState;
-pub use crate::lobby::LobbyState as Lobby;
+pub use crate::{game::Game, lobby::Lobby};
 
 #[derive(Debug)]
 pub enum ClientState {
-    Lobby(LobbyState),
+    Lobby(Lobby),
     Game(Game),
     Debrief,
     Disconnected { message: String },
