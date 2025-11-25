@@ -197,7 +197,7 @@ async fn disconnected_frame(ui: &mut dyn LobbyUi) {
 
 fn pump_network_failed(runner: &mut ClientRunner) -> bool {
     match runner.pump_network() {
-        Ok(_) => true,
+        Ok(_) => false,
         Err(e) => {
             runner
                 .ui
