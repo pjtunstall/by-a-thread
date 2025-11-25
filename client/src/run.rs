@@ -71,6 +71,10 @@ impl ClientRunner {
     }
 
     pub fn pump_network(&mut self) {
+        if self.session.state().is_disconnected() {
+            return;
+        }
+
         let now = Instant::now();
         let duration = now - self.last_updated;
         self.last_updated = now;

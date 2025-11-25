@@ -272,10 +272,14 @@ impl LobbyUi for Gui {
     }
 
     fn show_warning(&mut self, message: &str) {
-        self.add_history(
-            &format!("{}.", message.trim_end_matches('.')),
-            WARNING_COLOR,
-        );
+        if message.contains("Waiting for server") {
+            self.add_history(message, WARNING_COLOR);
+        } else {
+            self.add_history(
+                &format!("{}.", message.trim_end_matches('.')),
+                WARNING_COLOR,
+            );
+        }
     }
 
     fn show_prompt(&mut self, prompt: &str) {
