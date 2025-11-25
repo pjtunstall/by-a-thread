@@ -1,6 +1,10 @@
 use std::time::Instant;
 
-use crate::state::{ClientState, Game, InputMode};
+use crate::{
+    in_game::Game,
+    lobby::LobbyState,
+    state::{ClientState, InputMode},
+};
 use shared::player::{MAX_USERNAME_LENGTH, UsernameError};
 
 pub struct ClientSession {
@@ -18,9 +22,9 @@ impl ClientSession {
         Self {
             client_id,
             is_host: false,
-            state: ClientState::Startup {
+            state: ClientState::Lobby(LobbyState::Startup {
                 prompt_printed: false,
-            },
+            }),
             estimated_server_time: 0.0,
             input_queue: Vec::new(),
             waiting_since: None,
@@ -45,7 +49,9 @@ impl ClientSession {
         F: FnOnce(&mut bool) -> R,
     {
         match &mut self.state {
-            ClientState::ChoosingUsername { prompt_printed } => Some(f(prompt_printed)),
+            ClientState::Lobby(LobbyState::ChoosingUsername { prompt_printed }) => {
+                Some(f(prompt_printed))
+            }
             _ => None,
         }
     }
@@ -63,21 +69,20 @@ impl ClientSession {
     }
 
     pub fn is_countdown_active(&self) -> bool {
-        matches!(self.state(), ClientState::Countdown { .. })
+        matches!(
+            self.state(),
+            ClientState::Lobby(LobbyState::Countdown { .. })
+        )
     }
 
     pub fn is_countdown_finished(&self) -> bool {
-        if let ClientState::Countdown { end_time, .. } = self.state() {
-            self.estimated_server_time >= *end_time
-        } else {
-            false
-        }
+        matches!(self.state(), ClientState::Lobby(LobbyState::Countdown { end_time, .. }) if self.estimated_server_time >= *end_time)
     }
 
     pub fn set_chat_waiting_for_server(&mut self, waiting: bool) {
-        if let ClientState::InChat {
+        if let ClientState::Lobby(LobbyState::InChat {
             waiting_for_server, ..
-        } = &mut self.state
+        }) = &mut self.state
         {
             *waiting_for_server = waiting;
         }
@@ -86,17 +91,17 @@ impl ClientSession {
     pub fn chat_waiting_for_server(&self) -> bool {
         matches!(
             self.state,
-            ClientState::InChat {
+            ClientState::Lobby(LobbyState::InChat {
                 waiting_for_server: true,
                 ..
-            }
+            })
         )
     }
 
     pub fn set_auth_waiting_for_server(&mut self, waiting: bool) {
-        if let ClientState::Authenticating {
+        if let ClientState::Lobby(LobbyState::Authenticating {
             waiting_for_server, ..
-        } = &mut self.state
+        }) = &mut self.state
         {
             *waiting_for_server = waiting;
         }
@@ -105,18 +110,18 @@ impl ClientSession {
     pub fn auth_waiting_for_server(&self) -> bool {
         matches!(
             self.state,
-            ClientState::Authenticating {
+            ClientState::Lobby(LobbyState::Authenticating {
                 waiting_for_server: true,
                 ..
-            }
+            })
         )
     }
 
     pub fn expect_initial_roster(&mut self) {
-        if let ClientState::InChat {
+        if let ClientState::Lobby(LobbyState::InChat {
             awaiting_initial_roster,
             ..
-        } = &mut self.state
+        }) = &mut self.state
         {
             *awaiting_initial_roster = true;
         }
@@ -125,18 +130,18 @@ impl ClientSession {
     pub fn awaiting_initial_roster(&self) -> bool {
         matches!(
             self.state,
-            ClientState::InChat {
+            ClientState::Lobby(LobbyState::InChat {
                 awaiting_initial_roster: true,
                 ..
-            }
+            })
         )
     }
 
     pub fn mark_initial_roster_received(&mut self) {
-        if let ClientState::InChat {
+        if let ClientState::Lobby(LobbyState::InChat {
             awaiting_initial_roster,
             ..
-        } = &mut self.state
+        }) = &mut self.state
         {
             *awaiting_initial_roster = false;
         }
@@ -144,13 +149,13 @@ impl ClientSession {
 
     pub fn input_mode(&self) -> InputMode {
         match self.state() {
-            ClientState::Startup { .. } => InputMode::Enabled,
-            ClientState::Connecting { .. } => InputMode::Hidden,
-            ClientState::Authenticating {
+            ClientState::Lobby(LobbyState::Startup { .. }) => InputMode::Enabled,
+            ClientState::Lobby(LobbyState::Connecting { .. }) => InputMode::Hidden,
+            ClientState::Lobby(LobbyState::Authenticating {
                 waiting_for_input,
                 waiting_for_server,
                 ..
-            } => {
+            }) => {
                 if *waiting_for_server {
                     InputMode::DisabledWaiting
                 } else if *waiting_for_input {
@@ -159,34 +164,40 @@ impl ClientSession {
                     InputMode::DisabledWaiting
                 }
             }
-            ClientState::ChoosingUsername { .. } => InputMode::Enabled,
-            ClientState::AwaitingUsernameConfirmation => InputMode::DisabledWaiting,
-            ClientState::InChat {
+            ClientState::Lobby(LobbyState::ChoosingUsername { .. }) => InputMode::Enabled,
+            ClientState::Lobby(LobbyState::AwaitingUsernameConfirmation) => {
+                InputMode::DisabledWaiting
+            }
+            ClientState::Lobby(LobbyState::InChat {
                 waiting_for_server, ..
-            } => {
+            }) => {
                 if *waiting_for_server {
                     InputMode::DisabledWaiting
                 } else {
                     InputMode::Enabled
                 }
             }
-            ClientState::ChoosingDifficulty { choice_sent, .. } => {
+            ClientState::Lobby(LobbyState::ChoosingDifficulty { choice_sent, .. }) => {
                 if *choice_sent {
                     InputMode::DisabledWaiting
                 } else {
                     InputMode::SingleKey
                 }
             }
-            ClientState::Countdown { .. } => InputMode::Hidden,
+            ClientState::Lobby(LobbyState::Countdown { .. }) => InputMode::Hidden,
             ClientState::Disconnected { .. } => InputMode::Hidden,
             ClientState::TransitioningToDisconnected { .. } => InputMode::Hidden,
-            ClientState::InGame { .. } => InputMode::SingleKey,
+            ClientState::InGame(_) => InputMode::SingleKey,
+            ClientState::Debrief => InputMode::Hidden,
         }
     }
 
     pub fn prepare_ui_state(&mut self) -> InputUiState {
         let waiting_active = matches!(self.input_mode(), InputMode::DisabledWaiting)
-            || matches!(self.state(), ClientState::Connecting { .. });
+            || matches!(
+                self.state(),
+                ClientState::Lobby(LobbyState::Connecting { .. })
+            );
 
         if waiting_active {
             if self.waiting_since.is_none() {
@@ -225,7 +236,7 @@ impl ClientSession {
 
         // Transform the data
         match old_state {
-            ClientState::Countdown { maze, players, .. } => {
+            ClientState::Lobby(LobbyState::Countdown { maze, players, .. }) => {
                 // Move the maze/players variables; no need to clone.
                 self.state = ClientState::InGame(Game { maze, players });
                 Ok(())
@@ -241,9 +252,9 @@ impl ClientSession {
 
 impl Default for ClientState {
     fn default() -> Self {
-        Self::Startup {
+        Self::Lobby(LobbyState::Startup {
             prompt_printed: false,
-        }
+        })
     }
 }
 
@@ -274,19 +285,22 @@ mod tests {
         let session = ClientSession::new(0);
         assert!(matches!(
             session.state(),
-            ClientState::Startup {
+            ClientState::Lobby(LobbyState::Startup {
                 prompt_printed: false
-            }
+            })
         ));
     }
 
     #[test]
     fn transition_updates_state() {
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::Connecting {
+        session.transition(ClientState::Lobby(LobbyState::Connecting {
             pending_passcode: None,
-        });
-        assert!(matches!(session.state(), ClientState::Connecting { .. }));
+        }));
+        assert!(matches!(
+            session.state(),
+            ClientState::Lobby(LobbyState::Connecting { .. })
+        ));
         session.transition(ClientState::Disconnected {
             message: "done".to_string(),
         });
@@ -337,10 +351,10 @@ mod tests {
     #[test]
     fn waiting_message_flags_after_delay() {
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::InChat {
+        session.transition(ClientState::Lobby(LobbyState::InChat {
             awaiting_initial_roster: false,
             waiting_for_server: false,
-        });
+        }));
         session.set_chat_waiting_for_server(true);
 
         let first_state = session.prepare_ui_state();
@@ -366,9 +380,9 @@ mod tests {
     #[test]
     fn waiting_message_triggers_during_connecting() {
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::Connecting {
+        session.transition(ClientState::Lobby(LobbyState::Connecting {
             pending_passcode: None,
-        });
+        }));
 
         let first_state = session.prepare_ui_state();
         assert!(!first_state.show_waiting_message);

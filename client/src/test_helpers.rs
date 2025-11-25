@@ -4,7 +4,7 @@ use bincode::{config::standard, serde::encode_to_vec};
 
 use crate::{
     net::NetworkHandle,
-    ui::{ClientUi, UiErrorKind, UiInputError},
+    lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
 };
 use shared::{input::UiKey, net::AppChannel, protocol::ServerMessage};
 
@@ -47,7 +47,7 @@ impl MockUi {
     }
 }
 
-impl ClientUi for MockUi {
+impl LobbyUi for MockUi {
     fn show_message(&mut self, message: &str) {
         self.messages.push(message.to_string());
     }

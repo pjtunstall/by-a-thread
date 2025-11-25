@@ -5,11 +5,9 @@ use bincode::{
 
 use crate::{
     session::ClientSession,
-    state::ClientState,
-    {
-        net::NetworkHandle,
-        ui::{ClientUi, UiErrorKind},
-    },
+    state::{ClientState, LobbyState},
+    lobby::ui::{LobbyUi, UiErrorKind},
+    net::NetworkHandle,
 };
 use shared::{
     auth::{MAX_ATTEMPTS, Passcode},
@@ -19,10 +17,13 @@ use shared::{
 
 pub fn handle(
     session: &mut ClientSession,
-    ui: &mut dyn ClientUi,
+    ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::Authenticating { .. }) {
+    if !matches!(
+        session.state(),
+        ClientState::Lobby(LobbyState::Authenticating { .. })
+    ) {
         panic!(
             "called auth::handle() when state was not Authenticating; current state: {:?}",
             session.state()
@@ -43,15 +44,15 @@ pub fn handle(
                 ui.show_sanitized_message(&format!("Server: {}", message));
 
                 if message.starts_with("Authentication successful!") {
-                    return Some(ClientState::ChoosingUsername {
+                    return Some(ClientState::Lobby(LobbyState::ChoosingUsername {
                         prompt_printed: false,
-                    });
+                    }));
                 } else if message.starts_with("Incorrect passcode. Try again.") {
-                    if let ClientState::Authenticating {
+                    if let ClientState::Lobby(LobbyState::Authenticating {
                         waiting_for_input,
                         guesses_left,
                         ..
-                    } = session.state_mut()
+                    }) = session.state_mut()
                     {
                         *guesses_left = guesses_left.saturating_sub(1);
                         ui.show_sanitized_prompt(&passcode_prompt(*guesses_left));
@@ -76,11 +77,11 @@ pub fn handle(
 
     for input_string in input_to_process {
         let mut should_mark_waiting_for_server = false;
-        if let ClientState::Authenticating {
+        if let ClientState::Lobby(LobbyState::Authenticating {
             waiting_for_input,
             guesses_left,
             waiting_for_server,
-        } = session.state_mut()
+        }) = session.state_mut()
         {
             if *waiting_for_input {
                 if let Some(passcode) = parse_passcode_input(&input_string) {
@@ -108,7 +109,10 @@ pub fn handle(
                 }
             }
         }
-        if !matches!(session.state(), ClientState::Authenticating { .. }) {
+        if !matches!(
+            session.state(),
+            ClientState::Lobby(LobbyState::Authenticating { .. })
+        ) {
             break;
         }
 
@@ -118,9 +122,9 @@ pub fn handle(
     }
 
     let waiting_for_server = session.auth_waiting_for_server();
-    if let ClientState::Authenticating {
+    if let ClientState::Lobby(LobbyState::Authenticating {
         waiting_for_input, ..
-    } = session.state_mut()
+    }) = session.state_mut()
     {
         if guess_sent_this_frame {
             *waiting_for_input = false;

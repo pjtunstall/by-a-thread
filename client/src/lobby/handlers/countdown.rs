@@ -3,17 +3,20 @@ use bincode::{config::standard, serde::decode_from_slice};
 use crate::{
     net::NetworkHandle,
     session::ClientSession,
-    state::ClientState,
-    ui::{ClientUi, UiErrorKind, UiInputError},
+    state::{ClientState, LobbyState},
+    lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
 };
 use shared::{net::AppChannel, protocol::ServerMessage};
 
 pub fn handle(
     session: &mut ClientSession,
-    ui: &mut dyn ClientUi,
+    ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::Countdown { .. }) {
+    if !matches!(
+        session.state(),
+        ClientState::Lobby(LobbyState::Countdown { .. })
+    ) {
         panic!(
             "called countdown::handle() when state was not Countdown; current state: {:?}",
             session.state()
@@ -56,7 +59,7 @@ pub fn handle(
     }
 
     let end_time = match session.state() {
-        ClientState::Countdown { end_time, .. } => *end_time,
+        ClientState::Lobby(LobbyState::Countdown { end_time, .. }) => *end_time,
         _ => return None,
     };
 
@@ -87,11 +90,11 @@ mod tests {
     use shared::maze::Maze;
 
     fn countdown_state_with(end_time: f64) -> ClientState {
-        ClientState::Countdown {
+        ClientState::Lobby(LobbyState::Countdown {
             end_time,
             maze: Maze::new(Algorithm::Backtrack),
             players: HashMap::new(),
-        }
+        })
     }
 
     #[test]
@@ -110,7 +113,10 @@ mod tests {
             next_state.is_none(),
             "should remain in countdown while time remains"
         );
-        assert!(matches!(session.state(), ClientState::Countdown { .. }));
+        assert!(matches!(
+            session.state(),
+            ClientState::Lobby(LobbyState::Countdown { .. })
+        ));
 
         assert_eq!(ui.countdown_draws, vec!["0".to_string()]);
         assert!(ui.messages.is_empty(), "no messages should be emitted");
@@ -129,7 +135,10 @@ mod tests {
         let next_state = handle(&mut session, &mut ui, &mut network);
 
         assert!(next_state.is_none());
-        assert!(matches!(session.state(), ClientState::Countdown { .. }));
+        assert!(matches!(
+            session.state(),
+            ClientState::Lobby(LobbyState::Countdown { .. })
+        ));
 
         assert_eq!(ui.countdown_draws.len(), 1);
         assert_eq!(ui.countdown_draws[0], "5");

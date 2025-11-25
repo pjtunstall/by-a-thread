@@ -5,7 +5,7 @@ use std::{
 
 use macroquad::prelude::*;
 
-use crate::ui::{ClientUi, UiInputError};
+use crate::lobby::ui::{LobbyUi, UiInputError};
 use shared::input::UiKey;
 
 const PROMPT: &str = "> ";
@@ -21,7 +21,7 @@ const INPUT_COLOR: Color = LIGHTGRAY;
 const BANNER_COLOR: Color = YELLOW;
 const BACKGROUND_COLOR: Color = BLACK;
 
-pub struct MacroquadUi {
+pub struct MacroquadLobbyUi {
     input_buffer: String,
     pub message_history: Vec<(String, Color)>,
     max_history_lines: usize,
@@ -31,7 +31,7 @@ pub struct MacroquadUi {
     backspace_last_pressed: Option<Instant>,
 }
 
-impl MacroquadUi {
+impl MacroquadLobbyUi {
     pub fn new() -> Self {
         Self {
             input_buffer: String::new(),
@@ -260,7 +260,7 @@ impl MacroquadUi {
     }
 }
 
-impl ClientUi for MacroquadUi {
+impl LobbyUi for MacroquadLobbyUi {
     fn show_message(&mut self, message: &str) {
         self.add_history(message, TEXT_COLOR);
     }

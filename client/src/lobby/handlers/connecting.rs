@@ -3,8 +3,8 @@ use bincode::{config::standard, serde::decode_from_slice, serde::encode_to_vec};
 use crate::{
     net::NetworkHandle,
     session::ClientSession,
-    state::ClientState,
-    ui::{ClientUi, UiErrorKind},
+    state::{ClientState, LobbyState},
+    lobby::ui::{LobbyUi, UiErrorKind},
 };
 use shared::{
     auth::MAX_ATTEMPTS,
@@ -14,10 +14,13 @@ use shared::{
 
 pub fn handle(
     session: &mut ClientSession,
-    ui: &mut dyn ClientUi,
+    ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::Connecting { .. }) {
+    if !matches!(
+        session.state(),
+        ClientState::Lobby(LobbyState::Connecting { .. })
+    ) {
         panic!(
             "called connecting::handle() when state was not Connecting; current state: {:?}",
             session.state()
@@ -39,7 +42,9 @@ pub fn handle(
 
     if network.is_connected() {
         let passcode = match session.state_mut() {
-            ClientState::Connecting { pending_passcode } => pending_passcode.take(),
+            ClientState::Lobby(LobbyState::Connecting { pending_passcode }) => {
+                pending_passcode.take()
+            }
             _ => None,
         };
 
@@ -54,17 +59,17 @@ pub fn handle(
                 encode_to_vec(&message, standard()).expect("failed to serialize SendPasscode");
             network.send_message(AppChannel::ReliableOrdered, payload);
 
-            Some(ClientState::Authenticating {
+            Some(ClientState::Lobby(LobbyState::Authenticating {
                 waiting_for_input: false,
                 waiting_for_server: true,
                 guesses_left: MAX_ATTEMPTS,
-            })
+            }))
         } else {
-            Some(ClientState::Authenticating {
+            Some(ClientState::Lobby(LobbyState::Authenticating {
                 waiting_for_input: true,
                 waiting_for_server: false,
                 guesses_left: MAX_ATTEMPTS,
-            })
+            }))
         }
     } else if network.is_disconnected() {
         ui.show_typed_error(
@@ -89,7 +94,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "called connecting::handle() when state was not Connecting; current state: Startup"
+            expected = "called connecting::handle() when state was not Connecting; current state: Lobby(Startup { prompt_printed: false })"
         )]
         fn connecting_panics_if_not_in_connecting_state() {
             let mut session = ClientSession::new(0);
@@ -102,9 +107,9 @@ mod tests {
         #[test]
         fn connecting_does_not_panic_in_connecting_state() {
             let mut session = ClientSession::new(0);
-            session.transition(ClientState::Connecting {
+            session.transition(ClientState::Lobby(LobbyState::Connecting {
                 pending_passcode: None,
-            });
+            }));
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
             assert!(

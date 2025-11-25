@@ -3,17 +3,20 @@ use bincode::{config::standard, serde::decode_from_slice};
 use crate::{
     net::NetworkHandle,
     session::ClientSession,
-    state::ClientState,
-    ui::{ClientUi, UiErrorKind},
+    state::{ClientState, LobbyState},
+    lobby::ui::{LobbyUi, UiErrorKind},
 };
 use shared::{net::AppChannel, protocol::ServerMessage};
 
 pub fn handle(
     session: &mut ClientSession,
-    ui: &mut dyn ClientUi,
+    ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::AwaitingUsernameConfirmation) {
+    if !matches!(
+        session.state(),
+        ClientState::Lobby(LobbyState::AwaitingUsernameConfirmation)
+    ) {
         panic!(
             "called awaiting_confirmation::handle() when state was not AwaitingUsernameConfirmation; current state: {:?}",
             session.state()
@@ -24,10 +27,10 @@ pub fn handle(
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::Welcome { username }, _)) => {
                 ui.show_sanitized_message(&format!("Server: Welcome, {}!", username));
-                return Some(ClientState::InChat {
+                return Some(ClientState::Lobby(LobbyState::InChat {
                     awaiting_initial_roster: true,
                     waiting_for_server: false,
-                });
+                }));
             }
             Ok((ServerMessage::UsernameError { message }, _)) => {
                 ui.show_typed_error(
@@ -37,9 +40,9 @@ pub fn handle(
                 ui.show_sanitized_message("Please try a different username.");
 
                 // Server rejected the username, transition back to ChoosingUsername
-                return Some(ClientState::ChoosingUsername {
+                return Some(ClientState::Lobby(LobbyState::ChoosingUsername {
                     prompt_printed: false,
-                });
+                }));
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));
@@ -79,12 +82,14 @@ mod tests {
     use shared::protocol::ServerMessage;
 
     fn set_awaiting_state(session: &mut ClientSession) {
-        session.transition(ClientState::AwaitingUsernameConfirmation);
+        session.transition(ClientState::Lobby(
+            LobbyState::AwaitingUsernameConfirmation,
+        ));
     }
 
     #[test]
     #[should_panic(
-        expected = "called awaiting_confirmation::handle() when state was not AwaitingUsernameConfirmation; current state: Startup"
+        expected = "called awaiting_confirmation::handle() when state was not AwaitingUsernameConfirmation; current state: Lobby(Startup { prompt_printed: false })"
     )]
     fn guards_panics_if_not_in_awaiting_confirmation_state() {
         let mut session = ClientSession::new(0);
@@ -108,10 +113,10 @@ mod tests {
 
         assert!(matches!(
             next_state,
-            Some(ClientState::InChat {
+            Some(ClientState::Lobby(LobbyState::InChat {
                 awaiting_initial_roster: true,
                 waiting_for_server: false
-            })
+            }))
         ));
         assert_eq!(ui.messages.len(), 1);
         assert_eq!(ui.messages[0], "Server: Welcome, TestUser!");
@@ -132,9 +137,9 @@ mod tests {
 
         assert!(matches!(
             next_state,
-            Some(ClientState::ChoosingUsername {
+            Some(ClientState::Lobby(LobbyState::ChoosingUsername {
                 prompt_printed: false
-            })
+            }))
         ));
         assert_eq!(ui.errors.len(), 1);
         assert_eq!(ui.error_kinds, vec![UiErrorKind::UsernameServerError]);

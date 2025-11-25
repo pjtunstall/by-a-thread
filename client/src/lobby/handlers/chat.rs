@@ -6,8 +6,8 @@ use bincode::{
 use crate::{
     net::NetworkHandle,
     session::ClientSession,
-    state::ClientState,
-    ui::{ClientUi, UiErrorKind},
+    state::{ClientState, LobbyState},
+    lobby::ui::{LobbyUi, UiErrorKind},
 };
 use shared::{
     net::AppChannel,
@@ -16,10 +16,13 @@ use shared::{
 
 pub fn handle(
     session: &mut ClientSession,
-    ui: &mut dyn ClientUi,
+    ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::InChat { .. }) {
+    if !matches!(
+        session.state(),
+        ClientState::Lobby(LobbyState::InChat { .. })
+    ) {
         panic!(
             "called chat::handle() when state was not InChat; current state: {:?}",
             session.state()
@@ -38,17 +41,17 @@ pub fn handle(
                 },
                 _,
             )) => {
-                return Some(ClientState::Countdown {
+                return Some(ClientState::Lobby(LobbyState::Countdown {
                     end_time,
                     maze,
                     players,
-                });
+                }));
             }
             Ok((ServerMessage::BeginDifficultySelection, _)) => {
-                return Some(ClientState::ChoosingDifficulty {
+                return Some(ClientState::Lobby(LobbyState::ChoosingDifficulty {
                     prompt_printed: false,
                     choice_sent: false,
-                });
+                }));
             }
             // Client asked to choose difficulty, but was not the host,
             // so restore input prompt.
@@ -133,7 +136,7 @@ pub fn handle(
                 network.get_disconnect_reason()
             ),
         );
-        Some(ClientState::Disconnected {
+        Some(ClientState::TransitioningToDisconnected {
             message: format!(
                 "Disconnected from chat: {}.",
                 network.get_disconnect_reason()
@@ -155,7 +158,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "called chat::handle() when state was not InChat; current state: Startup"
+            expected = "called chat::handle() when state was not InChat; current state: Lobby(Startup { prompt_printed: false })"
         )]
         fn in_chat_panics_if_not_in_in_chat_state() {
             let mut session = ClientSession::new(0);
@@ -168,10 +171,10 @@ mod tests {
         #[test]
         fn in_chat_does_not_panic_in_in_chat_state() {
             let mut session = ClientSession::new(0);
-            session.transition(ClientState::InChat {
+            session.transition(ClientState::Lobby(LobbyState::InChat {
                 awaiting_initial_roster: true,
                 waiting_for_server: false,
-            });
+            }));
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
             assert!(
@@ -184,10 +187,10 @@ mod tests {
     #[test]
     fn enforces_max_message_length() {
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::InChat {
+        session.transition(ClientState::Lobby(LobbyState::InChat {
             awaiting_initial_roster: true,
             waiting_for_server: false,
-        });
+        }));
         session.mark_initial_roster_received();
         session.is_host = true;
 
@@ -220,10 +223,10 @@ mod tests {
         let reset = "\x1B[0m";
 
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::InChat {
+        session.transition(ClientState::Lobby(LobbyState::InChat {
             awaiting_initial_roster: true,
             waiting_for_server: false,
-        });
+        }));
         session.mark_initial_roster_received();
         session.is_host = true;
 
@@ -246,10 +249,10 @@ mod tests {
     #[test]
     fn sends_start_game_request_on_tab_input() {
         let mut session = ClientSession::new(0);
-        session.transition(ClientState::InChat {
+        session.transition(ClientState::Lobby(LobbyState::InChat {
             awaiting_initial_roster: true,
             waiting_for_server: false,
-        });
+        }));
         session.mark_initial_roster_received();
         session.is_host = true;
 

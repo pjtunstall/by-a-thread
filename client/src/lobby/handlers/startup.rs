@@ -1,13 +1,16 @@
 use super::auth::{parse_passcode_input, passcode_prompt};
 use crate::{
     session::ClientSession,
-    state::ClientState,
-    ui::{ClientUi, UiErrorKind},
+    state::{ClientState, LobbyState},
+    lobby::ui::{LobbyUi, UiErrorKind},
 };
 use shared::auth::MAX_ATTEMPTS;
 
-pub fn handle(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::Startup { .. }) {
+pub fn handle(session: &mut ClientSession, ui: &mut dyn LobbyUi) -> Option<ClientState> {
+    if !matches!(
+        session.state(),
+        ClientState::Lobby(LobbyState::Startup { .. })
+    ) {
         panic!(
             "called startup::handle() when state was not Startup; current state: {:?}",
             session.state()
@@ -16,9 +19,9 @@ pub fn handle(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<Clie
 
     if let Some(input_string) = session.take_input() {
         if let Some(passcode) = parse_passcode_input(&input_string) {
-            return Some(ClientState::Connecting {
+            return Some(ClientState::Lobby(LobbyState::Connecting {
                 pending_passcode: Some(passcode),
-            });
+            }));
         } else {
             ui.show_typed_error(
                 UiErrorKind::PasscodeFormat,
@@ -30,7 +33,9 @@ pub fn handle(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<Clie
 
             ui.show_sanitized_prompt(&passcode_prompt(MAX_ATTEMPTS));
 
-            if let ClientState::Startup { prompt_printed } = session.state_mut() {
+            if let ClientState::Lobby(LobbyState::Startup { prompt_printed }) =
+                session.state_mut()
+            {
                 *prompt_printed = true;
             }
             return None;
@@ -38,14 +43,14 @@ pub fn handle(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<Clie
     }
 
     let needs_prompt = match session.state() {
-        ClientState::Startup { prompt_printed } => !prompt_printed,
+        ClientState::Lobby(LobbyState::Startup { prompt_printed }) => !prompt_printed,
         _ => false,
     };
 
     if needs_prompt {
         ui.show_prompt(&passcode_prompt(MAX_ATTEMPTS));
 
-        if let ClientState::Startup { prompt_printed } = session.state_mut() {
+        if let ClientState::Lobby(LobbyState::Startup { prompt_printed }) = session.state_mut() {
             *prompt_printed = true;
         }
         return None;
@@ -57,20 +62,20 @@ pub fn handle(session: &mut ClientSession, ui: &mut dyn ClientUi) -> Option<Clie
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{test_helpers::MockUi, ui::UiErrorKind};
+    use crate::{test_helpers::MockUi, lobby::ui::UiErrorKind};
 
     mod guards {
         use super::*;
 
         #[test]
         #[should_panic(
-            expected = "called startup::handle() when state was not Startup; current state: Connecting"
+            expected = "called startup::handle() when state was not Startup; current state: Lobby(Connecting { pending_passcode: None })"
         )]
         fn startup_panics_if_not_in_startup_state() {
             let mut session = ClientSession::new(0);
-            session.transition(ClientState::Connecting {
+            session.transition(ClientState::Lobby(LobbyState::Connecting {
                 pending_passcode: None,
-            });
+            }));
             let mut ui = MockUi::default();
 
             handle(&mut session, &mut ui);
@@ -98,9 +103,9 @@ mod tests {
 
         assert!(ui.prompts.is_empty());
         match next {
-            Some(ClientState::Connecting {
+            Some(ClientState::Lobby(LobbyState::Connecting {
                 pending_passcode: Some(passcode),
-            }) => assert_eq!(passcode.string, "123456"),
+            })) => assert_eq!(passcode.string, "123456"),
             other => panic!("unexpected next state: {:?}", other),
         }
     }
@@ -131,10 +136,9 @@ mod tests {
         );
         assert!(ui.errors.is_empty());
 
-        if let ClientState::Startup { prompt_printed } = session.state() {
-            assert!(*prompt_printed);
-        } else {
-            panic!("expected Startup state");
+        match session.state() {
+            ClientState::Lobby(LobbyState::Startup { prompt_printed }) => assert!(*prompt_printed),
+            _ => panic!("expected Startup state"),
         }
     }
 }

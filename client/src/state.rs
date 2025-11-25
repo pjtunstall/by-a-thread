@@ -1,47 +1,13 @@
-use std::collections::HashMap;
-
-use macroquad::prelude::*;
-
-use crate::world::maze::MazeExtension;
-use shared::{auth::Passcode, maze::Maze, player::Player};
+pub use crate::in_game::Game;
+pub use crate::lobby::LobbyState;
 
 #[derive(Debug)]
 pub enum ClientState {
-    Startup {
-        prompt_printed: bool,
-    },
-    Connecting {
-        pending_passcode: Option<Passcode>,
-    },
-    Authenticating {
-        waiting_for_input: bool,
-        guesses_left: u8,
-        waiting_for_server: bool,
-    },
-    ChoosingUsername {
-        prompt_printed: bool,
-    },
-    AwaitingUsernameConfirmation,
-    InChat {
-        awaiting_initial_roster: bool,
-        waiting_for_server: bool,
-    },
-    Countdown {
-        end_time: f64,
-        maze: Maze,
-        players: HashMap<u64, Player>,
-    },
-    Disconnected {
-        message: String,
-    },
-    TransitioningToDisconnected {
-        message: String,
-    },
-    ChoosingDifficulty {
-        prompt_printed: bool,
-        choice_sent: bool,
-    },
+    Lobby(LobbyState),
     InGame(Game),
+    Debrief,
+    Disconnected { message: String },
+    TransitioningToDisconnected { message: String },
 }
 
 impl ClientState {
@@ -63,16 +29,4 @@ pub enum InputMode {
     SingleKey,
     Enabled,
     DisabledWaiting,
-}
-
-#[derive(Debug)]
-pub struct Game {
-    pub maze: Maze,
-    pub players: HashMap<u64, Player>,
-}
-
-impl Game {
-    pub fn draw(&self, texture: &Texture2D) {
-        self.maze.draw(texture);
-    }
 }

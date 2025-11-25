@@ -1,9 +1,9 @@
-pub mod mq;
+pub mod macroquad;
 
 use std::{fmt, net::SocketAddr};
 
-pub use mq::MacroquadUi;
-use shared::input::{UiKey, sanitize};
+pub use macroquad::MacroquadLobbyUi;
+use shared::input::{sanitize, UiKey};
 use shared::player::UsernameError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,7 +32,7 @@ impl fmt::Display for UiInputError {
 
 impl std::error::Error for UiInputError {}
 
-pub trait ClientUi {
+pub trait LobbyUi {
     fn show_message(&mut self, message: &str);
     fn show_error(&mut self, message: &str);
     fn show_warning(&mut self, message: &str);

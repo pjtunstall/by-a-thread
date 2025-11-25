@@ -12,9 +12,11 @@ use crate::{
     net::{self, RenetNetworkHandle},
     resources::Resources,
     session::ClientSession,
-    state::{ClientState, InputMode},
-    state_handlers,
-    ui::{ClientUi, MacroquadUi, UiInputError},
+    state::{ClientState, InputMode, LobbyState},
+    lobby::{
+        handlers,
+        ui::{LobbyUi, MacroquadLobbyUi, UiInputError},
+    },
 };
 use shared::{self, player::Player};
 
@@ -33,7 +35,7 @@ pub struct ClientRunner {
     session: ClientSession,
     client: RenetClient,
     transport: NetcodeClientTransport,
-    ui: MacroquadUi,
+    ui: MacroquadLobbyUi,
     last_updated: Instant,
     resources: Resources,
 }
@@ -43,7 +45,7 @@ impl ClientRunner {
         socket: UdpSocket,
         server_addr: SocketAddr,
         private_key: [u8; 32],
-        ui: MacroquadUi,
+        ui: MacroquadLobbyUi,
     ) -> Result<Self, String> {
         let resources = Resources::load().await;
         let client_id = ::rand::random::<u64>();
@@ -106,7 +108,7 @@ pub async fn run_client_loop(
     socket: UdpSocket,
     server_addr: SocketAddr,
     private_key: [u8; 32],
-    ui: MacroquadUi,
+    ui: MacroquadLobbyUi,
 ) {
     let mut runner = match ClientRunner::new(socket, server_addr, private_key, ui).await {
         Ok(r) => r,
@@ -116,7 +118,7 @@ pub async fn run_client_loop(
         }
     };
 
-    let ui_ref: &mut dyn ClientUi = &mut runner.ui;
+    let ui_ref: &mut dyn LobbyUi = &mut runner.ui;
     ui_ref.print_client_banner(
         shared::protocol::version(),
         server_addr,
@@ -234,7 +236,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
 
     // Lobby input.
     if matches!(runner.session.input_mode(), InputMode::Enabled) {
-        let ui_ref: &mut dyn ClientUi = &mut runner.ui;
+        let ui_ref: &mut dyn LobbyUi = &mut runner.ui;
         match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES, runner.session.is_host) {
             Ok(Some(input)) => {
                 runner.session.add_input(input);
@@ -262,7 +264,7 @@ fn client_frame_update(runner: &mut ClientRunner) {
 
 fn update_client_state(
     session: &mut ClientSession,
-    ui: &mut dyn ClientUi,
+    ui: &mut dyn LobbyUi,
     network_handle: &mut RenetNetworkHandle,
 ) {
     if session.is_countdown_finished() {
@@ -271,29 +273,32 @@ fn update_client_state(
     }
 
     let next_state_from_logic = match session.state() {
-        ClientState::Startup { .. } => state_handlers::startup::handle(session, ui),
-        ClientState::Connecting { .. } => {
-            state_handlers::connecting::handle(session, ui, network_handle)
+        ClientState::Lobby(LobbyState::Startup { .. }) => handlers::startup::handle(session, ui),
+        ClientState::Lobby(LobbyState::Connecting { .. }) => {
+            handlers::connecting::handle(session, ui, network_handle)
         }
-        ClientState::Authenticating { .. } => {
-            state_handlers::auth::handle(session, ui, network_handle)
+        ClientState::Lobby(LobbyState::Authenticating { .. }) => {
+            handlers::auth::handle(session, ui, network_handle)
         }
-        ClientState::ChoosingUsername { .. } => {
-            state_handlers::username::handle(session, ui, network_handle)
+        ClientState::Lobby(LobbyState::ChoosingUsername { .. }) => {
+            handlers::username::handle(session, ui, network_handle)
         }
-        ClientState::AwaitingUsernameConfirmation => {
-            state_handlers::waiting::handle(session, ui, network_handle)
+        ClientState::Lobby(LobbyState::AwaitingUsernameConfirmation) => {
+            handlers::waiting::handle(session, ui, network_handle)
         }
-        ClientState::InChat { .. } => state_handlers::chat::handle(session, ui, network_handle),
-        ClientState::ChoosingDifficulty { .. } => {
-            state_handlers::difficulty::handle(session, ui, network_handle)
+        ClientState::Lobby(LobbyState::InChat { .. }) => {
+            handlers::chat::handle(session, ui, network_handle)
         }
-        ClientState::Countdown { .. } => {
-            state_handlers::countdown::handle(session, ui, network_handle)
+        ClientState::Lobby(LobbyState::ChoosingDifficulty { .. }) => {
+            handlers::difficulty::handle(session, ui, network_handle)
+        }
+        ClientState::Lobby(LobbyState::Countdown { .. }) => {
+            handlers::countdown::handle(session, ui, network_handle)
         }
         ClientState::TransitioningToDisconnected { .. } => None,
         ClientState::Disconnected { .. } => None,
-        ClientState::InGame { .. } => state_handlers::game::handle(session, ui, network_handle),
+        ClientState::InGame(_) => handlers::game::handle(session, ui, network_handle),
+        ClientState::Debrief => None,
     };
 
     if let Some(new_state) = next_state_from_logic {
@@ -301,11 +306,7 @@ fn update_client_state(
     }
 }
 
-fn apply_client_transition(
-    session: &mut ClientSession,
-    ui: &mut dyn ClientUi,
-    action: TransitionAction,
-) {
+fn apply_client_transition(session: &mut ClientSession, ui: &mut dyn LobbyUi, action: TransitionAction) {
     match action {
         TransitionAction::StartGame => {
             if session.transition_to_game().is_err() {
@@ -328,7 +329,7 @@ fn apply_client_transition(
 }
 
 pub fn print_player_list(
-    ui: &mut dyn ClientUi,
+    ui: &mut dyn LobbyUi,
     session: &ClientSession,
     players: &HashMap<u64, Player>,
 ) {
