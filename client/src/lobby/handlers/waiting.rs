@@ -46,7 +46,7 @@ pub fn handle(
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));
-                return Some(ClientState::TransitioningToDisconnected { message });
+                return Some(ClientState::Disconnected { message });
             }
             Ok((_, _)) => {}
             Err(e) => ui.show_typed_error(
@@ -64,7 +64,7 @@ pub fn handle(
                 network.get_disconnect_reason()
             ),
         );
-        return Some(ClientState::TransitioningToDisconnected {
+        return Some(ClientState::Disconnected {
             message: format!(
                 "Disconnected while awaiting username confirmation: {}.",
                 network.get_disconnect_reason()
@@ -160,7 +160,7 @@ mod tests {
 
         assert!(matches!(
             next_state,
-            Some(ClientState::TransitioningToDisconnected { .. })
+            Some(ClientState::Disconnected { .. })
         ));
         assert_eq!(
             ui.messages.last().unwrap(),

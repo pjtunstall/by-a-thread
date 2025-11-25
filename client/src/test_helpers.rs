@@ -48,6 +48,9 @@ impl MockUi {
 }
 
 impl LobbyUi for MockUi {
+    fn draw(&self, _should_show_input: bool, _show_cursor: bool) {
+        // no-op for tests
+    }
     fn show_message(&mut self, message: &str) {
         self.messages.push(message.to_string());
     }

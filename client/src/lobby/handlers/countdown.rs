@@ -28,7 +28,7 @@ pub fn handle(
                 network.get_disconnect_reason()
             ),
         );
-        return Some(ClientState::TransitioningToDisconnected {
+        return Some(ClientState::Disconnected {
             message: format!(
                 "disconnected during countdown: {}",
                 network.get_disconnect_reason()
@@ -38,7 +38,7 @@ pub fn handle(
 
     if let Err(UiInputError::Disconnected) = ui.poll_single_key() {
         ui.show_sanitized_error("No connection: input thread disconnected.");
-        return Some(ClientState::TransitioningToDisconnected {
+        return Some(ClientState::Disconnected {
             message: "input thread disconnected.".to_string(),
         });
     }
@@ -189,7 +189,7 @@ mod tests {
         let next_state = handle(&mut session, &mut ui, &mut network);
 
         assert!(next_state.is_some());
-        if let Some(ClientState::TransitioningToDisconnected { message }) = next_state {
+        if let Some(ClientState::Disconnected { message }) = next_state {
             assert!(message.contains("Server hung up."));
         } else {
             panic!("did not transition to disconnected state");

@@ -32,7 +32,7 @@ pub fn handle(
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 if message.starts_with("The game has already started.") {
                     ui.show_message(&message);
-                    return Some(ClientState::TransitioningToDisconnected { message });
+                    return Some(ClientState::Disconnected { message });
                 }
             }
             Ok((_, _)) => {}
@@ -74,7 +74,7 @@ pub fn handle(
             UiErrorKind::NetworkDisconnect,
             &format!("Connection failed: {}.", network.get_disconnect_reason()),
         );
-        Some(ClientState::TransitioningToDisconnected {
+        Some(ClientState::Disconnected {
             message: format!("Connection failed: {}.", network.get_disconnect_reason()),
         })
     } else {

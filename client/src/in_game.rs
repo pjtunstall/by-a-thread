@@ -1,4 +1,5 @@
 pub mod state;
-mod world;
+pub mod world;
+pub mod handler;
 
 pub use state::Game;

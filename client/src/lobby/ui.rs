@@ -39,6 +39,7 @@ pub trait LobbyUi {
     fn show_error(&mut self, message: &str);
     fn show_warning(&mut self, message: &str);
     fn show_prompt(&mut self, prompt: &str);
+    fn draw(&self, should_show_input: bool, show_cursor: bool);
     fn poll_input(&mut self, limit: usize, is_host: bool) -> Result<Option<String>, UiInputError>;
     fn poll_single_key(&mut self) -> Result<Option<UiKey>, UiInputError>;
     fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr, client_id: u64);

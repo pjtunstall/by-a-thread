@@ -31,7 +31,7 @@ fn enqueue_difficulty_input(
         }
         Err(e @ UiInputError::Disconnected) => {
             ui.show_sanitized_error(&format!("No connection: {}.", e));
-            return Some(ClientState::TransitioningToDisconnected {
+            return Some(ClientState::Disconnected {
                 message: e.to_string(),
             });
         }
@@ -162,7 +162,7 @@ pub fn handle(
                 network.get_disconnect_reason()
             ),
         );
-        return Some(ClientState::TransitioningToDisconnected {
+        return Some(ClientState::Disconnected {
             message: format!(
                 "disconnected while choosing difficulty: {}",
                 network.get_disconnect_reason()
@@ -293,7 +293,7 @@ mod tests {
         let next = handle(&mut session, &mut ui, &mut network);
 
         assert!(
-            matches!(next, Some(ClientState::TransitioningToDisconnected { .. })),
+            matches!(next, Some(ClientState::Disconnected { .. })),
             "expected transition to disconnected, got {:?}",
             next
         );

@@ -133,7 +133,7 @@ pub fn handle(
                 network.get_disconnect_reason()
             ),
         );
-        Some(ClientState::TransitioningToDisconnected {
+        Some(ClientState::Disconnected {
             message: format!(
                 "Disconnected from chat: {}.",
                 network.get_disconnect_reason()

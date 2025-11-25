@@ -4,32 +4,23 @@ use std::{
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
-use macroquad::{color, prelude::*, window::clear_background};
+use macroquad::prelude::*;
 use renet::RenetClient;
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
 use crate::{
+    in_game,
     lobby::{
-        handlers,
-        ui::{Gui, LobbyUi, UiInputError},
+        flow::{LobbyStep, lobby_frame},
+        ui::Gui,
+        ui::LobbyUi,
     },
     net::{self, RenetNetworkHandle},
     resources::Resources,
     session::ClientSession,
-    state::{ClientState, InputMode, Lobby},
+    state::{ClientState, LobbyState},
 };
 use shared::{self, player::Player};
-
-// This enum is used to control how to transiton between states.
-// For most transitions, the plain ChangeTo is sufficient.
-// StartGame is a special transition with logic to move the
-// maze and player data rather than cloning it.
-pub enum TransitionAction {
-    // Change to a simple state (Disconnected, Lobby, etc).
-    ChangeTo(ClientState),
-    // Signal to perform the zero-copy swap from Countdown to InGame.
-    StartGame,
-}
 
 pub struct ClientRunner {
     session: ClientSession,
@@ -118,15 +109,16 @@ pub async fn run_client_loop(
         }
     };
 
-    let ui_ref: &mut dyn LobbyUi = &mut runner.ui;
-    ui_ref.print_client_banner(
+    runner.ui.print_client_banner(
         shared::protocol::version(),
         server_addr,
         runner.session.client_id,
     );
 
     loop {
-        handle_user_escape(&mut runner);
+        if is_quit_requested() || is_key_pressed(KeyCode::Escape) {
+            break;
+        }
 
         if let Err(e) = runner.pump_network() {
             runner
@@ -134,202 +126,84 @@ pub async fn run_client_loop(
                 .show_sanitized_error(&format!("No connection: {}.", e));
             apply_client_transition(
                 &mut runner.session,
-                &mut runner.ui,
-                TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
+                ClientState::Disconnected {
                     message: format!("transport error: {}", e),
-                }),
+                },
             );
             return;
         }
 
-        if let ClientState::InGame(game_state) = runner.session.state() {
-            let yaw: f32 = 0.0;
-            let pitch: f32 = 0.1;
+        client_frame_update(&mut runner).await;
+    }
+}
 
-            let mut position = Default::default();
-            for (id, player) in &game_state.players {
-                if *id == runner.session.client_id {
-                    position = vec3(player.position.x, 24.0, player.position.z)
-                }
+async fn client_frame_update(runner: &mut ClientRunner) {
+    match runner.session.state() {
+        ClientState::InGame(_) => {
+            if let Some(next_state) =
+                in_game::handler::handle_frame(&mut runner.session, &runner.resources)
+            {
+                apply_client_transition(&mut runner.session, next_state);
             }
-
-            set_camera(&Camera3D {
-                position,
-                target: position
-                    + vec3(
-                        yaw.sin() * pitch.cos(),
-                        pitch.sin(),
-                        yaw.cos() * pitch.cos(),
-                    ),
-                up: vec3(0.0, 1.0, 0.0),
-                ..Default::default()
-            });
-
-            clear_background(color::BLACK);
-            game_state.draw(&runner.resources.wall_texture);
             next_frame().await;
-            continue;
         }
-
-        client_frame_update(&mut runner);
-
-        let ui_state = runner.session.prepare_ui_state();
-        if ui_state.show_waiting_message {
-            runner.ui.show_warning("Waiting for server...");
+        ClientState::Disconnected { .. } => {
+            disconnected_frame(&mut runner.ui).await;
         }
-
-        if !runner.session.is_countdown_active() {
-            let should_show_input = matches!(ui_state.mode, InputMode::Enabled);
-            let show_cursor = should_show_input;
-            runner.ui.draw(should_show_input, show_cursor);
+        _ => {
+            lobby_frame_update(runner).await;
         }
-
-        if runner.session.state().is_disconnected() {
-            handle_disconnected_ui_loop(&mut runner).await;
-            break;
-        }
-
-        next_frame().await;
     }
 }
 
-async fn handle_disconnected_ui_loop(runner: &mut ClientRunner) {
-    loop {
-        runner.ui.draw(false, false);
-        if is_key_pressed(KeyCode::Escape) {
-            break;
-        }
+async fn lobby_frame_update(runner: &mut ClientRunner) {
+    let mut network_handle = RenetNetworkHandle::new(&mut runner.client, &mut runner.transport);
+    let is_host = runner.session.is_host;
 
-        next_frame().await;
-    }
-}
-
-fn handle_user_escape(runner: &mut ClientRunner) {
-    if !is_key_pressed(KeyCode::Escape) {
-        return;
-    }
-
-    if !runner
-        .session
-        .state()
-        .not_already_disconnecting_or_disconnected()
-    {
-        return;
-    }
-
-    runner
-        .ui
-        .show_sanitized_error("No connection: client closed by user.");
-    apply_client_transition(
+    match lobby_frame(
         &mut runner.session,
         &mut runner.ui,
-        TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
-            message: "client closed by user".to_string(),
-        }),
-    );
+        &mut network_handle,
+        is_host,
+    )
+    .await
+    {
+        LobbyStep::Continue => {}
+        LobbyStep::StartGame => apply_start_game(&mut runner.session, &mut runner.ui),
+        LobbyStep::Transition(new_state) => apply_client_transition(&mut runner.session, new_state),
+    }
+
+    next_frame().await;
 }
 
-fn client_frame_update(runner: &mut ClientRunner) {
-    if runner.session.state().is_disconnected() {
-        return;
-    }
-
-    // Lobby input.
-    if matches!(runner.session.input_mode(), InputMode::Enabled) {
-        let ui_ref: &mut dyn LobbyUi = &mut runner.ui;
-        match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES, runner.session.is_host) {
-            Ok(Some(input)) => {
-                runner.session.add_input(input);
-            }
-            Err(e @ UiInputError::Disconnected) => {
-                runner
-                    .ui
-                    .show_sanitized_error(&format!("No connection: {}.", e));
-                apply_client_transition(
-                    &mut runner.session,
-                    &mut runner.ui,
-                    TransitionAction::ChangeTo(ClientState::TransitioningToDisconnected {
-                        message: e.to_string(),
-                    }),
-                );
-                return;
-            }
-            Ok(None) => {}
-        }
-    }
-
-    let mut network_handle = RenetNetworkHandle::new(&mut runner.client, &mut runner.transport);
-    update_client_state(&mut runner.session, &mut runner.ui, &mut network_handle);
+fn apply_client_transition(session: &mut ClientSession, new_state: ClientState) {
+    session.transition(new_state);
 }
 
-fn update_client_state(
-    session: &mut ClientSession,
-    ui: &mut dyn LobbyUi,
-    network_handle: &mut RenetNetworkHandle,
-) {
-    if session.is_countdown_finished() {
-        apply_client_transition(session, ui, TransitionAction::StartGame);
-        return;
-    }
-
-    let next_state_from_logic = match session.state() {
-        ClientState::Lobby(Lobby::Startup { .. }) => handlers::startup::handle(session, ui),
-        ClientState::Lobby(Lobby::Connecting { .. }) => {
-            handlers::connecting::handle(session, ui, network_handle)
+fn perform_start_game(session: &mut ClientSession) -> Result<(), ()> {
+    let old_state = std::mem::take(session.state_mut());
+    match old_state {
+        ClientState::Lobby(LobbyState::Countdown { maze, players, .. }) => {
+            session.transition(ClientState::InGame(in_game::Game { maze, players }));
+            Ok(())
         }
-        ClientState::Lobby(Lobby::Authenticating { .. }) => {
-            handlers::auth::handle(session, ui, network_handle)
+        other => {
+            session.transition(other);
+            Err(())
         }
-        ClientState::Lobby(Lobby::ChoosingUsername { .. }) => {
-            handlers::username::handle(session, ui, network_handle)
-        }
-        ClientState::Lobby(Lobby::AwaitingUsernameConfirmation) => {
-            handlers::waiting::handle(session, ui, network_handle)
-        }
-        ClientState::Lobby(Lobby::InChat { .. }) => {
-            handlers::chat::handle(session, ui, network_handle)
-        }
-        ClientState::Lobby(Lobby::ChoosingDifficulty { .. }) => {
-            handlers::difficulty::handle(session, ui, network_handle)
-        }
-        ClientState::Lobby(Lobby::Countdown { .. }) => {
-            handlers::countdown::handle(session, ui, network_handle)
-        }
-        ClientState::TransitioningToDisconnected { .. } => None,
-        ClientState::Disconnected { .. } => None,
-        ClientState::InGame(_) => handlers::game::handle(session, ui, network_handle),
-        ClientState::Debrief => None,
-    };
-
-    if let Some(new_state) = next_state_from_logic {
-        apply_client_transition(session, ui, TransitionAction::ChangeTo(new_state));
     }
 }
 
-fn apply_client_transition(
-    session: &mut ClientSession,
-    ui: &mut dyn LobbyUi,
-    action: TransitionAction,
-) {
-    match action {
-        TransitionAction::StartGame => {
-            if session.transition_to_game().is_err() {
-                ui.show_sanitized_error("Tried to start game from invalid state.");
-                ui.show_message("GO!");
-                return;
-            }
-        }
-        TransitionAction::ChangeTo(new_state) => {
-            let target_state = match new_state {
-                ClientState::TransitioningToDisconnected { message } => {
-                    ClientState::Disconnected { message }
-                }
-                other => other,
-            };
-
-            session.transition(target_state);
-        }
+fn apply_start_game(session: &mut ClientSession, ui: &mut dyn LobbyUi) {
+    if perform_start_game(session).is_err() {
+        ui.show_sanitized_error("Tried to start game from invalid state.");
+        ui.show_message("GO!");
     }
+}
+
+async fn disconnected_frame(ui: &mut dyn LobbyUi) {
+    ui.draw(false, false);
+    next_frame().await;
 }
 
 pub fn print_player_list(

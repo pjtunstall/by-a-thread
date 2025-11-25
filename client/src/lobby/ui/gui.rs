@@ -288,6 +288,10 @@ impl LobbyUi for Gui {
         self.add_history(&format!("  Your ID:       {}", client_id), BANNER_COLOR);
     }
 
+    fn draw(&self, should_show_input: bool, show_cursor: bool) {
+        Gui::draw(self, should_show_input, show_cursor);
+    }
+
     fn poll_input(&mut self, limit: usize, is_host: bool) -> Result<Option<String>, UiInputError> {
         if is_key_pressed(KeyCode::Tab) {
             if is_host {

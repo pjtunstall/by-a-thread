@@ -79,7 +79,7 @@ pub fn handle(
     }
 
     if network.is_disconnected() {
-        return Some(ClientState::TransitioningToDisconnected {
+        return Some(ClientState::Disconnected {
             message: format!(
                 "disconnected while choosing username: {}",
                 network.get_disconnect_reason()
@@ -108,7 +108,7 @@ pub fn handle_server_message(
     if let ServerMessage::ServerInfo { message } = message {
         ui.show_sanitized_message(&format!("Server: {}", message));
         ui.show_message("Server: Disconnecting.");
-        return Some(ClientState::TransitioningToDisconnected {
+        return Some(ClientState::Disconnected {
             message: message.clone(),
         });
     }

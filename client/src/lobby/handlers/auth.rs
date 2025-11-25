@@ -38,7 +38,7 @@ pub fn handle(
                 session.set_auth_waiting_for_server(false);
                 if message.starts_with("The game has already started.") {
                     ui.show_message(&message);
-                    return Some(ClientState::TransitioningToDisconnected { message });
+                    return Some(ClientState::Disconnected { message });
                 }
 
                 ui.show_sanitized_message(&format!("Server: {}", message));
@@ -59,7 +59,7 @@ pub fn handle(
                         *waiting_for_input = true;
                     }
                 } else if message.starts_with("Incorrect passcode. Disconnecting.") {
-                    return Some(ClientState::TransitioningToDisconnected {
+                    return Some(ClientState::Disconnected {
                         message: "Authentication failed.".to_string(),
                     });
                 }
@@ -140,7 +140,7 @@ pub fn handle(
             &format!("Disconnected while authenticating: {}.", reason),
         );
 
-        return Some(ClientState::TransitioningToDisconnected {
+        return Some(ClientState::Disconnected {
             message: format!("Disconnected while authenticating: {}.", reason),
         });
     }

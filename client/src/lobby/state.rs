@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use shared::{auth::Passcode, maze::Maze, player::Player};
 
 #[derive(Debug)]
-pub enum Lobby {
+pub enum LobbyState {
     Startup {
         prompt_printed: bool,
     },
@@ -33,3 +33,6 @@ pub enum Lobby {
         choice_sent: bool,
     },
 }
+
+// Temporary alias to ease transition while callers migrate to LobbyState.
+pub type Lobby = LobbyState;
