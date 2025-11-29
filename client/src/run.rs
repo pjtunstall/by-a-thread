@@ -9,13 +9,13 @@ use renet::RenetClient;
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
 use crate::{
+    assets::Assets,
     game,
     lobby::{
         self,
         ui::{Gui, LobbyUi},
     },
     net::{self, RenetNetworkHandle},
-    resources::Resources,
     session::ClientSession,
     state::{ClientState, Lobby},
 };
@@ -27,7 +27,7 @@ pub struct ClientRunner {
     pub transport: NetcodeClientTransport,
     pub ui: Gui,
     last_updated: Instant,
-    resources: Resources,
+    assets: Assets,
 }
 
 impl ClientRunner {
@@ -37,7 +37,7 @@ impl ClientRunner {
         private_key: [u8; 32],
         ui: Gui,
     ) -> Result<Self, String> {
-        let resources = Resources::load().await;
+        let assets = Assets::load().await;
         let client_id = ::rand::random::<u64>();
         let protocol_id = shared::protocol::version();
         let current_time_duration = SystemTime::now()
@@ -66,7 +66,7 @@ impl ClientRunner {
             transport,
             ui,
             last_updated: Instant::now(),
-            resources,
+            assets,
         })
     }
 
@@ -111,8 +111,7 @@ impl ClientRunner {
     async fn update_client_state(&mut self) {
         match self.session.state() {
             ClientState::Game(_) => {
-                if let Some(next_state) = game::handlers::update(&mut self.session, &self.resources)
-                {
+                if let Some(next_state) = game::handlers::update(&mut self.session, &self.assets) {
                     self.session.transition(next_state);
                 }
             }

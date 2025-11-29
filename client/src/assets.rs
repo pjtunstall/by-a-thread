@@ -1,10 +1,10 @@
 use macroquad::prelude::*;
 
-pub struct Resources {
+pub struct Assets {
     pub wall_texture: Texture2D,
 }
 
-impl Resources {
+impl Assets {
     pub async fn load() -> Self {
         let bytes = include_bytes!("../assets/bull.png");
 

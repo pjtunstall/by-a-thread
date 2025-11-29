@@ -1,8 +1,8 @@
 use macroquad::{color, prelude::*, window::clear_background};
 
-use crate::{resources::Resources, session::ClientSession, state::ClientState};
+use crate::{assets::Assets, session::ClientSession, state::ClientState};
 
-pub fn update(session: &mut ClientSession, resources: &Resources) -> Option<ClientState> {
+pub fn update(session: &mut ClientSession, assets: &Assets) -> Option<ClientState> {
     let game_state = match session.state() {
         ClientState::Game(game) => game,
         other => {
@@ -36,7 +36,7 @@ pub fn update(session: &mut ClientSession, resources: &Resources) -> Option<Clie
     });
 
     clear_background(color::BEIGE);
-    game_state.draw(&resources.wall_texture);
+    game_state.draw(&assets.wall_texture);
 
     None
 }
