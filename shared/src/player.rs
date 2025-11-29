@@ -1,8 +1,7 @@
 use std::fmt;
 
+use glam::Vec3;
 use serde::{Deserialize, Serialize};
-
-use crate::math::Vec3;
 
 pub const MAX_USERNAME_LENGTH: usize = 16;
 

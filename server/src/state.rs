@@ -333,9 +333,11 @@ pub fn evaluate_passcode_attempt(
 
 #[cfg(test)]
 mod tests {
+    use bincode::{config::standard, serde::decode_from_slice};
+    use glam::Vec3;
+
     use super::*;
     use crate::test_helpers::MockServerNetwork;
-    use bincode::{config::standard, serde::decode_from_slice};
     use shared::protocol::ServerMessage;
 
     #[test]
@@ -508,8 +510,8 @@ mod tests {
                     Player::new(
                         1,
                         "Alice".to_string(),
-                        shared::math::Vec3::ZERO,
-                        shared::math::Vec3::ZERO,
+                        Vec3::ZERO,
+                        Vec3::ZERO,
                         shared::player::Color::RED,
                     ),
                 ),
@@ -518,8 +520,8 @@ mod tests {
                     Player::new(
                         2,
                         "Bob".to_string(),
-                        shared::math::Vec3::ZERO,
-                        shared::math::Vec3::ZERO,
+                        Vec3::ZERO,
+                        Vec3::ZERO,
                         shared::player::Color::BLUE,
                     ),
                 ),
@@ -557,8 +559,8 @@ mod tests {
                     Player::new(
                         10,
                         "Alice".to_string(),
-                        shared::math::Vec3::ZERO,
-                        shared::math::Vec3::ZERO,
+                        Vec3::ZERO,
+                        Vec3::ZERO,
                         shared::player::Color::RED,
                     ),
                 ),
@@ -567,8 +569,8 @@ mod tests {
                     Player::new(
                         20,
                         "Bob".to_string(),
-                        shared::math::Vec3::ZERO,
-                        shared::math::Vec3::ZERO,
+                        Vec3::ZERO,
+                        Vec3::ZERO,
                         shared::player::Color::BLUE,
                     ),
                 ),

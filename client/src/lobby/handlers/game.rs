@@ -19,7 +19,8 @@ pub fn update(session: &mut ClientSession, assets: &Assets) -> Option<ClientStat
     let mut position = Default::default();
     for (id, player) in &game_state.players {
         if *id == session.client_id {
-            position = vec3(player.position.x, 24.0, player.position.z)
+            position = player.position;
+            position.y = 24.0;
         }
     }
 

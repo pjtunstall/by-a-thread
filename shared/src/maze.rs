@@ -2,9 +2,9 @@ pub mod maker;
 
 use std::fmt;
 
+use glam::{Vec3, vec3};
 use serde::{Deserialize, Serialize};
 
-use crate::math::{Vec3, vec3};
 pub use maker::Algorithm;
 use maker::MazeMaker;
 

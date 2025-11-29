@@ -5,6 +5,7 @@ use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
 };
+use glam::Vec3;
 use rand::random_range;
 
 use crate::{
@@ -15,7 +16,6 @@ use shared::{
     self,
     chat::MAX_CHAT_MESSAGE_BYTES,
     consts::PLAYER_HEIGHT,
-    math::Vec3,
     maze::{self, maker::Algorithm},
     net::AppChannel,
     player::Player,
