@@ -5,7 +5,6 @@ use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
 };
-use glam::Vec3;
 use rand::random_range;
 
 use crate::{
@@ -85,14 +84,12 @@ pub fn handle(
                             let start_position = maze
                                 .position_from_grid_coordinates(player::HEIGHT, y, x)
                                 .expect("failed to get start position from maze");
-                            let player = Player {
+                            let player = Player::new(
                                 id,
-                                name: username.clone(),
-                                position: start_position,
-                                orientation: Vec3::ZERO,
-                                color: shared::player::COLORS
-                                    [player_count % shared::player::COLORS.len()],
-                            };
+                                username.clone(),
+                                start_position,
+                                shared::player::COLORS[player_count % shared::player::COLORS.len()],
+                            );
                             player_count += 1;
                             println!("{:#}", player);
                             (id, player)

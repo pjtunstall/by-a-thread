@@ -511,7 +511,6 @@ mod tests {
                         1,
                         "Alice".to_string(),
                         Vec3::ZERO,
-                        Vec3::ZERO,
                         shared::player::Color::RED,
                     ),
                 ),
@@ -520,7 +519,6 @@ mod tests {
                     Player::new(
                         2,
                         "Bob".to_string(),
-                        Vec3::ZERO,
                         Vec3::ZERO,
                         shared::player::Color::BLUE,
                     ),
@@ -560,7 +558,6 @@ mod tests {
                         10,
                         "Alice".to_string(),
                         Vec3::ZERO,
-                        Vec3::ZERO,
                         shared::player::Color::RED,
                     ),
                 ),
@@ -569,7 +566,6 @@ mod tests {
                     Player::new(
                         20,
                         "Bob".to_string(),
-                        Vec3::ZERO,
                         Vec3::ZERO,
                         shared::player::Color::BLUE,
                     ),

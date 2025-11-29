@@ -1,6 +1,6 @@
-use std::fmt;
+use std::{collections::VecDeque, fmt};
 
-use glam::Vec3;
+use glam::{Vec3, vec3};
 use serde::{Deserialize, Serialize};
 
 pub const HEIGHT: f32 = 24.0; // Height of the player's eye level from the ground.
@@ -12,19 +12,21 @@ pub const MAX_USERNAME_LENGTH: usize = 16;
 pub struct Player {
     pub id: u64,
     pub name: String,
-    pub position: Vec3,
-    pub orientation: Vec3,
+    pub state: PlayerState,
     pub color: Color,
+    pub input_history: VecDeque<PlayerInput>,
+    pub current_tick: u64,
 }
 
 impl Player {
-    pub fn new(id: u64, name: String, position: Vec3, orientation: Vec3, color: Color) -> Self {
+    pub fn new(id: u64, name: String, position: Vec3, color: Color) -> Self {
         Self {
             id,
             name,
-            position,
-            orientation,
+            state: PlayerState::new(position),
             color,
+            input_history: VecDeque::new(),
+            current_tick: 0,
         }
     }
 }
@@ -33,9 +35,35 @@ impl fmt::Display for Player {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Player {{\n    id: {},\n    name: {},\n    position: {:?},\n    orientation: {:?},\n    color: {:?}\n}}\n",
-            self.id, self.name, self.position, self.orientation, self.color
+            "Player {{\n    id: {},\n    name: {},\n    position: {:?},\n    velocity: {:?}\n    color: {:?}\n}}\n",
+            self.id, self.name, self.state.position, self.state.velocity, self.color
         )
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub struct PlayerInput {
+    pub tick: u64,
+    pub movement: Vec3,
+    pub rotation_y: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+pub struct PlayerState {
+    pub position: Vec3,
+    pub velocity: Vec3,
+    pub pitch: f32,
+    pub yaw: f32,
+}
+
+impl PlayerState {
+    pub fn new(position: Vec3) -> Self {
+        Self {
+            position,
+            velocity: vec3(0.0, 0.0, 0.0),
+            pitch: 0.1,
+            yaw: 0.0,
+        }
     }
 }
 

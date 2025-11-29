@@ -2,7 +2,7 @@ use macroquad::{color, prelude::*, window::clear_background};
 
 use crate::{assets::Assets, session::ClientSession, state::ClientState};
 
-pub fn update(session: &mut ClientSession, assets: &Assets) -> Option<ClientState> {
+pub fn handle(session: &mut ClientSession, assets: &Assets) -> Option<ClientState> {
     let game_state = match session.state() {
         ClientState::Game(game) => game,
         other => {
@@ -19,7 +19,7 @@ pub fn update(session: &mut ClientSession, assets: &Assets) -> Option<ClientStat
     let mut position = Default::default();
     for (id, player) in &game_state.players {
         if *id == session.client_id {
-            position = player.position;
+            position = player.state.position;
             position.y = 24.0;
         }
     }
