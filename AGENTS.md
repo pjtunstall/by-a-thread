@@ -22,7 +22,7 @@ use shared::player::UsernameError;
 format!("packet send failed: {}", e)
 ```
 
-This is the rule for all error messages that might be propagated, for developer-facing error messages, for messages delivered by the panic macro, assert, and except. The one exception is messages that we know are user-facing, such as the outermost error message that wraps all others. User-facing messages should follow normal English punctuation rules.
+This is the rule for all error messages that might be propagated, for developer-facing error messages, and for messages delivered by the panic macro, assert, and except. The only exception is messages that we know are user-facing, such as the outermost error message that wraps all others. User-facing messages should follow normal English punctuation rules.
 
 ```rust
 runner
@@ -30,4 +30,4 @@ runner
     .show_sanitized_error(&format!("No connection: {}.", e));
 ```
 
-4. Comments should follow normal English punctuation, thus `// This is a comment.` rather than `// Yee haw, I'm a bit slapdash`.
+4. Comments should follow normal English punctuation, thus `// Like this.` rather than `// Like this`.
