@@ -15,10 +15,9 @@ use crate::{
 use shared::{
     self,
     chat::MAX_CHAT_MESSAGE_BYTES,
-    consts::PLAYER_HEIGHT,
     maze::{self, maker::Algorithm},
     net::AppChannel,
-    player::Player,
+    player::{self, Player},
     protocol::{ClientMessage, ServerMessage},
 };
 
@@ -84,7 +83,7 @@ pub fn handle(
                             let space_index = random_range(0..spaces_remaining.len());
                             let (y, x) = spaces_remaining.remove(space_index);
                             let start_position = maze
-                                .position_from_grid_coordinates(PLAYER_HEIGHT, y, x)
+                                .position_from_grid_coordinates(player::HEIGHT, y, x)
                                 .expect("failed to get start position from maze");
                             let player = Player {
                                 id,

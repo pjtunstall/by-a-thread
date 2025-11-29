@@ -3,6 +3,8 @@ use std::fmt;
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
+pub const HEIGHT: f32 = 24.0; // Height of the player's eye level from the ground.
+pub const RADIUS: f32 = 8.0;
 pub const MAX_SPEED: f32 = 4.0;
 pub const MAX_USERNAME_LENGTH: usize = 16;
 

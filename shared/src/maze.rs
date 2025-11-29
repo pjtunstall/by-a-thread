@@ -9,6 +9,7 @@ pub use maker::Algorithm;
 use maker::MazeMaker;
 
 pub const CELL_SIZE: f32 = 64.0;
+pub const RADIUS: usize = 16; // Double and add one to get the width of the maze in grid cells, including edge walls. The reason for this calculation is to ensure an odd number of chars for the width. This lets us draw a nice map with equally thick edges, no matter the value of this parameter used to set its width.
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Maze {
@@ -18,8 +19,7 @@ pub struct Maze {
 
 impl Maze {
     pub fn new(generator: Algorithm) -> Self {
-        let radius = 16usize;
-        let maker = MazeMaker::new(radius, radius, generator);
+        let maker = MazeMaker::new(RADIUS, RADIUS, generator);
         let grid = maker.grid;
         let mut spaces = Vec::new();
 
