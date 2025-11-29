@@ -3,8 +3,8 @@ use std::{collections::VecDeque, net::SocketAddr};
 use bincode::{config::standard, serde::encode_to_vec};
 
 use crate::{
-    net::NetworkHandle,
     lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
+    net::NetworkHandle,
 };
 use shared::{input::UiKey, net::AppChannel, protocol::ServerMessage};
 
@@ -49,7 +49,7 @@ impl MockUi {
 
 impl LobbyUi for MockUi {
     fn draw(&self, _should_show_input: bool, _show_cursor: bool) {
-        // no-op for tests
+        // No-op for tests.
     }
     fn show_message(&mut self, message: &str) {
         self.messages.push(message.to_string());
