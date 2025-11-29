@@ -4,6 +4,7 @@ use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
 pub const MAX_USERNAME_LENGTH: usize = 16;
+pub const MAX_SPEED: f32 = 4.0;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Player {
