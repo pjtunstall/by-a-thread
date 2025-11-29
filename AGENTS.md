@@ -1,6 +1,33 @@
-1. The year is 2025. Always use modern Rust module syntax, i.e. no `mod.rs`.
+# Style guide
 
-2. Group together imports using curly braces. Thus
+We're on the 2024 edition of Rust.
+
+## Module file structure
+
+Always use the modern module file structure, i.e. no `mod.rs`.
+
+## Imports
+
+### Group into three blocks: std, 3rd-party, and own
+
+Group import statements at the head of a file into three blocks: std first, then 3rd party, then imports from my own project workspace.
+
+```rust
+use std::collections::HashMap;
+
+use macroquad::prelude::*;
+use renet::RenetClient;
+
+use crate::{
+    session::ClientSession,
+    state::{ClientState, Lobby},
+};
+use shared::{self, player::Player};
+```
+
+### Group together nested items
+
+Group together nested items using curly braces. Thus:
 
 ```rust
 use shared::{
@@ -16,7 +43,11 @@ use shared::input::{UiKey, sanitize};
 use shared::player::UsernameError;
 ```
 
-3. By default, error messages should follow the Rust convention: all lowercase, no trailing punctuation, thus
+### Sort into three sections
+
+## Error messages
+
+By default, error messages should follow the Rust convention: all lowercase, no trailing punctuation.
 
 ```rust
 format!("packet send failed: {}", e)
@@ -30,4 +61,6 @@ runner
     .show_sanitized_error(&format!("No connection: {}.", e));
 ```
 
-4. Comments should follow normal English punctuation, thus `// Like this.` rather than `// Like this`.
+## Comments
+
+Comments should follow normal English punctuation: `// Like this.` rather than `// Like this`.
