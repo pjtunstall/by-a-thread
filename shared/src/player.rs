@@ -36,6 +36,19 @@ impl fmt::Display for Player {
     }
 }
 
+pub const COLORS: [Color; 10] = [
+    Color::RED,
+    Color::LIME,
+    Color::PINK,
+    Color::YELLOW,
+    Color::GREEN,
+    Color::BLUE,
+    Color::MAROON,
+    Color::ORANGE,
+    Color::PURPLE,
+    Color::SKYBLUE,
+];
+
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub enum Color {
     RED,
@@ -66,19 +79,6 @@ impl Color {
         }
     }
 }
-
-pub const COLORS: [Color; 10] = [
-    Color::RED,
-    Color::LIME,
-    Color::PINK,
-    Color::YELLOW,
-    Color::GREEN,
-    Color::BLUE,
-    Color::MAROON,
-    Color::ORANGE,
-    Color::PURPLE,
-    Color::SKYBLUE,
-];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UsernameError {
