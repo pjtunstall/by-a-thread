@@ -44,8 +44,11 @@ impl fmt::Display for Player {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct PlayerInput {
     pub tick: u64,
-    pub movement: Vec3,
-    pub rotation_y: f32,
+    pub x: f32,
+    pub z: f32,
+    pub pitch: Vec3,
+    pub yaw: Vec3,
+    pub shoot: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
