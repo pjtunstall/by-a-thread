@@ -40,7 +40,7 @@ pub fn update_clock(
             let delta = target_time - session.estimated_server_time;
 
             // Large delta, more smoothing (likely clock jump or initial sync).
-            // Small deltas, less smoothing (normal jitter correction).
+            // Small delta, less smoothing (normal jitter correction).
             let alpha = if delta.abs() > 0.1 {
                 0.3 // Smooth large corrections over ~3 updates.
             } else {
