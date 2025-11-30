@@ -82,11 +82,11 @@ let raw_delta_time = macroquad::time::get_frame_time() as f64;
 let frame_duration = std::time::Duration::from_secs_f64(raw_delta_time);
 
 // 2. UPDATE BASELINES
-// A. Update the "Compass" (Server Time Estimate).
+// A. Update the "radar" (Server Time Estimate).
 // This keeps session.estimated_server_time aligned with the server's clock.
 update_clock(&mut session, &mut network, frame_duration);
 
-// B. Update the "Road Conditions" (RTT).
+// B. Update the "road conditions" (RTT).
 // We use asymmetric smoothing:
 // - If RTT goes UP (lag spike), we adapt QUICKLY (0.1) to prevent input starvation.
 // - If RTT goes DOWN (improvement), we adapt SLOWLY (0.01) to keep simulation stable.
@@ -94,6 +94,7 @@ let current_rtt = network.rtt();
 let rtt_alpha = if current_rtt > session.smoothed_rtt { 0.1 } else { 0.01 };
 
 // Simple linear interpolation.
+// Encapsulate as `lerp(session.smoothed_rtt, renet.rtt(), alpha)`.
 session.smoothed_rtt = session.smoothed_rtt * (1.0 - rtt_alpha) + current_rtt * rtt_alpha;
 
 // 3. CALCULATE TARGET TIME
@@ -150,3 +151,18 @@ render(alpha);
 
 macroquad::window::next_frame().await;
 ```
+
+The road metaphor:
+
+- Road: The timeline.
+- Radar: The logic finding the Server's position on that timeline.
+- Road Conditions: The noise in the RTT that forces us to keep a larger following distance (Buffer).
+
+So,
+
+- The Server Truck is at Time 100.0s.
+- The Client Scout Car looks at its radar (NTP/update_clock) to locate the Truck.
+- The Client calculates the gap:
+  - It takes 0.05s for fuel (inputs) to reach the Truck (smoothed_rtt / 2).
+  - It adds 0.05s extra padding just in case (JITTER_BUFFER).
+- The Target: The Client hits the gas until it is at Time 100.1s.
