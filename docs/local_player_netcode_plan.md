@@ -9,6 +9,8 @@ smoothed_rtt = lerp(smoothed_rtt, renet.rtt(), 0.01);
 target = smoothed_rtt / tick_duration + 3;
 ```
 
+Is this smoothing superfluous, now, given that we're using the estimate of server time that incorporates its own smoothing?
+
 ## Server
 
 The server receives inputs from players a `PlayerInput`, which includes player id and a tick number. It stores them in a `BTreeMap`, i.e. an ordered hash map, ordered by tick. (REVISION: Use a `VecDeque` instead of a `BTreeMap`. Better performance.) Each iteration of its game loop, i.e. each tick, it processes inputs for each player from 4 ticks earlier than the server's own current tick, if available. The client always sends a `PlayerInput`, even if that's just to say there's no input. If no `PlayerInput` has been received yet from some client for the tick being processed, the server guesses, using the most recent earlier input it received from that client. After processing the inputs, the server prunes the map of any inputs from ticks earlier than the 'current' one, i.e. the tick number that's being processed, after extracting and storing the input it has just processed from each player, so that it can use a client's input again on the next tick if no input for that next tick has been received from them.
@@ -65,48 +67,85 @@ REVISION: Here's what we can do, using the idea of a dynamic lead. Combining NTP
 Here we combine NTP with with dynamic nudge and spike handling:
 
 ```rust
+// --- CONSTANTS ---
 const SERVER_TICK_RATE: f64 = 60.0;
 const TICK_DT: f64 = 1.0 / SERVER_TICK_RATE;
-const JITTER_BUFFER_SECONDS: f64 = 0.050; // ~3 ticks worth of safety
+// 3 Ticks (50ms) is a safe starting buffer.
+// If your inputs arrive late on the server, increase this.
+const JITTER_BUFFER_SECONDS: f64 = 0.050;
 
-// ...
+// --- THE LOOP ---
 
-// 1. Get the target time from your NTP-style clock (Network Time Protocol).
-let target_sim_time = session.estimated_server_time + JITTER_BUFFER_SECONDS;
+// 1. MEASURE REAL TIME
+// We always measure raw time first.
+let raw_delta_time = macroquad::time::get_frame_time() as f64;
+let frame_duration = std::time::Duration::from_secs_f64(raw_delta_time);
 
-// 2. Calculate where we currently are.
-// Ideally, track this as a float. Alternatively: (tick as f64 * dt)
-let current_sim_time = session.simulated_time;
+// 2. UPDATE BASELINES
+// A. Update the "Compass" (Server Time Estimate).
+// This keeps session.estimated_server_time aligned with the server's clock.
+update_clock(&mut session, &mut network, frame_duration);
 
-// 3. Calculate Error.
-let error = target_sim_time - current_sim_time;
+// B. Update the "Road Conditions" (RTT).
+// We use asymmetric smoothing:
+// - If RTT goes UP (lag spike), we adapt QUICKLY (0.1) to prevent input starvation.
+// - If RTT goes DOWN (improvement), we adapt SLOWLY (0.01) to keep simulation stable.
+let current_rtt = network.rtt();
+let rtt_alpha = if current_rtt > session.smoothed_rtt { 0.1 } else { 0.01 };
 
-// 4. THE HYBRID CHECK.
+// Simple linear interpolation.
+session.smoothed_rtt = session.smoothed_rtt * (1.0 - rtt_alpha) + current_rtt * rtt_alpha;
+
+// 3. CALCULATE TARGET TIME
+// This is the crucial formula.
+// Target = "What time is it now" + "Travel Time" + "Safety Margin".
+let travel_time = session.smoothed_rtt / 2.0;
+let target_sim_time = session.estimated_server_time + travel_time + JITTER_BUFFER_SECONDS;
+
+// 4. CALCULATE ERROR
+// "Where we should be" minus "Where we are".
+let error = target_sim_time - session.simulated_time;
+
+// 5. THE HYBRID CONTROL SYSTEM
 let adjustment = if error.abs() > 0.25 {
-    // CASE A: The "Hard Snap".
-    // We are more than 250ms off. The internet hiccuped.
-    // Give up on smoothing. Teleport time immediately.
-    // (You might want to fade the screen to black or show a connection icon here).
-    println!("Resyncing clock...");
-    error // Add the whole error instantly.
+    // CASE A: HARD SNAP
+    // We are > 250ms off. The internet choked or we just connected.
+    // Teleport immediately to avoid speeding up for 10 seconds.
+    println!("Resyncing clock... Delta: {:.4}s", error);
+
+    // We force the error to be exactly enough to close the gap instantly.
+    error
 } else {
-    // CASE B: The "Clamped Nudge" (Your logic).
-    // 10% gain, clamped to 2ms limit.
+    // CASE B: CLAMPED NUDGE
+    // We are slightly off. Nudge the clock by +/- 10% of the error.
+    // Limit the nudge to +/- 2ms per frame to prevent visual stutter.
     (error * 0.1).clamp(-0.002, 0.002)
 };
 
-// 5. Apply to Accumulator.
-// We add the real frame time PLUS the adjustment.
+// 6. FILL ACCUMULATOR
+// We add Real Time + The Adjustment.
+// If we are behind, adjustment is positive (simulation runs faster).
+// If we are ahead, adjustment is negative (simulation runs slower).
 session.accumulator += raw_delta_time + adjustment;
 
-// 6. Run Physics.
+// 7. PHYSICS LOOP (FIXED STEP)
 while session.accumulator >= TICK_DT {
-    perform_tick();
+    // A. Process Inputs (Push to buffer, send to server).
+    process_input(session.current_tick);
+
+    // B. Run Physics Prediction.
+    perform_tick(session.current_tick);
+
+    // C. Advance State.
     session.accumulator -= TICK_DT;
-    session.simulated_time += TICK_DT; // Or `session.current_tick += 1;`.
+    session.current_tick += 1;
+
+    // Track our time using the fixed step to stay perfectly in sync with ticks.
+    session.simulated_time += TICK_DT;
 }
 
-let alpha = accumulator / TICK_DT;
+// 8. RENDER INTERPOLATION
+let alpha = session.accumulator / TICK_DT;
 render(alpha);
 
 macroquad::window::next_frame().await;
