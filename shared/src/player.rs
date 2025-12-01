@@ -2,7 +2,6 @@ use std::fmt;
 
 use glam::{Vec3, vec3};
 use serde::{Deserialize, Serialize};
-use serde_big_array::BigArray;
 
 pub const HEIGHT: f32 = 24.0; // Height of the player's eye level from the ground.
 pub const RADIUS: f32 = 8.0;
@@ -16,8 +15,7 @@ pub struct Player {
     pub name: String,
     pub state: PlayerState,
     pub color: Color,
-    #[serde(with = "BigArray")]
-    pub input_history: [Option<PlayerInput>; 128],
+    // pub input_history: [Option<PlayerInput>; 128], // This really belongs in a ClientPlayer struct and doesn't need to be serialized.
     pub current_tick: u64,
 }
 
@@ -29,7 +27,6 @@ impl Player {
             name,
             state: PlayerState::new(position),
             color,
-            input_history: [None; 128],
             current_tick: 0,
         }
     }

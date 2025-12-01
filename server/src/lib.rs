@@ -1,4 +1,5 @@
 pub mod net;
+pub mod player;
 pub mod run;
 pub mod state;
 pub mod state_handlers;
