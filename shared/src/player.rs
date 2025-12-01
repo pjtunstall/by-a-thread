@@ -1,7 +1,8 @@
-use std::{collections::VecDeque, fmt};
+use std::fmt;
 
 use glam::{Vec3, vec3};
 use serde::{Deserialize, Serialize};
+use serde_big_array::BigArray;
 
 pub const HEIGHT: f32 = 24.0; // Height of the player's eye level from the ground.
 pub const RADIUS: f32 = 8.0;
@@ -13,8 +14,9 @@ pub struct Player {
     pub id: u64,
     pub name: String,
     pub state: PlayerState,
-    pub color: Color,
-    pub input_history: VecDeque<PlayerInput>,
+    pub color: Color, // Have consecutive ids, corresponding to colors, as well as network client ids.
+    #[serde(with = "BigArray")]
+    pub input_history: [Option<PlayerInput>; 128],
     pub current_tick: u64,
 }
 
@@ -25,7 +27,7 @@ impl Player {
             name,
             state: PlayerState::new(position),
             color,
-            input_history: VecDeque::new(),
+            input_history: [None; 128],
             current_tick: 0,
         }
     }
