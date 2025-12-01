@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use shared::{auth::Passcode, maze::Maze, player::Player};
 
 #[derive(Debug)]
@@ -26,7 +24,7 @@ pub enum Lobby {
     Countdown {
         end_time: f64,
         maze: Maze,
-        players: HashMap<u64, Player>,
+        players: Vec<Player>,
     },
     ChoosingDifficulty {
         prompt_printed: bool,

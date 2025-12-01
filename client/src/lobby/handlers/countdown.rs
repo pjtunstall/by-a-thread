@@ -78,8 +78,6 @@ pub fn handle(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use shared::maze::Algorithm;
 
     use super::*;
@@ -90,7 +88,7 @@ mod tests {
         ClientState::Lobby(Lobby::Countdown {
             end_time,
             maze: Maze::new(Algorithm::Backtrack),
-            players: HashMap::new(),
+            players: Vec::new(),
         })
     }
 

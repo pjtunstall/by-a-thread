@@ -11,19 +11,21 @@ pub const MAX_USERNAME_LENGTH: usize = 16;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Player {
-    pub id: u64,
+    pub index: usize,
+    pub client_id: u64,
     pub name: String,
     pub state: PlayerState,
-    pub color: Color, // Have consecutive ids, corresponding to colors, as well as network client ids.
+    pub color: Color,
     #[serde(with = "BigArray")]
     pub input_history: [Option<PlayerInput>; 128],
     pub current_tick: u64,
 }
 
 impl Player {
-    pub fn new(id: u64, name: String, position: Vec3, color: Color) -> Self {
+    pub fn new(index: usize, client_id: u64, name: String, position: Vec3, color: Color) -> Self {
         Self {
-            id,
+            index,
+            client_id,
             name,
             state: PlayerState::new(position),
             color,
@@ -38,7 +40,7 @@ impl fmt::Display for Player {
         write!(
             f,
             "Player {{\n    id: {},\n    name: {},\n    position: {:?},\n    velocity: {:?}\n    color: {:?}\n}}\n",
-            self.id, self.name, self.state.position, self.state.velocity, self.color
+            self.client_id, self.name, self.state.position, self.state.velocity, self.color
         )
     }
 }

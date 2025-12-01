@@ -18,7 +18,8 @@ pub fn handle(session: &mut ClientSession, assets: &Assets) -> Option<ClientStat
 
     let position = game_state
         .players
-        .get(&session.client_id)
+        .iter()
+        .find(|p| p.client_id == session.client_id)
         .expect("player should have a position")
         .state
         .position;

@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     net::{SocketAddr, UdpSocket},
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
@@ -180,14 +179,10 @@ pub async fn run_client_loop(
     }
 }
 
-pub fn print_player_list(
-    ui: &mut dyn LobbyUi,
-    session: &ClientSession,
-    players: &HashMap<u64, Player>,
-) {
+pub fn print_player_list(ui: &mut dyn LobbyUi, session: &ClientSession, players: &Vec<Player>) {
     ui.show_message("\nPlayers:");
-    for player in players.values() {
-        let is_self = if player.id == session.client_id {
+    for player in players {
+        let is_self = if player.client_id == session.client_id {
             "<--you"
         } else {
             ""

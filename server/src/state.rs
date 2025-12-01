@@ -505,24 +505,20 @@ mod tests {
         let mut countdown = Countdown {
             usernames: HashMap::from([(1, "Alice".to_string()), (2, "Bob".to_string())]),
             players: HashMap::from([
-                (
+                (1, Player::new(
+                    0,
                     1,
-                    Player::new(
-                        1,
-                        "Alice".to_string(),
-                        Vec3::ZERO,
-                        shared::player::Color::RED,
-                    ),
-                ),
-                (
+                    "Alice".to_string(),
+                    Vec3::ZERO,
+                    shared::player::Color::RED,
+                )),
+                (2, Player::new(
+                    1,
                     2,
-                    Player::new(
-                        2,
-                        "Bob".to_string(),
-                        Vec3::ZERO,
-                        shared::player::Color::BLUE,
-                    ),
-                ),
+                    "Bob".to_string(),
+                    Vec3::ZERO,
+                    shared::player::Color::BLUE,
+                )),
             ]),
             host_id: Some(1),
             end_time: Instant::now(),
@@ -552,24 +548,20 @@ mod tests {
 
         let mut game = Game {
             players: HashMap::from([
-                (
+                (10, Player::new(
+                    0,
                     10,
-                    Player::new(
-                        10,
-                        "Alice".to_string(),
-                        Vec3::ZERO,
-                        shared::player::Color::RED,
-                    ),
-                ),
-                (
+                    "Alice".to_string(),
+                    Vec3::ZERO,
+                    shared::player::Color::RED,
+                )),
+                (20, Player::new(
+                    1,
                     20,
-                    Player::new(
-                        20,
-                        "Bob".to_string(),
-                        Vec3::ZERO,
-                        shared::player::Color::BLUE,
-                    ),
-                ),
+                    "Bob".to_string(),
+                    Vec3::ZERO,
+                    shared::player::Color::BLUE,
+                )),
             ]),
             maze: maze::Maze::new(maze::Algorithm::Backtrack),
             host_id: Some(10),
