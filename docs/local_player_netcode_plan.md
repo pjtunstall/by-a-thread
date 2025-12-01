@@ -2,11 +2,21 @@
 
 ## Terminology
 
-The word buffer appears below in two senses: (1) an array (input buffer), (2) a safety margin (jitter buffer).
+NOTE: The word buffer appears below in two senses: (1) an array (input buffer), (2) a safety margin (jitter buffer).
+
+NOTE: Client tick, server tick, and frame are conceptually distinct, but happen to have the same duration in this case. All three loops run at 60Hz. On the other hand, the server will broadcast at only 20Hz to reduce bandwidth.
+
+- baseline, of a client: the most recent **snapshot** received from the server.
+- frame: one iteration of the client render loop, i.e. one instance of painting a scene. See also **tick**.
+- `history_buffer: [PlayerInput: 256]`: an array the client uses to store their own inputs to be replayed on top of the current baseline state, i.e. the latest snapshot received from the server, in a process known as reconciliation and prediction.
+- `input_buffer: [PlayerInput: 128]`: an array the server uses to store inputs as they're received from a player. The server has one for each player and inserts newly received inputs at index `tick % 128`.
+- `JITTER_BUFFER_SECONDS: f64`: a safety margin of 50ms (about 3 ticks) to give player inputs more chance to arrive at the server in case of occasional delays.
+- snapshot: the complete game state on a given tick, as calculated by the server, and broadcast to clients.
+- tick: one iteration of the (client or server) physics simulation. Compare **frame**.
 
 ## Preliminaries
 
-Choose a tick frequency, 60Hz (once every 16.7ms), and a broadcast frequency, e.g. 20Hz (once every 50.0ms).
+Choose a tick frequency, 60Hz (once every 16.7ms), and a broadcast frequency, e.g. 20Hz (once every 50.0ms). Decide how many client inputs to sent to the server per tick for redundancy, e.g. 4.
 
 ## Server
 
@@ -16,7 +26,7 @@ Initialize an array as an input buffer for each player. The size should be a pow
 
 We'll receive inputs from players as a sequence of `PlayerInput`s. Several inputs are sent per message for the sake of redundancy: to reduce the risk of missing inputs. Each `PlayerInput` will include a tick id number (`u64`). The tick id number with the input is not that of the tick on which the client sent it; rather it's the client's request for which tick it wants the server to processes it. The client calculates this number based on smoothed rtt and a safety margin ('jitter buffer'). The goal is to ensure that inputs from all clients are processed a similar amount of time after they were sent.
 
-Insert these inputs into the relevant player's input buffer at index `tick % buffer_size`. Each tick, update the physics simulation, using the relevant input for each player, if available. The client always sends a `PlayerInput`, even if that's just to say there's no input. If no `PlayerInput` has been received yet from some client for the tick being processed, use the most recent earlier input received from that client. Use some variable to track the index of the most recent input for each player. Be sure to check that the tick id at the relevant index is correct in case no input for that client has been received yet and the array contains old data at that index.
+Insert these inputs into the relevant player's input buffer at index `tick % INPUT_BUFFER_LENGTH`. Each tick, update the physics simulation, using the relevant input for each player, if available. The client always sends a `PlayerInput`, even if that's just to say there's no input. If no `PlayerInput` has been received yet from some client for the tick being processed, use the most recent earlier input received from that client. Use some variable to track the index of the most recent input for each player. Be sure to check that the tick id at the relevant index is correct in case no input for that client has been received yet and the array contains old data at that index.
 
 - Default to assuming no movement or firing after a few ticks to avoid anomalous behavior in the event of a large delay?
 
@@ -96,9 +106,9 @@ pub fn update_clock(
 
 Use that estimate to calculate a server tick number.
 
-Checks for inputs and insert them as a `PlayerInput` (storing all current keypresses along with the server tick number) to an array of size 256 or 512. This will be the client's input buffer. Check for messages from the server. If the server has sent an authoritative snapshot of the game state, set this as the new baseline by updating a variable that will track the index of the most recent baseline. Either way, reconcile the client's game state to that of the baseline, then--before rendering anything, purely in the client's physics simulation--replay its inputs for subsequent ticks from the baseline to the most recent input ('prediction'). Finally, renders the result, smoothing the transition from current position to the new estimate.
+Checks for inputs and insert them as a `PlayerInput` (storing all current keypresses along with the server tick number) to an array of size 256 or 512. This will be the client's history buffer. Check for messages from the server. If the server has sent an authoritative snapshot of the game state, set this as the new baseline by updating a variable that will track the index of the most recent baseline. Either way, reconcile the client's game state to that of the baseline, then--before rendering anything, purely in the client's physics simulation--replay its inputs for subsequent ticks from the baseline to the most recent input ('prediction'). Finally, renders the result, smoothing the transition from current position to the new estimate.
 
-Check for new inputs and send the most recent few (e.g. 4) inputs to the server on an `Unreliable` Renet channel. This redundancy increases the chance that the server will have inputs available for each tick it processes and not have to guess.
+Check for new inputs and send the most recent handful of inputs to the server on an `Unreliable` Renet channel. This redundancy increases the chance that the server will have inputs available for each tick it processes and not have to guess.
 
 NOTE: To be consistent with the server, ensure the physics update uses a fixed timestep (e.g., 1.0/60.0) and not `macroquad::time::get_frame_time()`.
 
@@ -107,10 +117,10 @@ Here is more detail on the client's time coordination logic, using the idea of a
 ```rust
 // --- CONSTANTS ---
 const SERVER_TICK_RATE: f64 = 60.0;
-const IDEAL_TICK_DURATION: f64 = 1.0 / SERVER_TICK_RATE;
+const IDEAL_TICK_DURATION_SECS: f64 = 1.0 / SERVER_TICK_RATE;
 // Three ticks (50ms) is probably a safe starting buffer.
 // If inputs arrive late on the server, increase this.
-const JITTER_BUFFER_SECONDS: f64 = 0.050;
+const JITTER_BUFFER_SECS: f64 = 0.050;
 
 // --- THE LOOP ---
 
@@ -137,7 +147,7 @@ session.smoothed_rtt = session.smoothed_rtt * (1.0 - rtt_alpha) + current_rtt * 
 // 3. CALCULATE TARGET TIME
 // Target = "What time is it now" + "Travel Time" + "Safety Margin".
 let travel_time = session.smoothed_rtt / 2.0;
-let target_sim_time = session.estimated_server_time + travel_time + JITTER_BUFFER_SECONDS;
+let target_sim_time = session.estimated_server_time + travel_time + JITTER_BUFFER_SECS;
 
 // 4. CALCULATE ERROR
 // "Where we should be" minus "Where we are".
@@ -166,7 +176,7 @@ let adjustment = if error.abs() > 0.25 {
 session.accumulator += raw_delta_time + adjustment;
 
 // 7. PHYSICS LOOP (FIXED STEP)
-while session.accumulator >= IDEAL_TICK_DURATION {
+while session.accumulator >= IDEAL_TICK_DURATION_SECS {
     // A. Process Inputs (insert into buffer, send to server).
     process_input(session.current_tick);
 
@@ -174,15 +184,15 @@ while session.accumulator >= IDEAL_TICK_DURATION {
     perform_tick(session.current_tick);
 
     // C. Advance State.
-    session.accumulator -= IDEAL_TICK_DURATION;
+    session.accumulator -= IDEAL_TICK_DURATION_SECS;
     session.current_tick += 1;
 
     // Track our time using the fixed step to stay perfectly in sync with ticks.
-    session.simulated_time += IDEAL_TICK_DURATION;
+    session.simulated_time += IDEAL_TICK_DURATION_SECS;
 }
 
 // 8. RENDER INTERPOLATION
-let alpha = session.accumulator / IDEAL_TICK_DURATION;
+let alpha = session.accumulator / IDEAL_TICK_DURATION_SECS;
 render(alpha);
 
 macroquad::window::next_frame().await;
