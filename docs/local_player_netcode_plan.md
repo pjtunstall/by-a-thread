@@ -2,15 +2,13 @@
 
 ## Terminology
 
-NOTE: The word buffer appears below in two senses: (1) an array (input buffer), (2) a safety margin (jitter buffer).
-
 NOTE: Client tick, server tick, and frame are conceptually distinct, but happen to have the same duration in this case. All three loops run at 60Hz. On the other hand, the server will broadcast at only 20Hz to reduce bandwidth.
 
 - baseline, of a client: the most recent **snapshot** received from the server.
 - frame: one iteration of the client render loop, i.e. one instance of painting a scene. See also **tick**.
-- `history_buffer: [PlayerInput: 256]`: an array the client uses to store their own inputs to be replayed on top of the current baseline state, i.e. the latest snapshot received from the server, in a process known as reconciliation and prediction.
-- `input_buffer: [PlayerInput: 128]`: an array the server uses to store inputs as they're received from a player. The server has one for each player and inserts newly received inputs at index `tick % 128`.
-- `JITTER_BUFFER_SECONDS: f64`: a safety margin of 50ms (about 3 ticks) to give player inputs more chance to arrive at the server in case of occasional delays.
+- `input_history: [Option<PlayerInput>: 256]`: an array the client uses to store their own inputs to be replayed on top of the current baseline state, i.e. the latest snapshot received from the server, in a process known as reconciliation and prediction.
+- `input_buffer: [Option<PlayerInput>: 128]`: an array the server uses to store inputs as they're received from a player. The server has one for each player and inserts newly received inputs at index `tick % 128`.
+- `JITTER_SAFETY_MARGIN: f64`: a safety margin of 50ms (about 3 ticks) to give player inputs more chance to arrive at the server in case of occasional delays.
 - snapshot: the complete game state on a given tick, as calculated by the server, and broadcast to clients.
 - tick: one iteration of the (client or server) physics simulation. Compare **frame**.
 
@@ -24,11 +22,13 @@ Choose a tick frequency, 60Hz (once every 16.7ms), and a broadcast frequency, e.
 
 Initialize an array as an input buffer for each player. The size should be a power of 2 that is larger than the maximum expected latency window, e.g., 128 (2s at 60Hz).
 
-We'll receive inputs from players as a sequence of `PlayerInput`s. Several inputs are sent per message for the sake of redundancy: to reduce the risk of missing inputs. Each `PlayerInput` will include a tick id number (`u64`). The tick id number with the input is not that of the tick on which the client sent it; rather it's the client's request for which tick it wants the server to processes it. The client calculates this number based on smoothed rtt and a safety margin ('jitter buffer'). The goal is to ensure that inputs from all clients are processed a similar amount of time after they were sent.
+We'll receive inputs from players as a sequence of `PlayerInput`s. Several inputs are sent per message for the sake of redundancy: to reduce the risk of missing inputs. Each `PlayerInput` will include a tick id number (`u64`). The tick id number with the input is not that of the tick on which the client sent it; rather it's the client's request for which tick it wants the server to processes it. The client calculates this number based on smoothed rtt and a safety margin. The goal is to ensure that inputs from all clients are processed a similar amount of time after they were sent, for consistency and so as not to give any one player and unfair advantage under normal conditions.
 
-Insert these inputs into the relevant player's input buffer at index `tick % INPUT_BUFFER_LENGTH`. Each tick, update the physics simulation, using the relevant input for each player, if available. The client always sends a `PlayerInput`, even if that's just to say there's no input. If no `PlayerInput` has been received yet from some client for the tick being processed, use the most recent earlier input received from that client. Use some variable to track the index of the most recent input for each player. Be sure to check that the tick id at the relevant index is correct in case no input for that client has been received yet and the array contains old data at that index. (Actually, replace processed inputs with `None` and store separately as most recently processed values in case we need to use them later as a guess for a missing value. Consider safety _versus_ performance.)
+Insert these inputs into the relevant player's input buffer at index `tick % INPUT_BUFFER_LENGTH`. Each tick, update the physics simulation, using the relevant input for each player, if available. The client always sends a `PlayerInput`, even if it's just to say there's no input. If no `PlayerInput` has been received yet from some client for the tick being processed, use the most recent earlier input received from that client.
 
-- Default to assuming no movement or firing after a few ticks to avoid anomalous behavior in the event of a large delay? Safety Cap: Repeat the last input, but only for a specific duration (e.g., 10-20 ticks). If no new input arrives after that window, then zero out the input to prevent a disconnected player from auto-running off a cliff.
+Be sure to check that the tick id at the relevant index is correct in case no input for that client has been received yet and the array contains old data at that index. This is necessary in any case, but, as an added protection, replace processed inputs with `None` and store the last processed input in a separate variable in case we need to use it later as a guess for a missing value.
+
+Safety cap: if no new input has arrived in the last 0.5s (30 ticks), then set the most recent to `None` to prevent a disconnected player from moving indefinitely.
 
 At the broadcast frequency, broadcast the resulting game state, including positions of all players and bullets, and orientations of players, to all clients on an `Unreliable` Renet channel, tagged with the current tick number. More seriously consequential game events--in this case, just player death--are sent on a `ReliableOrdered` Renet channel. Everything else can go on the `Unreliable` channel. Even nonlethal hits can go on the `Unreliable` state channel; the health bar will adjust to the correct value when the update comes.
 
@@ -40,7 +40,7 @@ NOTE: Send current health rather than "player took X amount of damge". And, in g
 
 TODO: Extract magic numbers (0.1, 0.3, 0.5, 0.002) into named constants.
 
-Each iteration of its game loop, updates the client's estimate of the server clock, thus:
+Each iteration of its game loop, update the client's estimate of the server clock, thus:
 
 ```rust
 use std::time::Duration;
@@ -106,7 +106,7 @@ pub fn update_clock(
 
 Use that estimate to calculate a server tick number.
 
-Checks for inputs and insert them as a `PlayerInput` (storing all current keypresses along with the server tick number) to an array of size 256 or 512. This will be the client's history buffer. Check for messages from the server. If the server has sent an authoritative snapshot of the game state, set this as the new baseline by updating a variable that will track the index of the most recent baseline. Either way, reconcile the client's game state to that of the baseline, then--before rendering anything, purely in the client's physics simulation--replay its inputs for subsequent ticks from the baseline to the most recent input ('prediction'). Finally, renders the result, smoothing the transition from current position to the new estimate.
+Check for inputs and insert them as a `PlayerInput` (containing all current keypresses along with the server tick number) to an array, `history_buffer`, of size 256. Check for messages from the server. If the server has sent an authoritative snapshot of the game state, set this as the new baseline by updating a variable that will track the index of the most recent baseline. Either way, reconcile the client's game state to that of the baseline, then--before rendering anything, purely in the client's physics simulation--replay its inputs for subsequent ticks from the baseline to the most recent input ('prediction'). Finally, renders the result, smoothing the transition from current position to the new estimate.
 
 Check for new inputs and send the most recent handful of inputs to the server on an `Unreliable` Renet channel. This redundancy increases the chance that the server will have inputs available for each tick it processes and not have to guess.
 
@@ -117,21 +117,21 @@ Here is more detail on the client's time coordination logic, using the idea of a
 ```rust
 // --- CONSTANTS ---
 const SERVER_TICK_RATE: f64 = 60.0;
-const IDEAL_TICK_DURATION_SECS: f64 = 1.0 / SERVER_TICK_RATE;
+const TICK_DURATION_IDEAL: f64 = 1.0 / SERVER_TICK_RATE;
 // Three ticks (50ms) is probably a safe starting buffer.
 // If inputs arrive late on the server, increase this.
-const JITTER_BUFFER_SECS: f64 = 0.050;
+const JITTER_SAFETY_MARGIN: f64 = 0.050;
 
 // --- THE LOOP ---
 
 // 1. MEASURE REAL TIME
 let raw_delta_time = macroquad::time::get_frame_time(); // Consider using std::time.
-let actual_tick_duration = std::time::Duration::from_secs_f64(raw_delta_time);
+let tick_duration_actual = std::time::Duration::from_secs_f64(raw_delta_time);
 
 // 2. UPDATE BASELINES
 // A. Update the "radar" (client's estimate of current server time).
 // This keeps session.estimated_server_time aligned with the server's clock.
-update_clock(&mut session, &mut network, actual_tick_duration);
+update_clock(&mut session, &mut network, tick_duration_actual);
 
 // B. Update the "road conditions" (RTT).
 // We use asymmetric smoothing:
@@ -147,7 +147,7 @@ session.smoothed_rtt = session.smoothed_rtt * (1.0 - rtt_alpha) + current_rtt * 
 // 3. CALCULATE TARGET TIME
 // Target = "What time is it now" + "Travel Time" + "Safety Margin".
 let travel_time = session.smoothed_rtt / 2.0;
-let target_sim_time = session.estimated_server_time + travel_time + JITTER_BUFFER_SECS;
+let target_sim_time = session.estimated_server_time + travel_time + JITTER_SAFETY_MARGIN;
 
 // 4. CALCULATE ERROR
 // "Where we should be" minus "Where we are".
@@ -176,7 +176,7 @@ let adjustment = if error.abs() > 0.25 {
 session.accumulator += raw_delta_time + adjustment;
 
 // 7. PHYSICS LOOP (FIXED STEP) * -- but see SPIRAL OF DEATH below.
-while session.accumulator >= IDEAL_TICK_DURATION_SECS {
+while session.accumulator >= TICK_DURATION_IDEAL {
     // A. Process Inputs (insert into buffer, send to server).
     process_input(session.current_tick);
 
@@ -184,15 +184,15 @@ while session.accumulator >= IDEAL_TICK_DURATION_SECS {
     perform_tick(session.current_tick);
 
     // C. Advance State.
-    session.accumulator -= IDEAL_TICK_DURATION_SECS;
+    session.accumulator -= TICK_DURATION_IDEAL;
     session.current_tick += 1;
 
     // Track our time using the fixed step to stay perfectly in sync with ticks.
-    session.simulated_time += IDEAL_TICK_DURATION_SECS;
+    session.simulated_time += TICK_DURATION_IDEAL;
 }
 
 // 8. RENDER INTERPOLATION
-let alpha = session.accumulator / IDEAL_TICK_DURATION_SECS;
+let alpha = session.accumulator / TICK_DURATION_IDEAL;
 render(alpha);
 
 macroquad::window::next_frame().await;
@@ -206,7 +206,7 @@ async fn client_tick() {
     update_clock();
 
     // 2. HANDLE CRITICAL EVENTS (before simulation).
-    process_reliable_messages();  // Just deaths.
+    process_reliable_messages();  // Only deaths.
 
     // 3. RECONCILE WITH SERVER (only if alive).
     if session.is_alive {
@@ -231,7 +231,7 @@ async fn client_tick() {
 
 Spiral of death:
 
-Risk: If perform_tick takes longer than IDEAL_TICK_DURATION_SECS (e.g., due to a lag spike or heavy OS load), the accumulator will grow faster than the loop can drain it. The game will hang as it tries to catch up effectively infinite frames.
+Risk: If perform_tick takes longer than TICK_DURATION_IDEAL_SECS (e.g., due to a lag spike or heavy OS load), the accumulator will grow faster than the loop can drain it. The game will hang as it tries to catch up effectively infinite frames.
 
 Fix: Clamp the maximum number of simulation steps per frame.
 
@@ -239,15 +239,15 @@ Fix: Clamp the maximum number of simulation steps per frame.
 const MAX_TICKS_PER_FRAME: u32 = 8;
 let mut ticks_processed = 0;
 
-while session.accumulator >= IDEAL_TICK_DURATION_SECS && ticks_processed < MAX_TICKS_PER_FRAME {
+while session.accumulator >= TICK_DURATION_IDEAL_SECS && ticks_processed < MAX_TICKS_PER_FRAME {
     // ... process ...
-    session.accumulator -= IDEAL_TICK_DURATION_SECS;
+    session.accumulator -= TICK_DURATION_IDEAL_SECS;
     ticks_processed += 1;
 }
 
-// If we hit the limit, discard the remaining accumulator to prevent spiral
+// If we hit the limit, discard the remaining accumulator to prevent spiral.
 if ticks_processed >= MAX_TICKS_PER_FRAME {
-    session.accumulator = 0.0; // Or keep a small remainder, but discard the bulk
+    session.accumulator = 0.0; // Or keep a small remainder, but discard the bulk.
     println!("Physics spiral detected: skipped ticks to catch up.");
 }
 ```
