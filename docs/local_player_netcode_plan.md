@@ -1,25 +1,34 @@
-# Plan for Local Player Netcode
+# Netcode Plan
 
-TODO: Extract magic numbers (0.1, 0.3, 0.5, 0.002) into named constants.
+## Terminology
 
-Choose a tick frequency, 60Hz (once every 16.7ms), and a broadcast frequency, e.g. 20Hz (once every 50ms).
+The word buffer appears below in two senses: (1) an array (input buffer), (2) a safety margin (jitter buffer).
 
-NOTE: The word buffer appears below in two senses: (1) an array (input buffer), (2) a safety margin (jitter buffer).
+## Preliminaries
+
+Choose a tick frequency, 60Hz (once every 16.7ms), and a broadcast frequency, e.g. 20Hz (once every 50.0ms).
 
 ## Server
+
+### Players
 
 Initialize an array as an input buffer for each player. The size should be a power of 2 that is larger than the maximum expected latency window, e.g., 128 (2s at 60Hz).
 
 We'll receive inputs from players as a sequence of `PlayerInput`s. Several inputs are sent per message for the sake of redundancy: to reduce the risk of missing inputs. Each `PlayerInput` will include a tick id number (`u64`). The tick id number with the input is not that of the tick on which the client sent it; rather it's the client's request for which tick it wants the server to processes it. The client calculates this number based on smoothed rtt and a safety margin ('jitter buffer'). The goal is to ensure that inputs from all clients are processed a similar amount of time after they were sent.
 
-Insert these inputs into the relevant player's input buffer at index `tick % buffer_size`. Each tick, update the physics simulation, using the relevant input for each player, if available. The client always sends a `PlayerInput`, even if that's just to say there's no input. If no `PlayerInput` has been received yet from some client for the tick being processed, use the most recent earlier input received from that client. Be sure to check that the tick id at the relevant index is correct in case no input for that client has been received yet and the array contains old data at that index.
+Insert these inputs into the relevant player's input buffer at index `tick % buffer_size`. Each tick, update the physics simulation, using the relevant input for each player, if available. The client always sends a `PlayerInput`, even if that's just to say there's no input. If no `PlayerInput` has been received yet from some client for the tick being processed, use the most recent earlier input received from that client. Use some variable to track the index of the most recent input for each player. Be sure to check that the tick id at the relevant index is correct in case no input for that client has been received yet and the array contains old data at that index.
 
-- How to find the most recent earlier input? We could scan backwards through the array, but what if there are gaps: then we might come to a very old input before reaching the most recent? We could track the index of the most recent in a variable.
 - Default to assuming no movement or firing after a few ticks to avoid anomalous behavior in the event of a large delay?
 
-At the broadcast frequency, broadcast the resulting game state, including positions of all players and bullets, and orientations of players, to all clients on an `Unreliable` Renet channel, tagged with the current tick number. More seriously consequential game events--in this case, just player death--are sent on a `ReliableOrdered` Renet channel. Everything else can go on the `Unreliable` channel. Even nonlethal hits can go on the `Unreliable` state channel; the health bar will adjust to the correct value when the update comes. (Note: send current health rather than "player took X amount of damge". In general, always sync the value not the delta on an `Unreliable` channel; the same goes for position, orientation, ammo, etc.)
+At the broadcast frequency, broadcast the resulting game state, including positions of all players and bullets, and orientations of players, to all clients on an `Unreliable` Renet channel, tagged with the current tick number. More seriously consequential game events--in this case, just player death--are sent on a `ReliableOrdered` Renet channel. Everything else can go on the `Unreliable` channel. Even nonlethal hits can go on the `Unreliable` state channel; the health bar will adjust to the correct value when the update comes.
+
+NOTE: Send current health rather than "player took X amount of damge". And, in general, always sync the value not the delta on an `Unreliable` channel; the same goes for position, orientation, ammo, etc.
 
 ## Client
+
+### Local Player
+
+TODO: Extract magic numbers (0.1, 0.3, 0.5, 0.002) into named constants.
 
 Each iteration of its game loop, updates the client's estimate of the server clock, thus:
 
@@ -87,9 +96,7 @@ pub fn update_clock(
 
 Use that estimate to calculate a server tick number.
 
-Checks for inputs and insert them as a `PlayerInput` (storing all current keypresses along with the server tick number) to an array of size 256. This will be the client's input buffer. Check for messages from the server. If the server has sent an authoritative snapshot of the game state, set this as the new baseline by updating a variable that will track the index of the most recent baseline. Either way, reconcile the client's game state to that of the baseline, then--before rendering anything, purely in the client's physics simulation--replay its inputs for subsequent ticks from the baseline to the most recent input ('prediction'). Finally, renders the result, smoothing the transition from current position to the new estimate.
-
-NOTE: Claude says we need to "halt prediction/input processing when critical state changes arrive, even mid-replay." Does this mean I should check for new messages not only once per tick, but at every iteration of the replay loop? When else?
+Checks for inputs and insert them as a `PlayerInput` (storing all current keypresses along with the server tick number) to an array of size 256 or 512. This will be the client's input buffer. Check for messages from the server. If the server has sent an authoritative snapshot of the game state, set this as the new baseline by updating a variable that will track the index of the most recent baseline. Either way, reconcile the client's game state to that of the baseline, then--before rendering anything, purely in the client's physics simulation--replay its inputs for subsequent ticks from the baseline to the most recent input ('prediction'). Finally, renders the result, smoothing the transition from current position to the new estimate.
 
 Check for new inputs and send the most recent few (e.g. 4) inputs to the server on an `Unreliable` Renet channel. This redundancy increases the chance that the server will have inputs available for each tick it processes and not have to guess.
 
