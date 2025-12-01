@@ -36,8 +36,6 @@ NOTE: Send current health rather than "player took X amount of damge". And, in g
 
 ## Client
 
-### Local Player
-
 TODO: Extract magic numbers (0.1, 0.3, 0.5, 0.002) into named constants.
 
 Each iteration of its game loop, update the client's estimate of the server clock, thus:
