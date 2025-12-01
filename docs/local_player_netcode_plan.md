@@ -1,18 +1,25 @@
 # Plan for Local Player Netcode
 
-We choose a tick frequency, 60Hz.
+Choose a tick frequency, 60Hz (once every 16.7ms), and a broadcast frequency, e.g. 20Hz (once every 50ms).
+
+- Is it still worth using `VecDeque`s rather than arrays for the input buffers, even with pre-allocation, for the convenience of being able to rotate them? Otherwise, I'll need my own logic to iterate across the start or end, won't I?
 
 ## Server
 
-The server pre-allocates a `VecDeque<Option<PlayerInput>>` as an input buffer for each player. The size should be a power of 2 that is larger than the maximum expected latency window (e.g., 128 or 256). When a message arrives, discard if its tick has already been processed, i.e. `if input_tick < server_current_tick`. Otherwise calculate its index as `index = tick % buffer_size` and insert it into the correct player's buffer.
+Initialize an array as an input buffer for each player. The size should be a power of 2 that is larger than the maximum expected latency window, e.g., 128 (2s at 60Hz).
 
-The server receives inputs from players a `PlayerInput`, which includes player id and a tick number, which each client calculates, and which will correspond to the tick on which the server processes it. The stores them in the relevant player's input buffer. Each iteration of its game loop, i.e. each tick, the server processes inputs for each player, if available, for the server's own current tick. The client always sends a `PlayerInput`, even if that's just to say there's no input. If no `PlayerInput` has been received yet from some client for the tick being processed, the server guesses, using the most recent earlier input it received from that client. After processing the inputs, the server extracts and stores the input it has just processed from each player, so that it can use a client's input again on the next tick if no input for that next tick has been received from them. Finally, it prunes the `VecDeque` of any inputs from ticks earlier than the one that's just been processed.
+We'll receive inputs from players as a sequence of `PlayerInput`s. Several inputs are sent per message for the sake of redundancy: to reduce the risk of missing inputs. Each `PlayerInput` will include a tick id number. The tick id number with the input is not that of the tick on which the client sent it; rather it's the client's request for which tick it wants the server to processes it. The client calculates this number based on smoothed rtt and a safety margin ('jitter buffer'). The goal is to ensure that inputs from all clients are processed a similar amount of time after they were sent.
 
-The server broadcasts the resulting game state, including positions of all players and bullets, and orientations of players, to all clients on an `Unreliable` Renet channel, tagged with the number of the tick that was processed. More seriously consequential game events--in this case, just player death--are sent on a `ReliableOrdered` Renet channel. Everything else can go on the `Unreliable` channel. Even nonlethal hits can go on the `Unreliable` state channel; the health bar will just just to the correct value when the update comes. Note: send current health rather than "player took X amount of damge". In general, always sync the value not the delta on an `Unreliable` channel; the same goes for position, orientation, ammo, etc.
+Insert these inputs into the relevant player's input buffer at index `tick % buffer_size`. Each tick, update the physics simulation, using the relevant input for each player, if available. The client always sends a `PlayerInput`, even if that's just to say there's no input. If no `PlayerInput` has been received yet from some client for the tick being processed, use the most recent earlier input received from that client. Be sure to check that the tick id at the relevant index is correct in case no input for that client has been received yet and the array contains old data at that index.
+
+- How to find the most recent earlier input? We could scan backwards through the array, but what if there are gaps: then we might come to a very old input before reaching the most recent? We could track the index of the most recent in a variable.
+- Default to assuming no movement or firing after a few ticks to avoid anomalous behavior in the event of a large delay?
+
+At the broadcast frequency, broadcast the resulting game state, including positions of all players and bullets, and orientations of players, to all clients on an `Unreliable` Renet channel, tagged with the current tick number. More seriously consequential game events--in this case, just player death--are sent on a `ReliableOrdered` Renet channel. Everything else can go on the `Unreliable` channel. Even nonlethal hits can go on the `Unreliable` state channel; the health bar will adjust to the correct value when the update comes. (Note: send current health rather than "player took X amount of damge". In general, always sync the value not the delta on an `Unreliable` channel; the same goes for position, orientation, ammo, etc.)
 
 ## Client
 
-Each iteration of its game loop, the client updates its estimate of the server clock.
+Each iteration of its game loop, updates the client's estimate of the server clock, thus:
 
 ```rust
 use std::time::Duration;
@@ -75,17 +82,15 @@ pub fn update_clock(
 
 ```
 
-It then uses that estimate to calculate a tick number.
+Use that estimate to calculate a server tick number.
 
-It checks for inputs and pushes them as a `PlayerInput` (storing all current keypresses along with the tick number) to a `VecDeque` called `input_buffer`. It checks for messages from the server. The server should have sent an authoritative snapshot of the game state. This the client treats as its new baseline. First the client discards any inputs from ticks earlier than that of the baseline. Then sets its game state equal to the baseline ('reconciliation'), then--before rendering anything, purely in its physics simulation--replays its inputs for subsequent ticks from the baseline to the most recent input ('prediction'). Finally, it renders the result. (A refinement would be to smooth the transition from current position to the new estimate, but this is good enough for now.)
+Checks for inputs and insert them as a `PlayerInput` (storing all current keypresses along with the server tick number) to an array of size 256. This will be the client's input buffer. Check for messages from the server. If the server has sent an authoritative snapshot of the game state, set this as the new baseline by updating a variable that will track the index of the most recent baseline. Either way, reconcile the client's game state to that of the baseline, then--before rendering anything, purely in the client's physics simulation--replay its inputs for subsequent ticks from the baseline to the most recent input ('prediction'). Finally, renders the result, smoothing the transition from current position to the new estimate.
 
-The client checks for new inputs and sends the most recent 4 inputs to the server on an `Unreliable` Renet channel. This redundancy increases the chance that the server will have inputs available for each tick it processes and not have to guess.
+Check for new inputs and send the most recent few (e.g. 4) inputs to the server on an `Unreliable` Renet channel. This redundancy increases the chance that the server will have inputs available for each tick it processes and not have to guess.
 
-Note: To be consistent with the server, ensure the physics update uses a fixed timestep (e.g., 1.0/60.0) and not `macroquad::time::get_frame_time()`.
+(To be consistent with the server, ensure the physics update uses a fixed timestep (e.g., 1.0/60.0) and not `macroquad::time::get_frame_time()`.)
 
-Here is more detail on the client's time coordination logic, using the idea of a dynamic lead. Combining NTP (Network Time Protocol), defined by the clock estimate, with a clamped nudge, turns the game loop into what's known as a Control System (specifically a Proportional Controller with Saturation).
-
-We combine NTP with with dynamic nudge and spike handling:
+Here is more detail on the client's time coordination logic, using the idea of a dynamic lead. Combining NTP (Network Time Protocol), defined by the clock estimate, with a clamped nudge, turns the game loop into what's known as a Control System (specifically a Proportional Controller with Saturation). We combine NTP with with dynamic nudge and spike handling.
 
 ```rust
 // --- CONSTANTS ---
