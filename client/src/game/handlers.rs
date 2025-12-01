@@ -16,13 +16,7 @@ pub fn handle(session: &mut ClientSession, assets: &Assets) -> Option<ClientStat
     let yaw: f32 = 0.0;
     let pitch: f32 = 0.1;
 
-    let position = game_state
-        .players
-        .iter()
-        .find(|p| p.client_id == session.client_id)
-        .expect("player should have a position")
-        .state
-        .position;
+    let position = game_state.players[session.player_index].state.position;
 
     set_camera(&Camera3D {
         position,

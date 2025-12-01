@@ -12,6 +12,7 @@ pub struct ClientSession {
     pub state: ClientState,
     pub estimated_server_time: f64,
     pub input_queue: Vec<String>,
+    pub player_index: usize,
     waiting_since: Option<Instant>,
     waiting_message_shown: bool,
 }
@@ -26,6 +27,7 @@ impl ClientSession {
             }),
             estimated_server_time: 0.0,
             input_queue: Vec::new(),
+            player_index: 0,
             waiting_since: None,
             waiting_message_shown: false,
         }

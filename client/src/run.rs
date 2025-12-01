@@ -134,6 +134,15 @@ impl ClientRunner {
             ClientState::Lobby(Lobby::Countdown { maze, players, .. }) => {
                 self.session
                     .transition(ClientState::Game(game::state::Game::new(maze, players)));
+
+                if let ClientState::Game(game) = self.session.state() {
+                    self.session.player_index = game
+                        .players
+                        .iter()
+                        .position(|p| p.client_id == self.session.client_id)
+                        .expect("current player should be in game players list");
+                }
+
                 Ok(())
             }
             other => {
