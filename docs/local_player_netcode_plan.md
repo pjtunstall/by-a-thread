@@ -26,9 +26,9 @@ Initialize an array as an input buffer for each player. The size should be a pow
 
 We'll receive inputs from players as a sequence of `PlayerInput`s. Several inputs are sent per message for the sake of redundancy: to reduce the risk of missing inputs. Each `PlayerInput` will include a tick id number (`u64`). The tick id number with the input is not that of the tick on which the client sent it; rather it's the client's request for which tick it wants the server to processes it. The client calculates this number based on smoothed rtt and a safety margin ('jitter buffer'). The goal is to ensure that inputs from all clients are processed a similar amount of time after they were sent.
 
-Insert these inputs into the relevant player's input buffer at index `tick % INPUT_BUFFER_LENGTH`. Each tick, update the physics simulation, using the relevant input for each player, if available. The client always sends a `PlayerInput`, even if that's just to say there's no input. If no `PlayerInput` has been received yet from some client for the tick being processed, use the most recent earlier input received from that client. Use some variable to track the index of the most recent input for each player. Be sure to check that the tick id at the relevant index is correct in case no input for that client has been received yet and the array contains old data at that index.
+Insert these inputs into the relevant player's input buffer at index `tick % INPUT_BUFFER_LENGTH`. Each tick, update the physics simulation, using the relevant input for each player, if available. The client always sends a `PlayerInput`, even if that's just to say there's no input. If no `PlayerInput` has been received yet from some client for the tick being processed, use the most recent earlier input received from that client. Use some variable to track the index of the most recent input for each player. Be sure to check that the tick id at the relevant index is correct in case no input for that client has been received yet and the array contains old data at that index. (Actually, replace processed inputs with `None` and store separately as most recently processed values in case we need to use them later as a guess for a missing value. Consider safety _versus_ performance.)
 
-- Default to assuming no movement or firing after a few ticks to avoid anomalous behavior in the event of a large delay?
+- Default to assuming no movement or firing after a few ticks to avoid anomalous behavior in the event of a large delay? Safety Cap: Repeat the last input, but only for a specific duration (e.g., 10-20 ticks). If no new input arrives after that window, then zero out the input to prevent a disconnected player from auto-running off a cliff.
 
 At the broadcast frequency, broadcast the resulting game state, including positions of all players and bullets, and orientations of players, to all clients on an `Unreliable` Renet channel, tagged with the current tick number. More seriously consequential game events--in this case, just player death--are sent on a `ReliableOrdered` Renet channel. Everything else can go on the `Unreliable` channel. Even nonlethal hits can go on the `Unreliable` state channel; the health bar will adjust to the correct value when the update comes.
 
@@ -175,7 +175,7 @@ let adjustment = if error.abs() > 0.25 {
 // If we are ahead, adjustment is negative (simulation runs slower).
 session.accumulator += raw_delta_time + adjustment;
 
-// 7. PHYSICS LOOP (FIXED STEP)
+// 7. PHYSICS LOOP (FIXED STEP) * -- but see SPIRAL OF DEATH below.
 while session.accumulator >= IDEAL_TICK_DURATION_SECS {
     // A. Process Inputs (insert into buffer, send to server).
     process_input(session.current_tick);
@@ -226,5 +226,28 @@ async fn client_tick() {
 
     // 5. RENDER
     render();
+}
+```
+
+Spiral of death:
+
+Risk: If perform_tick takes longer than IDEAL_TICK_DURATION_SECS (e.g., due to a lag spike or heavy OS load), the accumulator will grow faster than the loop can drain it. The game will hang as it tries to catch up effectively infinite frames.
+
+Fix: Clamp the maximum number of simulation steps per frame.
+
+```rust
+const MAX_TICKS_PER_FRAME: u32 = 8;
+let mut ticks_processed = 0;
+
+while session.accumulator >= IDEAL_TICK_DURATION_SECS && ticks_processed < MAX_TICKS_PER_FRAME {
+    // ... process ...
+    session.accumulator -= IDEAL_TICK_DURATION_SECS;
+    ticks_processed += 1;
+}
+
+// If we hit the limit, discard the remaining accumulator to prevent spiral
+if ticks_processed >= MAX_TICKS_PER_FRAME {
+    session.accumulator = 0.0; // Or keep a small remainder, but discard the bulk
+    println!("Physics spiral detected: skipped ticks to catch up.");
 }
 ```
