@@ -55,7 +55,7 @@ pub fn update_clock(
     interval: Duration,
 ) {
     // Increment by interval. This determines the simulation rate.
-    session.estimated_server_time += interval.as_secs_f64();
+    session.estimated_server_time += interval.as_f64();
 
     // Get time messages that the server sent for us to sync our clock.
     // Only process the most recent message, discard older queued ones.
@@ -124,7 +124,7 @@ const JITTER_SAFETY_MARGIN: f64 = 0.050;
 
 // 1. MEASURE REAL TIME
 let raw_delta_time = macroquad::time::get_frame_time(); // Consider using std::time.
-let tick_duration_actual = std::time::Duration::from_secs_f64(raw_delta_time);
+let tick_duration_actual = std::time::Duration::from_f64(raw_delta_time);
 
 // 2. UPDATE BASELINES
 // A. Update the "radar" (client's estimate of current server time).
@@ -229,7 +229,7 @@ async fn client_tick() {
 
 Spiral of death:
 
-Risk: If perform_tick takes longer than TICK_DURATION_IDEAL_SECS (e.g., due to a lag spike or heavy OS load), the accumulator will grow faster than the loop can drain it. The game will hang as it tries to catch up effectively infinite frames.
+Risk: If perform_tick takes longer than TICK_DURATION_IDEAL (e.g., due to a lag spike or heavy OS load), the accumulator will grow faster than the loop can drain it. The game will hang as it tries to catch up effectively infinite frames.
 
 Fix: Clamp the maximum number of simulation steps per frame.
 
@@ -237,9 +237,9 @@ Fix: Clamp the maximum number of simulation steps per frame.
 const MAX_TICKS_PER_FRAME: u32 = 8;
 let mut ticks_processed = 0;
 
-while session.accumulator >= TICK_DURATION_IDEAL_SECS && ticks_processed < MAX_TICKS_PER_FRAME {
+while session.accumulator >= TICK_DURATION_IDEAL && ticks_processed < MAX_TICKS_PER_FRAME {
     // ... process ...
-    session.accumulator -= TICK_DURATION_IDEAL_SECS;
+    session.accumulator -= TICK_DURATION_IDEAL;
     ticks_processed += 1;
 }
 
