@@ -1,5 +1,4 @@
 use std::time::{Duration, Instant};
-use std::collections::HashMap;
 
 use bincode::{
     config::standard,
@@ -73,7 +72,7 @@ pub fn handle(
 
                     let mut spaces_remaining = maze.spaces.clone();
                     let mut player_count: usize = 0;
-                    let players: HashMap<u64, Player> = state
+                    let players: Vec<Player> = state
                         .lobby
                         .usernames
                         .clone()
@@ -93,7 +92,7 @@ pub fn handle(
                             );
                             player_count += 1;
                             println!("{:#}", player);
-                            (client_id, player)
+                            player
                         })
                         .collect();
 

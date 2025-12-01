@@ -86,7 +86,7 @@ impl ChoosingDifficulty {
 #[derive(Clone)]
 pub struct Countdown {
     pub usernames: HashMap<u64, String>,
-    pub players: HashMap<u64, Player>,
+    pub players: Vec<Player>,
     pub host_id: Option<u64>,
     pub end_time: Instant,
     pub maze: maze::Maze,
@@ -95,7 +95,7 @@ pub struct Countdown {
 impl Countdown {
     pub fn new(
         state: &ChoosingDifficulty,
-        players: HashMap<u64, Player>,
+        players: Vec<Player>,
         end_time: Instant,
         maze: maze::Maze,
     ) -> Self {
@@ -124,30 +124,30 @@ impl Countdown {
                 client_id
             );
         }
-        self.players.remove(&client_id);
+        self.players.retain(|p| p.client_id != client_id);
 
         let host_was_removed = self.host_id == Some(client_id);
         let no_host = self.host_id.is_none();
         if self.players.is_empty() {
             self.host_id = None;
         } else if host_was_removed || no_host {
-            if let Some((&new_host_id, _)) = self.players.iter().next() {
-                self.host_id = Some(new_host_id);
-                notify_new_host(network, new_host_id);
-                println!("Host reassigned to client {}", new_host_id);
+            if let Some(new_host) = self.players.first() {
+                self.host_id = Some(new_host.client_id);
+                notify_new_host(network, new_host.client_id);
+                println!("Host reassigned to client {}", new_host.client_id);
             }
         }
     }
 }
 
 pub struct Game {
-    pub players: HashMap<u64, Player>,
+    pub players: Vec<Player>,
     pub maze: maze::Maze,
     pub host_id: Option<u64>,
 }
 
 impl Game {
-    pub fn new(players: HashMap<u64, Player>, maze: maze::Maze, host_id: Option<u64>) -> Self {
+    pub fn new(players: Vec<Player>, maze: maze::Maze, host_id: Option<u64>) -> Self {
         Self {
             players,
             maze,
@@ -156,7 +156,7 @@ impl Game {
     }
 
     pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
-        if let Some(player) = self.players.remove(&client_id) {
+        if let Some(player) = self.players.iter().find(|p| p.client_id == client_id).cloned() {
             let username = player.name;
             println!(
                 "Client {} ({}) disconnected during game.",
@@ -167,16 +167,17 @@ impl Game {
                 encode_to_vec(&message, standard()).expect("failed to serialize UserLeft");
             network.broadcast_message(AppChannel::ReliableOrdered, payload);
         }
+        self.players.retain(|p| p.client_id != client_id);
 
         let host_was_removed = self.host_id == Some(client_id);
         let no_host = self.host_id.is_none();
         if self.players.is_empty() {
             self.host_id = None;
         } else if host_was_removed || no_host {
-            if let Some((&new_host_id, _)) = self.players.iter().next() {
-                self.host_id = Some(new_host_id);
-                notify_new_host(network, new_host_id);
-                println!("Host reassigned to client {}", new_host_id);
+            if let Some(new_host) = self.players.first() {
+                self.host_id = Some(new_host.client_id);
+                notify_new_host(network, new_host.client_id);
+                println!("Host reassigned to client {}", new_host.client_id);
             }
         }
     }
@@ -504,22 +505,22 @@ mod tests {
 
         let mut countdown = Countdown {
             usernames: HashMap::from([(1, "Alice".to_string()), (2, "Bob".to_string())]),
-            players: HashMap::from([
-                (1, Player::new(
+            players: vec![
+                Player::new(
                     0,
                     1,
                     "Alice".to_string(),
                     Vec3::ZERO,
                     shared::player::Color::RED,
-                )),
-                (2, Player::new(
+                ),
+                Player::new(
                     1,
                     2,
                     "Bob".to_string(),
                     Vec3::ZERO,
                     shared::player::Color::BLUE,
-                )),
-            ]),
+                ),
+            ],
             host_id: Some(1),
             end_time: Instant::now(),
             maze: maze::Maze::new(maze::Algorithm::Backtrack),
@@ -547,22 +548,22 @@ mod tests {
         network.add_client(20);
 
         let mut game = Game {
-            players: HashMap::from([
-                (10, Player::new(
+            players: vec![
+                Player::new(
                     0,
                     10,
                     "Alice".to_string(),
                     Vec3::ZERO,
                     shared::player::Color::RED,
-                )),
-                (20, Player::new(
+                ),
+                Player::new(
                     1,
                     20,
                     "Bob".to_string(),
                     Vec3::ZERO,
                     shared::player::Color::BLUE,
-                )),
-            ]),
+                ),
+            ],
             maze: maze::Maze::new(maze::Algorithm::Backtrack),
             host_id: Some(10),
         };

@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
 
 use crate::{maze::Maze, player::Player};
@@ -10,7 +8,7 @@ pub enum ServerMessage {
     CountdownStarted {
         end_time: f64,
         maze: Maze,
-        players: HashMap<u64, Player>,
+        players: Vec<Player>,
     },
     Welcome {
         username: String,

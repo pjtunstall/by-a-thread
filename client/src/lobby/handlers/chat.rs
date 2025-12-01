@@ -41,7 +41,7 @@ pub fn handle(
                 return Some(ClientState::Lobby(Lobby::Countdown {
                     end_time,
                     maze,
-                    players: players.into_values().collect(),
+                    players,
                 }));
             }
             Ok((ServerMessage::BeginDifficultySelection, _)) => {
