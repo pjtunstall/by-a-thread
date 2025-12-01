@@ -156,7 +156,12 @@ impl Game {
     }
 
     pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
-        if let Some(player) = self.players.iter().find(|p| p.client_id == client_id).cloned() {
+        if let Some(player) = self
+            .players
+            .iter()
+            .find(|p| p.client_id == client_id)
+            .cloned()
+        {
             let username = player.name;
             println!(
                 "Client {} ({}) disconnected during game.",
