@@ -1,14 +1,16 @@
 # Plan for Local Player Netcode
 
+TODO: Extract magic numbers (0.1, 0.3, 0.5, 0.002) into named constants.
+
 Choose a tick frequency, 60Hz (once every 16.7ms), and a broadcast frequency, e.g. 20Hz (once every 50ms).
 
-- Is it still worth using `VecDeque`s rather than arrays for the input buffers, even with pre-allocation, for the convenience of being able to rotate them? Otherwise, I'll need my own logic to iterate across the start or end, won't I?
+NOTE: The word buffer appears below in two senses: (1) an array (input buffer), (2) a safety margin (jitter buffer).
 
 ## Server
 
 Initialize an array as an input buffer for each player. The size should be a power of 2 that is larger than the maximum expected latency window, e.g., 128 (2s at 60Hz).
 
-We'll receive inputs from players as a sequence of `PlayerInput`s. Several inputs are sent per message for the sake of redundancy: to reduce the risk of missing inputs. Each `PlayerInput` will include a tick id number. The tick id number with the input is not that of the tick on which the client sent it; rather it's the client's request for which tick it wants the server to processes it. The client calculates this number based on smoothed rtt and a safety margin ('jitter buffer'). The goal is to ensure that inputs from all clients are processed a similar amount of time after they were sent.
+We'll receive inputs from players as a sequence of `PlayerInput`s. Several inputs are sent per message for the sake of redundancy: to reduce the risk of missing inputs. Each `PlayerInput` will include a tick id number (`u64`). The tick id number with the input is not that of the tick on which the client sent it; rather it's the client's request for which tick it wants the server to processes it. The client calculates this number based on smoothed rtt and a safety margin ('jitter buffer'). The goal is to ensure that inputs from all clients are processed a similar amount of time after they were sent.
 
 Insert these inputs into the relevant player's input buffer at index `tick % buffer_size`. Each tick, update the physics simulation, using the relevant input for each player, if available. The client always sends a `PlayerInput`, even if that's just to say there's no input. If no `PlayerInput` has been received yet from some client for the tick being processed, use the most recent earlier input received from that client. Be sure to check that the tick id at the relevant index is correct in case no input for that client has been received yet and the array contains old data at that index.
 
@@ -56,6 +58,7 @@ pub fn update_clock(
             // Reject obviously bad samples (e.g., network spikes).
             const MAX_REASONABLE_RTT: f64 = 1.0; // 1 second.
             if rtt > MAX_REASONABLE_RTT {
+                println!("Excessive rtt observed while updating clock: {}", rtt);
                 return;
             }
 
@@ -86,9 +89,11 @@ Use that estimate to calculate a server tick number.
 
 Checks for inputs and insert them as a `PlayerInput` (storing all current keypresses along with the server tick number) to an array of size 256. This will be the client's input buffer. Check for messages from the server. If the server has sent an authoritative snapshot of the game state, set this as the new baseline by updating a variable that will track the index of the most recent baseline. Either way, reconcile the client's game state to that of the baseline, then--before rendering anything, purely in the client's physics simulation--replay its inputs for subsequent ticks from the baseline to the most recent input ('prediction'). Finally, renders the result, smoothing the transition from current position to the new estimate.
 
+NOTE: Claude says we need to "halt prediction/input processing when critical state changes arrive, even mid-replay." Does this mean I should check for new messages not only once per tick, but at every iteration of the replay loop? When else?
+
 Check for new inputs and send the most recent few (e.g. 4) inputs to the server on an `Unreliable` Renet channel. This redundancy increases the chance that the server will have inputs available for each tick it processes and not have to guess.
 
-(To be consistent with the server, ensure the physics update uses a fixed timestep (e.g., 1.0/60.0) and not `macroquad::time::get_frame_time()`.)
+NOTE: To be consistent with the server, ensure the physics update uses a fixed timestep (e.g., 1.0/60.0) and not `macroquad::time::get_frame_time()`.
 
 Here is more detail on the client's time coordination logic, using the idea of a dynamic lead. Combining NTP (Network Time Protocol), defined by the clock estimate, with a clamped nudge, turns the game loop into what's known as a Control System (specifically a Proportional Controller with Saturation). We combine NTP with with dynamic nudge and spike handling.
 
@@ -115,7 +120,7 @@ update_clock(&mut session, &mut network, actual_tick_duration);
 // We use asymmetric smoothing:
 // - If RTT goes UP (lag spike), we adapt QUICKLY (0.1) to prevent input starvation.
 // - If RTT goes DOWN (improvement), we adapt SLOWLY (0.01) to keep simulation stable.
-let current_rtt = network.rtt().clamp(0.0, 1.0); // Discard excessively long rtt.
+let current_rtt = network.rtt().clamp(0.0, 1.0); // Discard excessively long rtt. (Log this!)
 let rtt_alpha = if current_rtt > session.smoothed_rtt { 0.1 } else { 0.01 };
 
 // Simple linear interpolation.
@@ -155,7 +160,7 @@ session.accumulator += raw_delta_time + adjustment;
 
 // 7. PHYSICS LOOP (FIXED STEP)
 while session.accumulator >= IDEAL_TICK_DURATION {
-    // A. Process Inputs (Push to buffer, send to server).
+    // A. Process Inputs (insert into buffer, send to server).
     process_input(session.current_tick);
 
     // B. Run Physics Prediction.
@@ -174,4 +179,35 @@ let alpha = session.accumulator / IDEAL_TICK_DURATION;
 render(alpha);
 
 macroquad::window::next_frame().await;
+```
+
+Check for reliable messages before unreliable. That will allow us to set local player status to dead before attempting reconciliation or other logic.
+
+```rust
+async fn client_tick() {
+    // 1. UPDATE TIME (NTP-style)
+    update_clock();
+
+    // 2. HANDLE CRITICAL EVENTS (before simulation).
+    process_reliable_messages();  // Just deaths.
+
+    // 3. RECONCILE WITH SERVER (only if alive).
+    if session.is_alive {
+        if let Some(snapshot) = get_latest_snapshot() {
+            reconcile_and_replay(snapshot);
+        }
+    }
+
+    // 4. PROCESS NEW INPUT (only if alive).
+    if session.is_alive {
+        process_current_input();
+        send_inputs_to_server();
+    } else {
+        // Handle death state.
+        handle_death_state();
+    }
+
+    // 5. RENDER
+    render();
+}
 ```
