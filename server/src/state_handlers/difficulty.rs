@@ -80,9 +80,9 @@ pub fn handle(
                         .into_iter()
                         .map(|(id, username)| {
                             let space_index = random_range(0..spaces_remaining.len());
-                            let (y, x) = spaces_remaining.remove(space_index);
+                            let (z, x) = spaces_remaining.remove(space_index);
                             let start_position = maze
-                                .position_from_grid_coordinates(player::HEIGHT, y, x)
+                                .position_from_grid_coordinates(player::HEIGHT, z, x)
                                 .expect("failed to get start position from maze");
                             let player = Player::new(
                                 id,

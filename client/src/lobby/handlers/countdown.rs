@@ -72,7 +72,7 @@ pub fn handle(
 
     // We return None here.
     // If the time reaches 0, run.rs detects it and performs the
-    // Zero-Copy swap via TransitionAction::StartGame.
+    // zero-copy swap via TransitionAction::StartGame.
     None
 }
 

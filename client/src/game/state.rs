@@ -12,6 +12,10 @@ pub struct Game {
 }
 
 impl Game {
+    pub fn new(maze: Maze, players: HashMap<u64, Player>) -> Self {
+        Self { maze, players }
+    }
+
     pub fn draw(&self, texture: &Texture2D) {
         self.maze.draw(texture);
     }

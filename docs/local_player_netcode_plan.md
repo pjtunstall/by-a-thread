@@ -4,17 +4,19 @@
 
 NOTE: Client tick, server tick, and frame are conceptually distinct, but happen to have the same duration in this case. All three loops run at 60Hz. On the other hand, the server will broadcast at only 20Hz to reduce bandwidth.
 
-- baseline, of a client: the most recent **snapshot** received from the server.
+- baseline: the most recent **snapshot** a client has received from the server.
 - frame: one iteration of the client render loop, i.e. one instance of painting a scene. See also **tick**.
-- `input_history: [Option<PlayerInput>: 256]`: an array the client uses to store their own inputs to be replayed on top of the current baseline state, i.e. the latest snapshot received from the server, in a process known as reconciliation and prediction.
 - `input_buffer: [Option<PlayerInput>: 128]`: an array the server uses to store inputs as they're received from a player. The server has one for each player and inserts newly received inputs at index `tick % 128`.
+- `input_history: [Option<PlayerInput>: 256]`: an array the client uses to store their own inputs to be replayed on top of the current baseline state, i.e. the latest snapshot received from the server, in a process known as reconciliation and prediction.
 - `JITTER_SAFETY_MARGIN: f64`: a safety margin of 50ms (about 3 ticks) to give player inputs more chance to arrive at the server in case of occasional delays.
-- snapshot: the complete game state on a given tick, as calculated by the server, and broadcast to clients.
+- prediction: a process whereby the client replays inputs from its `input_history` for the ticks from immediately after its **baseline** state up to (and including) its most recent input.
+- reconciliation: a process whereby the client sets the current state of its physics simulation to the latest **snapshot** (state received from the server); see also **baseline**. The client immediately replays its inputs for subsequent ticks on top of this till it reaches its own current tick, a process known as **prediction**.
+- snapshot: the complete game state on a given tick, as calculated by the server, and broadcast to clients. See also **baseline**.
 - tick: one iteration of the (client or server) physics simulation. Compare **frame**.
 
 ## Preliminaries
 
-Choose a tick frequency, 60Hz (once every 16.7ms), and a broadcast frequency, e.g. 20Hz (once every 50.0ms). Decide how many client inputs to sent to the server per tick for redundancy, e.g. 4.
+Choose a tick frequency, 60Hz (once every 16.7ms), and a broadcast frequency, e.g. 20Hz (once every 50.0ms). Decide how many client inputs to send to the server per tick for redundancy, e.g. 4.
 
 ## Server
 
@@ -173,20 +175,26 @@ let adjustment = if error.abs() > 0.25 {
 // If we are ahead, adjustment is negative (simulation runs slower).
 session.accumulator += raw_delta_time + adjustment;
 
-// 7. PHYSICS LOOP (FIXED STEP) * -- but see SPIRAL OF DEATH below.
-while session.accumulator >= TICK_DURATION_IDEAL {
-    // A. Process Inputs (insert into buffer, send to server).
-    process_input(session.current_tick);
-
-    // B. Run Physics Prediction.
-    perform_tick(session.current_tick);
+// 7. PHYSICS LOOP (FIXED STEP)
+const MAX_TICKS_PER_FRAME: u32 = 8; // A failsafe to prevent the accumulator from growing
+let mut ticks_processed = 0;        // ever greater if we fall behind.
+while session.accumulator >= TICK_DURATION_IDEAL && ticks_processed < MAX_TICKS_PER_FRAME  {
+    process_input(session.current_tick); // Insert into history, send to server.
+    perform_tick(session.current_tick); // Run physics: reconcile and predict.
 
     // C. Advance State.
     session.accumulator -= TICK_DURATION_IDEAL;
     session.current_tick += 1;
+    ticks_processed += 1;
 
     // Track our time using the fixed step to stay perfectly in sync with ticks.
     session.simulated_time += TICK_DURATION_IDEAL;
+
+    // If we hit the limit, discard the remaining accumulator to prevent spiral.
+    if ticks_processed >= MAX_TICKS_PER_FRAME {
+        session.accumulator = 0.0; // Or keep a small remainder, but discard the bulk.
+        println!("Physics spiral detected: skipped ticks to catch up.");
+    }
 }
 
 // 8. RENDER INTERPOLATION
@@ -224,28 +232,5 @@ async fn client_tick() {
 
     // 5. RENDER
     render();
-}
-```
-
-Spiral of death:
-
-Risk: If perform_tick takes longer than TICK_DURATION_IDEAL (e.g., due to a lag spike or heavy OS load), the accumulator will grow faster than the loop can drain it. The game will hang as it tries to catch up effectively infinite frames.
-
-Fix: Clamp the maximum number of simulation steps per frame.
-
-```rust
-const MAX_TICKS_PER_FRAME: u32 = 8;
-let mut ticks_processed = 0;
-
-while session.accumulator >= TICK_DURATION_IDEAL && ticks_processed < MAX_TICKS_PER_FRAME {
-    // ... process ...
-    session.accumulator -= TICK_DURATION_IDEAL;
-    ticks_processed += 1;
-}
-
-// If we hit the limit, discard the remaining accumulator to prevent spiral.
-if ticks_processed >= MAX_TICKS_PER_FRAME {
-    session.accumulator = 0.0; // Or keep a small remainder, but discard the bulk.
-    println!("Physics spiral detected: skipped ticks to catch up.");
 }
 ```

@@ -2,12 +2,12 @@ use macroquad::{color, prelude::*, window::clear_background};
 
 use crate::{assets::Assets, session::ClientSession, state::ClientState};
 
-pub fn update(session: &mut ClientSession, assets: &Assets) -> Option<ClientState> {
+pub fn handle(session: &mut ClientSession, assets: &Assets) -> Option<ClientState> {
     let game_state = match session.state() {
         ClientState::Game(game) => game,
         other => {
             panic!(
-                "called game::handle_frame when not in Game state: {:?}",
+                "called game::handlers::handle when not in Game state: {:?}",
                 other
             );
         }
@@ -16,13 +16,12 @@ pub fn update(session: &mut ClientSession, assets: &Assets) -> Option<ClientStat
     let yaw: f32 = 0.0;
     let pitch: f32 = 0.1;
 
-    let mut position = Default::default();
-    for (id, player) in &game_state.players {
-        if *id == session.client_id {
-            position = player.state.position;
-            position.y = 24.0;
-        }
-    }
+    let position = game_state
+        .players
+        .get(&session.client_id)
+        .expect("player should have a position")
+        .state
+        .position;
 
     set_camera(&Camera3D {
         position,

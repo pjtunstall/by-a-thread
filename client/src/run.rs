@@ -111,7 +111,7 @@ impl ClientRunner {
     async fn update_client_state(&mut self) {
         match self.session.state() {
             ClientState::Game(_) => {
-                if let Some(next_state) = game::handlers::update(&mut self.session, &self.assets) {
+                if let Some(next_state) = game::handlers::handle(&mut self.session, &self.assets) {
                     self.session.transition(next_state);
                 }
             }
@@ -121,6 +121,8 @@ impl ClientRunner {
             ClientState::Lobby(_) => {
                 lobby::handlers::update(self).await;
             }
+            // Other states will include Debrief (with map, leaderboard, and chat),
+            // and NearDeathExperience, unless the latter is included in Game.
             _ => {
                 todo!();
             }
@@ -132,7 +134,7 @@ impl ClientRunner {
         match old_state {
             ClientState::Lobby(Lobby::Countdown { maze, players, .. }) => {
                 self.session
-                    .transition(ClientState::Game(game::Game { maze, players }));
+                    .transition(ClientState::Game(game::state::Game::new(maze, players)));
                 Ok(())
             }
             other => {
