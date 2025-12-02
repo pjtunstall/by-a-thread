@@ -34,18 +34,6 @@ impl Maze {
         Self { grid, spaces }
     }
 
-    pub fn log(&self) -> String {
-        self.grid
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .map(|&cell| if cell == 0 { "  " } else { "██" })
-                    .collect::<String>()
-            })
-            .collect::<Vec<String>>()
-            .join("\n")
-    }
-
     pub fn position_from_grid_coordinates(&self, height: f32, z: usize, x: usize) -> Option<Vec3> {
         if self.spaces.is_empty() {
             None
@@ -58,11 +46,23 @@ impl Maze {
             Some(position)
         }
     }
+
+    pub fn log(&self) -> String {
+        self.grid
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|&cell| if cell == 0 { "  " } else { "██" })
+                    .collect::<String>()
+            })
+            .collect::<Vec<String>>()
+            .join("\n")
+    }
 }
 
 impl fmt::Debug for Maze {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "\n{}", self.log())
+        fmt::Display::fmt(self, f)
     }
 }
 
