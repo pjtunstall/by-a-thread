@@ -18,6 +18,8 @@ NOTE: Client tick, server tick, and frame are conceptually distinct, but happen 
 
 Choose a tick frequency, 60Hz (once every 16.7ms), and a broadcast frequency, e.g. 20Hz (once every 50.0ms). Decide how many client inputs to send to the server per tick for redundancy, e.g. 4.
 
+Give the server a `Vec<ServerPlayer>` to store the player data. `ServerPlayer` contains a `Player`. Perhaps store it in the server's `Game` state.
+
 ## Server
 
 ### Players
