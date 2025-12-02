@@ -8,7 +8,7 @@ use crate::{
 };
 use common::{self, net::AppChannel, protocol::ServerMessage};
 
-// TODO: This is getting complex. Document, mock, and test.
+// TODO: Document, mock, and test.
 // ServerTime messages are sent at 20Hz, every 50ms.
 
 // Thresholds
@@ -63,29 +63,31 @@ pub fn update_clock(
                 return;
             }
 
-            // If we're off by a lot, go a bigger proportion of the way towards the target.
-            let alpha = if delta.abs() > FAST_CATCHUP_THRESHOLD {
-                ALPHA_FAST
-            } else if delta.abs() > MODERATE_DRIFT_THRESHOLD {
-                ALPHA_NORMAL
-            } else {
-                ALPHA_JITTER
-            };
-
-            let raw_correction = delta * alpha;
-
-            // Limit the correction to a tighter range when there is less to correct?!
-            // Low error: prioritize smoothness. High error: prioritize speed.
-            let dynamic_limit = (delta.abs() * CLOCK_CORRECTION_RATIO)
-                .clamp(BASE_CLOCK_CORRECTION_LIMIT, MAX_CLOCK_CORRECTION_LIMIT);
-
-            let clamped_correction = raw_correction.clamp(-dynamic_limit, dynamic_limit);
-
-            session.estimated_server_time += clamped_correction;
+            session.estimated_server_time += correction(delta);
         }
         Err(e) => {
             eprintln!("Failed to deserialize ServerTime message: {}.", e);
         }
         _ => {}
     }
+}
+
+fn correction(delta: f64) -> f64 {
+    // If we're off by a lot, go a bigger proportion of the way towards the target.
+    let alpha = if delta.abs() > FAST_CATCHUP_THRESHOLD {
+        ALPHA_FAST
+    } else if delta.abs() > MODERATE_DRIFT_THRESHOLD {
+        ALPHA_NORMAL
+    } else {
+        ALPHA_JITTER
+    };
+
+    let raw_correction = delta * alpha;
+
+    // Limit the correction to a tighter range when there is less to correct?!
+    // Low error: prioritize smoothness. High error: prioritize speed.
+    let dynamic_limit = (delta.abs() * CLOCK_CORRECTION_RATIO)
+        .clamp(BASE_CLOCK_CORRECTION_LIMIT, MAX_CLOCK_CORRECTION_LIMIT);
+
+    raw_correction.clamp(-dynamic_limit, dynamic_limit)
 }
