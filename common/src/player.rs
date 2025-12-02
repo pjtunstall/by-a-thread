@@ -1,7 +1,6 @@
 use std::fmt;
 
-use derive_more::Display;
-use glam::{Vec3, vec3};
+use glam::{vec3, Vec3};
 use serde::{Deserialize, Serialize};
 
 pub const HEIGHT: f32 = 24.0; // Height of the player's eye level from the ground.
@@ -9,8 +8,7 @@ pub const RADIUS: f32 = 8.0;
 pub const MAX_SPEED: f32 = 4.0;
 pub const MAX_USERNAME_LENGTH: usize = 16;
 
-#[derive(Clone, Serialize, Deserialize, Debug, Display)]
-#[display("{:?}", self)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Player {
     pub index: usize,
     pub client_id: u64,
@@ -95,12 +93,6 @@ impl Color {
             Color::PURPLE => "purple",
             Color::SKYBLUE => "sky blue",
         }
-    }
-}
-
-impl fmt::Display for Color {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
     }
 }
 
