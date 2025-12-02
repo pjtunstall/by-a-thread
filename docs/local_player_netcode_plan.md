@@ -40,7 +40,7 @@ NOTE: Send current health rather than "player took X amount of damge". And, in g
 
 ## Client
 
-### Local player: reconcilile and predict
+### Local player: reconciliation and prediction
 
 TODO: Extract magic numbers (0.1, 0.3, 0.5, 0.002) into named constants.
 
@@ -239,7 +239,7 @@ async fn client_tick() {
 }
 ```
 
-### Remote players: interpolate
+### Remote players: interpolation + dead reckoning (extrapolation)
 
 Q: Why do we interpolate?
 A: To mitigate network jitter and low broadcast rate.
