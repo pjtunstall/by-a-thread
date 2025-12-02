@@ -131,12 +131,13 @@ impl ClientRunner {
     pub fn start_game(&mut self) -> Result<(), ()> {
         let old_state = std::mem::take(self.session.state_mut());
         match old_state {
-            ClientState::Lobby(Lobby::Countdown { maze, players, .. }) => {
+            ClientState::Lobby(Lobby::Countdown { snapshot, .. }) => {
                 self.session
-                    .transition(ClientState::Game(game::state::Game::new(maze, players)));
+                    .transition(ClientState::Game(game::state::Game::new(snapshot)));
 
                 if let ClientState::Game(game) = self.session.state() {
                     self.session.player_index = game
+                        .snapshot
                         .players
                         .iter()
                         .position(|p| p.client_id == self.session.client_id)

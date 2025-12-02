@@ -30,19 +30,8 @@ pub fn handle(
         session.set_chat_waiting_for_server(false);
 
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((
-                ServerMessage::CountdownStarted {
-                    end_time,
-                    maze,
-                    players,
-                },
-                _,
-            )) => {
-                return Some(ClientState::Lobby(Lobby::Countdown {
-                    end_time,
-                    maze,
-                    players,
-                }));
+            Ok((ServerMessage::CountdownStarted { end_time, snapshot }, _)) => {
+                return Some(ClientState::Lobby(Lobby::Countdown { end_time, snapshot }));
             }
             Ok((ServerMessage::BeginDifficultySelection, _)) => {
                 return Some(ClientState::Lobby(Lobby::ChoosingDifficulty {

@@ -184,8 +184,7 @@ fn apply_server_transition(
 
             let message = ServerMessage::CountdownStarted {
                 end_time,
-                maze: countdown_state.maze.clone(),
-                players: countdown_state.players.clone(),
+                snapshot: countdown_state.snapshot.clone(), // TODO: Can we move it?
             };
             let payload = encode_to_vec(&message, standard())
                 .expect("failed to serialize CountDownStarted mesage");

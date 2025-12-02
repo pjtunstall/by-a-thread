@@ -1,20 +1,24 @@
 use macroquad::prelude::Texture2D;
 
 use super::world::maze::MazeExtension;
-use shared::{maze::Maze, player::Player};
+use shared::snapshot::Snapshot;
 
 #[derive(Debug)]
 pub struct Game {
-    pub maze: Maze,
-    pub players: Vec<Player>,
+    pub snapshot: Snapshot,
 }
 
 impl Game {
-    pub fn new(maze: Maze, players: Vec<Player>) -> Self {
-        Self { maze, players }
+    pub fn new(snapshot: Snapshot) -> Self {
+        Self { snapshot }
     }
 
     pub fn draw(&self, texture: &Texture2D) {
-        self.maze.draw(texture);
+        let snapshot = &self.snapshot;
+        snapshot.maze.draw(texture);
+    }
+
+    pub fn reconcile(&mut self, snapshot: Snapshot) {
+        self.snapshot = snapshot;
     }
 }

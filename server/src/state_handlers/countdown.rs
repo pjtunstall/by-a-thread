@@ -43,8 +43,7 @@ pub fn handle(
         println!();
 
         Some(ServerState::Game(Game::new(
-            state.players.clone(),
-            state.maze.clone(),
+            state.snapshot.clone(),
             state.host_id,
         )))
     }

@@ -5,7 +5,7 @@ use std::{
 
 use crate::net::ServerNetworkHandle;
 use bincode::{config::standard, serde::encode_to_vec};
-use shared::{maze, net::AppChannel, player::Player, protocol::ServerMessage};
+use shared::{net::AppChannel, protocol::ServerMessage, snapshot::Snapshot};
 
 pub enum ServerState {
     Lobby(Lobby),
@@ -86,25 +86,18 @@ impl ChoosingDifficulty {
 #[derive(Clone)]
 pub struct Countdown {
     pub usernames: HashMap<u64, String>,
-    pub players: Vec<Player>,
     pub host_id: Option<u64>,
     pub end_time: Instant,
-    pub maze: maze::Maze,
+    pub snapshot: Snapshot,
 }
 
 impl Countdown {
-    pub fn new(
-        state: &ChoosingDifficulty,
-        players: Vec<Player>,
-        end_time: Instant,
-        maze: maze::Maze,
-    ) -> Self {
+    pub fn new(state: &ChoosingDifficulty, end_time: Instant, snapshot: Snapshot) -> Self {
         Self {
             usernames: state.lobby.usernames.clone(),
-            players,
             host_id: state.host_id,
             end_time,
-            maze,
+            snapshot,
         }
     }
 
@@ -124,14 +117,14 @@ impl Countdown {
                 client_id
             );
         }
-        self.players.retain(|p| p.client_id != client_id);
+        self.snapshot.players.retain(|p| p.client_id != client_id);
 
         let host_was_removed = self.host_id == Some(client_id);
         let no_host = self.host_id.is_none();
-        if self.players.is_empty() {
+        if self.snapshot.players.is_empty() {
             self.host_id = None;
         } else if host_was_removed || no_host {
-            if let Some(new_host) = self.players.first() {
+            if let Some(new_host) = self.snapshot.players.first() {
                 self.host_id = Some(new_host.client_id);
                 notify_new_host(network, new_host.client_id);
                 println!("Host reassigned to client {}", new_host.client_id);
@@ -141,22 +134,18 @@ impl Countdown {
 }
 
 pub struct Game {
-    pub players: Vec<Player>,
-    pub maze: maze::Maze,
+    pub snapshot: Snapshot,
     pub host_id: Option<u64>,
 }
 
 impl Game {
-    pub fn new(players: Vec<Player>, maze: maze::Maze, host_id: Option<u64>) -> Self {
-        Self {
-            players,
-            maze,
-            host_id,
-        }
+    pub fn new(snapshot: Snapshot, host_id: Option<u64>) -> Self {
+        Self { snapshot, host_id }
     }
 
     pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
         if let Some(player) = self
+            .snapshot
             .players
             .iter()
             .find(|p| p.client_id == client_id)
@@ -172,14 +161,14 @@ impl Game {
                 encode_to_vec(&message, standard()).expect("failed to serialize UserLeft");
             network.broadcast_message(AppChannel::ReliableOrdered, payload);
         }
-        self.players.retain(|p| p.client_id != client_id);
+        self.snapshot.players.retain(|p| p.client_id != client_id);
 
         let host_was_removed = self.host_id == Some(client_id);
         let no_host = self.host_id.is_none();
-        if self.players.is_empty() {
+        if self.snapshot.players.is_empty() {
             self.host_id = None;
         } else if host_was_removed || no_host {
-            if let Some(new_host) = self.players.first() {
+            if let Some(new_host) = self.snapshot.players.first() {
                 self.host_id = Some(new_host.client_id);
                 notify_new_host(network, new_host.client_id);
                 println!("Host reassigned to client {}", new_host.client_id);
@@ -340,7 +329,6 @@ pub fn evaluate_passcode_attempt(
 #[cfg(test)]
 mod tests {
     use bincode::{config::standard, serde::decode_from_slice};
-    use glam::Vec3;
 
     use super::*;
     use crate::test_helpers::MockServerNetwork;
@@ -508,27 +496,14 @@ mod tests {
         network.add_client(1);
         network.add_client(2);
 
+        let usernames = HashMap::from([(1, "Alice".to_string()), (2, "Bob".to_string())]);
+        let snapshot = Snapshot::new(&usernames, 1);
+
         let mut countdown = Countdown {
-            usernames: HashMap::from([(1, "Alice".to_string()), (2, "Bob".to_string())]),
-            players: vec![
-                Player::new(
-                    0,
-                    1,
-                    "Alice".to_string(),
-                    Vec3::ZERO,
-                    shared::player::Color::RED,
-                ),
-                Player::new(
-                    1,
-                    2,
-                    "Bob".to_string(),
-                    Vec3::ZERO,
-                    shared::player::Color::BLUE,
-                ),
-            ],
+            usernames,
             host_id: Some(1),
             end_time: Instant::now(),
-            maze: maze::Maze::new(maze::Algorithm::Backtrack),
+            snapshot,
         };
 
         countdown.remove_client(1, &mut network);
@@ -552,24 +527,11 @@ mod tests {
         network.add_client(10);
         network.add_client(20);
 
+        let usernames = HashMap::from([(10, "Alice".to_string()), (20, "Bob".to_string())]);
+        let snapshot = Snapshot::new(&usernames, 1);
+
         let mut game = Game {
-            players: vec![
-                Player::new(
-                    0,
-                    10,
-                    "Alice".to_string(),
-                    Vec3::ZERO,
-                    shared::player::Color::RED,
-                ),
-                Player::new(
-                    1,
-                    20,
-                    "Bob".to_string(),
-                    Vec3::ZERO,
-                    shared::player::Color::BLUE,
-                ),
-            ],
-            maze: maze::Maze::new(maze::Algorithm::Backtrack),
+            snapshot,
             host_id: Some(10),
         };
 

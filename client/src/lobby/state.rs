@@ -1,4 +1,4 @@
-use shared::{auth::Passcode, maze::Maze, player::Player};
+use shared::{auth::Passcode, snapshot::Snapshot};
 
 #[derive(Debug)]
 pub enum Lobby {
@@ -23,8 +23,7 @@ pub enum Lobby {
     },
     Countdown {
         end_time: f64,
-        maze: Maze,
-        players: Vec<Player>,
+        snapshot: Snapshot,
     },
     ChoosingDifficulty {
         prompt_printed: bool,

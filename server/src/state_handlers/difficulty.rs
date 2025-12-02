@@ -4,7 +4,6 @@ use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
 };
-use rand::random_range;
 
 use crate::{
     net::ServerNetworkHandle,
@@ -13,10 +12,9 @@ use crate::{
 use shared::{
     self,
     chat::MAX_CHAT_MESSAGE_BYTES,
-    maze::{self, maker::Algorithm},
     net::AppChannel,
-    player::{self, Player},
     protocol::{ClientMessage, ServerMessage},
+    snapshot::Snapshot,
 };
 
 pub fn handle(
@@ -56,51 +54,21 @@ pub fn handle(
                     println!("Host selected difficulty {}.", level);
                     state.set_difficulty(level);
 
-                    let generator = match level {
-                        1 => Algorithm::Backtrack,
-                        2 => Algorithm::Wilson,
-                        _ => Algorithm::Prim,
-                    };
-                    let maze = maze::Maze::new(generator);
-                    let maze_layout = maze.log();
-                    println!("\n{}", maze_layout);
+                    let snapshot = Snapshot::new(&state.lobby.usernames, level);
+
+                    println!("\n{}", snapshot.maze);
+                    println!();
+                    for player in &snapshot.players {
+                        println!("{:#}", player);
+                    }
 
                     let countdown_duration = Duration::from_secs(11);
                     let end_time_instant = Instant::now() + countdown_duration;
 
-                    println!();
-
-                    let mut spaces_remaining = maze.spaces.clone();
-                    let mut player_count: usize = 0;
-                    let players: Vec<Player> = state
-                        .lobby
-                        .usernames
-                        .clone()
-                        .into_iter()
-                        .map(|(client_id, username)| {
-                            let space_index = random_range(0..spaces_remaining.len());
-                            let (z, x) = spaces_remaining.remove(space_index);
-                            let start_position = maze
-                                .position_from_grid_coordinates(player::HEIGHT, z, x)
-                                .expect("failed to get start position from maze");
-                            let player = Player::new(
-                                player_count,
-                                client_id,
-                                username.clone(),
-                                start_position,
-                                shared::player::COLORS[player_count % shared::player::COLORS.len()],
-                            );
-                            player_count += 1;
-                            println!("{:#}", player);
-                            player
-                        })
-                        .collect();
-
                     return Some(ServerState::Countdown(Countdown::new(
                         state,
-                        players,
                         end_time_instant,
-                        maze,
+                        snapshot,
                     )));
                 }
                 ClientMessage::SendChat(content) => {

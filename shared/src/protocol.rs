@@ -1,38 +1,19 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{maze::Maze, player::Player};
+use crate::snapshot::Snapshot;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
     ServerTime(f64),
-    CountdownStarted {
-        end_time: f64,
-        maze: Maze,
-        players: Vec<Player>,
-    },
-    Welcome {
-        username: String,
-    },
-    UsernameError {
-        message: String,
-    },
+    CountdownStarted { end_time: f64, snapshot: Snapshot },
+    Welcome { username: String },
+    UsernameError { message: String },
     AppointHost,
-    Roster {
-        online: Vec<String>,
-    },
-    UserJoined {
-        username: String,
-    },
-    UserLeft {
-        username: String,
-    },
-    ChatMessage {
-        username: String,
-        content: String,
-    },
-    ServerInfo {
-        message: String,
-    },
+    Roster { online: Vec<String> },
+    UserJoined { username: String },
+    UserLeft { username: String },
+    ChatMessage { username: String, content: String },
+    ServerInfo { message: String },
     BeginDifficultySelection, // Allow host to move to phase where they choose a difficulty.
     DenyDifficultySelection,  // Refuse non-host client who asks to choose a difficulty level.
 }

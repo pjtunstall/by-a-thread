@@ -2,7 +2,6 @@ pub mod assets;
 pub mod game;
 pub mod lobby;
 pub mod net;
-pub mod player;
 pub mod run;
 pub mod session;
 pub mod state;

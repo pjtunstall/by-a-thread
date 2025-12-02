@@ -78,17 +78,14 @@ pub fn handle(
 
 #[cfg(test)]
 mod tests {
-    use shared::maze::Algorithm;
-
     use super::*;
     use crate::test_helpers::{MockNetwork, MockUi};
-    use shared::maze::Maze;
+    use shared::snapshot::Snapshot;
 
     fn countdown_state_with(end_time: f64) -> ClientState {
         ClientState::Lobby(Lobby::Countdown {
             end_time,
-            maze: Maze::new(Algorithm::Backtrack),
-            players: Vec::new(),
+            snapshot: Snapshot::default(),
         })
     }
 
