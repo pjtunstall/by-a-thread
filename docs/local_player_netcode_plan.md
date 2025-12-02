@@ -58,7 +58,7 @@ const SERVER_TICK_RATE: f64 = 60.0;
 const TICK_DURATION_IDEAL: f64 = 1.0 / SERVER_TICK_RATE;
 // Three ticks (50ms) is probably a safe starting buffer.
 // If inputs arrive late on the server, increase this.
-const JITTER_SAFETY_MARGIN: f64 = 0.050;
+const JITTER_SAFETY_MARGIN: f64 = 0.05; // Consider raising to 4 ticks?
 
 // --- THE LOOP ---
 
@@ -75,7 +75,7 @@ update_clock(&mut session, &mut network, tick_duration_actual);
 // We use asymmetric smoothing:
 // - If RTT goes UP (lag spike), we adapt QUICKLY (0.1) to prevent input starvation.
 // - If RTT goes DOWN (improvement), we adapt SLOWLY (0.01) to keep simulation stable.
-let current_rtt = network.rtt().clamp(0.0, 1.0); // Discard excessively long rtt. (Log this!)
+let current_rtt = network.rtt().clamp(0.0, 1.0); // Discard excessively long rtt.
 let rtt_alpha = if current_rtt > session.smoothed_rtt { 0.1 } else { 0.01 };
 
 // Simple linear interpolation.
@@ -86,6 +86,8 @@ session.smoothed_rtt = session.smoothed_rtt * (1.0 - rtt_alpha) + current_rtt * 
 // Target = "What time is it now" + "Travel Time" + "Safety Margin".
 let travel_time = session.smoothed_rtt / 2.0;
 let target_sim_time = session.estimated_server_time + travel_time + JITTER_SAFETY_MARGIN;
+
+// And, from that, calculate the target tick and pass it along with the current_tick to process_input?
 
 // 4. CALCULATE ERROR
 // "Where we should be" minus "Where we are".
@@ -182,3 +184,7 @@ Q: Why have a low broadcast rate? That is, why have the server update its physic
 A: The slower broadcast rate saves on bandwidth. The faster physics rate prevents tunneling/teleportation. If items moved at the broadcast rate, they'd be more likely to teleport through obstacles.
 
 Make sure the interpolation buffer for remote players is at least a full snapshot interval (~50 ms) so we’re not forced to extrapolate between sparse updates.
+
+## Further ideas
+
+Consider wraparound ticks of some smaller data type than `u64`.
