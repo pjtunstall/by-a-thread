@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+bincode = { version = "2.0.1", features = ["serde"] }
+common = { path = "../common" }
 crossterm = "0.29.0"
+macroquad = "0.4.14"
 rand = "0.9.2"
 renet = "1.2.0"
 renet_netcode = "1.2.0"
-common = { path = "../common" }
-bincode = { version = "2.0.1", features = ["serde"] }
-macroquad = "0.4.14"

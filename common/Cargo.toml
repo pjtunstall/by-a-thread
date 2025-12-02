@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+derive_more = { version = "2.0.1", features = ["display"] }
+glam = { version = "0.27.0", features = ["serde"] }
 rand = "0.9.2"
 renet = "1.2.0"
 serde = { version = "1.0.228", features = ["derive"] }
 socket2 = "0.6.1"
-glam = { version = "0.27.0", features = ["serde"] }

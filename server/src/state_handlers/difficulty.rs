@@ -59,7 +59,7 @@ pub fn handle(
                     println!("\n{}", snapshot.maze);
                     println!();
                     for player in &snapshot.players {
-                        println!("{:#}", player);
+                        println!("{:#}\n", player);
                     }
 
                     let countdown_duration = Duration::from_secs(11);

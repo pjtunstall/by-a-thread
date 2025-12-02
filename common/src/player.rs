@@ -1,6 +1,7 @@
 use std::fmt;
 
-use glam::{vec3, Vec3};
+use derive_more::Display;
+use glam::{Vec3, vec3};
 use serde::{Deserialize, Serialize};
 
 pub const HEIGHT: f32 = 24.0; // Height of the player's eye level from the ground.
@@ -8,7 +9,8 @@ pub const RADIUS: f32 = 8.0;
 pub const MAX_SPEED: f32 = 4.0;
 pub const MAX_USERNAME_LENGTH: usize = 16;
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, Display)]
+#[display("{:?}", self)]
 pub struct Player {
     pub index: usize,
     pub client_id: u64,
@@ -33,22 +35,6 @@ impl Player {
             alive: true,
             current_tick: 0,
         }
-    }
-}
-
-impl fmt::Display for Player {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Player {{\n    id: {},\n    name: {},\n    state: {},\n    color: {},\n    disconnected: {},\n    alive: {},\n    current_tick: {}\n}}",
-            self.client_id,
-            self.name,
-            self.state,
-            self.color.as_str(),
-            self.disconnected,
-            self.alive,
-            self.current_tick
-        )
     }
 }
 
@@ -81,29 +67,6 @@ impl PlayerState {
     }
 }
 
-impl fmt::Display for PlayerState {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "PlayerState {{\n        position: {:?},\n        velocity: {:?},\n        pitch: {},\n        yaw: {}\n    }}",
-            self.position, self.velocity, self.pitch, self.yaw
-        )
-    }
-}
-
-pub const COLORS: [Color; 10] = [
-    Color::RED,
-    Color::LIME,
-    Color::PINK,
-    Color::YELLOW,
-    Color::GREEN,
-    Color::BLUE,
-    Color::MAROON,
-    Color::ORANGE,
-    Color::PURPLE,
-    Color::SKYBLUE,
-];
-
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub enum Color {
     RED,
@@ -134,6 +97,25 @@ impl Color {
         }
     }
 }
+
+impl fmt::Display for Color {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+pub const COLORS: [Color; 10] = [
+    Color::RED,
+    Color::LIME,
+    Color::PINK,
+    Color::YELLOW,
+    Color::GREEN,
+    Color::BLUE,
+    Color::MAROON,
+    Color::ORANGE,
+    Color::PURPLE,
+    Color::SKYBLUE,
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UsernameError {
