@@ -42,9 +42,8 @@ pub fn handle(
 
         println!();
 
-        Some(ServerState::Game(Game::new(
-            state.snapshot.clone(),
-            state.host_id,
-        )))
+        let snapshot = std::mem::take(&mut state.snapshot);
+
+        Some(ServerState::Game(Game::new(snapshot, state.host_id)))
     }
 }

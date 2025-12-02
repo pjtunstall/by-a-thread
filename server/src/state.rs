@@ -117,14 +117,24 @@ impl Countdown {
                 client_id
             );
         }
-        self.snapshot.players.retain(|p| p.client_id != client_id);
+        // Mark player as disconnected instead of removing to preserve indices.
+        if let Some(player) = self
+            .snapshot
+            .players
+            .iter_mut()
+            .find(|p| p.client_id == client_id)
+        {
+            player.disconnected = true;
+        }
 
         let host_was_removed = self.host_id == Some(client_id);
         let no_host = self.host_id.is_none();
-        if self.snapshot.players.is_empty() {
+        let has_connected_players = self.snapshot.players.iter().any(|p| !p.disconnected);
+
+        if !has_connected_players {
             self.host_id = None;
         } else if host_was_removed || no_host {
-            if let Some(new_host) = self.snapshot.players.first() {
+            if let Some(new_host) = self.snapshot.players.iter().find(|p| !p.disconnected) {
                 self.host_id = Some(new_host.client_id);
                 notify_new_host(network, new_host.client_id);
                 println!("Host reassigned to client {}", new_host.client_id);
@@ -161,14 +171,24 @@ impl Game {
                 encode_to_vec(&message, standard()).expect("failed to serialize UserLeft");
             network.broadcast_message(AppChannel::ReliableOrdered, payload);
         }
-        self.snapshot.players.retain(|p| p.client_id != client_id);
+        // Mark player as disconnected instead of removing to preserve indices.
+        if let Some(player) = self
+            .snapshot
+            .players
+            .iter_mut()
+            .find(|p| p.client_id == client_id)
+        {
+            player.disconnected = true;
+        }
 
         let host_was_removed = self.host_id == Some(client_id);
         let no_host = self.host_id.is_none();
-        if self.snapshot.players.is_empty() {
+        let has_connected_players = self.snapshot.players.iter().any(|p| !p.disconnected);
+
+        if !has_connected_players {
             self.host_id = None;
         } else if host_was_removed || no_host {
-            if let Some(new_host) = self.snapshot.players.first() {
+            if let Some(new_host) = self.snapshot.players.iter().find(|p| !p.disconnected) {
                 self.host_id = Some(new_host.client_id);
                 notify_new_host(network, new_host.client_id);
                 println!("Host reassigned to client {}", new_host.client_id);

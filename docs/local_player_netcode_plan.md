@@ -16,8 +16,6 @@ NOTE: Client tick, server tick, and frame are conceptually distinct, but happen 
 
 ## Preliminaries
 
-Make sure, if players are represented by a `Vec<Player>`, we don't remove players who disconnect in a way that would lead the `index` field of `session` to be out of sync with the player's index. Better to keep all players in the `Vec` after the first `Snapshot` is created.
-
 Choose a tick frequency, 60Hz (once every 16.7ms), and a broadcast frequency, e.g. 20Hz (once every 50.0ms). Decide how many client inputs to send to the server per tick for redundancy, e.g. 4.
 
 ## Server

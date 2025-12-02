@@ -1,6 +1,6 @@
 use std::fmt;
 
-use glam::{Vec3, vec3};
+use glam::{vec3, Vec3};
 use serde::{Deserialize, Serialize};
 
 pub const HEIGHT: f32 = 24.0; // Height of the player's eye level from the ground.
@@ -15,6 +15,8 @@ pub struct Player {
     pub name: String,
     pub state: PlayerState,
     pub color: Color,
+    pub disconnected: bool,
+    pub alive: bool,
     // pub input_history: [Option<PlayerInput>; 128], // This really belongs in a ClientPlayer struct and doesn't need to be serialized.
     pub current_tick: u64,
 }
@@ -27,6 +29,8 @@ impl Player {
             name,
             state: PlayerState::new(position),
             color,
+            disconnected: false,
+            alive: true,
             current_tick: 0,
         }
     }
@@ -36,8 +40,14 @@ impl fmt::Display for Player {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Player {{\n    id: {},\n    name: {},\n    position: {:?},\n    velocity: {:?}\n    color: {:?}\n}}\n",
-            self.client_id, self.name, self.state.position, self.state.velocity, self.color
+            "Player {{\n    id: {},\n    name: {},\n    state: {},\n    color: {},\n    disconnected: {},\n    alive: {},\n    current_tick: {}\n}}",
+            self.client_id,
+            self.name,
+            self.state,
+            self.color.as_str(),
+            self.disconnected,
+            self.alive,
+            self.current_tick
         )
     }
 }
@@ -68,6 +78,16 @@ impl PlayerState {
             pitch: 0.1,
             yaw: 0.0,
         }
+    }
+}
+
+impl fmt::Display for PlayerState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "PlayerState {{\n        position: {:?},\n        velocity: {:?},\n        pitch: {},\n        yaw: {}\n    }}",
+            self.position, self.velocity, self.pitch, self.yaw
+        )
     }
 }
 
