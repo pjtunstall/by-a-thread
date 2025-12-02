@@ -1,4 +1,10 @@
-# Netcode Plan
+# Netcode plan
+
+## Preliminaries
+
+Choose a tick frequency, 60Hz (once every 16.7ms), and a broadcast frequency, e.g. 20Hz (once every 50.0ms). Decide how many client inputs to send to the server per tick for redundancy, e.g. 4.
+
+Give the server a `Vec<ServerPlayer>` to store the player data. `ServerPlayer` contains a `Player`. Perhaps store it in the server's `Game` state.
 
 ## Terminology
 
@@ -13,12 +19,6 @@ NOTE: Client tick, server tick, and frame are conceptually distinct, but happen 
 - reconciliation: a process whereby the client sets the current state of its physics simulation to the latest **snapshot** (state received from the server); see also **baseline**. The client immediately replays its inputs for subsequent ticks on top of this till it reaches its own current tick, a process known as **prediction**.
 - snapshot: the complete game state on a given tick, as calculated by the server, and broadcast to clients. See also **baseline**.
 - tick: one iteration of the (client or server) physics simulation. Compare **frame**.
-
-## Preliminaries
-
-Choose a tick frequency, 60Hz (once every 16.7ms), and a broadcast frequency, e.g. 20Hz (once every 50.0ms). Decide how many client inputs to send to the server per tick for redundancy, e.g. 4.
-
-Give the server a `Vec<ServerPlayer>` to store the player data. `ServerPlayer` contains a `Player`. Perhaps store it in the server's `Game` state.
 
 ## Server
 
@@ -39,6 +39,8 @@ At the broadcast frequency, broadcast the resulting game state, including positi
 NOTE: Send current health rather than "player took X amount of damge". And, in general, always sync the value not the delta on an `Unreliable` channel; the same goes for position, orientation, ammo, etc.
 
 ## Client
+
+### Local player: reconcilile and predict
 
 TODO: Extract magic numbers (0.1, 0.3, 0.5, 0.002) into named constants.
 
@@ -236,3 +238,11 @@ async fn client_tick() {
     render();
 }
 ```
+
+### Remote players: interpolate
+
+Q: Why do we interpolate?
+A: To mitigate network jitter and low broadcast rate.
+
+Q: Why have a low broadcast rate? That is, why have the server update its physics simulation at a higher frequency than it broadcasts snapshots?
+A: The slower broadcast rate saves on bandwidth. The faster physics rate prevents tunneling/teleportation. If items moved at the broadcast rate, they'd be more likely to teleport through obstacles.
