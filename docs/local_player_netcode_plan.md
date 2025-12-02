@@ -177,8 +177,25 @@ async fn client_tick() {
 
 ### Remote players: interpolation, rather than dead reckoning (extrapolation)
 
+Insert snapshots into an array, `interpolation_buffer: [Snapshot; 32]` (1s+).
+
+```rust
+const INTERPOLATION_DELAY = 0.1; // 100ms.
+
+let render_time = session.estimated_server_time - INTERPOLATION_DELAY;
+let render_tick_f64 = (render_time / SERVER_TICK_DURATION).floor();
+let render_tick = render_tick_f64 as u64;
+```
+
+Do we have the snapshot for `render_tick` and the tick after? Then render the state with all values at `t` times the difference between the value as it was at the `render_tick` and how it was at the next tick.
+
+\*
+
 Q: Why do we interpolate?
-A: To mitigate network jitter and low broadcast rate.
+A: To mitigate network jitter (smooth it out, preventing small fluctuations from causing a whole earlier or later server tick to be rendered) and low broadcast rate (fill in the gaps between broadcast snapshots).
+
+Q. Why do we show snapshots at a bigger delay than we need to, e.g. 100ms?
+A. To give snapshots more chance to arrive, analogous to how the server maintains an input buffer.
 
 Q: Why have a low broadcast rate? That is, why have the server update its physics simulation at a higher frequency than it broadcasts snapshots?
 A: The slower broadcast rate saves on bandwidth. The faster physics rate prevents tunneling/teleportation. If items moved at the broadcast rate, they'd be more likely to teleport through obstacles.
