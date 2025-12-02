@@ -184,7 +184,7 @@ fn apply_server_transition(
 
             let message = ServerMessage::CountdownStarted {
                 end_time,
-                snapshot: countdown_state.snapshot.clone(), // TODO: Can we move it?
+                snapshot: std::mem::take(&mut countdown_state.snapshot),
             };
             let payload = encode_to_vec(&message, standard())
                 .expect("failed to serialize CountDownStarted mesage");

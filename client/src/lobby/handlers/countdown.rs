@@ -70,9 +70,10 @@ pub fn handle(
 
     ui.draw_countdown(&format!("{}", countdown_value));
 
-    // We return None here.
-    // If the time reaches 0, run.rs detects it and performs the
-    // zero-copy swap via TransitionAction::StartGame.
+    // We return None here always. The transition to the next state,
+    // Game, is triggered elsewhere: when the time reaches 0, run.rs
+    // detects it and performs a zero-copy swap via
+    // TransitionAction::StartGame.
     None
 }
 
