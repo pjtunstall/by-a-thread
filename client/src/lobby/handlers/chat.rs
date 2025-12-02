@@ -9,7 +9,7 @@ use crate::{
     session::ClientSession,
     state::{ClientState, Lobby},
 };
-use shared::{
+use common::{
     net::AppChannel,
     protocol::{ClientMessage, ServerMessage},
 };
@@ -137,7 +137,7 @@ pub fn handle(
 mod tests {
     use super::*;
     use crate::{test_helpers::MockNetwork, test_helpers::MockUi};
-    use shared::chat::MAX_CHAT_MESSAGE_BYTES;
+    use common::chat::MAX_CHAT_MESSAGE_BYTES;
 
     mod guards {
         use super::*;

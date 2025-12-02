@@ -39,7 +39,7 @@ mod tests {
         state::ClientState,
         test_helpers::{MockNetwork, MockUi},
     };
-    use shared::{auth::MAX_ATTEMPTS, input::sanitize, protocol::ServerMessage};
+    use common::{auth::MAX_ATTEMPTS, input::sanitize, protocol::ServerMessage};
 
     #[test]
     fn client_banner_is_printed_correctly() {

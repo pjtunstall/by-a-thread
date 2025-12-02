@@ -11,7 +11,7 @@ use server::{
     run::update_server_state,
     state::{Lobby, ServerState},
 };
-use shared::{
+use common::{
     auth::Passcode,
     net::AppChannel,
     protocol::{ClientMessage, ServerMessage},

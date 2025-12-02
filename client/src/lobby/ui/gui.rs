@@ -6,7 +6,7 @@ use std::{
 use macroquad::prelude::*;
 
 use crate::lobby::ui::{LobbyUi, UiInputError};
-use shared::input::UiKey;
+use common::input::UiKey;
 
 const PROMPT: &str = "> ";
 const FONT_SIZE: f32 = 24.0;

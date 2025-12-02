@@ -1,7 +1,7 @@
 use macroquad::prelude::Texture2D;
 
 use super::world::maze::MazeExtension;
-use shared::snapshot::Snapshot;
+use common::snapshot::Snapshot;
 
 #[derive(Debug)]
 pub struct Game {

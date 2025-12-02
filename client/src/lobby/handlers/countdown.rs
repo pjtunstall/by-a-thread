@@ -6,7 +6,7 @@ use crate::{
     session::ClientSession,
     state::{ClientState, Lobby},
 };
-use shared::{net::AppChannel, protocol::ServerMessage};
+use common::{net::AppChannel, protocol::ServerMessage};
 
 pub fn handle(
     session: &mut ClientSession,
@@ -81,7 +81,7 @@ pub fn handle(
 mod tests {
     use super::*;
     use crate::test_helpers::{MockNetwork, MockUi};
-    use shared::snapshot::Snapshot;
+    use common::snapshot::Snapshot;
 
     fn countdown_state_with(end_time: f64) -> ClientState {
         ClientState::Lobby(Lobby::Countdown {

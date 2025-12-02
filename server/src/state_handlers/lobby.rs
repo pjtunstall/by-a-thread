@@ -9,7 +9,7 @@ use crate::{
         AuthAttemptOutcome, ChoosingDifficulty, Lobby, ServerState, evaluate_passcode_attempt,
     },
 };
-use shared::{
+use common::{
     self,
     auth::{MAX_ATTEMPTS, Passcode},
     chat::MAX_CHAT_MESSAGE_BYTES,
@@ -166,7 +166,7 @@ pub fn handle(
                 }
                 ClientMessage::SendChat(content) => {
                     if let Some(username) = state.username(client_id) {
-                        let clean_content = shared::input::sanitize(&content);
+                        let clean_content = common::input::sanitize(&content);
                         let trimmed_content = clean_content.trim();
 
                         if trimmed_content.is_empty() {
@@ -243,7 +243,7 @@ mod tests {
     use bincode::config::standard;
     use bincode::serde::decode_from_slice;
     use bincode::serde::encode_to_vec;
-    use shared::{
+    use common::{
         auth::{MAX_ATTEMPTS, Passcode},
         protocol::{ClientMessage, ServerMessage},
     };

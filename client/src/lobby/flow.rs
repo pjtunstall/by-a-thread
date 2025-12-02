@@ -25,7 +25,7 @@ pub async fn update(
 
     if matches!(session.input_mode(), crate::state::InputMode::Enabled) {
         let ui_ref: &mut dyn crate::lobby::ui::LobbyUi = ui;
-        match ui_ref.poll_input(shared::chat::MAX_CHAT_MESSAGE_BYTES, is_host) {
+        match ui_ref.poll_input(common::chat::MAX_CHAT_MESSAGE_BYTES, is_host) {
             Ok(Some(input)) => session.add_input(input),
             Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
                 ui.show_sanitized_error(&format!("No connection: {}.", e));

@@ -1,4 +1,4 @@
-use shared::{auth::Passcode, snapshot::Snapshot};
+use common::{auth::Passcode, snapshot::Snapshot};
 
 #[derive(Debug)]
 pub enum Lobby {

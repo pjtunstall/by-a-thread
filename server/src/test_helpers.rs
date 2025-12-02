@@ -1,7 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 
 use crate::net::{ServerNetworkEvent, ServerNetworkHandle};
-use shared::net::AppChannel;
+use common::net::AppChannel;
 
 #[derive(Default)]
 pub struct MockServerNetwork {

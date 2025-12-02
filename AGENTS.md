@@ -22,7 +22,7 @@ use crate::{
     session::ClientSession,
     state::{ClientState, Lobby},
 };
-use shared::{self, player::Player};
+use common::{self, player::Player};
 ```
 
 ### Group together nested items
@@ -30,7 +30,7 @@ use shared::{self, player::Player};
 Group together nested items using curly braces. Thus:
 
 ```rust
-use shared::{
+use common::{
     input::{UiKey, sanitize},
     player::UsernameError,
 };
@@ -39,8 +39,8 @@ use shared::{
 rather than
 
 ```rust
-use shared::input::{UiKey, sanitize};
-use shared::player::UsernameError;
+use common::input::{UiKey, sanitize};
+use common::player::UsernameError;
 ```
 
 ### Sort into three sections

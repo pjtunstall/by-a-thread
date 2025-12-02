@@ -4,7 +4,7 @@ use crate::{
     lobby::state::Lobby,
     state::{ClientState, InputMode},
 };
-use shared::player::{MAX_USERNAME_LENGTH, UsernameError};
+use common::player::{MAX_USERNAME_LENGTH, UsernameError};
 
 pub struct ClientSession {
     pub client_id: u64,
@@ -240,13 +240,13 @@ pub fn username_prompt() -> String {
 }
 
 pub fn validate_username_input(input: &str) -> Result<String, UsernameError> {
-    shared::player::sanitize_username(input)
+    common::player::sanitize_username(input)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shared::player::UsernameError;
+    use common::player::UsernameError;
     use std::time::Duration;
 
     #[test]

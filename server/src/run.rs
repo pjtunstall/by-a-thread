@@ -20,17 +20,17 @@ use crate::{
     state::{Lobby, ServerState},
     state_handlers,
 };
-use shared::{self, auth::Passcode, net::AppChannel, protocol::ServerMessage, time};
+use common::{self, auth::Passcode, net::AppChannel, protocol::ServerMessage, time};
 
 pub fn run_server(socket: UdpSocket, server_addr: SocketAddr, private_key: [u8; 32]) {
-    let current_time = shared::time::now();
-    let protocol_id = shared::protocol::version();
+    let current_time = common::time::now();
+    let protocol_id = common::protocol::version();
 
     let server_config =
         net::build_server_config(current_time, protocol_id, server_addr, private_key);
     let mut transport =
         NetcodeServerTransport::new(server_config, socket).expect("failed to create transport");
-    let connection_config = shared::net::connection_config();
+    let connection_config = common::net::connection_config();
     let mut server = RenetServer::new(connection_config);
     let passcode = Passcode::generate(6);
     let mut state = ServerState::Lobby(Lobby::new());
@@ -218,7 +218,7 @@ pub fn process_events(network: &mut dyn ServerNetworkHandle, state: &mut ServerS
 }
 
 fn sync_clocks(network: &mut dyn ServerNetworkHandle) {
-    let server_time_f64 = shared::time::now().as_secs_f64();
+    let server_time_f64 = common::time::now().as_secs_f64();
     let message = ServerMessage::ServerTime(server_time_f64);
     let payload = encode_to_vec(&message, standard()).expect("failed to serialize ServerTime");
     network.broadcast_message(AppChannel::ServerTime, payload);
@@ -232,7 +232,7 @@ mod tests {
     use super::*;
     use crate::state::{Lobby, ServerState};
     use crate::test_helpers::MockServerNetwork;
-    use shared::protocol::ServerMessage;
+    use common::protocol::ServerMessage;
 
     #[test]
     fn test_process_events_client_connect() {

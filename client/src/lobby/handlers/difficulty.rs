@@ -9,7 +9,7 @@ use crate::{
     session::ClientSession,
     state::{ClientState, InputMode, Lobby},
 };
-use shared::{
+use common::{
     input::UiKey,
     net::AppChannel,
     protocol::{ClientMessage, ServerMessage},
@@ -166,7 +166,7 @@ pub fn handle(
 mod tests {
     use super::*;
     use crate::{test_helpers::MockNetwork, test_helpers::MockUi};
-    use shared::protocol::{ClientMessage, ServerMessage};
+    use common::protocol::{ClientMessage, ServerMessage};
 
     #[test]
     #[should_panic(

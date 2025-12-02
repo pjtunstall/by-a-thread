@@ -9,7 +9,7 @@ use crate::{
     session::ClientSession,
     state::{ClientState, Lobby},
 };
-use shared::{
+use common::{
     auth::{MAX_ATTEMPTS, Passcode},
     net::AppChannel,
     protocol::{ClientMessage, ServerMessage},

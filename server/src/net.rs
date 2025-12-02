@@ -3,7 +3,7 @@ use std::{net::SocketAddr, time::Duration};
 use renet::{RenetServer, ServerEvent};
 use renet_netcode::{ServerAuthentication, ServerConfig};
 
-use shared::{self, net::AppChannel};
+use common::{self, net::AppChannel};
 
 pub enum ServerNetworkEvent {
     ClientConnected { client_id: u64 },

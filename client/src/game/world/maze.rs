@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 
-pub use shared::maze::{CELL_SIZE, Maze};
+pub use common::maze::{CELL_SIZE, Maze};
 
 pub trait MazeExtension {
     fn draw(&self, wall_texture: &Texture2D);

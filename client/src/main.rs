@@ -3,7 +3,7 @@ use macroquad::prelude::Conf;
 use std::net::UdpSocket;
 
 use client::{self, lobby::ui::Gui, run};
-use shared;
+use common;
 
 fn window_conf() -> Conf {
     Conf {
@@ -16,8 +16,8 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let server_addr = shared::net::server_address();
-    let private_key = shared::auth::private_key();
+    let server_addr = common::net::server_address();
+    let private_key = common::auth::private_key();
 
     let socket = match UdpSocket::bind("127.0.0.1:0") {
         Ok(s) => s,

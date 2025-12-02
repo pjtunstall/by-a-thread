@@ -6,7 +6,7 @@ use crate::{
     session::ClientSession,
     state::{ClientState, Lobby},
 };
-use shared::{
+use common::{
     auth::MAX_ATTEMPTS,
     net::AppChannel,
     protocol::{ClientMessage, ServerMessage},

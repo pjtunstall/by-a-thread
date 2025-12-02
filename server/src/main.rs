@@ -11,7 +11,7 @@ use crossterm::{
 };
 
 use server;
-use shared;
+use common;
 
 pub struct Defer;
 
@@ -49,10 +49,10 @@ fn main() {
     })
     .ok();
 
-    let private_key = shared::auth::private_key();
-    let server_addr = shared::net::server_address();
+    let private_key = common::auth::private_key();
+    let server_addr = common::net::server_address();
 
-    let socket = match shared::net::bind_socket(server_addr) {
+    let socket = match common::net::bind_socket(server_addr) {
         Ok(socket) => {
             println!("Server listening on {}.", server_addr);
             socket

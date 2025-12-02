@@ -4,7 +4,7 @@ use crate::{
     net::{NetworkHandle, RenetNetworkHandle},
     session::ClientSession,
 };
-use shared::{self, net::AppChannel, protocol::ServerMessage};
+use common::{self, net::AppChannel, protocol::ServerMessage};
 
 pub fn update_clock(
     session: &mut ClientSession,

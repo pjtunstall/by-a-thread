@@ -9,7 +9,7 @@ use crate::{
     net::ServerNetworkHandle,
     state::{ChoosingDifficulty, Countdown, ServerState},
 };
-use shared::{
+use common::{
     self,
     chat::MAX_CHAT_MESSAGE_BYTES,
     net::AppChannel,
@@ -125,7 +125,7 @@ mod tests {
         state::{ChoosingDifficulty, Lobby},
         test_helpers::MockServerNetwork,
     };
-    use shared::protocol::{ClientMessage, ServerMessage};
+    use common::protocol::{ClientMessage, ServerMessage};
 
     #[test]
     fn test_handle_choosing_difficulty_chat_sanitization() {

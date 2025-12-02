@@ -5,7 +5,7 @@ use std::{
 
 use crate::net::ServerNetworkHandle;
 use bincode::{config::standard, serde::encode_to_vec};
-use shared::{net::AppChannel, protocol::ServerMessage, snapshot::Snapshot};
+use common::{net::AppChannel, protocol::ServerMessage, snapshot::Snapshot};
 
 pub enum ServerState {
     Lobby(Lobby),
@@ -332,7 +332,7 @@ mod tests {
 
     use super::*;
     use crate::test_helpers::MockServerNetwork;
-    use shared::protocol::ServerMessage;
+    use common::protocol::ServerMessage;
 
     #[test]
     fn successful_authentication_does_not_increment_attempts() {

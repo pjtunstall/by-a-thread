@@ -18,7 +18,7 @@ use crate::{
     session::ClientSession,
     state::{ClientState, Lobby},
 };
-use shared::{self, player::Player};
+use common::{self, player::Player};
 
 pub struct ClientRunner {
     pub session: ClientSession,
@@ -38,7 +38,7 @@ impl ClientRunner {
     ) -> Result<Self, String> {
         let assets = Assets::load().await;
         let client_id = ::rand::random::<u64>();
-        let protocol_id = shared::protocol::version();
+        let protocol_id = common::protocol::version();
         let current_time_duration = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("system time is before unix epoch");
@@ -55,7 +55,7 @@ impl ClientRunner {
         let authentication = ClientAuthentication::Secure { connect_token };
         let transport = NetcodeClientTransport::new(current_time_duration, authentication, socket)
             .map_err(|e| format!("Failed to create network transport: {}", e))?;
-        let connection_config = shared::net::connection_config();
+        let connection_config = common::net::connection_config();
         let client = RenetClient::new(connection_config);
         let session = ClientSession::new(client_id);
 
@@ -172,7 +172,7 @@ pub async fn run_client_loop(
     };
 
     runner.ui.print_client_banner(
-        shared::protocol::version(),
+        common::protocol::version(),
         server_addr,
         runner.session.client_id,
     );

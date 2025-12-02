@@ -6,7 +6,7 @@ use crate::{
     lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
     net::NetworkHandle,
 };
-use shared::{input::UiKey, net::AppChannel, protocol::ServerMessage};
+use common::{input::UiKey, net::AppChannel, protocol::ServerMessage};
 
 #[derive(Default)]
 pub struct MockUi {

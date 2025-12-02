@@ -6,7 +6,7 @@ use crate::{
     session::ClientSession,
     state::{ClientState, Lobby},
 };
-use shared::{net::AppChannel, protocol::ServerMessage};
+use common::{net::AppChannel, protocol::ServerMessage};
 
 pub fn handle(
     session: &mut ClientSession,
@@ -79,7 +79,7 @@ pub fn handle(
 mod tests {
     use super::*;
     use crate::test_helpers::{MockNetwork, MockUi};
-    use shared::protocol::ServerMessage;
+    use common::protocol::ServerMessage;
 
     fn set_awaiting_state(session: &mut ClientSession) {
         session.transition(ClientState::Lobby(Lobby::AwaitingUsernameConfirmation));

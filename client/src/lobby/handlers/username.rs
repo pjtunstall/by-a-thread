@@ -9,7 +9,7 @@ use crate::{
     session::{ClientSession, username_prompt, validate_username_input},
     state::{ClientState, Lobby},
 };
-use shared::{
+use common::{
     net::AppChannel,
     protocol::{ClientMessage, ServerMessage},
 };
@@ -44,7 +44,7 @@ pub fn handle(
 
             if trimmed_input.is_empty() {
                 ui.show_typed_error(
-                    UiErrorKind::UsernameValidation(shared::player::UsernameError::Empty),
+                    UiErrorKind::UsernameValidation(common::player::UsernameError::Empty),
                     "username must not be empty",
                 );
                 *prompt_printed = false;
@@ -119,7 +119,7 @@ pub fn handle_server_message(
 mod tests {
     use super::*;
     use crate::test_helpers::{MockNetwork, MockUi};
-    use shared::player::{MAX_USERNAME_LENGTH, UsernameError};
+    use common::player::{MAX_USERNAME_LENGTH, UsernameError};
 
     fn set_choosing_username(session: &mut ClientSession) {
         session.transition(ClientState::Lobby(Lobby::ChoosingUsername {

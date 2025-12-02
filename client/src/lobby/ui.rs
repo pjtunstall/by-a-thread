@@ -2,11 +2,11 @@ pub mod gui;
 
 use std::{fmt, net::SocketAddr};
 
-pub use gui::Gui;
-use shared::{
+use common::{
     input::{UiKey, sanitize},
     player::UsernameError,
 };
+pub use gui::Gui;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiErrorKind {

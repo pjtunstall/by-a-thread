@@ -4,7 +4,7 @@ use crate::{
     session::ClientSession,
     state::{ClientState, Lobby},
 };
-use shared::auth::MAX_ATTEMPTS;
+use common::auth::MAX_ATTEMPTS;
 
 pub fn handle(session: &mut ClientSession, ui: &mut dyn LobbyUi) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Lobby(Lobby::Startup { .. })) {
