@@ -39,7 +39,7 @@ pub fn handle(
                 );
                 ui.show_sanitized_message("Please try a different username.");
 
-                // Server rejected the username, transition back to ChoosingUsername
+                // Server rejected the username, transition back to ChoosingUsername.
                 return Some(ClientState::Lobby(Lobby::ChoosingUsername {
                     prompt_printed: false,
                 }));

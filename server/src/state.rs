@@ -470,7 +470,7 @@ mod tests {
             .unwrap()
             .0;
         if let ServerMessage::AppointHost = msg {
-            // Expected; client will show its own message on receipt.
+            // This is the expected variant; client will show its own message on receipt.
         } else {
             panic!("expected AppointHost message, got {:?}", msg);
         }
