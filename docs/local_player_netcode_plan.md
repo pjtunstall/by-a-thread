@@ -42,73 +42,7 @@ NOTE: Send current health rather than "player took X amount of damge". And, in g
 
 ### Local player: reconciliation and prediction
 
-TODO: Extract magic numbers (0.1, 0.3, 0.5, 0.002) into named constants.
-
-Each iteration of its game loop, update the client's estimate of the server clock, thus:
-
-```rust
-use std::time::Duration;
-
-use crate::{
-    net::{NetworkHandle, RenetNetworkHandle},
-    session::ClientSession,
-};
-use common::{self, net::AppChannel, protocol::ServerMessage};
-
-pub fn update_clock(
-    session: &mut ClientSession,
-    network: &mut RenetNetworkHandle,
-    interval: Duration,
-) {
-    // Increment by interval. This determines the simulation rate.
-    session.estimated_server_time += interval.as_f64();
-
-    // Get time messages that the server sent for us to sync our clock.
-    // Only process the most recent message, discard older queued ones.
-    let mut latest_message = None;
-    while let Some(message) = network.receive_message(AppChannel::ServerTime) {
-        latest_message = Some(message);
-    }
-
-    let Some(message) = latest_message else {
-        return;
-    };
-
-    match bincode::serde::decode_from_slice(&message, bincode::config::standard()) {
-        Ok((ServerMessage::ServerTime(server_sent_time), _)) => {
-            let rtt = network.rtt();
-
-            // Reject obviously bad samples (e.g., network spikes).
-            const MAX_REASONABLE_RTT: f64 = 1.0; // 1 second.
-            if rtt > MAX_REASONABLE_RTT {
-                println!("Excessive rtt observed while updating clock: {}", rtt);
-                return;
-            }
-
-            let one_way_latency = rtt / 2.0;
-            let target_time = server_sent_time + one_way_latency;
-            let delta = target_time - session.estimated_server_time;
-
-            // Large delta, more smoothing (likely clock jump or initial sync).
-            // Small deltas, less smoothing (normal jitter correction).
-            let alpha = if delta.abs() > 0.1 {
-                0.3 // Smooth large corrections over ~3 updates.
-            } else {
-                0.5 // Apply small corrections more quickly.
-            };
-
-            session.estimated_server_time += delta * alpha;
-        }
-        Err(e) => {
-            eprintln!("Failed to deserialize ServerTime message: {}", e);
-        }
-        _ => {}
-    }
-}
-
-```
-
-Use that estimate to calculate a server tick number.
+Each iteration of its game loop, update the client's [estimate of the server clock](../client/src/time.rs) and use it to calculate a server tick number, i.e. the tick on which it intends the server to process its (the client's) current inputs.
 
 Check for inputs and insert them as a `PlayerInput` (containing all current keypresses along with the server tick number) to an array, `history_buffer`, of size 256. Check for messages from the server. If the server has sent an authoritative snapshot of the game state, set this as the new baseline by updating a variable that will track the index of the most recent baseline. Either way, reconcile the client's game state to that of the baseline, then--before rendering anything, purely in the client's physics simulation--replay its inputs for subsequent ticks from the baseline to the most recent input ('prediction'). Finally, renders the result, smoothing the transition from current position to the new estimate.
 
@@ -239,10 +173,12 @@ async fn client_tick() {
 }
 ```
 
-### Remote players: interpolation + dead reckoning (extrapolation)
+### Remote players: interpolation, rather than dead reckoning (extrapolation)
 
 Q: Why do we interpolate?
 A: To mitigate network jitter and low broadcast rate.
 
 Q: Why have a low broadcast rate? That is, why have the server update its physics simulation at a higher frequency than it broadcasts snapshots?
 A: The slower broadcast rate saves on bandwidth. The faster physics rate prevents tunneling/teleportation. If items moved at the broadcast rate, they'd be more likely to teleport through obstacles.
+
+Make sure the interpolation buffer for remote players is at least a full snapshot interval (~50 ms) so we’re not forced to extrapolate between sparse updates.
