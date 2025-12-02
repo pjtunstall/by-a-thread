@@ -84,7 +84,7 @@ fn correction(delta: f64) -> f64 {
 
     let raw_correction = delta * alpha;
 
-    // Limit the correction to a tighter range when there is less to correct?!
+    // Limit the correction to a tighter range when there is less to correct.
     // Low error: prioritize smoothness. High error: prioritize speed.
     let dynamic_limit = (delta.abs() * CLOCK_CORRECTION_RATIO)
         .clamp(BASE_CLOCK_CORRECTION_LIMIT, MAX_CLOCK_CORRECTION_LIMIT);
