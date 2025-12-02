@@ -8,25 +8,19 @@ use crate::{
 };
 use common::{self, net::AppChannel, protocol::ServerMessage};
 
-// TODO: Document, mock, and test.
-// ServerTime messages are sent at 20Hz, every 50ms.
+const MAX_REASONABLE_RTT: f64 = 1.0;
 
-// Thresholds
 const HARD_SNAP_THRESHOLD: f64 = 1.0; // >1s: Just teleport.
 const FAST_CATCHUP_THRESHOLD: f64 = 0.25; // >250ms: Speed up significantly.
 const MODERATE_DRIFT_THRESHOLD: f64 = 0.05; // >50ms: Standard correction.
 
-// Alphas
 const ALPHA_FAST: f64 = 0.3; // Catch up quickly.
 const ALPHA_NORMAL: f64 = 0.1; // Standard smoothing.
 const ALPHA_JITTER: f64 = 0.03; // High damping for noise.
 
-// Speed Limits
-const BASE_CLOCK_CORRECTION_LIMIT: f64 = 0.01; // Minimum nudge.
-const MAX_CLOCK_CORRECTION_LIMIT: f64 = 0.05; // Max nudge - increased slightly for fast catchup.
+const MIN_CLOCK_CORRECTION_LIMIT: f64 = 0.01;
+const MAX_CLOCK_CORRECTION_LIMIT: f64 = 0.05;
 const CLOCK_CORRECTION_RATIO: f64 = 0.25; // How much of the the error is corrected per frame.
-
-const MAX_REASONABLE_RTT: f64 = 1.0;
 
 pub fn update_clock(
     session: &mut ClientSession,
@@ -37,7 +31,7 @@ pub fn update_clock(
 
     let mut latest_message = None;
     while let Some(message) = network.receive_message(AppChannel::ServerTime) {
-        latest_message = Some(message);
+        latest_message = Some(message); // ServerTime messages are sent at 20Hz (every 50ms).
     }
     let Some(message) = latest_message else {
         return;
@@ -49,7 +43,6 @@ pub fn update_clock(
 
             // Discard messages with massive RTT; their timing info is stale.
             if rtt > MAX_REASONABLE_RTT {
-                // Optional: Log once in a while, but don't spam.
                 return;
             }
 
@@ -87,7 +80,9 @@ fn correction(delta: f64) -> f64 {
     // Limit the correction to a tighter range when there is less to correct.
     // Low error: prioritize smoothness. High error: prioritize speed.
     let dynamic_limit = (delta.abs() * CLOCK_CORRECTION_RATIO)
-        .clamp(BASE_CLOCK_CORRECTION_LIMIT, MAX_CLOCK_CORRECTION_LIMIT);
+        .clamp(MIN_CLOCK_CORRECTION_LIMIT, MAX_CLOCK_CORRECTION_LIMIT);
 
-    raw_correction.clamp(-dynamic_limit, dynamic_limit)
+    let correction = raw_correction.clamp(-dynamic_limit, dynamic_limit);
+
+    correction
 }
