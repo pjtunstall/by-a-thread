@@ -18,18 +18,16 @@ NOTE: Client tick, server tick, and frame are conceptually distinct, but happen 
 - prediction: a process whereby the client replays inputs from its `input_history` for the ticks from immediately after its **baseline** state up to (and including) its most recent input.
 - reconciliation: a process whereby the client sets the current state of its physics simulation to the latest **snapshot** (state received from the server); see also **baseline**. The client immediately replays its inputs for subsequent ticks on top of this till it reaches its own current tick, a process known as **prediction**.
 - snapshot: the complete game state on a given tick, as calculated by the server, and broadcast to clients. See also **baseline**.
-  `snapshot_buffer: Vec<Snapshot>`, capacity 8: (also known as an interpolation buffer) a record the client keeps of snapshots received so that it can interpolate
+  `snapshot_buffer: Vec<Snapshot>`, capacity 16: (also known as an interpolation buffer) a record the client keeps of snapshots received so that it can interpolate
 - tick: one iteration of the (client or server) physics simulation. Compare **frame**.
 
 Regarding the lengths of the `Vecs`:
 
 - 128 ticks -> ~2.1s.
 - 256 ticks -> ~4.3s.
-- 8 broadcasts -> 0.4s. (Or 16 broadcasts -> 0.8s.)
+- 16 broadcasts -> 0.8s. (Or if it needs to cover a second, 32 -> 1.6s.)
 
 Check Renet config to see how long it takes for clients to actually time out.
-
-Gemini on 8: 'You strictly only need 2 snapshots to interpolate (Current and Next). However, due to packet loss or jitter, the "Next" snapshot might not arrive on time. Having a buffer of 8 allows the client to survive a short burst of packet loss without running out of data to interpolate, causing entities to freeze.'
 
 ## Server
 
@@ -188,7 +186,7 @@ async fn client_tick() {
 
 ### Remote players: interpolation, rather than dead reckoning (extrapolation)
 
-Insert snapshots into an array, `snapshot_buffer: [Snapshot; 8]` (1s+).
+Insert snapshots into a snapshot buffer (1s+). Where does that "1s+" come from? is that another opinion on how much time it should cover?
 
 ```rust
 const INTERPOLATION_DELAY = 0.1; // 100ms.
@@ -202,7 +200,7 @@ Do we have the snapshot for `render_tick` and the tick after? Then render the st
 
 Q. What to do if suitable snapshots aren't available? Render between further apart ones? What if no later snapshot is available, or no earlier one? What is the most likely way that things can go wrong and how to handle it? What to do on startup: wait for snapshots and skip rendering other players? It's likely to be momentary.
 
-\*
+## FAQ
 
 Q: Why do we interpolate?
 A: To mitigate network jitter (smooth it out, preventing small fluctuations from causing a whole earlier or later server tick to be rendered) and low broadcast rate (fill in the gaps between broadcast snapshots).
@@ -213,15 +211,17 @@ A. To give snapshots more chance to arrive, analogous to how the server maintain
 Q: Why have a low broadcast rate? That is, why have the server update its physics simulation at a higher frequency than it broadcasts snapshots?
 A: The slower broadcast rate saves on bandwidth. The faster physics rate prevents tunneling/teleportation. If items moved at the broadcast rate, they'd be more likely to teleport through obstacles.
 
+Q. Extrapolation is what the server does when it assumes input was the same as the last received input, right?
+
+Q. Is extrapolation needed as a backup by the client, or just another name for interpolation in the context of sparse ticks? (See [Check](#check).)
+
 ## Check
 
-- Make sure the interpolation buffer for remote players is at least a full snapshot interval (~50 ms) so we’re not forced to extrapolate between sparse updates.
-
-## Further ideas
-
-Consider wraparound ticks of some smaller data type than `u64`.
+- Make sure the snapshot buffer is at least a full "snapshot interval" (~50 ms), i.e. broadcast interval,so we’re not forced to extrapolate between sparse updates.
 
 ## Implementation
+
+Consider wraparound ticks of some smaller data type than `u64`.
 
 ```rust
 pub trait Sequenced {
@@ -271,5 +271,57 @@ where T: Clone + Sequenced + Default {
             None
         }
     }
+
+    pub fn get_raw(&self, sequence: u16) -> &T {
+        let index = sequence as usize & self.mask;
+        &self.buffer[index]
+    }
+}
+```
+
+Or, rawer:
+
+```rust
+pub const INPUT_BUFFER_SIZE: usize = 128;
+pub const INPUT_HISTORY_SIZE: usize = 256;
+pub const SNAPSHOT_BUFFER_SIZE: usize = 16;
+
+assert!(INPUT_BUFFER_SIZE != 0, "INPUT_BUFFER_SIZE should not be 0");
+assert!(INPUT_BUFFER_SIZE & (INPUT_BUFFER_SIZE - 1) == 0, "INPUT_BUFFER_SIZE should be a power of 2");
+
+assert!(INPUT_HISTORY_SIZE != 0, "INPUT_HISTORY_SIZE should not be 0");
+assert!(INPUT_HISTORY_SIZE & (INPUT_HISTORY_SIZE - 1) == 0, "INPUT_HISTORY_SIZE should be a power of 2");
+
+assert!(SNAPSHOT_BUFFER_SIZE != 0, "SNAPSHOT_BUFFER_SIZE should not be 0");
+assert!(SNAPSHOT_BUFFER_SIZE & (SNAPSHOT_BUFFER_SIZE - 1) == 0, "SNAPSHOT_BUFFER_SIZE should be a power of 2");
+```
+
+And everywhere that items are accessed:
+
+```rust
+let input = &buffer[target_tick];
+
+if input.tick == target_tick {
+    // Valid data.
+} else {
+    // Packet loss (or future data). Handle accordingly.
+}
+```
+
+Arrays for inputs and a Vec for the snapshot buffer? First consider what a snapshot will actually consist of. Include only bullet spawn, bounce, and expiry events? Reconsider struct of arrays.
+
+Boxed array recommended for snapshot buffer. Safest to create it on heap to begin with via a Vec, to avoid the risk of stack overflow on initialization, because the array is initialized on the stack then moved to the heap as it's boxed.
+
+```rust
+pub fn new_boxed_buffer<T: Default, const N: usize>() -> Box<[T; N]> {
+    // 1. Create a Vec (allocates directly on heap).
+    let v: Vec<T> = (0..N).map(|_| T::default()).collect();
+
+    // 2. Convert to Box<[T]> (drops capacity field).
+    let slice = v.into_boxed_slice();
+
+    // 3. Convert slice to Array (guaranteed to succeed if size matches).
+    // unwrapping is safe here because we controlled the size above.
+    slice.try_into().expect("length mismatch in array creation")
 }
 ```
