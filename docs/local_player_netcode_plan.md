@@ -18,14 +18,14 @@ NOTE: Client tick, server tick, and frame are conceptually distinct, but happen 
 - prediction: a process whereby the client replays inputs from its `input_history` for the ticks from immediately after its **baseline** state up to (and including) its most recent input.
 - reconciliation: a process whereby the client sets the current state of its physics simulation to the latest **snapshot** (state received from the server); see also **baseline**. The client immediately replays its inputs for subsequent ticks on top of this till it reaches its own current tick, a process known as **prediction**.
 - snapshot: the complete game state on a given tick, as calculated by the server, and broadcast to clients. See also **baseline**.
-  `snapshot_buffer: Vec<Snapshot>`, capacity 16: (also known as an interpolation buffer) a record the client keeps of snapshots received so that it can interpolate
+  `snapshot_buffer: Vec<Snapshot>`, capacity 8: (also known as an interpolation buffer) a record the client keeps of snapshots received so that it can interpolate
 - tick: one iteration of the (client or server) physics simulation. Compare **frame**.
 
 Regarding the lengths of the `Vecs`:
 
 - 128 ticks -> ~2.1s.
 - 256 ticks -> ~4.3s.
-- 16 broadcasts -> 0.8s. (Or if it needs to cover a second, 32 -> 1.6s.)
+- 8 broadcasts -> 0.4s.
 
 Check Renet config to see how long it takes for clients to actually time out.
 
@@ -211,14 +211,6 @@ A. To give snapshots more chance to arrive, analogous to how the server maintain
 Q: Why have a low broadcast rate? That is, why have the server update its physics simulation at a higher frequency than it broadcasts snapshots?
 A: The slower broadcast rate saves on bandwidth. The faster physics rate prevents tunneling/teleportation. If items moved at the broadcast rate, they'd be more likely to teleport through obstacles.
 
-Q. Extrapolation is what the server does when it assumes input was the same as the last received input, right?
-
-Q. Is extrapolation needed as a backup by the client, or just another name for interpolation in the context of sparse ticks? (See [Check](#check).)
-
-## Check
-
-- Make sure the snapshot buffer is at least a full "snapshot interval" (~50 ms), i.e. broadcast interval,so we’re not forced to extrapolate between sparse updates.
-
 ## Implementation
 
 Consider wraparound ticks of some smaller data type than `u64`.
@@ -284,7 +276,7 @@ Or, rawer:
 ```rust
 pub const INPUT_BUFFER_SIZE: usize = 128;
 pub const INPUT_HISTORY_SIZE: usize = 256;
-pub const SNAPSHOT_BUFFER_SIZE: usize = 16;
+pub const SNAPSHOT_BUFFER_SIZE: usize = 8;
 
 assert!(INPUT_BUFFER_SIZE != 0, "INPUT_BUFFER_SIZE should not be 0");
 assert!(INPUT_BUFFER_SIZE & (INPUT_BUFFER_SIZE - 1) == 0, "INPUT_BUFFER_SIZE should be a power of 2");
@@ -325,3 +317,115 @@ pub fn new_boxed_buffer<T: Default, const N: usize>() -> Box<[T; N]> {
     slice.try_into().expect("length mismatch in array creation")
 }
 ```
+
+Distinguish between memory layout and wire format. Configure serde to only send what's needed:
+
+```rust
+use serde::{Serialize, Serializer, Deserialize, Deserializer, ser::SerializeStruct};
+use serde::ser::SerializeStruct;
+use serde::de::{self, SeqAccess, Visitor};
+use std::fmt;
+
+const MAX_PLAYERS: usize = 10;
+
+#[derive(Clone, Copy, Debug)]
+pub struct Snapshot {
+    pub tick: u16,
+    pub active_mask: u16,
+    pub players: [PlayerState; MAX_PLAYERS],
+}
+
+struct PlayerState {
+    pos_x: f32, // 4 bytes (Primitive)
+    pos_y: f32, // 4 bytes (Primitive)
+    pos_z: f32, // 4 bytes (Primitive)
+    rot_w: f32, // 4 bytes (Primitive)
+    // ... etc
+}
+
+// 1. The Helper Wrapper
+// It holds a reference to the Snapshot, so it costs nothing to create.
+struct ActivePlayersIter<'a>(&'a Snapshot);
+
+impl<'a> Serialize for ActivePlayersIter<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer {
+        // 2. The Logic
+        // Create an iterator that filters based on the bitmask.
+        let iter = self.0.players.iter()
+            .enumerate()
+            .filter_map(|(i, player)| {
+                if (self.0.active_mask & (1 << i)) != 0 {
+                    Some(player)
+                } else {
+                    None
+                }
+            });
+
+        // 3. The Magic
+        // collect_seq consumes the iterator and writes directly to the wire.
+        // No Vec. No Heap.
+        serializer.collect_seq(iter)
+    }
+}
+
+// -----------------------------------------------------------
+
+impl Serialize for Snapshot {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer {
+        let mut state = serializer.serialize_struct("Snapshot", 3)?;
+
+        state.serialize_field("tick", &self.tick)?;
+        state.serialize_field("active_mask", &self.active_mask)?;
+
+        // 4. Usage
+        // We pass the wrapper. It doesn't allocate; it just passes the logic.
+        state.serialize_field("players", &ActivePlayersIter(self))?;
+
+        state.end()
+    }
+}
+
+impl<'de> Visitor<'de> for SnapshotVisitor {
+    type Value = Snapshot;
+
+    fn visit_seq<V>(self, mut seq: V) -> Result<Snapshot, V::Error>
+    where V: SeqAccess<'de> {
+        // 1. Read metadata
+        let tick = seq.next_element()?.ok_or_else(|| ...)?;
+        let active_mask = seq.next_element()?.ok_or_else(|| ...)?;
+
+        // 2. Prepare the destination (On the Stack / Inline)
+        let mut players = [PlayerState::default(); MAX_PLAYERS];
+
+        // 3. Iterate the mask to know where to put the incoming items
+        for i in 0..MAX_PLAYERS {
+            // Check if this slot expects data
+            if (active_mask & (1 << i)) != 0 {
+                // CRITICAL FIX:
+                // We pull ONE item from the stream directly into the array slot.
+                // No intermediate Vec. No Heap.
+                players[i] = seq.next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+            }
+        }
+
+        Ok(Snapshot { tick, active_mask, players })
+    }
+}
+```
+
+## State vs. events
+
+This is important! I need to understand what to do for the bullets before proceeding with the rest of the network logic. Each part informs the others: what data structures to use, what to send, and how.
+
+Actually send bullet spawn, bounce, kill/player-death, and expiry events on the reliable channel. Bullet events will have bullet id, position, velocity, and time. Don't edit the snapshot buffer. The snapshot buffer (the ring buffer of arrays) is strictly for interpolating players. Bullets should live in a separate `Vec<Bullet>`. On receiving a bounce, say, the client updates the bullet's position to the bounce point, calculates the new velocity, and "simulates" 50ms worth of movement instantly to put the bullet where it should be right now. This is extrapolation, aka dead reckoning.
+
+Feature.Transport.Storage Strategy................................Bandwidth Strategy
+....................................................................................
+players.unreliable.`Box<[Snapshot; 8]>` (snapshot ring buffer).Serialize only active players (slice)
+bullets.reliable...`Vec<Bullet>` (world state entity list)......Send events, extrapolate locally
+deaths..reliable...(event queue)................................Events
+
+I can give the bullets Vec a capacity of 240.
