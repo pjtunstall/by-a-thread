@@ -13,7 +13,7 @@ NOTE: Client tick, server tick, and frame are conceptually distinct, but happen 
 - baseline: the most recent **snapshot** a client has received from the server.
 - frame: one iteration of the client render loop, i.e. one instance of painting a scene. See also **tick**.
 - `input_buffer: Vec<PlayerInput>`, capacity 128: a record the server uses to store inputs as they're received from a player. The server has one for each player and inserts newly received inputs at index `tick % 128`.
-- `input_history: Vec<PlayerInput>`, capacity 512: a record the client uses to store their own inputs to be replayed on top of the current baseline state, i.e. the latest snapshot received from the server, in a process known as reconciliation and prediction.
+- `input_history: Vec<PlayerInput>`, capacity 256: a record the client uses to store their own inputs to be replayed on top of the current baseline state, i.e. the latest snapshot received from the server, in a process known as reconciliation and prediction.
 - `JITTER_SAFETY_MARGIN: f64`: a safety margin of 50ms (about 3 ticks) to give player inputs more chance to arrive at the server in case of occasional delays.
 - prediction: a process whereby the client replays inputs from its `input_history` for the ticks from immediately after its **baseline** state up to (and including) its most recent input.
 - reconciliation: a process whereby the client sets the current state of its physics simulation to the latest **snapshot** (state received from the server); see also **baseline**. The client immediately replays its inputs for subsequent ticks on top of this till it reaches its own current tick, a process known as **prediction**.
@@ -23,13 +23,11 @@ NOTE: Client tick, server tick, and frame are conceptually distinct, but happen 
 
 Regarding the lengths of the `Vecs`:
 
-- 128 ticks = ~2.1s.
-- 512 ticks = ~8.5s.
-- 8 broadcasts = 0.4s.
+- 128 ticks -> ~2.1s.
+- 256 ticks -> ~4.3s.
+- 8 broadcasts -> 0.4s. (Or 16 broadcasts -> 0.8s.)
 
 Check Renet config to see how long it takes for clients to actually time out.
-
-Gemini on 512: 'This number seems surprisingly high (usually 1–2 seconds is enough), but it is likely a "better safe than sorry" maximum. If you experience a massive lag spike (e.g., 1000ms RTT), the client needs enough history to replay that whole second. 512 is cheap in memory and ensures you never run out of history during a deep reconciliation event.'
 
 Gemini on 8: 'You strictly only need 2 snapshots to interpolate (Current and Next). However, due to packet loss or jitter, the "Next" snapshot might not arrive on time. Having a buffer of 8 allows the client to survive a short burst of packet loss without running out of data to interpolate, causing entities to freeze.'
 
@@ -57,7 +55,7 @@ NOTE: Send current health rather than "player took X amount of damge". And, in g
 
 Each iteration of its game loop, update the client's [estimate of the server clock](../client/src/time.rs) and use it to calculate a server tick number, i.e. the tick on which it intends the server to process its (the client's) current inputs.
 
-Check for inputs and insert them as a `PlayerInput` (containing all current keypresses along with the server tick number) to an array, `history_buffer`, of size 512. Check for messages from the server. If the server has sent an authoritative snapshot of the game state, set this as the new baseline by updating a variable that will track the index of the most recent baseline. Either way, reconcile the client's game state to that of the baseline, then--before rendering anything, purely in the client's physics simulation--replay its inputs for subsequent ticks from the baseline to the most recent input ('prediction'). Finally, renders the result, smoothing the transition from current position to the new estimate.
+Check for inputs and insert them as a `PlayerInput` (containing all current keypresses along with the server tick number) to an array, `history_buffer`, of size 256. Check for messages from the server. If the server has sent an authoritative snapshot of the game state, set this as the new baseline by updating a variable that will track the index of the most recent baseline. Either way, reconcile the client's game state to that of the baseline, then--before rendering anything, purely in the client's physics simulation--replay its inputs for subsequent ticks from the baseline to the most recent input ('prediction'). Finally, renders the result, smoothing the transition from current position to the new estimate.
 
 Check for new inputs and send the most recent handful of inputs to the server on an `Unreliable` Renet channel. This redundancy increases the chance that the server will have inputs available for each tick it processes and not have to guess.
 
@@ -222,3 +220,56 @@ A: The slower broadcast rate saves on bandwidth. The faster physics rate prevent
 ## Further ideas
 
 Consider wraparound ticks of some smaller data type than `u64`.
+
+## Implementation
+
+```rust
+pub trait Sequenced {
+    fn sequence(&self) -> u16;
+}
+
+#[derive(Debug, Clone)]
+pub struct RingBuffer<T> {
+    buffer: Vec<T>,
+    mask: usize,
+}
+
+impl<T> RingBuffer<T>
+where T: Clone + Sequenced + Default {
+    pub fn new(size: usize) -> Self {
+        assert!(size > 0 && (size & (size - 1)) == 0, "Size must be power of 2");
+
+        // Create a dummy element with a sequence number that won't collide
+        // with the first real packet.
+        // Assuming the game starts at tick 0 or 1, u16::MAX is a safe sentinel.
+        let mut dummy = T::default();
+
+        // we might need a setter for this, or just ensure Default returns
+        // a sequence (like 0) and handle the game start logic to avoid collision.
+        // Ideally: dummy.set_sequence(u16::MAX);
+
+        Self {
+            buffer: vec![dummy; size],
+            mask: size - 1,
+        }
+    }
+
+    pub fn insert(&mut self, item: T) {
+        let seq = item.sequence();
+        let index = seq as usize & self.mask;
+
+        self.buffer[index] = item;
+    }
+
+    pub fn get(&self, sequence: u16) -> Option<&T> {
+        let index = sequence as usize & self.mask;
+        let item = &self.buffer[index];
+
+        if item.sequence() == sequence {
+            Some(item)
+        } else {
+            None
+        }
+    }
+}
+```
