@@ -12,13 +12,26 @@ NOTE: Client tick, server tick, and frame are conceptually distinct, but happen 
 
 - baseline: the most recent **snapshot** a client has received from the server.
 - frame: one iteration of the client render loop, i.e. one instance of painting a scene. See also **tick**.
-- `input_buffer: [Option<PlayerInput>: 128]`: an array the server uses to store inputs as they're received from a player. The server has one for each player and inserts newly received inputs at index `tick % 128`.
-- `input_history: [Option<PlayerInput>: 256]`: an array the client uses to store their own inputs to be replayed on top of the current baseline state, i.e. the latest snapshot received from the server, in a process known as reconciliation and prediction.
+- `input_buffer: Vec<PlayerInput>`, capacity 128: a record the server uses to store inputs as they're received from a player. The server has one for each player and inserts newly received inputs at index `tick % 128`.
+- `input_history: Vec<PlayerInput>`, capacity 512: a record the client uses to store their own inputs to be replayed on top of the current baseline state, i.e. the latest snapshot received from the server, in a process known as reconciliation and prediction.
 - `JITTER_SAFETY_MARGIN: f64`: a safety margin of 50ms (about 3 ticks) to give player inputs more chance to arrive at the server in case of occasional delays.
 - prediction: a process whereby the client replays inputs from its `input_history` for the ticks from immediately after its **baseline** state up to (and including) its most recent input.
 - reconciliation: a process whereby the client sets the current state of its physics simulation to the latest **snapshot** (state received from the server); see also **baseline**. The client immediately replays its inputs for subsequent ticks on top of this till it reaches its own current tick, a process known as **prediction**.
 - snapshot: the complete game state on a given tick, as calculated by the server, and broadcast to clients. See also **baseline**.
+  `snapshot_buffer: Vec<Snapshot>`, capacity 8: (also known as an interpolation buffer) a record the client keeps of snapshots received so that it can interpolate
 - tick: one iteration of the (client or server) physics simulation. Compare **frame**.
+
+Regarding the lengths of the `Vecs`:
+
+- 128 ticks = ~2.1s.
+- 512 ticks = ~8.5s.
+- 8 broadcasts = 0.4s.
+
+Check Renet config to see how long it takes for clients to actually time out.
+
+Gemini on 512: 'This number seems surprisingly high (usually 1–2 seconds is enough), but it is likely a "better safe than sorry" maximum. If you experience a massive lag spike (e.g., 1000ms RTT), the client needs enough history to replay that whole second. 512 is cheap in memory and ensures you never run out of history during a deep reconciliation event.'
+
+Gemini on 8: 'You strictly only need 2 snapshots to interpolate (Current and Next). However, due to packet loss or jitter, the "Next" snapshot might not arrive on time. Having a buffer of 8 allows the client to survive a short burst of packet loss without running out of data to interpolate, causing entities to freeze.'
 
 ## Server
 
@@ -44,7 +57,7 @@ NOTE: Send current health rather than "player took X amount of damge". And, in g
 
 Each iteration of its game loop, update the client's [estimate of the server clock](../client/src/time.rs) and use it to calculate a server tick number, i.e. the tick on which it intends the server to process its (the client's) current inputs.
 
-Check for inputs and insert them as a `PlayerInput` (containing all current keypresses along with the server tick number) to an array, `history_buffer`, of size 256. Check for messages from the server. If the server has sent an authoritative snapshot of the game state, set this as the new baseline by updating a variable that will track the index of the most recent baseline. Either way, reconcile the client's game state to that of the baseline, then--before rendering anything, purely in the client's physics simulation--replay its inputs for subsequent ticks from the baseline to the most recent input ('prediction'). Finally, renders the result, smoothing the transition from current position to the new estimate.
+Check for inputs and insert them as a `PlayerInput` (containing all current keypresses along with the server tick number) to an array, `history_buffer`, of size 512. Check for messages from the server. If the server has sent an authoritative snapshot of the game state, set this as the new baseline by updating a variable that will track the index of the most recent baseline. Either way, reconcile the client's game state to that of the baseline, then--before rendering anything, purely in the client's physics simulation--replay its inputs for subsequent ticks from the baseline to the most recent input ('prediction'). Finally, renders the result, smoothing the transition from current position to the new estimate.
 
 Check for new inputs and send the most recent handful of inputs to the server on an `Unreliable` Renet channel. This redundancy increases the chance that the server will have inputs available for each tick it processes and not have to guess.
 
@@ -177,7 +190,7 @@ async fn client_tick() {
 
 ### Remote players: interpolation, rather than dead reckoning (extrapolation)
 
-Insert snapshots into an array, `interpolation_buffer: [Snapshot; 32]` (1s+).
+Insert snapshots into an array, `snapshot_buffer: [Snapshot; 8]` (1s+).
 
 ```rust
 const INTERPOLATION_DELAY = 0.1; // 100ms.
@@ -187,7 +200,9 @@ let render_tick_f64 = (render_time / SERVER_TICK_DURATION).floor();
 let render_tick = render_tick_f64 as u64;
 ```
 
-Do we have the snapshot for `render_tick` and the tick after? Then render the state with all values at `t` times the difference between the value as it was at the `render_tick` and how it was at the next tick.
+Do we have the snapshot for `render_tick` and the tick after? Then render the state with all values at `t` times the difference between the value as it was at the `render_tick` and how it was at the next tick, where `t` is the fractional part of `render_time`, i.e. `render_time - render_tick_f64` (the difference between `render_time` and the time of the `render_tick`).
+
+Q. What to do if suitable snapshots aren't available? Render between further apart ones? What if no later snapshot is available, or no earlier one? What is the most likely way that things can go wrong and how to handle it? What to do on startup: wait for snapshots and skip rendering other players? It's likely to be momentary.
 
 \*
 
@@ -200,7 +215,9 @@ A. To give snapshots more chance to arrive, analogous to how the server maintain
 Q: Why have a low broadcast rate? That is, why have the server update its physics simulation at a higher frequency than it broadcasts snapshots?
 A: The slower broadcast rate saves on bandwidth. The faster physics rate prevents tunneling/teleportation. If items moved at the broadcast rate, they'd be more likely to teleport through obstacles.
 
-Make sure the interpolation buffer for remote players is at least a full snapshot interval (~50 ms) so we’re not forced to extrapolate between sparse updates.
+## Check
+
+- Make sure the interpolation buffer for remote players is at least a full snapshot interval (~50 ms) so we’re not forced to extrapolate between sparse updates.
 
 ## Further ideas
 
