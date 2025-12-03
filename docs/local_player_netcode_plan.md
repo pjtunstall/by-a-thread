@@ -1,5 +1,9 @@
 # Netcode plan
 
+Client: extrapolation for bullets, interpolation for remote players, and reconciliation+prediction for the local player.
+
+Server: input repeating (called 'zero-order hold' in control theory and signal processing) for missing data. Humans tend to do what they were doing. When the server decides they moved, they moved; by contrast, the client defaults to no action for remote players when there's no data, because repeating the previous data might result in rubber banding if the server corrects it.
+
 ## Preliminaries
 
 Choose a tick frequency, 60Hz (once every 16.7ms), and a broadcast frequency, e.g. 20Hz (once every 50.0ms). Decide how many client inputs to send to the server per tick for redundancy, e.g. 4.
@@ -12,13 +16,13 @@ NOTE: Client tick, server tick, and frame are conceptually distinct, but happen 
 
 - baseline: the most recent **snapshot** a client has received from the server.
 - frame: one iteration of the client render loop, i.e. one instance of painting a scene. See also **tick**.
-- `input_buffer: Vec<PlayerInput>`, capacity 128: a record the server uses to store inputs as they're received from a player. The server has one for each player and inserts newly received inputs at index `tick % 128`.
-- `input_history: Vec<PlayerInput>`, capacity 256: a record the client uses to store their own inputs to be replayed on top of the current baseline state, i.e. the latest snapshot received from the server, in a process known as reconciliation and prediction.
+- `input_buffer: [PlayerInput; 128]`: a record the server uses to store inputs as they're received from a player. The server has one for each player and inserts newly received inputs at index `tick % 128`.
+- `input_history: [PlayerInput; 256]`: a record the client uses to store their own inputs to be replayed on top of the current baseline state, i.e. the latest snapshot received from the server, in a process known as reconciliation and prediction.
 - `JITTER_SAFETY_MARGIN: f64`: a safety margin of 50ms (about 3 ticks) to give player inputs more chance to arrive at the server in case of occasional delays.
 - prediction: a process whereby the client replays inputs from its `input_history` for the ticks from immediately after its **baseline** state up to (and including) its most recent input.
 - reconciliation: a process whereby the client sets the current state of its physics simulation to the latest **snapshot** (state received from the server); see also **baseline**. The client immediately replays its inputs for subsequent ticks on top of this till it reaches its own current tick, a process known as **prediction**.
 - snapshot: the complete game state on a given tick, as calculated by the server, and broadcast to clients. See also **baseline**.
-  `snapshot_buffer: Vec<Snapshot>`, capacity 8: (also known as an interpolation buffer) a record the client keeps of snapshots received so that it can interpolate
+  `snapshot_buffer: Box::<[Snapshot; 8]>`: (also known as an interpolation buffer) a record the client keeps of snapshots received so that it can interpolate
 - tick: one iteration of the (client or server) physics simulation. Compare **frame**.
 
 Regarding the lengths of the `Vecs`:
