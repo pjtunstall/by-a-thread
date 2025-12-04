@@ -48,5 +48,5 @@
 
 ## Open Questions / Caveats
 
-- Jitter margin currently ~50 ms; may need to scale with observed RTT if late inputs occur.
-- ServerTime messages are currently 60 Hz; could likely drop to broadcast rate once stability is verified.
+- Jitter margin currently ~50 ms; may need to scale with observed RTT if late inputs occur...
+- ServerTime messages are currently 60 Hz; could drop to broadcast rate once stability is verified?
