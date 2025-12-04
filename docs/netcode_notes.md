@@ -141,9 +141,10 @@ while session.accumulator >= TICK_DURATION_IDEAL && ticks_processed < MAX_TICKS_
     perform_tick(&mut session); // Run physics: reconcile and predict.
 
     // C. Advance State.
-    session.accumulator -= TICK_DURATION_IDEAL;
+     session.accumulator -= TICK_DURATION_IDEAL;
     session.current_tick += 1;
     ticks_processed += 1;
+    session.simulated_time += TICK_DURATION_IDEAL;
 
     // Track our time using the fixed step to stay perfectly in sync with ticks.
     session.simulated_time += TICK_DURATION_IDEAL;
