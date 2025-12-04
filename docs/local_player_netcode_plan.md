@@ -1,8 +1,6 @@
 # Netcode plan
 
-Client: extrapolation for bullets, interpolation for remote players, and reconciliation+prediction for the local player.
-
-Server: input repeating (called 'zero-order hold' in control theory and signal processing) for missing data. Humans tend to do what they were doing. When the server decides they moved, they moved; by contrast, the client defaults to no action for remote players when there's no data, because repeating the previous data might result in rubber banding if the server corrects it.
+Client: (reconciliation and) **extrapolation** for bullets, **interpolation** for remote players, and (reconciliation and) **prediction** for the local player.
 
 ## Preliminaries
 
@@ -12,24 +10,30 @@ Give the server a `Vec<ServerPlayer>` to store the player data. `ServerPlayer` c
 
 ## Terminology
 
-NOTE: Client tick, server tick, and frame are conceptually distinct, but happen to have the same duration in this case. All three loops run at 60Hz. On the other hand, the server will broadcast at only 20Hz to reduce bandwidth.
+Client tick, server tick, and frame are conceptually distinct, but happen to have the same duration in our case. All three loops run at 60Hz. On the other hand, the server will broadcast at only 20Hz to save on bandwidth.
 
 - baseline: the most recent **snapshot** a client has received from the server.
-- frame: one iteration of the client render loop, i.e. one instance of painting a scene. See also **tick**.
+- frame: one iteration of the client render loop, i.e. one instance of painting a scene on the screen. See also **tick**.
 - `input_buffer: [PlayerInput; 128]`: a record the server uses to store inputs as they're received from a player. The server has one for each player and inserts newly received inputs at index `tick % 128`.
 - `input_history: [PlayerInput; 256]`: a record the client uses to store their own inputs to be replayed on top of the current baseline state, i.e. the latest snapshot received from the server, in a process known as reconciliation and prediction.
 - `JITTER_SAFETY_MARGIN: f64`: a safety margin of 50ms (about 3 ticks) to give player inputs more chance to arrive at the server in case of occasional delays.
 - prediction: a process whereby the client replays inputs from its `input_history` for the ticks from immediately after its **baseline** state up to (and including) its most recent input.
 - reconciliation: a process whereby the client sets the current state of its physics simulation to the latest **snapshot** (state received from the server); see also **baseline**. The client immediately replays its inputs for subsequent ticks on top of this till it reaches its own current tick, a process known as **prediction**.
 - snapshot: the complete game state on a given tick, as calculated by the server, and broadcast to clients. See also **baseline**.
-  `snapshot_buffer: Box::<[Snapshot; 8]>`: (also known as an interpolation buffer) a record the client keeps of snapshots received so that it can interpolate
+  `snapshot_buffer: [Snapshot; 16]`: (also known as an interpolation buffer) a record the client keeps of snapshots received so that it can interpolate.
 - tick: one iteration of the (client or server) physics simulation. Compare **frame**.
 
-Regarding the lengths of the `Vecs`:
+Regarding the lengths of the three collections. They need to be a power of 2 so we can use `u16` to label ticks instead of, say, `u64`; otherwise, when we go from tick 65535 to tick 0, we'd jump from the current index to 0, missing any indices in between. (E.g. 65535 = 35 mod 100, but 0 = 0 mod 100.) Also, they must be a power of 2 to allow the microptimization of using `&` (bitwise AND) in place of `%` (division is expensive).
 
-- 128 ticks -> ~2.1s.
-- 256 ticks -> ~4.3s.
-- 8 broadcasts -> 0.4s.
+- input buffer: 128 ticks -> ~2.1s.
+- input history: 256 ticks -> ~4.3s.
+- snapshot buffer: 16 broadcasts -> 0.8s. Big safety margin in case I itroduce a dynamic interpolation delay later.
+
+As for their size, in terms of memory, a `PlayerInput` for transmission could be a single byte for the input itsef: the number of possible inputs is 9 translation directions (including none) times 9 rotation directions (including none) times 2 (fire or not) = `9 * 9 * 2 = 162`. This ignores ESC, which can be detected by lack of connection or sent by a reliable channel separately. We'll send 4 at a time for redundancy alomg with 2 bytes for the tick number, for a total of 6 bytes.
+
+A snapshot will need position and orientation for each player: `(3 + 2) * 4 * 10 + 2 = 2402` bytes maximum.
+
+A bullet update could contain a position `3 * 4` bytes, plus a direction `2 * 4` bytes, if I reduce it to an orientation, a point on the unit sphere, `242`, including tick, and maybe a optional player id for id someone was hit, along with their resulting health. Or `(3 + 3) * 4 * 10 + 2 = 362`.
 
 Check Renet config to see how long it takes for clients to actually time out.
 
@@ -98,7 +102,8 @@ session.smoothed_rtt = session.smoothed_rtt * (1.0 - rtt_alpha) + current_rtt * 
 // 3. CALCULATE TARGET TIME
 // Target = "What time is it now" + "Travel Time" + "Safety Margin".
 let travel_time = session.smoothed_rtt / 2.0;
-let target_sim_time = session.estimated_server_time + travel_time + JITTER_SAFETY_MARGIN;
+let target_sim_time = session.estimated_server_time + travel_time + JITTER_SAFETY_MARGIN; // 'input arrival time'
+let target_tick = (target_sim_time / TICK_DURATION_IDEAL).floor() as u64;
 
 // And, from that, calculate the target tick and pass it along with the current_tick to process_input?
 
@@ -111,7 +116,7 @@ let adjustment = if error.abs() > 0.25 {
     // CASE A: HARD SNAP
     // We are > 250ms off. The internet choked or we just connected.
     // Teleport immediately to avoid speeding up for 10 seconds.
-    println!("Resyncing clock... Delta: {:.4}s", error);
+    println!("Simulation lag spike: catching up by {:.4}s", error);
 
     // We force the error to be exactly enough to close the gap instantly.
     error
@@ -132,8 +137,8 @@ session.accumulator += raw_delta_time + adjustment;
 const MAX_TICKS_PER_FRAME: u32 = 8; // A failsafe to prevent the accumulator from growing
 let mut ticks_processed = 0;        // ever greater if we fall behind.
 while session.accumulator >= TICK_DURATION_IDEAL && ticks_processed < MAX_TICKS_PER_FRAME  {
-    process_input(session.current_tick); // Insert into history, send to server.
-    perform_tick(session.current_tick); // Run physics: reconcile and predict.
+    process_input(&mut session, target_tick); // Insert into history, send to server.
+    perform_tick(&mut session); // Run physics: reconcile and predict.
 
     // C. Advance State.
     session.accumulator -= TICK_DURATION_IDEAL;
@@ -214,6 +219,13 @@ A. To give snapshots more chance to arrive, analogous to how the server maintain
 
 Q: Why have a low broadcast rate? That is, why have the server update its physics simulation at a higher frequency than it broadcasts snapshots?
 A: The slower broadcast rate saves on bandwidth. The faster physics rate prevents tunneling/teleportation. If items moved at the broadcast rate, they'd be more likely to teleport through obstacles.
+
+```text
+Server: input repeating (called 'zero-order hold' in control theory and signal processing) for missing data.
+```
+
+Q. Why the difference: in the absence of current data, the server reuses the most recent input, whereas the client assumes no action by remote players?
+A. Humans tend to keep doing what they were doing. When the server decides they moved, they moved; by contrast, the client defaults to no action for remote players when there's no data, because repeating the previous data might result in rubber banding if the server corrects it.
 
 ## Implementation
 
@@ -306,22 +318,6 @@ if input.tick == target_tick {
 
 Arrays for inputs and a Vec for the snapshot buffer? First consider what a snapshot will actually consist of. Include only bullet spawn, bounce, and expiry events? Reconsider struct of arrays.
 
-Boxed array recommended for snapshot buffer. Safest to create it on heap to begin with via a Vec, to avoid the risk of stack overflow on initialization, because the array is initialized on the stack then moved to the heap as it's boxed.
-
-```rust
-pub fn new_boxed_buffer<T: Default, const N: usize>() -> Box<[T; N]> {
-    // 1. Create a Vec (allocates directly on heap).
-    let v: Vec<T> = (0..N).map(|_| T::default()).collect();
-
-    // 2. Convert to Box<[T]> (drops capacity field).
-    let slice = v.into_boxed_slice();
-
-    // 3. Convert slice to Array (guaranteed to succeed if size matches).
-    // unwrapping is safe here because we controlled the size above.
-    slice.try_into().expect("length mismatch in array creation")
-}
-```
-
 Distinguish between memory layout and wire format. Configure serde to only send what's needed:
 
 ```rust
@@ -339,12 +335,13 @@ pub struct Snapshot {
     pub players: [PlayerState; MAX_PLAYERS],
 }
 
+// 20 bytes
 struct PlayerState {
-    pos_x: f32, // 4 bytes (Primitive)
-    pos_y: f32, // 4 bytes (Primitive)
-    pos_z: f32, // 4 bytes (Primitive)
-    rot_w: f32, // 4 bytes (Primitive)
-    // ... etc
+    x: f32, // 4 bytes (Primitive)
+    y: f32, //
+    z: f32, //
+    pitch: f32, //
+    yaw: f32, //
 }
 
 // 1. The Helper Wrapper
@@ -428,8 +425,110 @@ Actually send bullet spawn, bounce, kill/player-death, and expiry events on the 
 
 Feature.Transport.Storage Strategy................................Bandwidth Strategy
 ....................................................................................
-players.unreliable.`Box<[Snapshot; 8]>` (snapshot ring buffer).Serialize only active players (slice)
-bullets.reliable...`Vec<Bullet>` (world state entity list)......Send events, extrapolate locally
-deaths..reliable...(event queue)................................Events
+players.unreliable.`[Snapshot; 16]` (snapshot ring buffer)........Serialize only active players (slice)
+bullets.reliable...`Vec<Bullet>` (world state entity list)........Send events, extrapolate locally
+deaths..reliable...(event queue)..................................Events
 
 I can give the bullets Vec a capacity of 240.
+
+## 2025-12-04
+
+I ask Gemini about the seeming duplication of effort between the clock sync and the calculations of the tick we want the server to process our current input. It unveils a new strategy:
+
+```rust
+use std::collections::VecDeque;
+
+pub struct ClockSync {
+    // A buffer of recent time measurements: (rtt, offset)
+    samples: VecDeque<(f64, f64)>,
+
+    // The offset we want to reach: (ServerTime - ClientTime)
+    target_offset: f64,
+
+    // The offset we currently use
+    current_offset: f64,
+}
+
+impl ClockSync {
+    pub fn new() -> Self {
+        Self {
+            samples: VecDeque::with_capacity(8),
+            target_offset: 0.0,
+            current_offset: 0.0,
+        }
+    }
+
+    pub fn process_packet(&mut self,
+                          server_sent_time: f64,
+                          raw_rtt: f64,
+                          local_time: f64) {
+
+        // 1. Calculate the raw offset for this specific packet
+        // Offset = RealServerTime - LocalTime
+        // We assume RealServerTime ~ server_sent_time + (rtt / 2)
+        let latency = raw_rtt / 2.0;
+        let estimated_server_time = server_sent_time + latency;
+        let raw_offset = estimated_server_time - local_time;
+
+        // 2. Store sample (Rolling window of 8)
+        if self.samples.len() >= 8 {
+            self.samples.pop_front();
+        }
+        self.samples.push_back((raw_rtt, raw_offset));
+
+        // 3. FIND THE BEST SAMPLE
+        // We look for the sample with the LOWEST RTT in our history.
+        // That packet encountered the least network congestion,
+        // so its calculation of 'offset' is the most accurate.
+        if let Some((_, best_offset)) = self
+            .samples
+            .iter()
+            .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap())
+        {
+            self.target_offset = *best_offset;
+        }
+    }
+
+    pub fn update(&mut self, dt: f64) {
+        // 4. SLEW (Smoothly drift current_offset towards target_offset)
+        // We don't snap. We drift.
+        // 10.0 means we close 99% of the gap in roughly 0.5 seconds.
+        let drift_speed = 10.0;
+
+        let diff = self.target_offset - self.current_offset;
+
+        // Handle "Hard Snap" (e.g. initial connection)
+        if diff.abs() > 1.0 {
+             self.current_offset = self.target_offset;
+        } else {
+             self.current_offset += diff * drift_speed * dt;
+        }
+    }
+
+    pub fn estimated_server_time(&self, local_time: f64) -> f64 {
+        local_time + self.current_offset
+    }
+}
+```
+
+How we use this in the loop:
+
+```rust
+// 1. INPUT LOOP (Network)
+while let Some(msg) = network.receive... {
+   // ... decode ...
+   let now = get_local_monotonic_time(); // e.g., app_start.elapsed()
+   let rtt = network.rtt();
+
+   // We pass raw RTT here because the "Min RTT" logic
+   // handles the smoothing naturally.
+   session.clock_sync.process_packet(server_sent_time, rtt, now);
+}
+
+// 2. UPDATE LOOP (Frame)
+let dt = get_frame_time();
+session.clock_sync.update(dt);
+
+// 3. GET TIME
+let server_time = session.clock_sync.estimated_server_time(now);
+```
