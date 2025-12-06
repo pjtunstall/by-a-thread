@@ -1,16 +1,24 @@
-use std::time::Instant;
+use std::{collections::VecDeque, time::Instant};
 
 use crate::{
     lobby::state::Lobby,
     state::{ClientState, InputMode},
 };
-use common::player::{MAX_USERNAME_LENGTH, UsernameError};
+use common::player::{sanitize_username, MAX_USERNAME_LENGTH, UsernameError};
+
+#[derive(Debug)]
+pub struct ClockSample {
+    pub server_time: f64,
+    pub client_receive_time: f64,
+    pub rtt: f64,
+}
 
 pub struct ClientSession {
     pub client_id: u64,
     pub is_host: bool,
     pub state: ClientState,
     pub estimated_server_time: f64,
+    pub clock_samples: VecDeque<ClockSample>,
     pub input_queue: Vec<String>,
     pub player_index: usize,
     waiting_since: Option<Instant>,
@@ -26,6 +34,7 @@ impl ClientSession {
                 prompt_printed: false,
             }),
             estimated_server_time: 0.0,
+            clock_samples: VecDeque::new(),
             input_queue: Vec::new(),
             player_index: 0,
             waiting_since: None,
@@ -240,14 +249,15 @@ pub fn username_prompt() -> String {
 }
 
 pub fn validate_username_input(input: &str) -> Result<String, UsernameError> {
-    common::player::sanitize_username(input)
+    sanitize_username(input)
 }
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
     use common::player::UsernameError;
-    use std::time::Duration;
 
     #[test]
     fn new_session_starts_in_startup_state() {

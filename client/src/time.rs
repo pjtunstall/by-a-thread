@@ -1,26 +1,21 @@
-use std::time::Duration;
+use std::{
+    sync::OnceLock,
+    time::{Duration, Instant},
+};
 
 use bincode::config::standard;
 
 use crate::{
     net::{NetworkHandle, RenetNetworkHandle},
-    session::ClientSession,
+    session::{ClientSession, ClockSample},
 };
-use common::{self, net::AppChannel, protocol::ServerMessage};
+use common::{net::AppChannel, protocol::ServerMessage};
 
-const MAX_REASONABLE_RTT: f64 = 1.0;
-
-const HARD_SNAP_THRESHOLD: f64 = 1.0; // >1s: Just teleport.
-const FAST_CATCHUP_THRESHOLD: f64 = 0.25; // >250ms: Speed up significantly.
-const MODERATE_DRIFT_THRESHOLD: f64 = 0.05; // >50ms: Standard correction.
-
-const ALPHA_FAST: f64 = 0.3; // Catch up quickly.
-const ALPHA_NORMAL: f64 = 0.1; // Standard smoothing.
-const ALPHA_JITTER: f64 = 0.03; // High damping for noise.
-
-const MIN_CLOCK_CORRECTION_LIMIT: f64 = 0.01;
-const MAX_CLOCK_CORRECTION_LIMIT: f64 = 0.05;
-const CLOCK_CORRECTION_RATIO: f64 = 0.25; // How much of the the error is corrected per frame.
+const SAMPLE_WINDOW_SIZE: usize = 30;
+const HARD_SNAP_THRESHOLD: f64 = 1.0;
+const ALPHA_SPEED_UP: f64 = 0.15;
+const ALPHA_SLOW_DOWN: f64 = 0.02;
+const DEADZONE_THRESHOLD: f64 = 0.002;
 
 pub fn update_clock(
     session: &mut ClientSession,
@@ -29,60 +24,79 @@ pub fn update_clock(
 ) {
     session.estimated_server_time += interval.as_secs_f64();
 
-    let mut latest_message = None;
-    while let Some(message) = network.receive_message(AppChannel::ServerTime) {
-        latest_message = Some(message); // ServerTime messages are sent at 20Hz (every 50ms).
-    }
-    let Some(message) = latest_message else {
-        return;
-    };
+    let now_seconds = get_monotonic_seconds();
 
-    match bincode::serde::decode_from_slice(&message, standard()) {
-        Ok((ServerMessage::ServerTime(server_sent_time), _)) => {
+    // Drain pending messages, append samples, then trim the window.
+    while let Some(message) = network.receive_message(AppChannel::ServerTime) {
+        if let Ok((ServerMessage::ServerTime(server_sent_time), _)) =
+            bincode::serde::decode_from_slice(&message, standard())
+        {
             let rtt = network.rtt();
 
-            // Discard messages with massive RTT; their timing info is stale.
-            if rtt > MAX_REASONABLE_RTT {
-                return;
+            // Only add valid samples.
+            if rtt > 0.0 {
+                session.clock_samples.push_back(ClockSample {
+                    server_time: server_sent_time,
+                    client_receive_time: now_seconds,
+                    rtt,
+                });
+
+                // Maintain window size.
+                if session.clock_samples.len() > SAMPLE_WINDOW_SIZE {
+                    session.clock_samples.pop_front();
+                }
             }
-
-            let target_time = server_sent_time + (rtt / 2.0);
-            let delta = target_time - session.estimated_server_time;
-
-            // Only snap if we are wildly off (> 1 second) or uninitialized, e.g. on startup.
-            if session.estimated_server_time == 0.0 || delta.abs() > HARD_SNAP_THRESHOLD {
-                session.estimated_server_time = target_time;
-                println!("Hard sync: clock snapped to {}.", target_time);
-                return;
-            }
-
-            session.estimated_server_time += correction(delta);
         }
-        Err(e) => {
-            eprintln!("Failed to deserialize ServerTime message: {}.", e);
-        }
-        _ => {}
     }
-}
 
-fn correction(delta: f64) -> f64 {
-    // If we're off by a lot, go a bigger proportion of the way towards the target.
-    let alpha = if delta.abs() > FAST_CATCHUP_THRESHOLD {
-        ALPHA_FAST
-    } else if delta.abs() > MODERATE_DRIFT_THRESHOLD {
-        ALPHA_NORMAL
-    } else {
-        ALPHA_JITTER
+    if session.clock_samples.is_empty() {
+        return;
+    }
+
+    // We assume the sample with the lowest RTT is the one least affected by network jitter.
+    let best_sample = match session
+        .clock_samples
+        .iter()
+        .filter(|s| s.rtt.is_finite())
+        .min_by(|a, b| a.rtt.partial_cmp(&b.rtt).unwrap())
+    {
+        Some(sample) => sample,
+        None => {
+            println!("No usable samples, e.g. all samples are NaN?");
+            return;
+        }
     };
 
-    let raw_correction = delta * alpha;
+    let age_of_sample = now_seconds - best_sample.client_receive_time;
+    let latency_estimate = best_sample.rtt / 2.0;
+    let target_server_time = best_sample.server_time + latency_estimate + age_of_sample;
+    let error = target_server_time - session.estimated_server_time;
 
-    // Limit the correction to a tighter range when there is less to correct.
-    // Low error: prioritize smoothness. High error: prioritize speed.
-    let dynamic_limit = (delta.abs() * CLOCK_CORRECTION_RATIO)
-        .clamp(MIN_CLOCK_CORRECTION_LIMIT, MAX_CLOCK_CORRECTION_LIMIT);
+    // Hard snap (teleport if wildly off).
+    if session.estimated_server_time == 0.0 || error.abs() > HARD_SNAP_THRESHOLD {
+        session.estimated_server_time = target_server_time;
+        println!("Hard sync: clock snapped to {:.4}.", target_server_time);
+        return;
+    }
 
-    let correction = raw_correction.clamp(-dynamic_limit, dynamic_limit);
+    // Deadzone (prevent micro-stutter).
+    if error.abs() < DEADZONE_THRESHOLD {
+        return;
+    }
 
-    correction
+    // Asymmetric smoothing: speed up fast, slow down slowly.
+    let alpha = if error > 0.0 {
+        ALPHA_SPEED_UP
+    } else {
+        ALPHA_SLOW_DOWN
+    };
+
+    session.estimated_server_time += error * alpha;
+}
+
+// Returns a monotonic f64 time source relative to app start.
+fn get_monotonic_seconds() -> f64 {
+    static START_TIME: OnceLock<Instant> = OnceLock::new();
+    let start = START_TIME.get_or_init(Instant::now);
+    start.elapsed().as_secs_f64()
 }
