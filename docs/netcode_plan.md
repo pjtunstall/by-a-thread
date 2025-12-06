@@ -39,7 +39,7 @@
 
 ## Bullets
 
-- Do not put bullets in the snapshot buffer. Maintain a live `Vec<Bullet>`; update via reliable events (spawn, bounce, expiry, kills). Upon event, fast-forward the bullet to “now” using supplied position/velocity/time (dead reckoning / extrapolation).
+- Do not put bullets in the snapshot buffer. Maintain a live `Vec<Bullet>`; update via reliable events (spawn, bounce, expiry, kills). Extrapolate own bullets to “now” using supplied position/velocity(direction)/tick. Extrapolate bullets fired by remote players to their render time, ~100ms in the local player's past. When the local player fires, immediately create a provisional bullet; replace it with the server's version when that arrives. Veify or vanish: destroy the prospective bullet (disappear or fade out) if no confirmation arrives after 0.5s.
 
 ## Serialization Notes
 
@@ -50,3 +50,6 @@
 
 - Jitter margin currently ~50 ms; may need to scale with observed RTT if late inputs occur...
 - ServerTime messages are currently 60 Hz; could drop to broadcast rate once stability is verified?
+- Ensure tick sequence is monotonic.
+- Consider delta compression.
+- Reconsider clock sync: (1) current tweaked EMA, (2) min RTT over last 1s, (3) base on RTT and server ticks and assume server ticks are equidistant? Consider bandwidth and how accurate it needs to be.
