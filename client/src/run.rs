@@ -20,6 +20,7 @@ use crate::{
 };
 use common::{self, player::Player};
 
+#[derive(Debug)]
 pub struct ClientRunner {
     pub session: ClientSession,
     pub client: RenetClient,

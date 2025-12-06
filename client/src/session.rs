@@ -4,7 +4,7 @@ use crate::{
     lobby::state::Lobby,
     state::{ClientState, InputMode},
 };
-use common::player::{sanitize_username, MAX_USERNAME_LENGTH, UsernameError};
+use common::player::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username};
 
 #[derive(Debug)]
 pub struct ClockSample {
@@ -13,6 +13,7 @@ pub struct ClockSample {
     pub rtt: f64,
 }
 
+#[derive(Debug)]
 pub struct ClientSession {
     pub client_id: u64,
     pub is_host: bool,

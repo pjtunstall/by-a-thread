@@ -21,6 +21,7 @@ const INPUT_COLOR: Color = LIGHTGRAY;
 const BANNER_COLOR: Color = YELLOW;
 const BACKGROUND_COLOR: Color = BLACK;
 
+#[derive(Debug)]
 pub struct Gui {
     pub message_history: Vec<(String, Color)>,
     input_buffer: String,

@@ -1,5 +1,6 @@
 use macroquad::prelude::*;
 
+#[derive(Debug)]
 pub struct Assets {
     pub wall_texture: Texture2D,
 }
