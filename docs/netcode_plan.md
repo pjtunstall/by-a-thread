@@ -39,7 +39,7 @@
 
 ## Bullets
 
-- Do not put bullets in the snapshot buffer. Maintain a live `Vec<Bullet>`; update via reliable events (spawn, bounce, expiry, kills). Extrapolate own bullets to “now” using supplied position/velocity(direction)/tick. Extrapolate bullets fired by remote players to their render time, ~100ms in the local player's past. When the local player fires, immediately create a provisional bullet; replace it with the server's version when that arrives. Veify or vanish: destroy the prospective bullet (disappear or fade out) if no confirmation arrives after 0.5s.
+- Do not put bullets in the snapshot buffer. Maintain a live `Vec<Bullet>`; update via reliable events (spawn, bounce, expiry, kills). Extrapolate own bullets to “now” using supplied position/velocity(direction)/tick. Extrapolate bullets fired by remote players to their render time, ~100ms in the local player's past. When the local player fires, immediately create a provisional bullet; replace it with the server's version when that arrives. Verify or vanish: destroy the prospective bullet (disappear or fade out) if no confirmation arrives after 0.5s.
 
 ## Serialization Notes
 
