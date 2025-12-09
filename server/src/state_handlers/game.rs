@@ -11,7 +11,7 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, _state: &mut Game) -> Optio
         while let Some(data) = network.receive_message(client_id, AppChannel::Unreliable) {
             let decoded = decode_from_slice::<PlayerInput, _>(&data, standard());
             if let Ok((input, _)) = decoded {
-                // TODO: Create a new PlayerInput and pass it to that player's update_position method.
+                // TODO: Pass PlayerInput to this player's update method.
                 let _ = input;
             }
         }

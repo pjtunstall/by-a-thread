@@ -46,6 +46,8 @@ impl Player {
         }
     }
 
+    // TODO: The OBE on player death will be implemented purely on the client.
+    // It will just involve camera movement rather than actual state change.
     pub fn update(&mut self, maze: &Maze, input: &PlayerInput) {
         let forward = self.apply_rotations(input);
         self.apply_translation(input, forward);
