@@ -1,8 +1,19 @@
 use macroquad::{color, prelude::*, window::clear_background};
 
-use crate::{assets::Assets, session::ClientSession, state::ClientState};
+use crate::{
+    assets::Assets,
+    game::input::{player_input_as_bytes, player_input_from_keys},
+    net::NetworkHandle,
+    session::ClientSession,
+    state::ClientState,
+};
+use common::net::AppChannel;
 
-pub fn handle(session: &mut ClientSession, assets: &Assets) -> Option<ClientState> {
+pub fn handle(
+    session: &mut ClientSession,
+    assets: &Assets,
+    network: &mut dyn NetworkHandle,
+) -> Option<ClientState> {
     let game_state = match session.state() {
         ClientState::Game(game) => game,
         other => {
@@ -13,11 +24,9 @@ pub fn handle(session: &mut ClientSession, assets: &Assets) -> Option<ClientStat
         }
     };
 
-    // TODO: Handle input:
-    // let bitfield = bitfield_from_input();
-    // let message = common::input::bitfield_to_bytes(bitfield);
-    // Send message to server.
-    // Insert bitfield into `input_history`.
+    let player_input = player_input_from_keys();
+    let message = player_input_as_bytes(&player_input);
+    network.send_message(AppChannel::Unreliable, message);
 
     // TODO: Replace the following placeholder positioning with full reconciliation and prediction logic.
 

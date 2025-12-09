@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     maze::{self, Maze},
-    time::TICK_RATE,
+    time::TICK_SECS,
 };
 
 pub const MAX_USERNAME_LENGTH: usize = 16;
@@ -13,9 +13,11 @@ pub const MAX_USERNAME_LENGTH: usize = 16;
 pub const HEIGHT: f32 = 24.0; // Height of the player's eye level from the ground.
 pub const RADIUS: f32 = 8.0;
 pub const MAX_SPEED: f32 = 240.0; // Units per second.
-pub const ACCELERATION: f32 = 1200.0; // Reaches MAX_SPEED in 0.2 seconds.
+pub const ACCELERATION: f32 = 1200.0; // Reaches max in 0.2 seconds.
 pub const FRICTION: f32 = 5.0;
-pub const ROTATION_SPEED: f32 = (12.0 * TICK_RATE) * (PI / 180.0);
+pub const MAX_ROTATION_SPEED: f32 = 4.0 * PI; // 2 turns per second.
+pub const ROTATION_ACCELERATION: f32 = (MAX_ROTATION_SPEED / 0.2) * PI; // Max in 0.2 seconds.
+pub const ROTATION_FRICTION: f32 = 10.0; // Stop in ~0.2 seconds when key is released.
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Player {
@@ -44,34 +46,99 @@ impl Player {
         }
     }
 
-    pub fn update_position(&mut self, maze: &Maze, input: &PlayerInput, dt: f32) {
+    pub fn update_position(&mut self, maze: &Maze, input: &PlayerInput) {
+        // ============================================================
+        // PART 1: ROTATION PHYSICS (Yaw & Pitch)
+        // ============================================================
+
+        let mut yaw_wish = 0.0;
+        if input.yaw_left {
+            yaw_wish += 1.0;
+        }
+        if input.yaw_right {
+            yaw_wish -= 1.0;
+        }
+
+        self.state.yaw_velocity += yaw_wish * ROTATION_ACCELERATION * TICK_SECS;
+
+        let current_yaw_speed = self.state.yaw_velocity.abs();
+        if current_yaw_speed > 0.001 {
+            let drop = current_yaw_speed * ROTATION_FRICTION * TICK_SECS;
+            let new_speed = (current_yaw_speed - drop).max(0.0);
+
+            if current_yaw_speed > MAX_ROTATION_SPEED {
+                self.state.yaw_velocity = self.state.yaw_velocity.signum() * MAX_ROTATION_SPEED;
+            } else {
+                self.state.yaw_velocity *= new_speed / current_yaw_speed;
+            }
+        } else {
+            self.state.yaw_velocity = 0.0;
+        }
+
+        self.state.yaw += self.state.yaw_velocity * TICK_SECS;
+
+        let mut pitch_wish = 0.0;
+        if input.pitch_up {
+            pitch_wish += 1.0;
+        }
+        if input.pitch_down {
+            pitch_wish -= 1.0;
+        }
+
+        self.state.pitch_velocity += pitch_wish * ROTATION_ACCELERATION * TICK_SECS;
+
+        // Friction for Pitch (Duplicate logic or extract to helper)
+        let current_pitch_speed = self.state.pitch_velocity.abs();
+        if current_pitch_speed > 0.001 {
+            let drop = current_pitch_speed * ROTATION_FRICTION * TICK_SECS;
+            let new_speed = (current_pitch_speed - drop).max(0.0);
+
+            if current_pitch_speed > MAX_ROTATION_SPEED {
+                self.state.pitch_velocity = self.state.pitch_velocity.signum() * MAX_ROTATION_SPEED;
+            } else {
+                self.state.pitch_velocity *= new_speed / current_pitch_speed;
+            }
+        } else {
+            self.state.pitch_velocity = 0.0;
+        }
+
+        self.state.pitch += self.state.pitch_velocity * TICK_SECS;
+
+        self.state.pitch = self.state.pitch.clamp(
+            -std::f32::consts::FRAC_PI_2 + 0.1,
+            std::f32::consts::FRAC_PI_2 - 0.1,
+        );
+
+        // ============================================================
+        // PART 2: LINEAR MOVEMENT PHYSICS
+        // ============================================================
+
         let forward = vec3(self.state.yaw.sin(), 0.0, self.state.yaw.cos());
         let right = vec3(self.state.yaw.cos(), 0.0, -self.state.yaw.sin());
 
-        let mut wish_dir = Vec3::ZERO;
-
+        let mut move_wish = Vec3::ZERO;
         if input.forward {
-            wish_dir += forward;
+            move_wish += forward;
         }
         if input.backward {
-            wish_dir -= forward;
+            move_wish -= forward;
         }
         if input.right {
-            wish_dir += right;
+            move_wish += right;
         }
         if input.left {
-            wish_dir -= right;
+            move_wish -= right;
         }
 
-        if wish_dir.length_squared() > 0.001 {
-            wish_dir = wish_dir.normalize();
+        if move_wish.length_squared() > 0.001 {
+            move_wish = move_wish.normalize();
         }
 
-        self.state.velocity += wish_dir * ACCELERATION * dt;
+        self.state.velocity += move_wish * ACCELERATION * TICK_SECS;
 
         let current_speed = self.state.velocity.length();
         if current_speed > 0.0 {
-            let drop = current_speed * FRICTION * dt;
+            let drop = current_speed * FRICTION * TICK_SECS;
             let new_speed = (current_speed - drop).max(0.0);
 
             if current_speed > MAX_SPEED {
@@ -81,13 +148,17 @@ impl Player {
             }
         }
 
+        // ============================================================
+        // PART 3: MAZE COLLISION & AUTO-TURN
+        // ============================================================
+
         if self.state.velocity.length_squared() < 0.001 {
             self.state.velocity = Vec3::ZERO;
             return;
         }
 
         let p = self.state.position;
-        let move_step = self.state.velocity * dt;
+        let move_step = self.state.velocity * TICK_SECS;
         let new_position = p + move_step;
 
         let contact_point = p + self.state.velocity.normalize() * RADIUS;
@@ -95,34 +166,35 @@ impl Player {
         let is_moving_forward = self.state.velocity.dot(forward) > 0.0;
 
         if maze.is_way_clear(&contact_point) {
+            // Path Clear: Move.
             self.state.position = new_position;
         } else {
+            // Path Blocked:
+            // 1. Kill linear momentum.
             self.state.velocity = Vec3::ZERO;
 
             if is_moving_forward {
+                // 2. Stop spinning so auto-turn takes over.
+                self.state.yaw_velocity = 0.0;
+
+                // 3. Apply Auto-turn.
                 let turn_direction = maze::which_way_to_turn(&p, &contact_point);
-                self.state.yaw += ROTATION_SPEED * turn_direction * dt;
+                self.state.yaw += MAX_ROTATION_SPEED * turn_direction * TICK_SECS;
             }
         }
     }
-}
-
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
-pub struct PlayerInput {
-    pub forward: bool,
-    pub backward: bool,
-    pub left: bool,
-    pub right: bool,
-    pub yaw_delta: f32,
-    pub pitch_delta: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct PlayerState {
     pub position: Vec3,
     pub velocity: Vec3,
-    pub pitch: f32,
+
     pub yaw: f32,
+    pub pitch: f32,
+
+    pub yaw_velocity: f32,
+    pub pitch_velocity: f32,
 }
 
 impl PlayerState {
@@ -132,8 +204,22 @@ impl PlayerState {
             velocity: vec3(0.0, 0.0, 0.0),
             pitch: 0.1,
             yaw: 0.0,
+            pitch_velocity: 0.0,
+            yaw_velocity: 0.0,
         }
     }
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct PlayerInput {
+    pub forward: bool,
+    pub backward: bool,
+    pub left: bool,
+    pub right: bool,
+    pub yaw_left: bool,
+    pub yaw_right: bool,
+    pub pitch_up: bool,
+    pub pitch_down: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]

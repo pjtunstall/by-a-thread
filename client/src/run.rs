@@ -111,7 +111,11 @@ impl ClientRunner {
     async fn update_client_state(&mut self) {
         match self.session.state() {
             ClientState::Game(_) => {
-                if let Some(next_state) = game::handlers::handle(&mut self.session, &self.assets) {
+                let mut network_handle =
+                    RenetNetworkHandle::new(&mut self.client, &mut self.transport);
+                if let Some(next_state) =
+                    game::handlers::handle(&mut self.session, &self.assets, &mut network_handle)
+                {
                     self.session.transition(next_state);
                 }
             }
