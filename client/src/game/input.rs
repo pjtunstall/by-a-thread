@@ -3,6 +3,22 @@ use macroquad::prelude::*;
 
 use common::player::PlayerInput;
 
+pub const INPUT_HISTORY_LENGTH: usize = 256;
+
+pub struct InputHistory {
+    pub last_confirmed_tick: u64,
+    pub history: [Option<PlayerInput>; INPUT_HISTORY_LENGTH],
+}
+
+impl InputHistory {
+    pub fn new() -> Self {
+        Self {
+            last_confirmed_tick: 0,
+            history: [const { None }; INPUT_HISTORY_LENGTH],
+        }
+    }
+}
+
 pub fn player_input_as_bytes(input: &PlayerInput) -> Vec<u8> {
     encode_to_vec(input, standard()).expect("failed to encode player input")
 }
