@@ -1,15 +1,21 @@
-use std::fmt;
+use std::{f32::consts::PI, fmt};
 
 use glam::{Vec3, vec3};
 use serde::{Deserialize, Serialize};
 
-use crate::maze::{self, Maze};
+use crate::{
+    maze::{self, Maze},
+    time::TICK_RATE,
+};
+
+pub const MAX_USERNAME_LENGTH: usize = 16;
 
 pub const HEIGHT: f32 = 24.0; // Height of the player's eye level from the ground.
 pub const RADIUS: f32 = 8.0;
-pub const MAX_SPEED: f32 = 4.0;
-pub const ROTATION_SPEED: f32 = 12.0f32.to_radians();
-pub const MAX_USERNAME_LENGTH: usize = 16;
+pub const MAX_SPEED: f32 = 240.0; // Units per second.
+pub const ACCELERATION: f32 = 1200.0; // Reaches MAX_SPEED in 0.2 seconds.
+pub const FRICTION: f32 = 5.0;
+pub const ROTATION_SPEED: f32 = (12.0 * TICK_RATE) * (PI / 180.0);
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Player {
@@ -38,32 +44,77 @@ impl Player {
         }
     }
 
-    pub fn update_position(&mut self, maze: &Maze) {
-        let mut state = self.state;
-        let p = state.position;
-        let v = state.velocity;
-        let new_position = p + v;
-        let contact_point = p + v.normalize() * RADIUS;
-        let forward = vec3(state.yaw.sin(), 0.0, state.yaw.cos());
-        let is_moving_forward = v.dot(forward) > 0.0;
+    pub fn update_position(&mut self, maze: &Maze, input: &PlayerInput, dt: f32) {
+        let forward = vec3(self.state.yaw.sin(), 0.0, self.state.yaw.cos());
+        let right = vec3(self.state.yaw.cos(), 0.0, -self.state.yaw.sin());
+
+        let mut wish_dir = Vec3::ZERO;
+
+        if input.forward {
+            wish_dir += forward;
+        }
+        if input.backward {
+            wish_dir -= forward;
+        }
+        if input.right {
+            wish_dir += right;
+        }
+        if input.left {
+            wish_dir -= right;
+        }
+
+        if wish_dir.length_squared() > 0.001 {
+            wish_dir = wish_dir.normalize();
+        }
+
+        self.state.velocity += wish_dir * ACCELERATION * dt;
+
+        let current_speed = self.state.velocity.length();
+        if current_speed > 0.0 {
+            let drop = current_speed * FRICTION * dt;
+            let new_speed = (current_speed - drop).max(0.0);
+
+            if current_speed > MAX_SPEED {
+                self.state.velocity = self.state.velocity.normalize() * MAX_SPEED;
+            } else {
+                self.state.velocity *= new_speed / current_speed;
+            }
+        }
+
+        if self.state.velocity.length_squared() < 0.001 {
+            self.state.velocity = Vec3::ZERO;
+            return;
+        }
+
+        let p = self.state.position;
+        let move_step = self.state.velocity * dt;
+        let new_position = p + move_step;
+
+        let contact_point = p + self.state.velocity.normalize() * RADIUS;
+
+        let is_moving_forward = self.state.velocity.dot(forward) > 0.0;
 
         if maze.is_way_clear(&contact_point) {
-            state.position = new_position;
-        } else if is_moving_forward {
-            let old_position = p;
-            state.yaw += ROTATION_SPEED * maze::which_way_to_turn(&old_position, &contact_point);
+            self.state.position = new_position;
+        } else {
+            self.state.velocity = Vec3::ZERO;
+
+            if is_moving_forward {
+                let turn_direction = maze::which_way_to_turn(&p, &contact_point);
+                self.state.yaw += ROTATION_SPEED * turn_direction * dt;
+            }
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct PlayerInput {
-    pub tick: u64,
-    pub x: f32,
-    pub z: f32,
-    pub pitch: Vec3,
-    pub yaw: Vec3,
-    pub shoot: bool,
+    pub forward: bool,
+    pub backward: bool,
+    pub left: bool,
+    pub right: bool,
+    pub yaw_delta: f32,
+    pub pitch_delta: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
@@ -81,33 +132,6 @@ impl PlayerState {
             velocity: vec3(0.0, 0.0, 0.0),
             pitch: 0.1,
             yaw: 0.0,
-        }
-    }
-}
-
-// Or does this need to be part of the transmitted state? I'm thinking not, because the server will send position (and velocity, which determines orientation), and that's all the client needs to recreate the authoritative state. But maybe it should correct movement start times too. It depends whether the server trusts the client's start times. Ah, but in that case, they would need to be sent by the player.
-pub struct PlayerInternalState {
-    pub yaw_pos_start: f64, // Start times for ease-in.
-    pub yaw_neg_start: f64,
-    pub pitch_pos_start: f64,
-    pub pitch_neg_start: f64,
-    pub forward_start: f64,
-    pub backward_start: f64,
-    pub right_start: f64,
-    pub left_start: f64,
-}
-
-impl PlayerInternalState {
-    pub fn new() -> Self {
-        Self {
-            yaw_pos_start: 0.0, // Start times for ease-in.
-            yaw_neg_start: 0.0,
-            pitch_pos_start: 0.0,
-            pitch_neg_start: 0.0,
-            forward_start: 0.0,
-            backward_start: 0.0,
-            right_start: 0.0,
-            left_start: 0.0,
         }
     }
 }

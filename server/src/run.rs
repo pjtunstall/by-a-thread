@@ -20,9 +20,13 @@ use crate::{
     state::{Lobby, ServerState},
     state_handlers,
 };
-use common::{self, auth::Passcode, net::AppChannel, protocol::ServerMessage, time};
-
-const SERVER_TICK_MICROS: u64 = 16667;
+use common::{
+    self,
+    auth::Passcode,
+    net::AppChannel,
+    protocol::ServerMessage,
+    time::{self, TICK_MICROS},
+};
 
 pub fn run_server(socket: UdpSocket, server_addr: SocketAddr, private_key: [u8; 32]) {
     let current_time = common::time::now();
@@ -58,7 +62,7 @@ fn server_loop(
     let mut last_sync_time = Instant::now();
     let sync_interval = Duration::from_millis(50);
 
-    let target_tick_duration = Duration::from_micros(SERVER_TICK_MICROS);
+    let target_tick_duration = Duration::from_micros(TICK_MICROS);
 
     loop {
         let now = Instant::now();

@@ -13,6 +13,14 @@ pub fn handle(session: &mut ClientSession, assets: &Assets) -> Option<ClientStat
         }
     };
 
+    // TODO: Handle input:
+    // let bitfield = bitfield_from_input();
+    // let message = common::input::bitfield_to_bytes(bitfield);
+    // Send message to server.
+    // Insert bitfield into input buffer.
+
+    // TODO: Replace the following placeholder positioning with full reconciliation and prediction logic.
+
     let yaw: f32 = 0.0;
     let pitch: f32 = 0.1;
 

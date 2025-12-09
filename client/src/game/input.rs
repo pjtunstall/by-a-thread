@@ -19,7 +19,7 @@ pub fn input_to_bytes() -> Vec<u8> {
 // By 'down', it means being held down this frame. I've called this
 // 'held' to avoid clashing with the names of the 'up' and 'down'
 // arrow keys.
-fn bitfield_from_input() -> u32 {
+pub fn bitfield_from_input() -> u32 {
     let mut result = 0u32;
 
     if is_key_down(KeyCode::W) {

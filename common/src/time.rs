@@ -1,5 +1,8 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+pub const TICK_RATE: f32 = 60.0;
+pub const TICK_MICROS: u64 = 16667;
+
 pub fn now() -> Duration {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
