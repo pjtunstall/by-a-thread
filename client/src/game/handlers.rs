@@ -17,7 +17,7 @@ pub fn handle(session: &mut ClientSession, assets: &Assets) -> Option<ClientStat
     // let bitfield = bitfield_from_input();
     // let message = common::input::bitfield_to_bytes(bitfield);
     // Send message to server.
-    // Insert bitfield into input buffer.
+    // Insert bitfield into `input_history`.
 
     // TODO: Replace the following placeholder positioning with full reconciliation and prediction logic.
 
