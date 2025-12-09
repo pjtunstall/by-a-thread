@@ -1,11 +1,14 @@
 use std::fmt;
 
-use glam::{vec3, Vec3};
+use glam::{Vec3, vec3};
 use serde::{Deserialize, Serialize};
+
+use crate::maze::{self, Maze};
 
 pub const HEIGHT: f32 = 24.0; // Height of the player's eye level from the ground.
 pub const RADIUS: f32 = 8.0;
 pub const MAX_SPEED: f32 = 4.0;
+pub const ROTATION_SPEED: f32 = 12.0f32.to_radians();
 pub const MAX_USERNAME_LENGTH: usize = 16;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -32,6 +35,23 @@ impl Player {
             disconnected: false,
             alive: true,
             current_tick: 0,
+        }
+    }
+
+    pub fn update_position(&mut self, maze: &Maze) {
+        let mut state = self.state;
+        let p = state.position;
+        let v = state.velocity;
+        let new_position = p + v;
+        let contact_point = p + v.normalize() * RADIUS;
+        let forward = vec3(state.yaw.sin(), 0.0, state.yaw.cos());
+        let is_moving_forward = v.dot(forward) > 0.0;
+
+        if maze.is_way_clear(&contact_point) {
+            state.position = new_position;
+        } else if is_moving_forward {
+            let old_position = p;
+            state.yaw += ROTATION_SPEED * maze::which_way_to_turn(&old_position, &contact_point);
         }
     }
 }
@@ -61,6 +81,33 @@ impl PlayerState {
             velocity: vec3(0.0, 0.0, 0.0),
             pitch: 0.1,
             yaw: 0.0,
+        }
+    }
+}
+
+// Or does this need to be part of the transmitted state? I'm thinking not, because the server will send position (and velocity, which determines orientation), and that's all the client needs to recreate the authoritative state. But maybe it should correct movement start times too. It depends whether the server trusts the client's start times. Ah, but in that case, they would need to be sent by the player.
+pub struct PlayerInternalState {
+    pub yaw_pos_start: f64, // Start times for ease-in.
+    pub yaw_neg_start: f64,
+    pub pitch_pos_start: f64,
+    pub pitch_neg_start: f64,
+    pub forward_start: f64,
+    pub backward_start: f64,
+    pub right_start: f64,
+    pub left_start: f64,
+}
+
+impl PlayerInternalState {
+    pub fn new() -> Self {
+        Self {
+            yaw_pos_start: 0.0, // Start times for ease-in.
+            yaw_neg_start: 0.0,
+            pitch_pos_start: 0.0,
+            pitch_neg_start: 0.0,
+            forward_start: 0.0,
+            backward_start: 0.0,
+            right_start: 0.0,
+            left_start: 0.0,
         }
     }
 }

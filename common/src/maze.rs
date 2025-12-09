@@ -58,6 +58,18 @@ impl Maze {
             .collect::<Vec<String>>()
             .join("\n")
     }
+
+    pub fn is_way_clear(&self, end: &Vec3) -> bool {
+        let end_x = (end.x / CELL_SIZE) as usize;
+        let end_z = (end.z / CELL_SIZE) as usize;
+
+        let grid = &self.grid;
+
+        let outside_maze =
+            end.x < 0.0 || end.z < 0.0 || end_x >= grid[0].len() || end_z >= grid.len();
+
+        outside_maze || grid[end_z][end_x] == 0
+    }
 }
 
 impl fmt::Debug for Maze {
@@ -70,6 +82,47 @@ impl fmt::Display for Maze {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.log())
     }
+}
+
+pub fn which_way_to_turn(old_position: &Vec3, contact_point: &Vec3) -> f32 {
+    let grid_old_x = (old_position.x / CELL_SIZE) as usize;
+    let grid_old_z = (old_position.z / CELL_SIZE) as usize;
+    let grid_new_x = (contact_point.x / CELL_SIZE) as usize;
+    let grid_new_z = (contact_point.z / CELL_SIZE) as usize;
+
+    if grid_new_z < grid_old_z {
+        if old_position.x < contact_point.x {
+            return -1.0;
+        } else {
+            return 1.0;
+        }
+    }
+
+    if grid_new_z > grid_old_z {
+        if old_position.x < contact_point.x {
+            return 1.0;
+        } else {
+            return -1.0;
+        }
+    }
+
+    if grid_new_x < grid_old_x {
+        if old_position.z < contact_point.z {
+            return 1.0;
+        } else {
+            return -1.0;
+        }
+    }
+
+    if grid_new_x > grid_old_x {
+        if old_position.z < contact_point.z {
+            return -1.0;
+        } else {
+            return 1.0;
+        }
+    }
+
+    0.0
 }
 
 #[cfg(test)]
