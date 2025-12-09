@@ -59,24 +59,6 @@ impl Player {
             yaw_wish -= 1.0;
         }
 
-        self.state.yaw_velocity += yaw_wish * ROTATION_ACCELERATION * TICK_SECS;
-
-        let current_yaw_speed = self.state.yaw_velocity.abs();
-        if current_yaw_speed > 0.001 {
-            let drop = current_yaw_speed * ROTATION_FRICTION * TICK_SECS;
-            let new_speed = (current_yaw_speed - drop).max(0.0);
-
-            if current_yaw_speed > MAX_ROTATION_SPEED {
-                self.state.yaw_velocity = self.state.yaw_velocity.signum() * MAX_ROTATION_SPEED;
-            } else {
-                self.state.yaw_velocity *= new_speed / current_yaw_speed;
-            }
-        } else {
-            self.state.yaw_velocity = 0.0;
-        }
-
-        self.state.yaw += self.state.yaw_velocity * TICK_SECS;
-
         let mut pitch_wish = 0.0;
         if input.pitch_up {
             pitch_wish += 1.0;
@@ -85,24 +67,12 @@ impl Player {
             pitch_wish -= 1.0;
         }
 
-        self.state.pitch_velocity += pitch_wish * ROTATION_ACCELERATION * TICK_SECS;
-
-        // Friction for Pitch (Duplicate logic or extract to helper)
-        let current_pitch_speed = self.state.pitch_velocity.abs();
-        if current_pitch_speed > 0.001 {
-            let drop = current_pitch_speed * ROTATION_FRICTION * TICK_SECS;
-            let new_speed = (current_pitch_speed - drop).max(0.0);
-
-            if current_pitch_speed > MAX_ROTATION_SPEED {
-                self.state.pitch_velocity = self.state.pitch_velocity.signum() * MAX_ROTATION_SPEED;
-            } else {
-                self.state.pitch_velocity *= new_speed / current_pitch_speed;
-            }
-        } else {
-            self.state.pitch_velocity = 0.0;
-        }
-
-        self.state.pitch += self.state.pitch_velocity * TICK_SECS;
+        Self::apply_rotation(&mut self.state.yaw, &mut self.state.yaw_velocity, yaw_wish);
+        Self::apply_rotation(
+            &mut self.state.pitch,
+            &mut self.state.pitch_velocity,
+            pitch_wish,
+        );
 
         self.state.pitch = self.state.pitch.clamp(
             -std::f32::consts::FRAC_PI_2 + 0.1,
@@ -182,6 +152,26 @@ impl Player {
                 self.state.yaw += MAX_ROTATION_SPEED * turn_direction * TICK_SECS;
             }
         }
+    }
+
+    #[inline(always)]
+    fn apply_rotation(angle: &mut f32, velocity: &mut f32, wish: f32) {
+        *velocity += wish * ROTATION_ACCELERATION * TICK_SECS;
+
+        let speed = (*velocity).abs();
+        if speed > 0.001 {
+            if speed > MAX_ROTATION_SPEED {
+                *velocity = velocity.signum() * MAX_ROTATION_SPEED;
+            } else {
+                let drop = speed * ROTATION_FRICTION * TICK_SECS;
+                let new_speed = (speed - drop).max(0.0);
+                *velocity *= new_speed / speed;
+            }
+        } else {
+            *velocity = 0.0;
+        }
+
+        *angle += *velocity * TICK_SECS;
     }
 }
 

@@ -27,6 +27,7 @@ pub fn handle(
     let player_input = player_input_from_keys();
     let message = player_input_as_bytes(&player_input);
     network.send_message(AppChannel::Unreliable, message);
+    // TODO: Insert player_input into input_history once the latter is defined.
 
     // TODO: Replace the following placeholder positioning with full reconciliation and prediction logic.
 
