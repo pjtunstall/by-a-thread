@@ -47,12 +47,12 @@ impl Player {
     }
 
     pub fn update(&mut self, maze: &Maze, input: &PlayerInput) {
-        let (forward, right) = self.apply_rotations(input);
-        self.apply_linear_motion(input, forward, right);
+        let forward = self.apply_rotations(input);
+        self.apply_translation(input, forward);
         self.resolve_collision(maze, forward);
     }
 
-    fn apply_rotations(&mut self, input: &PlayerInput) -> (Vec3, Vec3) {
+    fn apply_rotations(&mut self, input: &PlayerInput) -> Vec3 {
         let mut yaw_wish = 0.0;
         if input.yaw_left {
             yaw_wish += 1.0;
@@ -82,13 +82,13 @@ impl Player {
         );
 
         let forward = vec3(self.state.yaw.sin(), 0.0, self.state.yaw.cos());
-        let right = vec3(self.state.yaw.cos(), 0.0, -self.state.yaw.sin());
 
-        (forward, right)
+        forward
     }
 
-    fn apply_linear_motion(&mut self, input: &PlayerInput, forward: Vec3, right: Vec3) {
+    fn apply_translation(&mut self, input: &PlayerInput, forward: Vec3) {
         let mut move_wish = Vec3::ZERO;
+        let right = vec3(forward.z, 0.0, -forward.x);
         if input.forward {
             move_wish += forward;
         }
@@ -145,7 +145,6 @@ impl Player {
             self.state.velocity = Vec3::ZERO;
 
             if is_moving_forward {
-                // 2. Stop turning and let auto-turn take over.
                 self.state.yaw_velocity = 0.0;
                 let turn_direction = maze::which_way_to_turn(&p, &contact_point);
                 self.state.yaw += MAX_ROTATION_SPEED * turn_direction * TICK_SECS;
