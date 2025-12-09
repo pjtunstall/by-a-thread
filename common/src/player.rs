@@ -46,11 +46,13 @@ impl Player {
         }
     }
 
-    pub fn update_position(&mut self, maze: &Maze, input: &PlayerInput) {
-        // ============================================================
-        // PART 1: ROTATION PHYSICS (Yaw & Pitch)
-        // ============================================================
+    pub fn update(&mut self, maze: &Maze, input: &PlayerInput) {
+        let (forward, right) = self.apply_rotations(input);
+        self.apply_linear_motion(input, forward, right);
+        self.resolve_collision(maze, forward);
+    }
 
+    fn apply_rotations(&mut self, input: &PlayerInput) -> (Vec3, Vec3) {
         let mut yaw_wish = 0.0;
         if input.yaw_left {
             yaw_wish += 1.0;
@@ -67,8 +69,8 @@ impl Player {
             pitch_wish -= 1.0;
         }
 
-        Self::apply_rotation(&mut self.state.yaw, &mut self.state.yaw_velocity, yaw_wish);
-        Self::apply_rotation(
+        Self::apply_axis_rotation(&mut self.state.yaw, &mut self.state.yaw_velocity, yaw_wish);
+        Self::apply_axis_rotation(
             &mut self.state.pitch,
             &mut self.state.pitch_velocity,
             pitch_wish,
@@ -79,13 +81,13 @@ impl Player {
             std::f32::consts::FRAC_PI_2 - 0.1,
         );
 
-        // ============================================================
-        // PART 2: LINEAR MOVEMENT PHYSICS
-        // ============================================================
-
         let forward = vec3(self.state.yaw.sin(), 0.0, self.state.yaw.cos());
         let right = vec3(self.state.yaw.cos(), 0.0, -self.state.yaw.sin());
 
+        (forward, right)
+    }
+
+    fn apply_linear_motion(&mut self, input: &PlayerInput, forward: Vec3, right: Vec3) {
         let mut move_wish = Vec3::ZERO;
         if input.forward {
             move_wish += forward;
@@ -118,10 +120,12 @@ impl Player {
             }
         }
 
-        // ============================================================
-        // PART 3: MAZE COLLISION & AUTO-TURN
-        // ============================================================
+        if self.state.velocity.length_squared() < 0.001 {
+            self.state.velocity = Vec3::ZERO;
+        }
+    }
 
+    fn resolve_collision(&mut self, maze: &Maze, forward: Vec3) {
         if self.state.velocity.length_squared() < 0.001 {
             self.state.velocity = Vec3::ZERO;
             return;
@@ -136,18 +140,13 @@ impl Player {
         let is_moving_forward = self.state.velocity.dot(forward) > 0.0;
 
         if maze.is_way_clear(&contact_point) {
-            // Path Clear: Move.
             self.state.position = new_position;
         } else {
-            // Path Blocked:
-            // 1. Kill linear momentum.
             self.state.velocity = Vec3::ZERO;
 
             if is_moving_forward {
-                // 2. Stop spinning so auto-turn takes over.
+                // 2. Stop turning and let auto-turn take over.
                 self.state.yaw_velocity = 0.0;
-
-                // 3. Apply Auto-turn.
                 let turn_direction = maze::which_way_to_turn(&p, &contact_point);
                 self.state.yaw += MAX_ROTATION_SPEED * turn_direction * TICK_SECS;
             }
@@ -155,7 +154,7 @@ impl Player {
     }
 
     #[inline(always)]
-    fn apply_rotation(angle: &mut f32, velocity: &mut f32, wish: f32) {
+    fn apply_axis_rotation(angle: &mut f32, velocity: &mut f32, wish: f32) {
         *velocity += wish * ROTATION_ACCELERATION * TICK_SECS;
 
         let speed = (*velocity).abs();
