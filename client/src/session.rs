@@ -21,7 +21,7 @@ pub struct ClientSession {
     pub estimated_server_time: f64,
     pub clock_samples: VecDeque<ClockSample>,
     pub input_queue: Vec<String>,
-    pub player_index: usize,
+    pub local_player_index: usize,
     waiting_since: Option<Instant>,
     waiting_message_shown: bool,
 }
@@ -37,7 +37,7 @@ impl ClientSession {
             estimated_server_time: 0.0,
             clock_samples: VecDeque::new(),
             input_queue: Vec::new(),
-            player_index: 0,
+            local_player_index: 0, // TODO: Identify each player with their own index.
             waiting_since: None,
             waiting_message_shown: false,
         }

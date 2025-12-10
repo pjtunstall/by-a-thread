@@ -109,12 +109,12 @@ impl ClientRunner {
     }
 
     async fn update_client_state(&mut self) {
-        match self.session.state() {
-            ClientState::Game(_) => {
+        match self.session.state_mut() {
+            ClientState::Game(game_state) => {
                 let mut network_handle =
                     RenetNetworkHandle::new(&mut self.client, &mut self.transport);
                 if let Some(next_state) =
-                    game::handlers::handle(&mut self.session, &self.assets, &mut network_handle)
+                    game::handlers::handle(game_state, &self.assets, &mut network_handle)
                 {
                     self.session.transition(next_state);
                 }
@@ -122,6 +122,11 @@ impl ClientRunner {
             ClientState::Disconnected { .. } => {
                 self.ui.draw(false, false);
             }
+            // TODO: Following the pattern of the game handler, pass inner state to each
+            // of the lobby substate handlers so as to let the type system enforce that the
+            // correct type is sent, rather than having explicit guards at the start of each
+            // handler. This will mean passing the inner state to the handler, rather than
+            // passing `session`.`
             ClientState::Lobby(_) => {
                 lobby::handlers::update(self).await;
             }
@@ -138,10 +143,13 @@ impl ClientRunner {
         match old_state {
             ClientState::Lobby(Lobby::Countdown { snapshot, .. }) => {
                 self.session
-                    .transition(ClientState::Game(game::state::Game::new(snapshot)));
+                    .transition(ClientState::Game(game::state::Game::new(
+                        self.session.local_player_index,
+                        snapshot,
+                    )));
 
                 if let ClientState::Game(game) = self.session.state() {
-                    self.session.player_index = game
+                    self.session.local_player_index = game
                         .snapshot
                         .players
                         .iter()
