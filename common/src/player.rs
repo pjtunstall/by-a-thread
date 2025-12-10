@@ -28,7 +28,6 @@ pub struct Player {
     pub color: Color,
     pub disconnected: bool,
     pub alive: bool,
-    // pub input_history: [Option<PlayerInput>; 128], // This really belongs in a ClientPlayer struct and doesn't need to be serialized.
     pub current_tick: u64,
 }
 

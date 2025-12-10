@@ -6,14 +6,14 @@ use common::player::PlayerInput;
 pub const INPUT_HISTORY_LENGTH: usize = 256;
 
 pub struct InputHistory {
-    pub last_confirmed_tick: u64,
+    pub baseline_tick: u64, // Tick number of the last snapshot received from the server.
     pub history: [Option<PlayerInput>; INPUT_HISTORY_LENGTH],
 }
 
 impl InputHistory {
     pub fn new() -> Self {
         Self {
-            last_confirmed_tick: 0,
+            baseline_tick: 0,
             history: [const { None }; INPUT_HISTORY_LENGTH],
         }
     }

@@ -21,7 +21,7 @@
 - Each tick: for every player, pop input at `tick & (INPUT_BUFFER_LEN-1)` if the tick matches; otherwise reuse the last valid input (or None after safety cap).
 - Advance physics at fixed 60 Hz timestep.
 - At broadcast cadence: send snapshot (tick-tagged) with states of players unreliably; send critical events reliably.
-- Store player state in a `Vec<ServerPlayer>` within game state. (Consider an array.)
+- Store player state in a `Vec<ServerPlayer>` within game state. (Or consider an array.)
 
 ## Client Loop (Local Player)
 
@@ -48,8 +48,5 @@
 
 ## Open Questions / Caveats
 
-- Jitter margin currently ~50 ms; may need to scale with observed RTT if late inputs occur...
-- ServerTime messages are currently 60 Hz; could drop to broadcast rate once stability is verified?
-- Ensure tick sequence is monotonic.
-- Consider delta compression.
-- Reconsider clock sync: (1) current tweaked EMA, (2) min RTT over last 1s, (3) base on RTT and server ticks and assume server ticks are equidistant? Consider bandwidth and how accurate it needs to be.
+- Jitter margin currently ~50 ms; may need to scale with observed RTT if late inputs occur.
+- Consider delta compression: have the server only send what changed.

@@ -2,9 +2,11 @@
 
 Client: (reconciliation and) **extrapolation** for bullets, **interpolation** for remote players, and (reconciliation and) **prediction** for the local player.
 
+Server: zero-order hold for missing data, redundancy (handful of input messages sent to it each time to reduce chance of one being missed).
+
 ## Preliminaries
 
-Choose a tick frequency, 60Hz (once every 16.7ms), and a broadcast frequency, e.g. 20Hz (once every 50.0ms). Decide how many client inputs to send to the server per tick for redundancy, e.g. 4.
+Choose a tick frequency, 60Hz (once every 16.7ms) for both server and client, and a broadcast frequency, e.g. 20Hz (once every 50.0ms). Decide how many client inputs to send to the server per tick for redundancy, e.g. 4.
 
 Give the server a `Vec<ServerPlayer>` to store the player data. `ServerPlayer` contains a `Player`. Perhaps store it in the server's `Game` state.
 
@@ -29,11 +31,11 @@ Regarding the lengths of the three collections. They need to be a power of 2 so 
 - input history: 256 ticks -> ~4.3s.
 - snapshot buffer: 16 broadcasts -> 0.8s. Big safety margin in case I itroduce a dynamic interpolation delay later.
 
-As for their size, in terms of memory, a `PlayerInput` for transmission could be a single byte for the input itsef: the number of possible inputs is 9 translation directions (including none) times 9 rotation directions (including none) times 2 (fire or not) = `9 * 9 * 2 = 162`. This ignores ESC, which can be detected by lack of connection or sent by a reliable channel separately. We'll send 4 at a time for redundancy alomg with 2 bytes for the tick number, for a total of 6 bytes.
+The following assessments of size were made before I learnt that Renet takes care of bit packing, so they're just estimates and ignore headers/metadata and the fact that messages may be combined into a single packet or split across packets.
 
-A snapshot will need position and orientation for each player: `(3 + 2) * 4 * 10 + 2 = 2402` bytes maximum.
-
-A bullet update could contain a position `3 * 4` bytes, plus a direction `2 * 4` bytes, if I reduce it to an orientation, a point on the unit sphere, `242`, including tick, and maybe a optional player id for id someone was hit, along with their resulting health. Or `(3 + 3) * 4 * 10 + 2 = 362`.
+- As for their size, in terms of memory, a `PlayerInput` for transmission could be a single byte for the input itsef: the number of possible inputs is 9 translation directions (including none) times 9 rotation directions (including none) times 2 (fire or not) = `9 * 9 * 2 = 162`. This ignores ESC, which can be detected by lack of connection or sent by a reliable channel separately. We'll send 4 at a time for redundancy alomg with 2 bytes for the tick number, for a total of 6 bytes.
+- A snapshot will need position and orientation for each player: `(3 + 2) * 4 * 10 + 2 = 2402` bytes maximum.
+- A bullet update could contain a position `3 * 4` bytes, plus a direction `2 * 4` bytes, if I reduce it to an orientation, a point on the unit sphere, `242`, including tick, and maybe a optional player id for id someone was hit, along with their resulting health. Or `(3 + 3) * 4 * 10 + 2 = 362`.
 
 Check Renet config to see how long it takes for clients to actually time out.
 
@@ -41,7 +43,7 @@ Check Renet config to see how long it takes for clients to actually time out.
 
 ### Players
 
-Initialize an array as an input buffer for each player. The size should be a power of 2 that is larger than the maximum expected latency window, e.g., 128 (2s at 60Hz).
+Initialize an array as an input buffer for each player. The size should be a power of 2 that is larger than the maximum expected latency window. (See above for current sizes of this and other arrays.)
 
 We'll receive inputs from players as a sequence of `PlayerInput`s. Several inputs are sent per message for the sake of redundancy: to reduce the risk of missing inputs. Each `PlayerInput` will include a tick id number (`u64`). The tick id number with the input is not that of the tick on which the client sent it; rather it's the client's request for which tick it wants the server to processes it. The client calculates this number based on smoothed rtt and a safety margin. The goal is to ensure that inputs from all clients are processed a similar amount of time after they were sent, for consistency and so as not to give any one player and unfair advantage under normal conditions.
 
@@ -317,7 +319,7 @@ if input.tick == target_tick {
 }
 ```
 
-Arrays for inputs and a Vec for the snapshot buffer? First consider what a snapshot will actually consist of. Include only bullet spawn, bounce, and expiry events? Reconsider struct of arrays.
+Relatong to bullets, include only bullet spawn, bounce, and expiry events in a snapshot. Reconsider struct of arrays.
 
 Distinguish between memory layout and wire format. Configure serde to only send what's needed:
 
@@ -420,9 +422,7 @@ impl<'de> Visitor<'de> for SnapshotVisitor {
 
 ## State vs. events
 
-This is important! I need to understand what to do for the bullets before proceeding with the rest of the network logic. Each part informs the others: what data structures to use, what to send, and how.
-
-Actually send bullet spawn, bounce, kill/player-death, and expiry events on the reliable channel. Bullet events will have bullet id, position, velocity, and time. Don't edit the snapshot buffer. The snapshot buffer (the ring buffer of arrays) is strictly for interpolating players. Bullets should live in a separate `Vec<Bullet>`. On receiving a bounce, say, the client updates the bullet's position to the bounce point, calculates the new velocity, and "simulates" 50ms worth of movement instantly to put the bullet where it should be right now. This is extrapolation, aka dead reckoning.
+Send bullet spawn, bounce, kill/player-death, and expiry events on the reliable channel. Bullet events will have bullet id, position, velocity, and time. Don't edit the snapshot buffer. The snapshot buffer (the ring buffer of arrays) is strictly for interpolating players. Bullets should live in a separate `Vec<Bullet>`. On receiving a bounce, say, the client updates the bullet's position to the bounce point, calculates the new velocity, and "simulates" 50ms worth of movement instantly to put the bullet where it should be right now. This is extrapolation, aka dead reckoning.
 
 Feature.Transport.Storage Strategy................................Bandwidth Strategy
 ....................................................................................
@@ -431,105 +431,3 @@ bullets.reliable...`Vec<Bullet>` (world state entity list)........Send events, e
 deaths..reliable...(event queue)..................................Events
 
 I can give the bullets Vec a capacity of 240.
-
-## 2025-12-04
-
-I ask Gemini about the seeming duplication of effort between the clock sync and the calculations of the tick we want the server to process our current input. It unveils a new strategy:
-
-```rust
-use std::collections::VecDeque;
-
-pub struct ClockSync {
-    // A buffer of recent time measurements: (rtt, offset)
-    samples: VecDeque<(f64, f64)>,
-
-    // The offset we want to reach: (ServerTime - ClientTime)
-    target_offset: f64,
-
-    // The offset we currently use
-    current_offset: f64,
-}
-
-impl ClockSync {
-    pub fn new() -> Self {
-        Self {
-            samples: VecDeque::with_capacity(8),
-            target_offset: 0.0,
-            current_offset: 0.0,
-        }
-    }
-
-    pub fn process_packet(&mut self,
-                          server_sent_time: f64,
-                          raw_rtt: f64,
-                          local_time: f64) {
-
-        // 1. Calculate the raw offset for this specific packet
-        // Offset = RealServerTime - LocalTime
-        // We assume RealServerTime ~ server_sent_time + (rtt / 2)
-        let latency = raw_rtt / 2.0;
-        let estimated_server_time = server_sent_time + latency;
-        let raw_offset = estimated_server_time - local_time;
-
-        // 2. Store sample (Rolling window of 8)
-        if self.samples.len() >= 8 {
-            self.samples.pop_front();
-        }
-        self.samples.push_back((raw_rtt, raw_offset));
-
-        // 3. FIND THE BEST SAMPLE
-        // We look for the sample with the LOWEST RTT in our history.
-        // That packet encountered the least network congestion,
-        // so its calculation of 'offset' is the most accurate.
-        if let Some((_, best_offset)) = self
-            .samples
-            .iter()
-            .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap())
-        {
-            self.target_offset = *best_offset;
-        }
-    }
-
-    pub fn update(&mut self, dt: f64) {
-        // 4. SLEW (Smoothly drift current_offset towards target_offset)
-        // We don't snap. We drift.
-        // 10.0 means we close 99% of the gap in roughly 0.5 seconds.
-        let drift_speed = 10.0;
-
-        let diff = self.target_offset - self.current_offset;
-
-        // Handle "Hard Snap" (e.g. initial connection)
-        if diff.abs() > 1.0 {
-             self.current_offset = self.target_offset;
-        } else {
-             self.current_offset += diff * drift_speed * dt;
-        }
-    }
-
-    pub fn estimated_server_time(&self, local_time: f64) -> f64 {
-        local_time + self.current_offset
-    }
-}
-```
-
-How we use this in the loop:
-
-```rust
-// 1. INPUT LOOP (Network)
-while let Some(msg) = network.receive... {
-   // ... decode ...
-   let now = get_local_monotonic_time(); // e.g., app_start.elapsed()
-   let rtt = network.rtt();
-
-   // We pass raw RTT here because the "Min RTT" logic
-   // handles the smoothing naturally.
-   session.clock_sync.process_packet(server_sent_time, rtt, now);
-}
-
-// 2. UPDATE LOOP (Frame)
-let dt = get_frame_time();
-session.clock_sync.update(dt);
-
-// 3. GET TIME
-let server_time = session.clock_sync.estimated_server_time(now);
-```
