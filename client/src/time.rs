@@ -22,6 +22,8 @@ pub fn update_clock(
     network: &mut RenetNetworkHandle,
     interval: Duration,
 ) {
+    // Always advance time by the frame delta.
+    // This keeps the game smooth between network packets.
     session.estimated_server_time += interval.as_secs_f64();
 
     let now_seconds = get_monotonic_seconds();
@@ -34,7 +36,7 @@ pub fn update_clock(
             let rtt = network.rtt();
 
             // Only add valid samples.
-            if rtt > 0.0 {
+            if !rtt.is_nan() && rtt >= 0.0 {
                 session.clock_samples.push_back(ClockSample {
                     server_time: server_sent_time,
                     client_receive_time: now_seconds,
