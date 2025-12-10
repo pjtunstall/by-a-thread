@@ -57,9 +57,9 @@ fn draw_checkerboard(x: usize, corner_x: f32, z: usize, corner_z: f32) {
             let pos_x = corner_x + (cx as f32 * check_size) + check_size / 2.0;
             let pos_z = corner_z + (cz as f32 * check_size) + check_size / 2.0;
 
-            draw_cube(
+            draw_plane(
                 vec3(pos_x, 0.0, pos_z),
-                vec3(check_size, 0.1, check_size),
+                vec2(check_size / 2.0, check_size / 2.0),
                 None,
                 color,
             );
