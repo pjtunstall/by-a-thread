@@ -41,7 +41,7 @@ impl MazeExtension for Maze {
 
 fn draw_checkerboard(x: usize, corner_x: f32, z: usize, corner_z: f32) {
     let check_size = 16.0;
-    let checks_per_cell = (CELL_SIZE / check_size) as usize;
+    let checks_per_cell = (CELL_SIZE / check_size).round() as usize;
 
     for cz in 0..checks_per_cell {
         for cx in 0..checks_per_cell {
