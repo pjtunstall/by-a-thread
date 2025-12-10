@@ -40,7 +40,8 @@ impl MazeExtension for Maze {
 }
 
 fn draw_checkerboard(x: usize, corner_x: f32, z: usize, corner_z: f32) {
-    let check_size = 16.0;
+    let half_check_size = 8.0;
+    let check_size = 2.0 * half_check_size;
     let checks_per_cell = (CELL_SIZE / check_size).round() as usize;
 
     for cz in 0..checks_per_cell {
@@ -54,12 +55,12 @@ fn draw_checkerboard(x: usize, corner_x: f32, z: usize, corner_z: f32) {
                 BLACK
             };
 
-            let pos_x = corner_x + (cx as f32 * check_size) + check_size / 2.0;
-            let pos_z = corner_z + (cz as f32 * check_size) + check_size / 2.0;
+            let pos_x = corner_x + (cx as f32 * check_size) + half_check_size;
+            let pos_z = corner_z + (cz as f32 * check_size) + half_check_size;
 
             draw_plane(
                 vec3(pos_x, 0.0, pos_z),
-                vec2(check_size / 2.0, check_size / 2.0),
+                vec2(half_check_size, half_check_size),
                 None,
                 color,
             );
