@@ -17,14 +17,10 @@ const ALPHA_SPEED_UP: f64 = 0.15;
 const ALPHA_SLOW_DOWN: f64 = 0.02;
 const DEADZONE_THRESHOLD: f64 = 0.002;
 
-pub fn update_clock(
-    session: &mut ClientSession,
-    network: &mut RenetNetworkHandle,
-    interval: Duration,
-) {
+pub fn update_clock(session: &mut ClientSession, network: &mut RenetNetworkHandle, dt: Duration) {
     // Always advance time by the frame delta.
     // This keeps the game smooth between network packets.
-    session.estimated_server_time += interval.as_secs_f64();
+    session.estimated_server_time += dt.as_secs_f64();
 
     let now_seconds = get_monotonic_seconds();
 

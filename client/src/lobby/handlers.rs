@@ -24,6 +24,9 @@ pub async fn update(runner: &mut ClientRunner) {
     {
         LobbyStep::Continue => {}
         LobbyStep::StartGame => {
+            // TODO: Decide whether to do anything with a returned error here.
+            // If not, why return an error? Currently `runner.state_game` prints
+            // an error message in the UI window.
             let _ = runner.start_game();
         }
         LobbyStep::Transition(new_state) => runner.session.transition(new_state),

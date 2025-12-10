@@ -3,8 +3,9 @@ use macroquad::prelude::*;
 
 use common::player::PlayerInput;
 
-pub const INPUT_HISTORY_LENGTH: usize = 256;
+pub const INPUT_HISTORY_LENGTH: usize = 256; // ~4.3s at 60Hz.
 
+#[derive(Debug)]
 pub struct InputHistory {
     pub baseline_tick: u64, // Tick number of the last snapshot received from the server.
     pub history: [Option<PlayerInput>; INPUT_HISTORY_LENGTH],

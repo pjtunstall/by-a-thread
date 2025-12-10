@@ -18,7 +18,7 @@
 
 ## Server Loop
 
-- Each tick: for every player, pop input at `tick & (INPUT_BUFFER_LEN-1)` if the tick matches; otherwise reuse the last valid input (or None after safety cap).
+- Each tick: for every player, pop input at `tick & (INPUT_BUFFER_LEN - 1)` if the tick matches; otherwise reuse the last valid input (or None after safety cap).
 - Advance physics at fixed 60 Hz timestep.
 - At broadcast cadence: send snapshot (tick-tagged) with states of players unreliably; send critical events reliably.
 - Store player state in a `Vec<ServerPlayer>` within game state. (Or consider an array.)
@@ -27,7 +27,7 @@
 
 - Maintain an [estimated server clock](../client/src/time.rs): smooth RTT, clamp spikes, snap when drift > ~250 ms, otherwise apply capped proportional corrections.
 - Compute target server tick: `estimated_server_time + smoothed_rtt/2 + jitter_margin` (`~50 ms` configurable) divided by tick duration.
-- Record current input in input history; send the latest few inputs redundantly.
+- Record current input in input history at `tick & (INPUT_HISTORY_LEN - 1)` and send the latest few inputs redundantly.
 - When a new snapshot arrives, set it as baseline, reconcile to it, then replay queued inputs (prediction) up to current tick before rendering.
 - Fixed timestep for simulation; cap catch-up work per frame to avoid spirals; discard leftover accumulator if limit is hit.
 - Process reliable messages before unreliable so death state halts reconciliation/prediction.

@@ -76,20 +76,20 @@ impl ClientRunner {
         }
 
         let now = Instant::now();
-        let duration = now - self.last_updated;
+        let dt = now - self.last_updated;
         self.last_updated = now;
 
         let mut result: Result<(), String> = Ok(());
 
-        if let Err(e) = self.transport.update(duration, &mut self.client) {
+        if let Err(e) = self.transport.update(dt, &mut self.client) {
             result = Err(format!("transport update failed: {}", e));
         }
 
-        self.client.update(duration);
+        self.client.update(dt);
 
         {
             let mut network_handle = RenetNetworkHandle::new(&mut self.client, &mut self.transport);
-            crate::time::update_clock(&mut self.session, &mut network_handle, duration);
+            crate::time::update_clock(&mut self.session, &mut network_handle, dt);
         }
 
         if let Err(e) = self.transport.send_packets(&mut self.client) {
