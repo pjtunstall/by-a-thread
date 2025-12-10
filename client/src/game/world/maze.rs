@@ -9,27 +9,50 @@ pub trait MazeExtension {
 impl MazeExtension for Maze {
     fn draw(&self, wall_texture: &Texture2D) {
         let grid_len = self.grid.len();
+        let check_size = 16.0;
+        let checks_per_cell = (CELL_SIZE / check_size) as usize;
 
         for x in 0..grid_len {
             for z in 0..grid_len {
                 let corner_x = (x as f32) * CELL_SIZE;
                 let corner_z = (z as f32) * CELL_SIZE;
 
-                if self.grid[z][x] == 0 {
-                    continue;
-                }
+                if self.grid[z][x] != 0 {
+                    // Necessary because Macrquad's built-in `draw_cube` function doesn't orient faces in a way that will keep the texture the right way up for all of them.
+                    draw_custom_cuboid(
+                        vec3(
+                            corner_x + CELL_SIZE / 2.0,
+                            CELL_SIZE / 2.0,
+                            corner_z + CELL_SIZE / 2.0,
+                        ),
+                        vec3(CELL_SIZE, CELL_SIZE, CELL_SIZE),
+                        wall_texture,
+                        WHITE,
+                    );
+                } else {
+                    for cz in 0..checks_per_cell {
+                        for cx in 0..checks_per_cell {
+                            let world_cx = x * checks_per_cell + cx;
+                            let world_cz = z * checks_per_cell + cz;
 
-                // Necessary because Macrquad's built-in `draw_cube` function doesn't orient faces in a way that will keep the texture the right way up for all of them.
-                draw_custom_cuboid(
-                    vec3(
-                        corner_x + CELL_SIZE / 2.0,
-                        CELL_SIZE / 2.0,
-                        corner_z + CELL_SIZE / 2.0,
-                    ),
-                    vec3(CELL_SIZE, CELL_SIZE, CELL_SIZE),
-                    wall_texture,
-                    WHITE,
-                );
+                            let color = if (world_cx + world_cz) % 2 == 0 {
+                                WHITE
+                            } else {
+                                BLACK
+                            };
+
+                            let pos_x = corner_x + (cx as f32 * check_size) + check_size / 2.0;
+                            let pos_z = corner_z + (cz as f32 * check_size) + check_size / 2.0;
+
+                            draw_plane(
+                                vec3(pos_x, 0.0, pos_z),
+                                vec2(check_size, check_size),
+                                None,
+                                color,
+                            );
+                        }
+                    }
+                }
             }
         }
     }
