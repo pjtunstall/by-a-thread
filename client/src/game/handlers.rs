@@ -1,5 +1,3 @@
-use macroquad::{color, prelude::*, window::clear_background};
-
 use crate::{
     assets::Assets,
     game::input::{INPUT_HISTORY_LENGTH, player_input_as_bytes, player_input_from_keys},
@@ -9,6 +7,7 @@ use crate::{
 };
 use common::net::AppChannel;
 
+// TODO: Instead of checking state each time, reorganize so as to exploit the type system.
 pub fn handle(
     session: &mut ClientSession,
     assets: &Assets,
@@ -56,25 +55,8 @@ fn draw(session: &mut ClientSession, assets: &Assets) {
         }
     };
 
-    let yaw: f32 = 0.0;
-    let pitch: f32 = 0.1;
-
     let position = game_state.snapshot.players[session.player_index]
         .state
         .position;
-
-    set_camera(&Camera3D {
-        position,
-        target: position
-            + vec3(
-                yaw.sin() * pitch.cos(),
-                pitch.sin(),
-                yaw.cos() * pitch.cos(),
-            ),
-        up: vec3(0.0, 1.0, 0.0),
-        ..Default::default()
-    });
-
-    clear_background(color::BEIGE);
-    game_state.draw(&assets.wall_texture);
+    game_state.draw(&assets.wall_texture, position);
 }

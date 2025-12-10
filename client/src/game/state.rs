@@ -1,4 +1,4 @@
-use macroquad::prelude::Texture2D;
+use macroquad::{color, prelude::*, window::clear_background};
 
 use crate::game::input::InputHistory;
 
@@ -19,7 +19,24 @@ impl Game {
         }
     }
 
-    pub fn draw(&self, texture: &Texture2D) {
+    pub fn draw(&self, texture: &Texture2D, position: Vec3) {
+        clear_background(color::BEIGE);
+
+        let yaw: f32 = 0.0;
+        let pitch: f32 = 0.1;
+
+        set_camera(&Camera3D {
+            position,
+            target: position
+                + vec3(
+                    yaw.sin() * pitch.cos(),
+                    pitch.sin(),
+                    yaw.cos() * pitch.cos(),
+                ),
+            up: vec3(0.0, 1.0, 0.0),
+            ..Default::default()
+        });
+
         let snapshot = &self.snapshot;
         snapshot.maze.draw(texture);
     }
