@@ -12,13 +12,22 @@ impl MazeExtension for Maze {
 
         for x in 0..grid_len {
             for z in 0..grid_len {
+                if self.grid[z][x] == 0 {
+                    let corner_x = (x as f32) * CELL_SIZE;
+                    let corner_z = (z as f32) * CELL_SIZE;
+                    draw_checkerboard(x, corner_x, z, corner_z);
+                }
+            }
+        }
+
+        for x in 0..grid_len {
+            for z in 0..grid_len {
                 let corner_x = (x as f32) * CELL_SIZE;
                 let corner_z = (z as f32) * CELL_SIZE;
 
-                if self.grid[z][x] == 0 {
-                    // This is an open space: draw a pattern on the floor.
-                    draw_checkerboard(x, corner_x, z, corner_z);
-                } else {
+                if self.grid[z][x] != 0 {
+                    draw_shadow_at_base_of_walls(corner_x, corner_z);
+
                     // This is a wall. The 'custom' function is necessary
                     // because Macrquad's built-in `draw_cuboid` function
                     // doesn't orient faces in a way that will keep the
@@ -66,6 +75,18 @@ fn draw_checkerboard(x: usize, corner_x: f32, z: usize, corner_z: f32) {
             );
         }
     }
+}
+
+fn draw_shadow_at_base_of_walls(corner_x: f32, corner_z: f32) {
+    let shadow_extension = 2.0; // How far the shadow sticks out.
+    let shadow_radius = (CELL_SIZE / 2.0) + shadow_extension;
+
+    draw_plane(
+        vec3(corner_x + CELL_SIZE / 2.0, 0.06, corner_z + CELL_SIZE / 2.0),
+        vec2(shadow_radius, shadow_radius),
+        None,
+        Color::new(0.0, 0.0, 0.0, 0.3),
+    );
 }
 
 fn draw_custom_cuboid(position: Vec3, size: Vec3, texture: &Texture2D, color: Color) {
