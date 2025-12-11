@@ -24,7 +24,7 @@ use common::{
     self,
     auth::Passcode,
     net::AppChannel,
-    protocol::ServerMessage,
+    protocol::{ServerMessage, GAME_ALREADY_STARTED_MESSAGE},
     time::{self, TICK_MICROS},
 };
 
@@ -154,7 +154,7 @@ fn apply_server_transition(
 
             for client_id in pending {
                 let message = ServerMessage::ServerInfo {
-                    message: "Game already started: disconnecting.".to_string(),
+                    message: GAME_ALREADY_STARTED_MESSAGE.to_string(),
                 };
                 let payload =
                     encode_to_vec(&message, standard()).expect("failed to serialize ServerInfo");

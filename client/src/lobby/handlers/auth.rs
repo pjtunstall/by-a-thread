@@ -12,7 +12,7 @@ use crate::{
 use common::{
     auth::{MAX_ATTEMPTS, Passcode},
     net::AppChannel,
-    protocol::{ClientMessage, ServerMessage},
+    protocol::{ClientMessage, ServerMessage, GAME_ALREADY_STARTED_MESSAGE},
 };
 
 pub fn handle(
@@ -36,8 +36,7 @@ pub fn handle(
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 session.set_auth_waiting_for_server(false);
-                if message.starts_with("The game has already started.") {
-                    ui.show_message(&message);
+                if message == GAME_ALREADY_STARTED_MESSAGE {
                     return Some(ClientState::Disconnected { message });
                 }
 
@@ -135,11 +134,6 @@ pub fn handle(
 
     if network.is_disconnected() {
         let reason = network.get_disconnect_reason();
-        ui.show_typed_error(
-            UiErrorKind::NetworkDisconnect,
-            &format!("Disconnected while authenticating: {}.", reason),
-        );
-
         return Some(ClientState::Disconnected {
             message: format!("Disconnected while authenticating: {}.", reason),
         });

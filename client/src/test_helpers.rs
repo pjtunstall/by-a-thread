@@ -4,7 +4,7 @@ use bincode::{config::standard, serde::encode_to_vec};
 
 use crate::{
     lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
-    net::NetworkHandle,
+    net::{DisconnectKind, NetworkHandle},
 };
 use common::{input::UiKey, net::AppChannel, protocol::ServerMessage};
 
@@ -103,11 +103,11 @@ impl LobbyUi for MockUi {
     }
 }
 
-#[derive(Default)]
 pub struct MockNetwork {
     is_connected_val: bool,
     is_disconnected_val: bool,
     disconnect_reason_val: String,
+    disconnect_kind_val: DisconnectKind,
     messages_to_receive: VecDeque<Vec<u8>>,
     pub sent_messages: VecDeque<(AppChannel, Vec<u8>)>,
     rtt: f64,
@@ -126,11 +126,30 @@ impl MockNetwork {
     pub fn set_disconnected(&mut self, disconnected: bool, reason: &str) {
         self.is_disconnected_val = disconnected;
         self.disconnect_reason_val = reason.to_string();
+        self.disconnect_kind_val = DisconnectKind::Other(reason.to_string());
+    }
+
+    pub fn set_disconnect_kind(&mut self, kind: DisconnectKind) {
+        self.disconnect_kind_val = kind;
     }
 
     pub fn queue_server_message(&mut self, message: ServerMessage) {
         let data = encode_to_vec(&message, standard()).expect("failed to serialize test message");
         self.messages_to_receive.push_back(data);
+    }
+}
+
+impl Default for MockNetwork {
+    fn default() -> Self {
+        Self {
+            is_connected_val: false,
+            is_disconnected_val: false,
+            disconnect_reason_val: String::new(),
+            disconnect_kind_val: DisconnectKind::Other("no reason given".to_string()),
+            messages_to_receive: VecDeque::new(),
+            sent_messages: VecDeque::new(),
+            rtt: 0.0,
+        }
     }
 }
 
@@ -145,6 +164,10 @@ impl NetworkHandle for MockNetwork {
 
     fn get_disconnect_reason(&self) -> String {
         self.disconnect_reason_val.clone()
+    }
+
+    fn disconnect_kind(&self) -> DisconnectKind {
+        self.disconnect_kind_val.clone()
     }
 
     fn send_message(&mut self, channel: AppChannel, message: Vec<u8>) {

@@ -3,9 +3,14 @@ use std::{
     time::Instant,
 };
 
-use crate::net::ServerNetworkHandle;
 use bincode::{config::standard, serde::encode_to_vec};
-use common::{net::AppChannel, protocol::ServerMessage, snapshot::Snapshot};
+
+use crate::net::ServerNetworkHandle;
+use common::{
+    net::AppChannel,
+    protocol::{ServerMessage, GAME_ALREADY_STARTED_MESSAGE},
+    snapshot::Snapshot,
+};
 
 pub enum ServerState {
     Lobby(Lobby),
@@ -34,12 +39,13 @@ impl ServerState {
                 );
 
                 let message = ServerMessage::ServerInfo {
-                    message: "game already started: disconnecting".to_string(),
+                    message: GAME_ALREADY_STARTED_MESSAGE.to_string(),
                 };
                 let payload = encode_to_vec(&message, standard())
                     .expect("failed to serialize ServerInfo message");
 
                 network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+                network.disconnect(client_id);
             }
         }
     }
@@ -353,6 +359,35 @@ mod tests {
     use super::*;
     use crate::test_helpers::MockServerNetwork;
     use common::protocol::ServerMessage;
+
+    #[test]
+    fn register_connection_disconnects_when_not_in_lobby() {
+        let mut network = MockServerNetwork::new();
+        network.add_client(7);
+
+        let usernames = HashMap::new();
+        let snapshot = Snapshot::new(&usernames, 1);
+        let mut state = ServerState::Countdown(Countdown {
+            usernames,
+            host_id: None,
+            end_time: Instant::now(),
+            snapshot,
+        });
+
+        state.register_connection(7, &mut network);
+
+        let messages = network.get_sent_messages_data(7);
+        assert_eq!(messages.len(), 1);
+        let msg = decode_from_slice::<ServerMessage, _>(&messages[0], standard())
+            .expect("failed to deserialize server message")
+            .0;
+        if let ServerMessage::ServerInfo { message } = msg {
+            assert_eq!(message, GAME_ALREADY_STARTED_MESSAGE);
+        } else {
+            panic!("expected ServerInfo message, got {:?}", msg);
+        }
+        assert_eq!(network.disconnected_clients, vec![7]);
+    }
 
     #[test]
     fn successful_authentication_does_not_increment_attempts() {

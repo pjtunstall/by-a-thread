@@ -23,6 +23,7 @@ pub struct ClientSession {
     pub input_queue: Vec<String>,
     pub local_player_index: Option<usize>,
     pub disconnected_notified: bool,
+    pub pending_disconnect: Option<String>,
     waiting_since: Option<Instant>,
     waiting_message_shown: bool,
 }
@@ -40,6 +41,7 @@ impl ClientSession {
             input_queue: Vec::new(),
             local_player_index: None,
             disconnected_notified: false,
+            pending_disconnect: None,
             waiting_since: None,
             waiting_message_shown: false,
         }
@@ -56,6 +58,7 @@ impl ClientSession {
     pub fn transition(&mut self, new_state: ClientState) {
         if matches!(new_state, ClientState::Disconnected { .. }) {
             self.disconnected_notified = false;
+            self.pending_disconnect = None;
         }
         self.state = new_state;
     }
@@ -231,6 +234,16 @@ impl ClientSession {
             mode: self.input_mode(),
             show_waiting_message,
         }
+    }
+
+    pub fn set_pending_disconnect(&mut self, message: String) {
+        if self.pending_disconnect.is_none() && !self.state.is_disconnected() {
+            self.pending_disconnect = Some(message);
+        }
+    }
+
+    pub fn take_pending_disconnect(&mut self) -> Option<String> {
+        self.pending_disconnect.take()
     }
 }
 

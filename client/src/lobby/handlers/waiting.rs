@@ -6,7 +6,10 @@ use crate::{
     session::ClientSession,
     state::{ClientState, Lobby},
 };
-use common::{net::AppChannel, protocol::ServerMessage};
+use common::{
+    net::AppChannel,
+    protocol::{ServerMessage, GAME_ALREADY_STARTED_MESSAGE},
+};
 
 pub fn handle(
     session: &mut ClientSession,
@@ -45,7 +48,9 @@ pub fn handle(
                 }));
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
-                ui.show_sanitized_message(&format!("Server: {}", message));
+                if message != GAME_ALREADY_STARTED_MESSAGE {
+                    ui.show_sanitized_message(&format!("Server: {}", message));
+                }
                 return Some(ClientState::Disconnected { message });
             }
             Ok((_, _)) => {}
@@ -57,13 +62,6 @@ pub fn handle(
     }
 
     if network.is_disconnected() {
-        ui.show_typed_error(
-            UiErrorKind::NetworkDisconnect,
-            &format!(
-                "Disconnected while awaiting username confirmation: {}.",
-                network.get_disconnect_reason()
-            ),
-        );
         return Some(ClientState::Disconnected {
             message: format!(
                 "Disconnected while awaiting username confirmation: {}.",
@@ -79,7 +77,7 @@ pub fn handle(
 mod tests {
     use super::*;
     use crate::test_helpers::{MockNetwork, MockUi};
-    use common::protocol::ServerMessage;
+    use common::protocol::{ServerMessage, GAME_ALREADY_STARTED_MESSAGE};
 
     fn set_awaiting_state(session: &mut ClientSession) {
         session.transition(ClientState::Lobby(Lobby::AwaitingUsernameConfirmation));
@@ -153,15 +151,15 @@ mod tests {
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
         network.queue_server_message(ServerMessage::ServerInfo {
-            message: "The game has already started. Disconnecting.".to_string(),
+            message: GAME_ALREADY_STARTED_MESSAGE.to_string(),
         });
 
         let next_state = handle(&mut session, &mut ui, &mut network);
 
         assert!(matches!(next_state, Some(ClientState::Disconnected { .. })));
-        assert_eq!(
-            ui.messages.last().unwrap(),
-            "Server: The game has already started. Disconnecting."
+        assert!(
+            ui.messages.is_empty(),
+            "disconnecting info should defer messaging to global handler"
         );
     }
 }

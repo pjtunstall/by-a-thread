@@ -8,6 +8,17 @@ use renet_netcode::{ConnectToken, NetcodeClientTransport};
 
 use common::net::AppChannel;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DisconnectKind {
+    DisconnectedByServer,
+    DisconnectedByClient,
+    Transport,
+    TokenExpired,
+    ConnectionTimedOut,
+    ConnectionDenied,
+    Other(String),
+}
+
 pub fn default_server_addr() -> SocketAddr {
     SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000)
 }
@@ -47,6 +58,7 @@ pub trait NetworkHandle {
     fn is_connected(&self) -> bool;
     fn is_disconnected(&self) -> bool;
     fn get_disconnect_reason(&self) -> String;
+    fn disconnect_kind(&self) -> DisconnectKind;
     fn send_message(&mut self, channel: AppChannel, message: Vec<u8>);
     fn receive_message(&mut self, channel: AppChannel) -> Option<Vec<u8>>;
     fn rtt(&self) -> f64;
@@ -73,6 +85,13 @@ impl NetworkHandle for RenetNetworkHandle<'_> {
             .unwrap_or_else(|| "no reason given".to_string())
     }
 
+    fn disconnect_kind(&self) -> DisconnectKind {
+        map_disconnect_kind(
+            self.client.disconnect_reason(),
+            self.transport.disconnect_reason().map(|r| r.to_string()),
+        )
+    }
+
     fn rtt(&self) -> f64 {
         self.client.rtt()
     }
@@ -86,4 +105,58 @@ impl NetworkHandle for RenetNetworkHandle<'_> {
             .receive_message(channel)
             .map(|bytes| bytes.to_vec())
     }
+}
+
+pub fn map_disconnect_kind(
+    renet_reason: Option<renet::DisconnectReason>,
+    transport_reason: Option<String>,
+) -> DisconnectKind {
+    if let Some(reason) = renet_reason {
+        match reason {
+            renet::DisconnectReason::DisconnectedByServer => return DisconnectKind::DisconnectedByServer,
+            renet::DisconnectReason::DisconnectedByClient => return DisconnectKind::DisconnectedByClient,
+            renet::DisconnectReason::Transport => {
+                if let Some(kind) = map_transport_reason(&transport_reason) {
+                    return kind;
+                }
+                return DisconnectKind::Transport;
+            }
+            renet::DisconnectReason::PacketSerialization(_)
+            | renet::DisconnectReason::PacketDeserialization(_)
+            | renet::DisconnectReason::ReceivedInvalidChannelId(_)
+            | renet::DisconnectReason::SendChannelError { .. }
+            | renet::DisconnectReason::ReceiveChannelError { .. } => {
+                return DisconnectKind::Other(reason.to_string());
+            }
+        }
+    }
+
+    if let Some(kind) = map_transport_reason(&transport_reason) {
+        return kind;
+    }
+
+    DisconnectKind::Other("no reason given".to_string())
+}
+
+fn map_transport_reason(reason: &Option<String>) -> Option<DisconnectKind> {
+    let Some(reason) = reason else { return None };
+    let reason_lower = reason.to_ascii_lowercase();
+    Some(match reason_lower {
+        ref s if s.contains("connection terminated by server") => {
+            DisconnectKind::DisconnectedByServer
+        }
+        ref s if s.contains("disconnectedbyserver") || s.contains("disconnected by server") => {
+            DisconnectKind::DisconnectedByServer
+        }
+        ref s if s.contains("connection terminated by client") => {
+            DisconnectKind::DisconnectedByClient
+        }
+        ref s if s.contains("disconnectedbyclient") || s.contains("disconnected by client") => {
+            DisconnectKind::DisconnectedByClient
+        }
+        ref s if s.contains("connection timed out") => DisconnectKind::ConnectionTimedOut,
+        ref s if s.contains("connection token has expired") => DisconnectKind::TokenExpired,
+        ref s if s.contains("server denied connection") => DisconnectKind::ConnectionDenied,
+        _ => DisconnectKind::Other(reason.clone()),
+    })
 }

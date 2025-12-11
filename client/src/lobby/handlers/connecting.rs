@@ -1,8 +1,8 @@
 use bincode::{config::standard, serde::decode_from_slice, serde::encode_to_vec};
 
 use crate::{
-    lobby::ui::{LobbyUi, UiErrorKind},
-    net::NetworkHandle,
+    lobby::ui::LobbyUi,
+    net::{DisconnectKind, NetworkHandle},
     session::ClientSession,
     state::{ClientState, Lobby},
 };
@@ -30,10 +30,7 @@ pub fn handle(
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::ServerInfo { message }, _)) => {
-                if message.starts_with("The game has already started.") {
-                    ui.show_message(&message);
-                    return Some(ClientState::Disconnected { message });
-                }
+                return Some(ClientState::Disconnected { message });
             }
             Ok((_, _)) => {}
             Err(_) => {}
@@ -70,13 +67,21 @@ pub fn handle(
             }))
         }
     } else if network.is_disconnected() {
-        ui.show_typed_error(
-            UiErrorKind::NetworkDisconnect,
-            &format!("Connection failed: {}.", network.get_disconnect_reason()),
+        let reason = network.get_disconnect_reason();
+        let kind = network.disconnect_kind();
+        eprintln!(
+            "Connecting disconnect observed: kind={:?}, reason={}",
+            kind, reason
         );
-        Some(ClientState::Disconnected {
-            message: format!("Connection failed: {}.", network.get_disconnect_reason()),
-        })
+
+        let message = match kind {
+            DisconnectKind::DisconnectedByServer | DisconnectKind::ConnectionDenied => {
+                common::protocol::GAME_ALREADY_STARTED_MESSAGE.to_string()
+            }
+            _ => format!("Connection failed: {}.", reason),
+        };
+
+        Some(ClientState::Disconnected { message })
     } else {
         None
     }
@@ -85,6 +90,11 @@ pub fn handle(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        net::DisconnectKind,
+        test_helpers::{MockNetwork, MockUi},
+    };
+    use common::protocol::{ServerMessage, GAME_ALREADY_STARTED_MESSAGE};
 
     mod guards {
         use super::*;
@@ -115,5 +125,71 @@ mod tests {
                 "should not panic and should return None"
             );
         }
+    }
+
+    #[test]
+    fn server_info_disconnects_during_connecting() {
+        let mut session = ClientSession::new(0);
+        session.transition(ClientState::Lobby(Lobby::Connecting {
+            pending_passcode: None,
+        }));
+        let mut ui = MockUi::default();
+        let mut network = MockNetwork::new();
+        network.queue_server_message(ServerMessage::ServerInfo {
+            message: GAME_ALREADY_STARTED_MESSAGE.to_string(),
+        });
+
+        let next_state = handle(&mut session, &mut ui, &mut network);
+
+        assert!(matches!(
+            next_state,
+            Some(ClientState::Disconnected { message }) if message == GAME_ALREADY_STARTED_MESSAGE
+        ));
+        assert!(
+            ui.errors.is_empty(),
+            "disconnecting info should defer messaging to global handler"
+        );
+    }
+
+    #[test]
+    fn disconnect_reason_mapping_game_already_started_on_disconnect() {
+        let mut session = ClientSession::new(0);
+        session.transition(ClientState::Lobby(Lobby::Connecting {
+            pending_passcode: None,
+        }));
+        let mut ui = MockUi::default();
+        let mut network = MockNetwork::new();
+        network.set_disconnected(true, "connection terminated by server");
+        network.set_disconnect_kind(DisconnectKind::DisconnectedByServer);
+
+        let next_state = handle(&mut session, &mut ui, &mut network);
+
+        assert!(matches!(
+            next_state,
+            Some(ClientState::Disconnected { ref message })
+                if message == GAME_ALREADY_STARTED_MESSAGE
+        ));
+    }
+
+    #[test]
+    fn disconnect_reason_mapping_other_reasons_remain_generic() {
+        let mut session = ClientSession::new(0);
+        session.transition(ClientState::Lobby(Lobby::Connecting {
+            pending_passcode: None,
+        }));
+        let mut ui = MockUi::default();
+        let mut network = MockNetwork::new();
+        network.set_disconnected(true, "dns failure");
+        network.set_disconnect_kind(DisconnectKind::Other(
+            "dns failure".to_string(),
+        ));
+
+        let next_state = handle(&mut session, &mut ui, &mut network);
+
+        assert!(matches!(
+            next_state,
+            Some(ClientState::Disconnected { ref message })
+                if message == "Connection failed: dns failure."
+        ));
     }
 }

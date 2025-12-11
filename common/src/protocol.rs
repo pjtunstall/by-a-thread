@@ -2,6 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::snapshot::Snapshot;
 
+pub const GAME_ALREADY_STARTED_MESSAGE: &str =
+    "The game is already in progress. Please try again after this match.";
+
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
     ServerTime(f64),

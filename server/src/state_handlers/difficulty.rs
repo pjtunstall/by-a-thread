@@ -13,7 +13,7 @@ use common::{
     self,
     chat::MAX_CHAT_MESSAGE_BYTES,
     net::AppChannel,
-    protocol::{ClientMessage, ServerMessage},
+    protocol::{ClientMessage, ServerMessage, GAME_ALREADY_STARTED_MESSAGE},
     snapshot::Snapshot,
 };
 
@@ -96,7 +96,7 @@ pub fn handle(
                 }
                 ClientMessage::SendPasscode(_) | ClientMessage::SetUsername(_) => {
                     let msg = ServerMessage::ServerInfo {
-                        message: "The game has already started. Disconnecting.".to_string(),
+                        message: GAME_ALREADY_STARTED_MESSAGE.to_string(),
                     };
                     let payload =
                         encode_to_vec(&msg, standard()).expect("failed to serialize ServerInfo");

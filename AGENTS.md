@@ -10,7 +10,7 @@ Always use the modern module file structure, i.e. no `mod.rs`.
 
 ### Group into three blocks: std, 3rd-party, and own
 
-Group import statements at the head of a file into three blocks: std first, then 3rd party, then imports from my own project workspace.
+Group import statements at the head of a file into three paragraphs: std first, then 3rd party, then imports from my own project workspace.
 
 ```rust
 use std::collections::HashMap;
@@ -42,8 +42,6 @@ rather than
 use common::input::{UiKey, sanitize};
 use common::player::UsernameError;
 ```
-
-### Sort into three sections
 
 ## Error messages
 
