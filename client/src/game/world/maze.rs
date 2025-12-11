@@ -15,7 +15,7 @@ impl MazeExtension for Maze {
                 if self.grid[z][x] == 0 {
                     let corner_x = (x as f32) * CELL_SIZE;
                     let corner_z = (z as f32) * CELL_SIZE;
-                    draw_checkerboard(x, corner_x, z, corner_z);
+                    draw_checkerboard(x, corner_x, z, corner_z, BEIGE, BROWN);
                 }
             }
         }
@@ -48,7 +48,14 @@ impl MazeExtension for Maze {
     }
 }
 
-fn draw_checkerboard(x: usize, corner_x: f32, z: usize, corner_z: f32) {
+fn draw_checkerboard(
+    x: usize,
+    corner_x: f32,
+    z: usize,
+    corner_z: f32,
+    color_1: Color,
+    color_2: Color,
+) {
     let half_check_size = 8.0;
     let check_size = 2.0 * half_check_size;
     let checks_per_cell = (CELL_SIZE / check_size).round() as usize;
@@ -59,9 +66,9 @@ fn draw_checkerboard(x: usize, corner_x: f32, z: usize, corner_z: f32) {
             let world_cz = z * checks_per_cell + cz;
 
             let color = if (world_cx + world_cz) % 2 == 0 {
-                WHITE
+                color_1
             } else {
-                BLACK
+                color_2
             };
 
             let pos_x = corner_x + (cx as f32 * check_size) + half_check_size;
