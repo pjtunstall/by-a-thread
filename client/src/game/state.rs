@@ -31,14 +31,14 @@ impl Game {
 
     pub fn update(&mut self, network: &mut dyn NetworkHandle) {
         // TODO: Replace this placeholder with actual `current_tick`.
-        // We'll need to coerce the tick to usize, unless we can make
-        // that it's original type.
-        let current_tick = 0;
+        let current_tick: u16 = 0;
+        let tick_index_u16 = current_tick % (INPUT_HISTORY_LENGTH as u16 - 1);
+        let tick_index = tick_index_u16 as usize;
 
         let player_input = player_input_from_keys();
         let message = player_input_as_bytes(&player_input);
         network.send_message(AppChannel::Unreliable, message);
-        self.input_history.history[current_tick % (INPUT_HISTORY_LENGTH - 1)] = Some(player_input);
+        self.input_history.history[tick_index] = Some(player_input);
 
         // TODO: Replace the following placeholder positioning with full reconciliation and prediction logic.
     }

@@ -23,6 +23,12 @@ impl Default for Snapshot {
     }
 }
 
+// TODO: This was a placeholder for seeing an initial view of the maze, to be sent.
+// over a reliable channel.
+// In practice, the usernames won't need adding each time or the maze data sending.
+// Distinguish between `InitialData` (maze and players), and `Snapshot`, which will
+// just send the latest player data where it's changed (or for which player's it's)
+// changed.
 impl Snapshot {
     pub fn new(usernames: &HashMap<u64, String>, level: u8) -> Self {
         let generator = match level {

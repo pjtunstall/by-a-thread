@@ -9,7 +9,7 @@
 
 ## Buffers and IDs
 
-- Use power-of-two ring buffers so tick wrap fits in `u16`.
+- Use power-of-two ring buffers so tick wrap fits in `u16`. Assert!
   - Server input buffer per player: 128 entries (~2.1 s).
   - Client input history: 256 entries (~4.3 s).
   - Snapshot buffer for interpolation: 16 entries (~0.8 s at 20 Hz).
@@ -43,8 +43,7 @@
 
 ## Serialization Notes
 
-- Separate wire format from in-memory layout; consider masks to send only active players.
-- Ensure snapshot and buffer sizes stay powers of two; assert at init.
+- Separate wire format from in-memory layout. In futire, consider masks to send only active players. But for now, don't think too much about this. Renet packs bits! Beware premature optimization.
 
 ## Open Questions / Caveats
 

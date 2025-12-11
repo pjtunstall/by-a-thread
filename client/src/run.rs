@@ -109,6 +109,23 @@ impl ClientRunner {
     }
 
     async fn update_client_state(&mut self) {
+        if let Some(disconnect_message) = {
+            if let ClientState::Disconnected { message } = self.session.state() {
+                Some(message.clone())
+            } else {
+                None
+            }
+        } {
+            if !self.session.disconnected_notified {
+                self.ui
+                    .show_sanitized_error(&format!("Disconnected: {}.", &disconnect_message));
+                eprintln!("Disconnected: {}.", disconnect_message);
+                self.session.disconnected_notified = true;
+            }
+            self.ui.draw(false, false);
+            return;
+        }
+
         match self.session.state_mut() {
             ClientState::Game(game_state) => {
                 let mut network_handle =
@@ -118,9 +135,6 @@ impl ClientRunner {
                 {
                     self.session.transition(next_state);
                 }
-            }
-            ClientState::Disconnected { .. } => {
-                self.ui.draw(false, false);
             }
             // TODO: Following the pattern of the game handler, pass inner state to each
             // of the lobby substate handlers so as to let the type system enforce that the
@@ -139,34 +153,36 @@ impl ClientRunner {
     }
 
     pub fn start_game(&mut self) -> Result<(), ()> {
-        let old_state = std::mem::take(self.session.state_mut());
-        match old_state {
-            ClientState::Lobby(Lobby::Countdown { snapshot, .. }) => {
-                self.session
-                    .transition(ClientState::Game(game::state::Game::new(
-                        self.session.local_player_index,
-                        snapshot,
-                    )));
-
-                if let ClientState::Game(game) = self.session.state() {
-                    self.session.local_player_index = game
-                        .snapshot
-                        .players
-                        .iter()
-                        .position(|p| p.client_id == self.session.client_id)
-                        .expect("current player should be in game players list");
-                }
-
-                Ok(())
-            }
+        let snapshot = match self.session.state_mut() {
+            ClientState::Lobby(Lobby::Countdown { snapshot, .. }) => std::mem::take(snapshot),
             other => {
                 self.ui.show_sanitized_error(&format!(
                     "Tried to start game from invalid state: {:#?}.",
                     other
                 ));
-                Err(())
+                return Err(());
             }
-        }
+        };
+
+        let Some(local_player_index) = snapshot
+            .players
+            .iter()
+            .position(|p| p.client_id == self.session.client_id)
+        else {
+            self.session.transition(ClientState::Disconnected {
+                message: format!("could not find you in list of players"),
+            });
+            return Err(());
+        };
+
+        self.session.local_player_index = Some(local_player_index);
+        self.session
+            .transition(ClientState::Game(game::state::Game::new(
+                local_player_index,
+                snapshot,
+            )));
+
+        Ok(())
     }
 }
 

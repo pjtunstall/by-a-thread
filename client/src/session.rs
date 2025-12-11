@@ -21,7 +21,8 @@ pub struct ClientSession {
     pub estimated_server_time: f64,
     pub clock_samples: VecDeque<ClockSample>,
     pub input_queue: Vec<String>,
-    pub local_player_index: usize,
+    pub local_player_index: Option<usize>,
+    pub disconnected_notified: bool,
     waiting_since: Option<Instant>,
     waiting_message_shown: bool,
 }
@@ -37,7 +38,8 @@ impl ClientSession {
             estimated_server_time: 0.0,
             clock_samples: VecDeque::new(),
             input_queue: Vec::new(),
-            local_player_index: 0, // TODO: Identify each player with their own index.
+            local_player_index: None,
+            disconnected_notified: false,
             waiting_since: None,
             waiting_message_shown: false,
         }
@@ -52,6 +54,9 @@ impl ClientSession {
     }
 
     pub fn transition(&mut self, new_state: ClientState) {
+        if matches!(new_state, ClientState::Disconnected { .. }) {
+            self.disconnected_notified = false;
+        }
         self.state = new_state;
     }
 
