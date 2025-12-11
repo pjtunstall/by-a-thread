@@ -12,20 +12,12 @@ impl MazeExtension for Maze {
 
         for x in 0..grid_len {
             for z in 0..grid_len {
-                if self.grid[z][x] == 0 {
-                    let corner_x = (x as f32) * CELL_SIZE;
-                    let corner_z = (z as f32) * CELL_SIZE;
-                    draw_checkerboard(x, corner_x, z, corner_z, BEIGE, BROWN);
-                }
-            }
-        }
-
-        for x in 0..grid_len {
-            for z in 0..grid_len {
                 let corner_x = (x as f32) * CELL_SIZE;
                 let corner_z = (z as f32) * CELL_SIZE;
 
-                if self.grid[z][x] != 0 {
+                if self.grid[z][x] == 0 {
+                    draw_checkerboard(x, corner_x, z, corner_z, BEIGE, BROWN);
+                } else {
                     draw_shadow_at_base_of_walls(corner_x, corner_z);
 
                     // This is a wall. The 'custom' function is necessary
@@ -106,19 +98,19 @@ fn draw_custom_cuboid(position: Vec3, size: Vec3, texture: &Texture2D, color: Co
     let z = position.z;
 
     let vertices = [
-        // Front face.
+        // Front face:
         vec3(x - half_width, y - half_height, z + half_depth), // Bottom-left-front (0).
         vec3(x + half_width, y - half_height, z + half_depth), // Bottom-right-front (1).
         vec3(x + half_width, y + half_height, z + half_depth), // Top-right-front (2).
         vec3(x - half_width, y + half_height, z + half_depth), // Top-left-front (3).
-        // Back face
+        // Back face:
         vec3(x - half_width, y - half_height, z - half_depth), // Bottom-left-back (4).
         vec3(x + half_width, y - half_height, z - half_depth), // Bottom-right-back (5).
         vec3(x + half_width, y + half_height, z - half_depth), // Top-right-back (6).
         vec3(x - half_width, y + half_height, z - half_depth), // Top-left-back (7).
     ];
 
-    // Texture coordinates.
+    // Texture coordinates:
     let tex_coords = [
         vec2(0.0, 1.0), // Bottom-left.
         vec2(1.0, 1.0), // Bottom-right.
@@ -133,7 +125,7 @@ fn draw_custom_cuboid(position: Vec3, size: Vec3, texture: &Texture2D, color: Co
         |v1_idx: usize, v2_idx: usize, v3_idx: usize, v4_idx: usize, normal: Vec3| {
             let base_idx = vertices_data.len() as u16;
 
-            // Convert normal from `Vec3` to `Vec4` (w=0).
+            // Convert normal from `Vec3` to `Vec4`.
             let normal_vec4 = vec4(normal.x, normal.y, normal.z, 0.0);
 
             // Convert color to `[u8; 4]`.
