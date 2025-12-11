@@ -16,7 +16,7 @@ use common::snapshot::Snapshot;
 #[derive(Debug)]
 pub struct Game {
     pub local_player_index: usize,
-    pub snapshot: Snapshot,
+    pub snapshot: Snapshot, // TODO: Replace with `snapshot_buffer: [Snapshot; 16]`.
     pub input_history: InputHistory,
 }
 
