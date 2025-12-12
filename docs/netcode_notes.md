@@ -67,7 +67,7 @@ Check for inputs and insert them as a `PlayerInput` (containing all current keyp
 
 Check for new inputs and send the most recent handful of inputs to the server on an `Unreliable` Renet channel. This redundancy increases the chance that the server will have inputs available for each tick it processes and not have to guess.
 
-NOTE: To be consistent with the server, ensure the physics update uses a fixed timestep (e.g., 1.0/60.0) and not `macroquad::time::get_frame_time()`.
+NOTE: To be consistent with the server, ensure the physics update uses a fixed timestep and not `macroquad::time::get_frame_time()`.
 
 Here is more detail on the client's time coordination logic, using the idea of a dynamic lead. Combining NTP (Network Time Protocol), defined by the clock estimate, with a clamped nudge, turns the game loop into what's known as a Control System (specifically a Proportional Controller with Saturation). We combine NTP with with dynamic nudge and spike handling.
 
@@ -136,7 +136,7 @@ let adjustment = if error.abs() > 0.25 {
 session.accumulator += raw_delta_time + adjustment;
 
 // 7. PHYSICS LOOP (FIXED STEP)
-const MAX_TICKS_PER_FRAME: u32 = 8; // A failsafe to prevent the accumulator from growing
+const MAX_TICKS_PER_FRAME: u8 = 8; // A failsafe to prevent the accumulator from growing
 let mut ticks_processed = 0;        // ever greater if we fall behind.
 while session.accumulator >= TICK_DURATION_IDEAL && ticks_processed < MAX_TICKS_PER_FRAME  {
     process_input(&mut session, target_tick); // Insert into history, send to server.

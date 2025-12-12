@@ -28,7 +28,7 @@ impl Game {
     }
 
     pub fn update(&mut self) {
-        // TODO: Replace the following placeholder positioning with full reconciliation and prediction logic.
+        // TODO: Reconciliation and prediction.
     }
 
     pub fn draw(&self, assets: &Assets) {

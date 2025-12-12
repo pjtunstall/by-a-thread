@@ -17,7 +17,7 @@ pub fn handle(
     game_state.update();
     game_state.draw(assets);
 
-    // TODO: Replace this placeholder with actual `target_tick`.
+    // TODO: Replace this placeholder logic with actual `target_tick` calculation, suitably encapsulated.
     let target_tick: u16 = 0;
     let tick_index_u16 = target_tick % (INPUT_HISTORY_LENGTH as u16 - 1);
     let tick_index = tick_index_u16 as usize;

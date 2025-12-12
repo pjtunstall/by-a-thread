@@ -12,3 +12,41 @@ pub const INPUT_BUFFER_LENGTH: usize = 128; // 128 ticks, ~2.1s at 60Hz.
 pub const MAX_PLAYERS: usize = 10;
 pub const TICK_MICROS: u64 = 16667; // Used in `server::run` to manage loop. 
 pub const BROADCAST_PER_MILLIS: u64 = 50; // server::run
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn assert_array_lengths_are_powers_of_two() {
+        // INPUT_BUFFER (server).
+        assert!(
+            INPUT_BUFFER_LENGTH != 0,
+            "INPUT_BUFFER_LENGTH should not be 0"
+        );
+        assert!(
+            INPUT_BUFFER_LENGTH & (INPUT_BUFFER_LENGTH - 1) == 0,
+            "INPUT_BUFFER_LENGTH should be a power of 2"
+        );
+
+        // INPUT_HISTORY (client).
+        assert!(
+            INPUT_HISTORY_LENGTH != 0,
+            "INPUT_HISTORY_LENGTH should not be 0"
+        );
+        assert!(
+            INPUT_HISTORY_LENGTH & (INPUT_HISTORY_LENGTH - 1) == 0,
+            "INPUT_HISTORY_LENGTH should be a power of 2"
+        );
+
+        // SNAPSHOT_BUFFER (client).
+        assert!(
+            SNAPSHOT_BUFFER_LENGTH != 0,
+            "SNAPSHOT_BUFFER_LENGTH should not be 0"
+        );
+        assert!(
+            SNAPSHOT_BUFFER_LENGTH & (SNAPSHOT_BUFFER_LENGTH - 1) == 0,
+            "SNAPSHOT_BUFFER_LENGTH should be a power of 2"
+        );
+    }
+}
