@@ -68,13 +68,7 @@ pub fn handle(
         }
     } else if network.is_disconnected() {
         let reason = network.get_disconnect_reason();
-        let kind = network.disconnect_kind();
-        eprintln!(
-            "Connecting disconnect observed: kind={:?}, reason={}",
-            kind, reason
-        );
-
-        let message = match kind {
+        let message = match network.disconnect_kind() {
             DisconnectKind::DisconnectedByServer | DisconnectKind::ConnectionDenied => {
                 common::protocol::GAME_ALREADY_STARTED_MESSAGE.to_string()
             }

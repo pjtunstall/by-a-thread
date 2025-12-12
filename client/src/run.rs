@@ -104,15 +104,8 @@ impl ClientRunner {
                     &e,
                     net::map_disconnect_kind(
                         self.client.disconnect_reason(),
-                        self.transport.disconnect_reason().map(|r| r.to_string()),
+                        self.transport.disconnect_reason(),
                     ),
-                );
-                eprintln!(
-                    "Pump disconnect transition: state={:?}, message={}, renet_reason={:?}, transport_reason={:?}",
-                    self.session.state(),
-                    message,
-                    self.client.disconnect_reason(),
-                    self.transport.disconnect_reason()
                 );
                 self.session.set_pending_disconnect(message);
             }
