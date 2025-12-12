@@ -23,7 +23,7 @@ use crate::{
 use common::{
     self,
     auth::Passcode,
-    constants::TICK_MICROS,
+    constants::{BROADCAST_PER_MILLIS, TICK_MICROS},
     net::AppChannel,
     protocol::{GAME_ALREADY_STARTED_MESSAGE, ServerMessage},
     time,
@@ -61,7 +61,7 @@ fn server_loop(
 ) {
     let mut last_updated = Instant::now();
     let mut last_sync_time = Instant::now();
-    let sync_interval = Duration::from_millis(50);
+    let sync_interval = Duration::from_millis(BROADCAST_PER_MILLIS);
 
     let target_tick_duration = Duration::from_micros(TICK_MICROS);
 

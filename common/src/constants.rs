@@ -11,3 +11,4 @@ pub const TICK_SECS: f32 = 1_000_000.0 * 16667.0; // ~ 1 / 60.0, used in `common
 pub const INPUT_BUFFER_LENGTH: usize = 128;
 pub const MAX_PLAYERS: usize = 10;
 pub const TICK_MICROS: u64 = 16667; // Used in `server::run` to manage loop. 
+pub const BROADCAST_PER_MILLIS: u64 = 50; // server::run
