@@ -199,7 +199,7 @@ impl PlayerState {
     }
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct PlayerInput {
     pub forward: bool,
     pub backward: bool,

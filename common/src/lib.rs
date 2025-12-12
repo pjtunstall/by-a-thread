@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod chat;
+pub mod constants;
 pub mod input;
 pub mod maze;
 pub mod net;

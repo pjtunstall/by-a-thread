@@ -3,7 +3,7 @@ use std::{net::SocketAddr, time::Duration};
 use renet::{RenetServer, ServerEvent};
 use renet_netcode::{ServerAuthentication, ServerConfig};
 
-use common::{self, net::AppChannel};
+use common::{self, constants::MAX_PLAYERS, net::AppChannel};
 
 pub enum ServerNetworkEvent {
     ClientConnected { client_id: u64 },
@@ -75,7 +75,7 @@ pub fn build_server_config(
 ) -> ServerConfig {
     ServerConfig {
         current_time,
-        max_clients: 10,
+        max_clients: MAX_PLAYERS,
         protocol_id,
         public_addresses: vec![server_addr],
         authentication: ServerAuthentication::Secure { private_key },
