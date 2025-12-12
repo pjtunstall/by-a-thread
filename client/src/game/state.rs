@@ -10,21 +10,24 @@ use crate::{
     },
     net::NetworkHandle,
 };
-use common::net::AppChannel;
-use common::snapshot::Snapshot;
+use common::{maze::Maze, net::AppChannel, player::Player, snapshot::InitialData};
 
 #[derive(Debug)]
 pub struct Game {
     pub local_player_index: usize,
-    pub snapshot: Snapshot, // TODO: Replace with `snapshot_buffer: [Snapshot; 16]`.
+    pub maze: Maze,
+    pub players: Vec<Player>,
+    // pub snapshot_buffer: [Snapshot; 16],
+    // input_history: [PlayerInput; 256],
     pub input_history: InputHistory,
 }
 
 impl Game {
-    pub fn new(local_player_index: usize, snapshot: Snapshot) -> Self {
+    pub fn new(local_player_index: usize, initial_data: InitialData) -> Self {
         Self {
             local_player_index,
-            snapshot,
+            maze: initial_data.maze,
+            players: initial_data.players,
             input_history: InputHistory::new(),
         }
     }
@@ -46,9 +49,7 @@ impl Game {
     pub fn draw(&self, assets: &Assets) {
         clear_background(color::BEIGE);
 
-        let position = self.snapshot.players[self.local_player_index]
-            .state
-            .position;
+        let position = self.players[self.local_player_index].state.position;
 
         let yaw: f32 = 0.0;
         let pitch: f32 = 0.1;
@@ -65,11 +66,6 @@ impl Game {
             ..Default::default()
         });
 
-        let snapshot = &self.snapshot;
-        snapshot.maze.draw(&assets.wall_texture);
-    }
-
-    pub fn reconcile(&mut self, snapshot: Snapshot) {
-        self.snapshot = snapshot;
+        self.maze.draw(&assets.wall_texture);
     }
 }

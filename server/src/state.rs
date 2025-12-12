@@ -8,8 +8,8 @@ use bincode::{config::standard, serde::encode_to_vec};
 use crate::net::ServerNetworkHandle;
 use common::{
     net::AppChannel,
-    protocol::{ServerMessage, GAME_ALREADY_STARTED_MESSAGE},
-    snapshot::Snapshot,
+    protocol::{GAME_ALREADY_STARTED_MESSAGE, ServerMessage},
+    snapshot::InitialData,
 };
 
 pub enum ServerState {
@@ -94,11 +94,11 @@ pub struct Countdown {
     pub usernames: HashMap<u64, String>,
     pub host_id: Option<u64>,
     pub end_time: Instant,
-    pub snapshot: Snapshot,
+    pub snapshot: InitialData,
 }
 
 impl Countdown {
-    pub fn new(state: &ChoosingDifficulty, end_time: Instant, snapshot: Snapshot) -> Self {
+    pub fn new(state: &ChoosingDifficulty, end_time: Instant, snapshot: InitialData) -> Self {
         Self {
             usernames: state.lobby.usernames.clone(),
             host_id: state.host_id,
@@ -150,12 +150,12 @@ impl Countdown {
 }
 
 pub struct Game {
-    pub snapshot: Snapshot,
+    pub snapshot: InitialData,
     pub host_id: Option<u64>,
 }
 
 impl Game {
-    pub fn new(snapshot: Snapshot, host_id: Option<u64>) -> Self {
+    pub fn new(snapshot: InitialData, host_id: Option<u64>) -> Self {
         Self { snapshot, host_id }
     }
 
@@ -366,7 +366,7 @@ mod tests {
         network.add_client(7);
 
         let usernames = HashMap::new();
-        let snapshot = Snapshot::new(&usernames, 1);
+        let snapshot = InitialData::new(&usernames, 1);
         let mut state = ServerState::Countdown(Countdown {
             usernames,
             host_id: None,
@@ -552,7 +552,7 @@ mod tests {
         network.add_client(2);
 
         let usernames = HashMap::from([(1, "Alice".to_string()), (2, "Bob".to_string())]);
-        let snapshot = Snapshot::new(&usernames, 1);
+        let snapshot = InitialData::new(&usernames, 1);
 
         let mut countdown = Countdown {
             usernames,
@@ -583,7 +583,7 @@ mod tests {
         network.add_client(20);
 
         let usernames = HashMap::from([(10, "Alice".to_string()), (20, "Bob".to_string())]);
-        let snapshot = Snapshot::new(&usernames, 1);
+        let snapshot = InitialData::new(&usernames, 1);
 
         let mut game = Game {
             snapshot,

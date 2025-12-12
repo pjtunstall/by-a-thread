@@ -5,16 +5,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     maze::{self, Maze, maker::Algorithm},
-    player::{self, Player},
+    player::{self, Player, PlayerState},
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Snapshot {
+pub struct InitialData {
     pub maze: Maze,
     pub players: Vec<Player>,
 }
 
-impl Default for Snapshot {
+impl Default for InitialData {
     fn default() -> Self {
         Self {
             maze: Maze::new(Algorithm::Backtrack),
@@ -23,13 +23,7 @@ impl Default for Snapshot {
     }
 }
 
-// TODO: This was a placeholder for seeing an initial view of the maze, to be sent.
-// over a reliable channel.
-// In practice, the usernames won't need adding each time or the maze data sending.
-// Distinguish between `InitialData` (maze and players), and `Snapshot`, which will
-// just send the latest player data where it's changed (or for which player's it's)
-// changed.
-impl Snapshot {
+impl InitialData {
     pub fn new(usernames: &HashMap<u64, String>, level: u8) -> Self {
         let generator = match level {
             1 => Algorithm::Backtrack,
@@ -62,5 +56,20 @@ impl Snapshot {
             .collect();
 
         Self { maze, players }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Snapshot {
+    pub tick: u64,
+    pub player_states: Vec<PlayerState>,
+}
+
+impl Snapshot {
+    pub fn new(tick: u64, player_states: Vec<PlayerState>) -> Self {
+        Self {
+            tick,
+            player_states,
+        }
     }
 }

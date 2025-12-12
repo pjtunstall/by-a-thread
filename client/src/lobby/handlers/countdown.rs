@@ -81,12 +81,12 @@ pub fn handle(
 mod tests {
     use super::*;
     use crate::test_helpers::{MockNetwork, MockUi};
-    use common::snapshot::Snapshot;
+    use common::snapshot::InitialData;
 
     fn countdown_state_with(end_time: f64) -> ClientState {
         ClientState::Lobby(Lobby::Countdown {
             end_time,
-            snapshot: Snapshot::default(),
+            snapshot: InitialData::default(),
         })
     }
 

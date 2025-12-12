@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::snapshot::Snapshot;
+use crate::snapshot::InitialData;
 
 pub const GAME_ALREADY_STARTED_MESSAGE: &str =
     "The game is already in progress. Please try again after this match.";
@@ -8,15 +8,33 @@ pub const GAME_ALREADY_STARTED_MESSAGE: &str =
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
     ServerTime(f64),
-    CountdownStarted { end_time: f64, snapshot: Snapshot },
-    Welcome { username: String },
-    UsernameError { message: String },
+    CountdownStarted {
+        end_time: f64,
+        snapshot: InitialData,
+    },
+    Welcome {
+        username: String,
+    },
+    UsernameError {
+        message: String,
+    },
     AppointHost,
-    Roster { online: Vec<String> },
-    UserJoined { username: String },
-    UserLeft { username: String },
-    ChatMessage { username: String, content: String },
-    ServerInfo { message: String },
+    Roster {
+        online: Vec<String>,
+    },
+    UserJoined {
+        username: String,
+    },
+    UserLeft {
+        username: String,
+    },
+    ChatMessage {
+        username: String,
+        content: String,
+    },
+    ServerInfo {
+        message: String,
+    },
     BeginDifficultySelection, // Allow host to move to phase where they choose a difficulty.
     DenyDifficultySelection,  // Refuse non-host client who asks to choose a difficulty level.
 }

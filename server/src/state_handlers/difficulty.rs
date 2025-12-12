@@ -14,7 +14,7 @@ use common::{
     chat::MAX_CHAT_MESSAGE_BYTES,
     net::AppChannel,
     protocol::{ClientMessage, ServerMessage, GAME_ALREADY_STARTED_MESSAGE},
-    snapshot::Snapshot,
+    snapshot::InitialData,
 };
 
 pub fn handle(
@@ -54,7 +54,7 @@ pub fn handle(
                     println!("Host selected difficulty {}.", level);
                     state.set_difficulty(level);
 
-                    let snapshot = Snapshot::new(&state.lobby.usernames, level);
+                    let snapshot = InitialData::new(&state.lobby.usernames, level);
 
                     println!("\n{}", snapshot.maze);
                     println!();

@@ -130,8 +130,10 @@ impl ClientRunner {
                 } else {
                     "."
                 };
-                self.ui
-                    .show_sanitized_error(&format!("Disconnected: {}{}", &disconnect_message, separator));
+                self.ui.show_sanitized_error(&format!(
+                    "Disconnected: {}{}",
+                    &disconnect_message, separator
+                ));
                 eprintln!("Disconnected: {}{}", disconnect_message, separator);
                 self.session.disconnected_notified = true;
             }
@@ -166,13 +168,14 @@ impl ClientRunner {
 
         if !self.session.state().is_disconnected() {
             if let Some(message) = self.session.take_pending_disconnect() {
-                self.session.transition(ClientState::Disconnected { message });
+                self.session
+                    .transition(ClientState::Disconnected { message });
             }
         }
     }
 
     pub fn start_game(&mut self) -> Result<(), ()> {
-        let snapshot = match self.session.state_mut() {
+        let initial_data = match self.session.state_mut() {
             ClientState::Lobby(Lobby::Countdown { snapshot, .. }) => std::mem::take(snapshot),
             other => {
                 self.ui.show_sanitized_error(&format!(
@@ -183,7 +186,7 @@ impl ClientRunner {
             }
         };
 
-        let Some(local_player_index) = snapshot
+        let Some(local_player_index) = initial_data
             .players
             .iter()
             .position(|p| p.client_id == self.session.client_id)
@@ -198,7 +201,7 @@ impl ClientRunner {
         self.session
             .transition(ClientState::Game(game::state::Game::new(
                 local_player_index,
-                snapshot,
+                initial_data,
             )));
 
         Ok(())
@@ -305,7 +308,11 @@ mod tests {
         let state = ClientState::Lobby(Lobby::Connecting {
             pending_passcode: None,
         });
-        let msg = disconnect_message(&state, "connection terminated by server", DisconnectKind::DisconnectedByServer);
+        let msg = disconnect_message(
+            &state,
+            "connection terminated by server",
+            DisconnectKind::DisconnectedByServer,
+        );
         assert_eq!(
             msg,
             common::protocol::GAME_ALREADY_STARTED_MESSAGE.to_string()
@@ -335,7 +342,11 @@ mod tests {
             waiting_for_server: false,
             guesses_left: 3,
         });
-        let msg = disconnect_message(&state, "connection terminated by server", DisconnectKind::DisconnectedByServer);
+        let msg = disconnect_message(
+            &state,
+            "connection terminated by server",
+            DisconnectKind::DisconnectedByServer,
+        );
         assert_eq!(
             msg,
             "authentication failed: server closed the connection".to_string()
@@ -345,7 +356,11 @@ mod tests {
     #[test]
     fn disconnect_message_for_username_confirmation_disconnect() {
         let state = ClientState::Lobby(Lobby::AwaitingUsernameConfirmation);
-        let msg = disconnect_message(&state, "timeout", DisconnectKind::Other("timeout".to_string()));
+        let msg = disconnect_message(
+            &state,
+            "timeout",
+            DisconnectKind::Other("timeout".to_string()),
+        );
         assert_eq!(
             msg,
             "disconnected while awaiting username confirmation: timeout".to_string()
@@ -355,7 +370,11 @@ mod tests {
     #[test]
     fn disconnect_message_defaults_when_no_special_case() {
         let state = ClientState::Debrief;
-        let msg = disconnect_message(&state, "some error", DisconnectKind::Other("some error".to_string()));
+        let msg = disconnect_message(
+            &state,
+            "some error",
+            DisconnectKind::Other("some error".to_string()),
+        );
         assert_eq!(msg, "no connection: some error".to_string());
     }
 }

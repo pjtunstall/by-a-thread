@@ -1,4 +1,4 @@
-use common::{auth::Passcode, snapshot::Snapshot};
+use common::{auth::Passcode, snapshot::InitialData};
 
 #[derive(Debug)]
 pub enum Lobby {
@@ -23,7 +23,7 @@ pub enum Lobby {
     },
     Countdown {
         end_time: f64,
-        snapshot: Snapshot,
+        snapshot: InitialData,
     },
     ChoosingDifficulty {
         prompt_printed: bool,
