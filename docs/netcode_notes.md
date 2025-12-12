@@ -12,7 +12,7 @@ Give the server a `Vec<ServerPlayer>` to store the player data. `ServerPlayer` c
 
 ## Terminology
 
-Client tick, server tick, and frame are conceptually distinct, but happen to have the same duration in our case. All three loops run at 60Hz. On the other hand, the server will broadcast at only 20Hz to save on bandwidth.
+Client tick and server tick are conceptually distinct, but both run at 60Hz in our case. On the other hand, the server will broadcast at only 20Hz to save on bandwidth.
 
 - baseline: the most recent **snapshot** a client has received from the server.
 - frame: one iteration of the client render loop, i.e. one instance of painting a scene on the screen. See also **tick**.
@@ -25,7 +25,7 @@ Client tick, server tick, and frame are conceptually distinct, but happen to hav
   `snapshot_buffer: [Snapshot; 16]`: (also known as an interpolation buffer) a record the client keeps of snapshots received so that it can interpolate.
 - tick: one iteration of the (client or server) physics simulation. Compare **frame**.
 
-Regarding the lengths of the three collections. They need to be a power of 2 so we can use `u16` to label ticks instead of, say, `u64`; otherwise, when we go from tick 65535 to tick 0, we'd jump from the current index to 0, missing any indices in between. (E.g. 65535 = 35 mod 100, but 0 = 0 mod 100.) Also, they must be a power of 2 to allow the microptimization of using `&` (bitwise AND) in place of `%` (division is expensive).
+Regarding the lengths of the three collections. They need to be a power of 2 so we can use `u16` to label ticks instead of, say, `u64`; otherwise, when we go from tick 65535 to tick 0, we'd jump from the current index to 0, missing any indices in between. (E.g. 65535 = 35 mod 100, but 0 = 0 mod 100.) Also, they must be a power of 2 to allow the microptimization of using `&` (bitwise AND) in place of `%` (division is more expensive); in fact, the compiler does this anyway, but still, it's only possible when the denominator is a power of 2.
 
 - input buffer: 128 ticks -> ~2.1s.
 - input history: 256 ticks -> ~4.3s.
@@ -43,7 +43,7 @@ Check Renet config to see how long it takes for clients to actually time out.
 
 ### Players
 
-Initialize an array as an input buffer for each player. The size should be a power of 2 that is larger than the maximum expected latency window. (See above for current sizes of this and other arrays.)
+Have the server initialize an array as an input buffer for each player. The size should be a power of 2 that is larger than the maximum expected latency window. (See above for current sizes of this and other arrays.)
 
 We'll receive inputs from players as a sequence of `PlayerInput`s. Several inputs are sent per message for the sake of redundancy: to reduce the risk of missing inputs. Each `PlayerInput` will include a tick id number (`u64`). The tick id number with the input is not that of the tick on which the client sent it; rather it's the client's request for which tick it wants the server to processes it. The client calculates this number based on smoothed rtt and a safety margin. The goal is to ensure that inputs from all clients are processed a similar amount of time after they were sent, for consistency and so as not to give any one player and unfair advantage under normal conditions.
 
@@ -55,7 +55,7 @@ Safety cap: if no new input has arrived in the last 0.5s (30 ticks), then set th
 
 At the broadcast frequency, broadcast the resulting game state, including positions of all players and bullets, and orientations of players, to all clients on an `Unreliable` Renet channel, tagged with the current tick number. More seriously consequential game events--in this case, just player death--are sent on a `ReliableOrdered` Renet channel. Everything else can go on the `Unreliable` channel. Even nonlethal hits can go on the `Unreliable` state channel; the health bar will adjust to the correct value when the update comes.
 
-NOTE: Send current health rather than "player took X amount of damge". And, in general, always sync the value not the delta on an `Unreliable` channel; the same goes for position, orientation, ammo, etc.
+NOTE: Send current health rather than "player took X amount of damge". And, in general, always sync the value not the delta on an `Unreliable` channel; the same goes for position, orientation, ammo, etc. If optimizing later with "delta compression", send only items that have changed.
 
 ## Client
 
@@ -143,7 +143,7 @@ while session.accumulator >= TICK_DURATION_IDEAL && ticks_processed < MAX_TICKS_
     perform_tick(&mut session); // Run physics: reconcile and predict.
 
     // C. Advance State.
-     session.accumulator -= TICK_DURATION_IDEAL;
+    session.accumulator -= TICK_DURATION_IDEAL;
     session.current_tick += 1;
     ticks_processed += 1;
     session.simulated_time += TICK_DURATION_IDEAL;

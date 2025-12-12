@@ -201,6 +201,7 @@ impl PlayerState {
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct PlayerInput {
+    pub target_tick: u16,
     pub forward: bool,
     pub backward: bool,
     pub left: bool,
