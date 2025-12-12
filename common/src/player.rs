@@ -4,8 +4,8 @@ use glam::{Vec3, vec3};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    constants::TICK_SECS,
     maze::{self, Maze},
-    time::TICK_SECS,
 };
 
 pub const MAX_USERNAME_LENGTH: usize = 16;

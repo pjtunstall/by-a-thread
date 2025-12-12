@@ -23,9 +23,10 @@ use crate::{
 use common::{
     self,
     auth::Passcode,
+    constants::TICK_MICROS,
     net::AppChannel,
-    protocol::{ServerMessage, GAME_ALREADY_STARTED_MESSAGE},
-    time::{self, TICK_MICROS},
+    protocol::{GAME_ALREADY_STARTED_MESSAGE, ServerMessage},
+    time,
 };
 
 pub fn run_server(socket: UdpSocket, server_addr: SocketAddr, private_key: [u8; 32]) {
