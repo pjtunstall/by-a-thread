@@ -6,5 +6,6 @@ pub mod maze;
 pub mod net;
 pub mod player;
 pub mod protocol;
+pub mod ring;
 pub mod snapshot;
 pub mod time;

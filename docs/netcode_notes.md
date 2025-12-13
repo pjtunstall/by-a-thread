@@ -431,3 +431,35 @@ bullets.reliable...`Vec<Bullet>` (world state entity list)........Send events, e
 deaths..reliable...(event queue)..................................Events
 
 I can give the bullets Vec a capacity of 240.
+
+## Another version of tick wrapping
+
+Principle: "You keep the wire format small (u16) but expand locally by maintaining a monotonic counter and interpreting each new 16‑bit value relative to the previous one. The usual rule: any delta > 0x8000 (half the range) means a wrap occurred."
+
+```rust
+#[derive(Default)]
+struct SeqUnwrapper {
+    last: u64, // monotonic
+}
+
+impl SeqUnwrapper {
+    fn unwrap(&mut self, seq16: u16) -> u64 {
+        let last16 = self.last as u16;
+        let diff = seq16.wrapping_sub(last16);
+        // If diff > 0x8000, seq16 is “behind”; assume wrap just happened.
+        let step = if diff > 0x8000 {
+            // wrapped: seq16 is actually ahead by negative diff
+            (seq16 as i32 - last16 as i32 + 0x1_0000) as u64
+        } else {
+            diff as u64
+        };
+        self.last += step;
+        self.last
+    }
+}
+```
+
+- As long as the true sequence never advances more than 0x8000 ahead of what you last processed (true here: you only buffer a few hundred ticks), the unwrap is unambiguous.
+- Works the same on client and server; each peer keeps its own SeqUnwrapper per stream (inputs from a client, snapshots from server, etc.).
+- You can still store ring buffers indexed by seq16 & mask but use the unwrapped u64 for “newer than”, timeouts, and ordering logic.
+- So yes: you “guess” based on the last seen value using the half‑range rule. That lets you transmit u16 while internally using u64 to avoid wrap bugs."
