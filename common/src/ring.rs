@@ -60,9 +60,12 @@ where
     pub fn extend(&self, sequence_number: u16) -> Option<u64> {
         let baseline = self.baseline;
         let baseline_u16 = baseline as u16;
-
         let modular_difference = sequence_number.wrapping_sub(baseline_u16); // mod (1 << 16).
-        let difference = (modular_difference as i16) as i64; // Large unsigned -> small negative signed.
+
+        // Cast by 2's complement, so that `modular_difference > 0x8000`
+        // is negative, allowing us to add `difference` to baseline, saving
+        // ourselves some conditional branching.
+        let difference = (modular_difference as i16) as i64;
 
         baseline.checked_add_signed(difference)
     }
