@@ -1,35 +1,76 @@
 use std::array;
 
-// This is what will be sent between client and server.
-#[derive(Default, Clone, Debug)]
-pub struct WireItem<T: Default + Clone> {
+#[derive(Clone, Debug, Default)]
+pub struct WireItem<T: Clone + Default> {
     pub id: u16,
     pub data: T,
 }
 
-#[derive(Default, Clone, Debug)]
-pub struct Item<T: Default + Clone> {
+#[derive(Clone, Debug, Default)]
+pub struct StoredItem<T: Clone + Default> {
     pub tick: u64,
     pub data: T,
 }
 
 #[derive(Clone, Debug)]
-pub struct RingBuffer<T: Default + Clone, const N: usize> {
-    array: [Item<T>; N], // N must be a power of 2, as enforced by the constructor.
-    mask: usize,         // N - 1.
-    head: u64,           // Write cursor: most recent item inserted.
-    tail: u64,           // Read cursor: last input processed or last snapshot interpolated.
+pub struct Ring<T: Clone + Default, const N: usize> {
+    array: [StoredItem<T>; N], // N must be a power of 2, as enforced by the constructor.
+    mask: usize,               // N - 1.
 }
 
-impl<T, const N: usize> RingBuffer<T, N>
+impl<T, const N: usize> Ring<T, N>
 where
-    T: Default + Clone,
+    T: Clone + Default,
 {
     pub fn new() -> Self {
         const {
-            assert!(N != 0, "N must not be zero");
-            assert!(N.is_power_of_two(), "size must be a power of 2");
+            assert!(N != 0, "length must not be zero");
+            assert!(N.is_power_of_two(), "length must be a power of 2");
+        }
 
+        Self {
+            array: array::from_fn(|_| StoredItem::<T>::default()),
+            mask: N - 1,
+        }
+    }
+
+    #[inline(always)]
+    fn get(&self, tick: u64) -> Option<&T> {
+        let index = tick as usize & self.mask;
+        let item = &self.array[index];
+        if item.tick == tick {
+            Some(&item.data)
+        } else {
+            None
+        }
+    }
+
+    #[inline(always)]
+    fn insert(&mut self, tick: u64, data: T) {
+        let index = tick as usize & self.mask;
+        self.array[index] = StoredItem { tick, data };
+    }
+
+    #[inline(always)]
+    pub fn peek_tick(&self, tick: u64) -> u64 {
+        let index = tick as usize & self.mask;
+        self.array[index].tick
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NetworkBuffer<T: Clone + Default, const N: usize> {
+    raw: Ring<T, N>,
+    head: u64, // Write cursor: most recent item inserted.
+    tail: u64, // Read cursor: last input processed or last snapshot interpolated.
+}
+
+impl<T, const N: usize> NetworkBuffer<T, N>
+where
+    T: Clone + Default,
+{
+    pub fn new() -> Self {
+        const {
             // Thanks to the `i16` cast in extend` (2's complement),
             // we can only unambiguishly distinguish between items in
             // the window [-32_68, +32_767] (2 << 15).
@@ -40,8 +81,7 @@ where
         }
 
         Self {
-            array: array::from_fn(|_| Item::<T>::default()),
-            mask: N - 1,
+            raw: Ring::<T, N>::new(),
             head: 0,
             tail: 0,
         }
@@ -50,22 +90,25 @@ where
     pub fn insert(&mut self, wire_item: WireItem<T>) {
         let WireItem { id, data } = wire_item;
         if let Some(tick) = self.extend(id) {
-            self.head = self.head.max(tick);
-            let index = id as usize & self.mask;
-            self.array[index] = Item { tick, data };
+            // No need to insert if we've already processed the data
+            // for that tick.
+            if tick <= self.tail {
+                return;
+            }
+
+            // Only overwrite if new data is from a more recent
+            // tick than what's already stored here.
+            if self.raw.peek_tick(tick) < tick {
+                self.raw.insert(tick, data);
+
+                // Update the head if the new item is more recent.
+                self.head = self.head.max(tick);
+            }
         }
     }
 
-    pub fn get(&mut self, tick: u64) -> Option<&Item<T>> {
-        let index = tick as usize & self.mask;
-        let item = &self.array[index];
-
-        if item.tick == tick {
-            self.tail = tick;
-            Some(item)
-        } else {
-            None
-        }
+    pub fn get(&self, tick: u64) -> Option<&T> {
+        self.raw.get(tick)
     }
 
     pub fn extend(&self, id: u16) -> Option<u64> {
@@ -74,10 +117,14 @@ where
         let modular_difference = id.wrapping_sub(head_u16);
 
         // Cast by 2's complement, so that `modular_difference > (1 << 15)`
-        // is negative, allowing us to add `difference` to baseline, to
-        // save branching.
+        // is negative, allowing us to add `difference` to baseline. This
+        // saves us some conditional branching.
         let difference = (modular_difference as i16) as i64;
 
         head.checked_add_signed(difference)
+    }
+
+    pub fn advance_tail(&mut self, new_tail: u64) {
+        self.tail = self.tail.max(new_tail);
     }
 }
