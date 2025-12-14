@@ -11,7 +11,7 @@ pub struct Item<T: Default + Clone> {
 pub struct RingBuffer<T: Default + Clone, const N: usize> {
     array: [Item<T>; N], // N must be a power of 2, as enforced by the constructor.
     mask: usize,         // N - 1.
-    top: u64,            // Highest sequence number received so far.
+    baseline: u64,       // Tick of the last item applied.
 }
 
 impl<T, const N: usize> RingBuffer<T, N>
@@ -27,26 +27,23 @@ where
         Self {
             array: array::from_fn(|_| Item::<T>::default()),
             mask: N - 1,
-            top: 0,
+            baseline: 0,
         }
     }
 
+    // Do I want insert to overwrite unprocessed items?
     pub fn insert(&mut self, item: Item<T>) {
-        let extended_id = self.extend(item.sequence_number);
-        if extended_id > self.top {
-            self.top = extended_id;
+        let sequence_number = item.sequence_number;
+        if let Some(_) = self.extend(sequence_number) {
+            let index = sequence_number as usize & self.mask;
+            self.array[index] = item;
         }
-
-        let index = item.sequence_number as usize & self.mask;
-        self.array[index] = item;
     }
 
     pub fn get(&self, sequence_number: u16) -> Option<&Item<T>> {
         let index = sequence_number as usize & self.mask;
         let item = &self.array[index];
 
-        // Don't return old data if the buffer has wrapped around,
-        // i.e. if the ticks don't match mod (1 << 16).
         if item.sequence_number == sequence_number {
             Some(item)
         } else {
@@ -54,13 +51,19 @@ where
         }
     }
 
-    pub fn extend(&self, received_u16: u16) -> u64 {
-        let top_u64 = self.top;
-        let top_u16 = top_u64 as u16;
+    pub fn update_baseline(&mut self, sequence_number: u16) {
+        if let Some(extended) = self.extend(sequence_number) {
+            self.baseline = self.baseline.max(extended);
+        }
+    }
 
-        let unsigned_difference = received_u16.wrapping_sub(top_u16);
-        let difference = (unsigned_difference as i16) as i64; // Large unsigned -> small negative signed.
+    pub fn extend(&self, sequence_number: u16) -> Option<u64> {
+        let baseline = self.baseline;
+        let baseline_u16 = baseline as u16;
 
-        top_u64.wrapping_add(difference as u64)
+        let modular_difference = sequence_number.wrapping_sub(baseline_u16); // mod (1 << 16).
+        let difference = (modular_difference as i16) as i64; // Large unsigned -> small negative signed.
+
+        baseline.checked_add_signed(difference)
     }
 }

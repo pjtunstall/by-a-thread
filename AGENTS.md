@@ -69,4 +69,4 @@ Favor explicit names: `buffer` not `buf`. You can make an exception for very com
 
 ## Getters and setters
 
-Don't introduce getter and setter methods unless they actually do something more than getting and setting, e.g. enforce an invariant. In that case, prefer expressive names to generic get (or field name) and set.
+Don't introduce getter and setter methods unless they actually do something more than getting and setting, e.g. enforce an invariant. In that case, prefer expressive names to generic get (or calling the getter the same as the field) and set.
