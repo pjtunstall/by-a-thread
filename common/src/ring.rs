@@ -17,8 +17,8 @@ pub struct Item<T: Default + Clone> {
 pub struct RingBuffer<T: Default + Clone, const N: usize> {
     array: [Item<T>; N], // N must be a power of 2, as enforced by the constructor.
     mask: usize,         // N - 1.
-    head: u64,           // Most recent item seen/inserted, e.g. most recently reconciled snapshot.
-    tail: u64,           // Last input buffer item processed or last snapshot interpolated.
+    head: u64,           // Write cursor: most recent item inserted.
+    tail: u64,           // Read cursor: last input processed or last snapshot interpolated.
 }
 
 impl<T, const N: usize> RingBuffer<T, N>
