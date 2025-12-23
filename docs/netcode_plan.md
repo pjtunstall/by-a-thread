@@ -26,7 +26,7 @@
 ## Client Loop (Local Player)
 
 - Maintain an [estimated server clock](../client/src/time.rs): smooth RTT, clamp spikes, snap when drift > ~250 ms, otherwise apply capped proportional corrections.
-- Compute target server tick: `estimated_server_time + smoothed_rtt/2 + jitter_margin` (`~50 ms` configurable) divided by tick duration.
+- Compute target server tick: `estimated_server_time + smoothed_rtt/2 + jitter_margin` (`~50 ms` configurable) divided by tick duration.
 - Record current input in input history at `tick & (INPUT_HISTORY_LEN - 1)` and send the latest few inputs redundantly.
 - When a new snapshot arrives, set it as baseline, reconcile to it, then replay queued inputs (prediction) up to current tick before rendering.
 - Fixed timestep for simulation; cap catch-up work per frame to avoid spirals; discard leftover accumulator if limit is hit.
@@ -43,7 +43,7 @@
 
 ## Serialization Notes
 
-- Separate wire format from in-memory layout. In futire, consider masks to send only active players. But for now, don't think too much about this. Renet packs bits! Beware premature optimization.
+- Separate wire format from in-memory layout. In future, consider masks to send only active players. But for now, don't think too much about this. Renet packs bits! Beware premature optimization.
 
 ## Open Questions / Caveats
 

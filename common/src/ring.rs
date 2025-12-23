@@ -61,8 +61,8 @@ where
 #[derive(Clone, Debug)]
 pub struct NetworkBuffer<T: Clone + Default, const N: usize> {
     raw: Ring<T, N>,
-    head: u64, // Write cursor: most recent item inserted.
-    tail: u64, // Read cursor: last input processed or last snapshot interpolated.
+    head: u64, // The "write" cursor: most recent item inserted.
+    tail: u64, // The "read" cursor: last input processed or last snapshot interpolated.
 }
 
 impl<T, const N: usize> NetworkBuffer<T, N>
@@ -71,7 +71,7 @@ where
 {
     pub fn new() -> Self {
         const {
-            // Thanks to the `i16` cast in extend` (2's complement),
+            // Thanks to the `i16` cast in extend (2's complement),
             // we can only unambiguishly distinguish between items in
             // the window [-32_68, +32_767] (2 << 15).
             assert!(
