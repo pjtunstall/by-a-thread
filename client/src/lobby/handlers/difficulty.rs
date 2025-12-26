@@ -78,8 +78,17 @@ pub fn handle(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((ServerMessage::CountdownStarted { end_time, snapshot }, _)) => {
-                return Some(ClientState::Lobby(Lobby::Countdown { end_time, snapshot }));
+            Ok((
+                ServerMessage::CountdownStarted {
+                    end_time,
+                    game_data,
+                },
+                _,
+            )) => {
+                return Some(ClientState::Lobby(Lobby::Countdown {
+                    end_time,
+                    game_data,
+                }));
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));

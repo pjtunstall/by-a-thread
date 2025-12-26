@@ -42,8 +42,8 @@ pub fn handle(
 
         println!();
 
-        let snapshot = std::mem::take(&mut state.snapshot);
+        let game_data = std::mem::take(&mut state.game_data);
 
-        Some(ServerState::Game(Game::new(snapshot, state.host_id)))
+        Some(ServerState::Game(Game::new(game_data, state.host_id)))
     }
 }

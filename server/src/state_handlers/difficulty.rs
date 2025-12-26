@@ -13,7 +13,7 @@ use common::{
     self,
     chat::MAX_CHAT_MESSAGE_BYTES,
     net::AppChannel,
-    protocol::{ClientMessage, ServerMessage, GAME_ALREADY_STARTED_MESSAGE},
+    protocol::{ClientMessage, GAME_ALREADY_STARTED_MESSAGE, ServerMessage},
     snapshot::InitialData,
 };
 
@@ -54,11 +54,11 @@ pub fn handle(
                     println!("Host selected difficulty {}.", level);
                     state.set_difficulty(level);
 
-                    let snapshot = InitialData::new(&state.lobby.usernames, level);
+                    let game_data = InitialData::new(&state.lobby.usernames, level);
 
-                    println!("\n{}", snapshot.maze);
+                    println!("\n{}", game_data.maze);
                     println!();
-                    for player in &snapshot.players {
+                    for player in &game_data.players {
                         println!("{:#?}\n", player);
                     }
 
@@ -68,7 +68,7 @@ pub fn handle(
                     return Some(ServerState::Countdown(Countdown::new(
                         state,
                         end_time_instant,
-                        snapshot,
+                        game_data,
                     )));
                 }
                 ClientMessage::SendChat(content) => {

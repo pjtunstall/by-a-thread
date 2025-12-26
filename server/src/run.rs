@@ -191,7 +191,7 @@ fn apply_server_transition(
 
             let message = ServerMessage::CountdownStarted {
                 end_time,
-                snapshot: std::mem::take(&mut countdown_state.snapshot),
+                game_data: std::mem::take(&mut countdown_state.game_data),
             };
             let payload = encode_to_vec(&message, standard())
                 .expect("failed to serialize CountDownStarted mesage");

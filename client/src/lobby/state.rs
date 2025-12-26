@@ -23,7 +23,7 @@ pub enum Lobby {
     },
     Countdown {
         end_time: f64,
-        snapshot: InitialData,
+        game_data: InitialData,
     },
     ChoosingDifficulty {
         prompt_printed: bool,

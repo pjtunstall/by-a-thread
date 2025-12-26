@@ -176,7 +176,7 @@ impl ClientRunner {
 
     pub fn start_game(&mut self) -> Result<(), ()> {
         let initial_data = match self.session.state_mut() {
-            ClientState::Lobby(Lobby::Countdown { snapshot, .. }) => std::mem::take(snapshot),
+            ClientState::Lobby(Lobby::Countdown { game_data, .. }) => std::mem::take(game_data),
             other => {
                 self.ui.show_sanitized_error(&format!(
                     "Tried to start game from invalid state: {:#?}.",

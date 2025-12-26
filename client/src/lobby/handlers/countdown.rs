@@ -86,7 +86,7 @@ mod tests {
     fn countdown_state_with(end_time: f64) -> ClientState {
         ClientState::Lobby(Lobby::Countdown {
             end_time,
-            snapshot: InitialData::default(),
+            game_data: InitialData::default(),
         })
     }
 

@@ -10,7 +10,7 @@ pub enum ServerMessage {
     ServerTime(f64),
     CountdownStarted {
         end_time: f64,
-        snapshot: InitialData,
+        game_data: InitialData,
     },
     Welcome {
         username: String,

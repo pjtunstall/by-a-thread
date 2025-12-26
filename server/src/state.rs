@@ -94,16 +94,16 @@ pub struct Countdown {
     pub usernames: HashMap<u64, String>,
     pub host_id: Option<u64>,
     pub end_time: Instant,
-    pub snapshot: InitialData,
+    pub game_data: InitialData,
 }
 
 impl Countdown {
-    pub fn new(state: &ChoosingDifficulty, end_time: Instant, snapshot: InitialData) -> Self {
+    pub fn new(state: &ChoosingDifficulty, end_time: Instant, game_data: InitialData) -> Self {
         Self {
             usernames: state.lobby.usernames.clone(),
             host_id: state.host_id,
             end_time,
-            snapshot,
+            game_data,
         }
     }
 
@@ -125,7 +125,7 @@ impl Countdown {
         }
         // Mark player as disconnected instead of removing to preserve indices.
         if let Some(player) = self
-            .snapshot
+            .game_data
             .players
             .iter_mut()
             .find(|p| p.client_id == client_id)
@@ -135,12 +135,12 @@ impl Countdown {
 
         let host_was_removed = self.host_id == Some(client_id);
         let no_host = self.host_id.is_none();
-        let has_connected_players = self.snapshot.players.iter().any(|p| !p.disconnected);
+        let has_connected_players = self.game_data.players.iter().any(|p| !p.disconnected);
 
         if !has_connected_players {
             self.host_id = None;
         } else if host_was_removed || no_host {
-            if let Some(new_host) = self.snapshot.players.iter().find(|p| !p.disconnected) {
+            if let Some(new_host) = self.game_data.players.iter().find(|p| !p.disconnected) {
                 self.host_id = Some(new_host.client_id);
                 notify_new_host(network, new_host.client_id);
                 println!("Host reassigned to client {}", new_host.client_id);
@@ -150,18 +150,18 @@ impl Countdown {
 }
 
 pub struct Game {
-    pub snapshot: InitialData,
+    pub game_data: InitialData,
     pub host_id: Option<u64>,
 }
 
 impl Game {
-    pub fn new(snapshot: InitialData, host_id: Option<u64>) -> Self {
-        Self { snapshot, host_id }
+    pub fn new(game_data: InitialData, host_id: Option<u64>) -> Self {
+        Self { game_data, host_id }
     }
 
     pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
         if let Some(player) = self
-            .snapshot
+            .game_data
             .players
             .iter()
             .find(|p| p.client_id == client_id)
@@ -179,7 +179,7 @@ impl Game {
         }
         // Mark player as disconnected instead of removing to preserve indices.
         if let Some(player) = self
-            .snapshot
+            .game_data
             .players
             .iter_mut()
             .find(|p| p.client_id == client_id)
@@ -189,12 +189,12 @@ impl Game {
 
         let host_was_removed = self.host_id == Some(client_id);
         let no_host = self.host_id.is_none();
-        let has_connected_players = self.snapshot.players.iter().any(|p| !p.disconnected);
+        let has_connected_players = self.game_data.players.iter().any(|p| !p.disconnected);
 
         if !has_connected_players {
             self.host_id = None;
         } else if host_was_removed || no_host {
-            if let Some(new_host) = self.snapshot.players.iter().find(|p| !p.disconnected) {
+            if let Some(new_host) = self.game_data.players.iter().find(|p| !p.disconnected) {
                 self.host_id = Some(new_host.client_id);
                 notify_new_host(network, new_host.client_id);
                 println!("Host reassigned to client {}", new_host.client_id);
@@ -366,12 +366,12 @@ mod tests {
         network.add_client(7);
 
         let usernames = HashMap::new();
-        let snapshot = InitialData::new(&usernames, 1);
+        let game_data = InitialData::new(&usernames, 1);
         let mut state = ServerState::Countdown(Countdown {
             usernames,
             host_id: None,
             end_time: Instant::now(),
-            snapshot,
+            game_data,
         });
 
         state.register_connection(7, &mut network);
@@ -552,13 +552,13 @@ mod tests {
         network.add_client(2);
 
         let usernames = HashMap::from([(1, "Alice".to_string()), (2, "Bob".to_string())]);
-        let snapshot = InitialData::new(&usernames, 1);
+        let game_data = InitialData::new(&usernames, 1);
 
         let mut countdown = Countdown {
             usernames,
             host_id: Some(1),
             end_time: Instant::now(),
-            snapshot,
+            game_data,
         };
 
         countdown.remove_client(1, &mut network);
@@ -583,10 +583,10 @@ mod tests {
         network.add_client(20);
 
         let usernames = HashMap::from([(10, "Alice".to_string()), (20, "Bob".to_string())]);
-        let snapshot = InitialData::new(&usernames, 1);
+        let game_data = InitialData::new(&usernames, 1);
 
         let mut game = Game {
-            snapshot,
+            game_data,
             host_id: Some(10),
         };
 
