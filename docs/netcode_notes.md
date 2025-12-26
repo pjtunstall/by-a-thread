@@ -21,8 +21,7 @@ Client tick and server tick are conceptually distinct, but both run at 60Hz in o
 - `JITTER_SAFETY_MARGIN: f64`: a safety margin of 50ms (about 3 ticks) to give player inputs more chance to arrive at the server in case of occasional delays.
 - prediction: a process whereby the client replays inputs from its `input_history` for the ticks from immediately after its **baseline** state up to (and including) its most recent input.
 - reconciliation: a process whereby the client sets the current state of its physics simulation to the latest **snapshot** (state received from the server); see also **baseline**. The client immediately replays its inputs for subsequent ticks on top of this till it reaches its own current tick, a process known as **prediction**.
-- snapshot: the complete game state on a given tick, as calculated by the server, and broadcast to clients. See also **baseline**.
-  `snapshot_buffer: [Snapshot; 16]`: (also known as an interpolation buffer) a record the client keeps of snapshots received so that it can interpolate.
+- snapshot: the complete game state on a given tick, as calculated by the server, and broadcast to clients. See also **baseline**. `snapshot_buffer: [Snapshot; 16]`: (also known as an interpolation buffer) a record the client keeps of snapshots received so that it can interpolate.
 - tick: one iteration of the (client or server) physics simulation. Compare **frame**.
 
 Regarding the lengths of the three collections. They need to be a power of 2 so we can use `u16` to label ticks instead of, say, `u64`; otherwise, when we go from tick 65535 to tick 0, we'd jump from the current index to 0, missing any indices in between. (E.g. 65535 = 35 mod 100, but 0 = 0 mod 100.) Also, they must be a power of 2 to allow the microptimization of using `&` (bitwise AND) in place of `%` (division is more expensive); in fact, the compiler does this anyway, but still, it's only possible when the denominator is a power of 2.
@@ -214,21 +213,17 @@ Q. What to do if suitable snapshots aren't available? Render between further apa
 
 ## FAQ
 
-Q: Why do we interpolate?
-A: To mitigate network jitter (smooth it out, preventing small fluctuations from causing a whole earlier or later server tick to be rendered) and low broadcast rate (fill in the gaps between broadcast snapshots).
+Q: Why do we interpolate? A: To mitigate network jitter (smooth it out, preventing small fluctuations from causing a whole earlier or later server tick to be rendered) and low broadcast rate (fill in the gaps between broadcast snapshots).
 
-Q. Why do we show snapshots at a bigger delay than we need to, e.g. 100ms?
-A. To give snapshots more chance to arrive, analogous to how the server maintains an input buffer.
+Q. Why do we show snapshots at a bigger delay than we need to, e.g. 100ms? A. To give snapshots more chance to arrive, analogous to how the server maintains an input buffer.
 
-Q: Why have a low broadcast rate? That is, why have the server update its physics simulation at a higher frequency than it broadcasts snapshots?
-A: The slower broadcast rate saves on bandwidth. The faster physics rate prevents tunneling/teleportation. If items moved at the broadcast rate, they'd be more likely to teleport through obstacles.
+Q: Why have a low broadcast rate? That is, why have the server update its physics simulation at a higher frequency than it broadcasts snapshots? A: The slower broadcast rate saves on bandwidth. The faster physics rate prevents tunneling/teleportation. If items moved at the broadcast rate, they'd be more likely to teleport through obstacles.
 
 ```text
 Server: input repeating (called 'zero-order hold' in control theory and signal processing) for missing data.
 ```
 
-Q. Why the difference: in the absence of current data, the server reuses the most recent input, whereas the client assumes no action by remote players?
-A. Humans tend to keep doing what they were doing. When the server decides they moved, they moved; by contrast, the client defaults to no action for remote players when there's no data, because repeating the previous data might result in rubber banding if the server corrects it.
+Q. Why the difference: in the absence of current data, the server reuses the most recent input, whereas the client assumes no action by remote players? A. Humans tend to keep doing what they were doing. When the server decides they moved, they moved; by contrast, the client defaults to no action for remote players when there's no data, because repeating the previous data might result in rubber banding if the server corrects it.
 
 ## Implementation
 
@@ -424,11 +419,7 @@ impl<'de> Visitor<'de> for SnapshotVisitor {
 
 Send bullet spawn, bounce, kill/player-death, and expiry events on the reliable channel. Bullet events will have bullet id, position, velocity, and time. Don't edit the snapshot buffer. The snapshot buffer (the ring buffer of arrays) is strictly for interpolating players. Bullets should live in a separate `Vec<Bullet>`. On receiving a bounce, say, the client updates the bullet's position to the bounce point, calculates the new velocity, and "simulates" 50ms worth of movement instantly to put the bullet where it should be right now. This is extrapolation, aka dead reckoning.
 
-Feature.Transport.Storage Strategy................................Bandwidth Strategy
-....................................................................................
-players.unreliable.`[Snapshot; 16]` (snapshot ring buffer)........Serialize only active players (slice)
-bullets.reliable...`Vec<Bullet>` (world state entity list)........Send events, extrapolate locally
-deaths..reliable...(event queue)..................................Events
+Feature.Transport.Storage Strategy................................Bandwidth Strategy .................................................................................... players.unreliable.`[Snapshot; 16]` (snapshot ring buffer)........Serialize only active players (slice) bullets.reliable...`Vec<Bullet>` (world state entity list)........Send events, extrapolate locally deaths..reliable...(event queue)..................................Events
 
 I can give the bullets Vec a capacity of 240.
 
@@ -446,9 +437,9 @@ impl SeqUnwrapper {
     fn unwrap(&mut self, seq16: u16) -> u64 {
         let last16 = self.last as u16;
         let diff = seq16.wrapping_sub(last16);
-        // If diff > 0x8000, seq16 is “behind”; assume wrap just happened.
+        // If diff > 0x8000, seq16 is "behind"; assume wrap just happened.
         let step = if diff > 0x8000 {
-            // wrapped: seq16 is actually ahead by negative diff
+            // Wrapped: seq16 is actually ahead by negative diff.
             (seq16 as i32 - last16 as i32 + 0x1_0000) as u64
         } else {
             diff as u64

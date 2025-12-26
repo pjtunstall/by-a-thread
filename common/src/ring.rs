@@ -1,6 +1,8 @@
 use std::array;
 
-#[derive(Clone, Debug, Default)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct WireItem<T: Clone + Default> {
     pub id: u16,
     pub data: T,

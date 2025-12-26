@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     maze::{self, Maze, maker::Algorithm},
     player::{self, Player, PlayerState},
+    ring::WireItem,
 };
+
+pub type Snapshot = WireItem<Vec<PlayerState>>;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct InitialData {
@@ -56,20 +59,5 @@ impl InitialData {
             .collect();
 
         Self { maze, players }
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Snapshot {
-    pub tick: u64,
-    pub player_states: Vec<PlayerState>,
-}
-
-impl Snapshot {
-    pub fn new(tick: u64, player_states: Vec<PlayerState>) -> Self {
-        Self {
-            tick,
-            player_states,
-        }
     }
 }
