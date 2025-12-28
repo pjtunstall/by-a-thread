@@ -199,7 +199,7 @@ impl PlayerState {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, Eq, PartialEq)]
 pub struct PlayerInput {
     pub target_tick: u64,
     pub forward: bool,

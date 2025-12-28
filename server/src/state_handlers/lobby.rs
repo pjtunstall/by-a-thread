@@ -201,7 +201,7 @@ pub fn handle(
                         // Send refusal message to client so they can exit "Waiting for server..."
                         // 'state' and restore their input prompt. The client code should
                         // prevent a non-host client from asking to move to the difficulty
-                        // choice state. This is just an extra layer of protection.
+                        // choice state. This guarantees it.
                         eprintln!("Client {}, not host, tried to start game.", client_id);
                         let message = ServerMessage::DenyDifficultySelection;
                         let payload = encode_to_vec(&message, standard())
@@ -214,6 +214,9 @@ pub fn handle(
                         "Client {} sent SetDifficulty in Lobby state. Ignoring.",
                         client_id
                     );
+                }
+                ClientMessage::Input(_) => {
+                    eprintln!("Client {} sent game input. Ignoring.", client_id)
                 }
             }
         }

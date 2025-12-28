@@ -42,7 +42,7 @@ pub fn handle(
                     }
 
                     if !(1..=3).contains(&level) {
-                        eprintln!("Host {} sent invalid difficulty level: {}", host_id, level);
+                        eprintln!("Host {} sent invalid difficulty level: {}.", host_id, level);
                         let msg = ServerMessage::ServerInfo {
                             message: "Invalid choice. Please press 1, 2, or 3.".to_string(),
                         };
@@ -103,11 +103,13 @@ pub fn handle(
                     network.send_message(client_id, AppChannel::ReliableOrdered, payload);
                 }
                 ClientMessage::RequestStartGame => {
-                    // Ignore: only host should be choosing difficulty and the game is already starting.
                     eprintln!(
-                        "Client {} sent unexpected message in difficulty choice state.",
+                        "Client {} asked to choose difficulty, but the host is already doing so. Ignoring.",
                         client_id
                     );
+                }
+                ClientMessage::Input(_) => {
+                    eprintln!("Client {} sent in-game input. Ignoring.", client_id);
                 }
             }
         }
