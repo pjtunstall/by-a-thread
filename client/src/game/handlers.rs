@@ -19,6 +19,7 @@ pub fn handle(
     game_state.update();
     game_state.draw(assets);
 
+    // TODO: Replace with proper logic to calculate the target tick.
     let target_tick: u64 = 0;
     let wire_tick: u16 = ring::u16_from_u64(target_tick);
 
