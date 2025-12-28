@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{player::PlayerInput, snapshot::InitialData};
+use crate::{player::PlayerInput, ring::WireItem, snapshot::InitialData};
 
 pub const GAME_ALREADY_STARTED_MESSAGE: &str =
     "The game is already in progress. Please try again after this match.";
@@ -46,7 +46,7 @@ pub enum ClientMessage {
     SendChat(String),
     RequestStartGame,
     SetDifficulty(u8),
-    Input(PlayerInput),
+    Input(WireItem<PlayerInput>),
 }
 
 pub fn version() -> u64 {

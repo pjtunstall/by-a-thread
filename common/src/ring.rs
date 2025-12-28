@@ -2,7 +2,7 @@ use std::array;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, PartialEq)]
 pub struct WireItem<T: Clone + Default> {
     pub id: u16,
     pub data: T,

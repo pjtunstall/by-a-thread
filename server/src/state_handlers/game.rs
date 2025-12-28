@@ -6,7 +6,7 @@ use crate::{
 };
 use common::{net::AppChannel, protocol::ClientMessage};
 
-pub fn handle(network: &mut dyn ServerNetworkHandle, _state: &mut Game) -> Option<ServerState> {
+pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option<ServerState> {
     for client_id in network.clients_id() {
         while let Some(data) = network.receive_message(client_id, AppChannel::Unreliable) {
             let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
@@ -15,9 +15,16 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, _state: &mut Game) -> Optio
                 continue;
             };
 
+            let n = state.players.len();
+
             match message {
                 ClientMessage::Input(input) => {
-                    // TODO
+                    for i in 0..n {
+                        if state.players[i].client_id == client_id {
+                            state.players[i].input_buffer.insert(input);
+                            break;
+                        }
+                    }
                 }
 
                 _ => {

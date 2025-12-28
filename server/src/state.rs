@@ -5,8 +5,9 @@ use std::{
 
 use bincode::{config::standard, serde::encode_to_vec};
 
-use crate::net::ServerNetworkHandle;
+use crate::{net::ServerNetworkHandle, player::ServerPlayer};
 use common::{
+    maze::Maze,
     net::AppChannel,
     protocol::{GAME_ALREADY_STARTED_MESSAGE, ServerMessage},
     snapshot::InitialData,
@@ -149,25 +150,32 @@ impl Countdown {
     }
 }
 
+// TODO: Replace game_data with maze and a Vec<ServerPlayer>.
 pub struct Game {
-    pub game_data: InitialData,
+    pub maze: Maze,
+    pub players: Vec<ServerPlayer>,
     pub host_id: Option<u64>,
 }
 
 impl Game {
-    pub fn new(game_data: InitialData, host_id: Option<u64>) -> Self {
-        Self { game_data, host_id }
+    pub fn new(initial_data: InitialData, host_id: Option<u64>) -> Self {
+        let maze = initial_data.maze;
+        let players = initial_data
+            .players
+            .into_iter()
+            .map(|player| ServerPlayer::new(player))
+            .collect();
+
+        Self {
+            maze,
+            players,
+            host_id,
+        }
     }
 
     pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
-        if let Some(player) = self
-            .game_data
-            .players
-            .iter()
-            .find(|p| p.client_id == client_id)
-            .cloned()
-        {
-            let username = player.name;
+        if let Some(player) = self.players.iter().find(|p| p.client_id == client_id) {
+            let username = player.name.clone();
             println!(
                 "Client {} ({}) disconnected during game.",
                 client_id, username
@@ -178,23 +186,18 @@ impl Game {
             network.broadcast_message(AppChannel::ReliableOrdered, payload);
         }
         // Mark player as disconnected instead of removing to preserve indices.
-        if let Some(player) = self
-            .game_data
-            .players
-            .iter_mut()
-            .find(|p| p.client_id == client_id)
-        {
+        if let Some(player) = self.players.iter_mut().find(|p| p.client_id == client_id) {
             player.disconnected = true;
         }
 
         let host_was_removed = self.host_id == Some(client_id);
         let no_host = self.host_id.is_none();
-        let has_connected_players = self.game_data.players.iter().any(|p| !p.disconnected);
+        let has_connected_players = self.players.iter().any(|p| !p.disconnected);
 
         if !has_connected_players {
             self.host_id = None;
         } else if host_was_removed || no_host {
-            if let Some(new_host) = self.game_data.players.iter().find(|p| !p.disconnected) {
+            if let Some(new_host) = self.players.iter().find(|p| !p.disconnected) {
                 self.host_id = Some(new_host.client_id);
                 notify_new_host(network, new_host.client_id);
                 println!("Host reassigned to client {}", new_host.client_id);
@@ -583,12 +586,9 @@ mod tests {
         network.add_client(20);
 
         let usernames = HashMap::from([(10, "Alice".to_string()), (20, "Bob".to_string())]);
-        let game_data = InitialData::new(&usernames, 1);
+        let initial_data = InitialData::new(&usernames, 1);
 
-        let mut game = Game {
-            game_data,
-            host_id: Some(10),
-        };
+        let mut game = Game::new(initial_data, Some(10));
 
         game.remove_client(10, &mut network);
 
