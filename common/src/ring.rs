@@ -62,7 +62,7 @@ where
 
 #[derive(Clone, Debug)]
 pub struct NetworkBuffer<T: Clone + Default, const N: usize> {
-    raw: Ring<T, N>,
+    ring: Ring<T, N>,
     head: u64, // The "write" cursor: most recent item inserted.
     tail: u64, // The "read" cursor: last input processed or last snapshot interpolated.
 }
@@ -83,7 +83,7 @@ where
         }
 
         Self {
-            raw: Ring::<T, N>::new(),
+            ring: Ring::<T, N>::new(),
             head: 0,
             tail: 0,
         }
@@ -92,16 +92,17 @@ where
     pub fn insert(&mut self, wire_item: WireItem<T>) {
         let WireItem { id, data } = wire_item;
         if let Some(tick) = self.extend(id) {
-            // No need to insert if we've already processed the data
-            // for that tick.
+            // No need to insert if we've already processed the data for that
+            // tick. The server can extract the most-recently processed input
+            // for each of the players and store them separately.
             if tick <= self.tail {
                 return;
             }
 
-            // Only overwrite if new data is from a more recent
-            // tick than what's already stored here.
-            if self.raw.peek_tick(tick) < tick {
-                self.raw.insert(tick, data);
+            // Only overwrite if new data is from a more recent tick than what's
+            // already stored here.
+            if self.ring.peek_tick(tick) < tick {
+                self.ring.insert(tick, data);
 
                 // Update the head if the new item is more recent.
                 self.head = self.head.max(tick);
@@ -110,7 +111,7 @@ where
     }
 
     pub fn get(&self, tick: u64) -> Option<&T> {
-        self.raw.get(tick)
+        self.ring.get(tick)
     }
 
     pub fn extend(&self, id: u16) -> Option<u64> {
@@ -118,9 +119,10 @@ where
         let head_u16 = head as u16;
         let modular_difference = id.wrapping_sub(head_u16);
 
-        // Cast by 2's complement, so that `modular_difference > (1 << 15)`
-        // is negative, allowing us to add `difference` to baseline. This
-        // saves us some conditional branching.
+        // Cast by 2's complement, so that `modular_difference` is negative when
+        // greater than (1 << 15), allowing us to cast it to i16 and add the
+        // resulting signed `difference` to baseline. This saves us some
+        // conditional branching.
         let difference = (modular_difference as i16) as i64;
 
         head.checked_add_signed(difference)
