@@ -37,7 +37,7 @@ where
     }
 
     #[inline(always)]
-    fn get(&self, tick: u64) -> Option<&T> {
+    pub fn get(&self, tick: u64) -> Option<&T> {
         let index = tick as usize & self.mask;
         let item = &self.array[index];
         if item.tick == tick {
@@ -48,7 +48,7 @@ where
     }
 
     #[inline(always)]
-    fn insert(&mut self, tick: u64, data: T) {
+    pub fn insert(&mut self, tick: u64, data: T) {
         let index = tick as usize & self.mask;
         self.array[index] = StoredItem { tick, data };
     }
@@ -131,4 +131,8 @@ where
     pub fn advance_tail(&mut self, new_tail: u64) {
         self.tail = self.tail.max(new_tail);
     }
+}
+
+pub fn u16_from_u64(a: u64) -> u16 {
+    (a % (1_u64 << 16)) as u16
 }

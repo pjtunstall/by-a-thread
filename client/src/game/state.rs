@@ -5,6 +5,7 @@ use common::{
     constants::INPUT_HISTORY_LENGTH,
     maze::Maze,
     player::{Player, PlayerInput},
+    ring::Ring,
     snapshot::InitialData,
 };
 
@@ -14,7 +15,7 @@ pub struct Game {
     pub maze: Maze,
     pub players: Vec<Player>,
     // pub snapshot_buffer: [Snapshot; SNAPSHOT_BUFFER_LENGTH], // 16 broadcasts, 0.8s at 20Hz.
-    pub input_history: [PlayerInput; INPUT_HISTORY_LENGTH], // 256: ~4.3s at 60Hz.
+    pub input_history: Ring<PlayerInput, INPUT_HISTORY_LENGTH>, // 256: ~4.3s at 60Hz.
 }
 
 impl Game {
@@ -23,7 +24,7 @@ impl Game {
             local_player_index,
             maze: initial_data.maze,
             players: initial_data.players,
-            input_history: [PlayerInput::default(); 256],
+            input_history: Ring::new(),
         }
     }
 

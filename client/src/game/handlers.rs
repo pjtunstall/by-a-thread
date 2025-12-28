@@ -1,13 +1,15 @@
+use bincode::{config::standard, serde::encode_to_vec};
+
 use crate::{
     assets::Assets,
-    game::{
-        input::{player_input_as_bytes, player_input_from_keys},
-        state::Game,
-    },
+    game::{input::player_input_from_keys, state::Game},
     net::NetworkHandle,
     state::ClientState,
 };
-use common::{constants::INPUT_HISTORY_LENGTH, net::AppChannel};
+use common::{
+    net::AppChannel,
+    ring::{WireItem, u16_from_u64},
+};
 
 pub fn handle(
     game_state: &mut Game,
@@ -17,17 +19,18 @@ pub fn handle(
     game_state.update();
     game_state.draw(assets);
 
-    // TODO: Replace this placeholder logic with actual `target_tick` calculation, suitably encapsulated.
-    let target_tick: u16 = 0;
-    let tick_index_u16 = target_tick % (INPUT_HISTORY_LENGTH as u16 - 1);
-    let tick_index = tick_index_u16 as usize;
+    let target_tick: u64 = 0;
+    let wire_tick: u16 = u16_from_u64(target_tick);
 
-    let player_input = player_input_from_keys(target_tick);
-    let message = player_input_as_bytes(&player_input);
+    let input = player_input_from_keys(target_tick);
+    game_state.input_history.insert(target_tick, input);
+
+    let wire_input = WireItem {
+        id: wire_tick,
+        data: input,
+    };
+    let message = encode_to_vec(&wire_input, standard()).expect("failed to encode player input");
     network.send_message(AppChannel::Unreliable, message);
-
-    // Encasulate as a method.
-    game_state.input_history[tick_index] = player_input;
 
     None
 }

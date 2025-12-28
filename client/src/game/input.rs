@@ -1,13 +1,8 @@
-use bincode::{config::standard, serde::encode_to_vec};
 use macroquad::prelude::*;
 
 use common::player::PlayerInput;
 
-pub fn player_input_as_bytes(input: &PlayerInput) -> Vec<u8> {
-    encode_to_vec(input, standard()).expect("failed to encode player input")
-}
-
-pub fn player_input_from_keys(target_tick: u16) -> PlayerInput {
+pub fn player_input_from_keys(target_tick: u64) -> PlayerInput {
     PlayerInput {
         target_tick,
         forward: is_key_down(KeyCode::W),
