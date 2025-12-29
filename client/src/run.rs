@@ -251,7 +251,7 @@ pub fn print_player_list(ui: &mut dyn LobbyUi, session: &ClientSession, players:
         ui.show_sanitized_message(&format!(
             " - {} ({}) {}",
             player.name,
-            player.color.as_str(),
+            player.color.to_string(),
             is_self
         ));
     }

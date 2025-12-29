@@ -10,7 +10,10 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
     for client_id in network.clients_id() {
         while let Some(data) = network.receive_message(client_id, AppChannel::Unreliable) {
             let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
-                eprintln!("Client {} sent malformed data. Disconnecting.", client_id);
+                eprintln!(
+                    "Client {} sent malformed data. Disconnecting them.",
+                    client_id
+                );
                 network.disconnect(client_id);
                 continue;
             };

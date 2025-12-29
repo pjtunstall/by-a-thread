@@ -11,8 +11,14 @@ use crate::{
 };
 use common::{
     auth::{MAX_ATTEMPTS, Passcode},
+    input::sanitize,
     net::AppChannel,
-    protocol::{ClientMessage, ServerMessage, GAME_ALREADY_STARTED_MESSAGE},
+    player::MAX_USERNAME_LENGTH,
+    protocol::{
+        auth_success_message, ClientMessage, ServerMessage,
+        AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE,
+        AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE, GAME_ALREADY_STARTED_MESSAGE,
+    },
 };
 
 pub fn handle(
@@ -36,17 +42,20 @@ pub fn handle(
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 session.set_auth_waiting_for_server(false);
-                if message == GAME_ALREADY_STARTED_MESSAGE {
-                    return Some(ClientState::Disconnected { message });
+                let sanitized_message = sanitize(&message);
+                if sanitized_message == GAME_ALREADY_STARTED_MESSAGE {
+                    return Some(ClientState::Disconnected {
+                        message: sanitized_message,
+                    });
                 }
 
-                ui.show_sanitized_message(&format!("Server: {}", message));
+                ui.show_message(&format!("Server: {}", sanitized_message));
 
-                if message.starts_with("Authentication successful!") {
+                if sanitized_message == auth_success_message(MAX_USERNAME_LENGTH) {
                     return Some(ClientState::Lobby(Lobby::ChoosingUsername {
                         prompt_printed: false,
                     }));
-                } else if message.starts_with("Incorrect passcode. Try again.") {
+                } else if sanitized_message == AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE {
                     if let ClientState::Lobby(Lobby::Authenticating {
                         waiting_for_input,
                         guesses_left,
@@ -57,7 +66,7 @@ pub fn handle(
                         ui.show_sanitized_prompt(&passcode_prompt(*guesses_left));
                         *waiting_for_input = true;
                     }
-                } else if message.starts_with("Incorrect passcode. Disconnecting.") {
+                } else if sanitized_message == AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE {
                     return Some(ClientState::Disconnected {
                         message: "Authentication failed.".to_string(),
                     });

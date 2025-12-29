@@ -15,7 +15,11 @@ use common::{
     chat::MAX_CHAT_MESSAGE_BYTES,
     net::AppChannel,
     player::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username},
-    protocol::{ClientMessage, ServerMessage},
+    protocol::{
+        auth_success_message, ClientMessage, ServerMessage,
+        AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE,
+        AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE,
+    },
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,7 +35,10 @@ pub fn handle(
     for client_id in network.clients_id() {
         while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
             let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
-                eprintln!("Client {} sent malformed data. Disconnecting.", client_id);
+                eprintln!(
+                    "Client {} sent malformed data. Disconnecting them.",
+                    client_id
+                );
                 network.disconnect(client_id);
                 continue;
             };
@@ -62,10 +69,7 @@ pub fn handle(
                             println!("Client {} authenticated successfully.", client_id);
                             state.mark_authenticated(client_id);
 
-                            let prompt = format!(
-                                "Authentication successful! Please enter a username (1-{} characters).",
-                                MAX_USERNAME_LENGTH
-                            );
+                            let prompt = auth_success_message(MAX_USERNAME_LENGTH);
                             let message = ServerMessage::ServerInfo { message: prompt };
                             let payload = encode_to_vec(&message, standard())
                                 .expect("failed to serialize ServerInfo");
@@ -78,16 +82,19 @@ pub fn handle(
                             );
 
                             let message = ServerMessage::ServerInfo {
-                                message: "Incorrect passcode. Try again.".to_string(),
+                                message: AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE.to_string(),
                             };
                             let payload = encode_to_vec(&message, standard())
                                 .expect("failed to serialize ServerInfo");
                             network.send_message(client_id, AppChannel::ReliableOrdered, payload);
                         }
                         AuthAttemptOutcome::Disconnect => {
-                            println!("Client {} failed authentication. Disconnecting.", client_id);
+                            eprintln!(
+                                "Client {} failed authentication. Disconnecting them.",
+                                client_id
+                            );
                             let message = ServerMessage::ServerInfo {
-                                message: "Incorrect passcode. Disconnecting.".to_string(),
+                                message: AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE.to_string(),
                             };
                             let payload = encode_to_vec(&message, standard())
                                 .expect("failed to serialize ServerInfo");
@@ -248,7 +255,10 @@ mod tests {
     use bincode::serde::encode_to_vec;
     use common::{
         auth::{MAX_ATTEMPTS, Passcode},
-        protocol::{ClientMessage, ServerMessage},
+        protocol::{
+            auth_success_message, ClientMessage, ServerMessage,
+            AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE,
+        },
     };
 
     #[test]
@@ -276,7 +286,7 @@ mod tests {
             .unwrap()
             .0;
         if let ServerMessage::ServerInfo { message } = msg {
-            assert!(message.starts_with("Authentication successful!"));
+            assert_eq!(message, auth_success_message(MAX_USERNAME_LENGTH));
         } else {
             panic!("expected ServerInfo message, got {:?}", msg);
         }
@@ -310,14 +320,7 @@ mod tests {
             .unwrap()
             .0;
         if let ServerMessage::ServerInfo { message } = msg {
-            assert!(
-                !message.chars().any(|c| c.is_control()),
-                "disconnect reason should be sanitized"
-            );
-            assert!(
-                message.contains("Incorrect passcode"),
-                "disconnect reason should mention incorrect passcode"
-            );
+            assert_eq!(message, AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE);
         } else {
             panic!("expected ServerInfo message, got {:?}", msg);
         }

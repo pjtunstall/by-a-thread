@@ -2,8 +2,18 @@ use serde::{Deserialize, Serialize};
 
 use crate::{player::PlayerInput, ring::WireItem, snapshot::InitialData};
 
+pub const AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE: &str =
+    "Incorrect passcode. Disconnecting.";
+pub const AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE: &str = "Incorrect passcode. Try again.";
 pub const GAME_ALREADY_STARTED_MESSAGE: &str =
     "The game is already in progress. Please try again after this match.";
+
+pub fn auth_success_message(max_username_length: usize) -> String {
+    format!(
+        "Authentication successful! Please enter a username (1-{} characters).",
+        max_username_length
+    )
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {

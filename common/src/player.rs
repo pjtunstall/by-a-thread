@@ -2,6 +2,7 @@ use std::{f32::consts::PI, fmt};
 
 use glam::{Vec3, vec3};
 use serde::{Deserialize, Serialize};
+use strum::{Display, IntoStaticStr};
 
 use crate::{
     constants::TICK_SECS,
@@ -212,7 +213,8 @@ pub struct PlayerInput {
     pub pitch_down: bool,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Display, IntoStaticStr)]
+#[strum(serialize_all = "lowercase")]
 pub enum Color {
     RED,
     LIME,
@@ -223,24 +225,8 @@ pub enum Color {
     MAROON,
     ORANGE,
     PURPLE,
+    #[strum(serialize = "sky blue")]
     SKYBLUE,
-}
-
-impl Color {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Color::RED => "red",
-            Color::LIME => "lime",
-            Color::PINK => "pink",
-            Color::YELLOW => "yellow",
-            Color::GREEN => "green",
-            Color::BLUE => "blue",
-            Color::MAROON => "maroon",
-            Color::ORANGE => "orange",
-            Color::PURPLE => "purple",
-            Color::SKYBLUE => "sky blue",
-        }
-    }
 }
 
 pub const COLORS: [Color; 10] = [

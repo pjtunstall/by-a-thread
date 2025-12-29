@@ -1,0 +1,4 @@
+- Should I give the server game state its own loop so the server doesn't have to be chekcing what state it's in every tick?
+- Server and client: have a time limit or a limit on how many iterations they check for messages in case they arrve faster than can be processed, and we get stuck in the loop.
+- Should the input buffers be fields of `ServerPlayer` or of the game state itself?
+- And, more generally, how should I distribute the data between game state and `ServerPlayer`? Should I go for more of a ECS design, with separate arrays for different characteristics of the players, since their indices will stay the same throughout the game, or should I stick with the idea of putting all of each player's data on `ServerPlayer`?

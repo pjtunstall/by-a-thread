@@ -42,7 +42,11 @@ mod tests {
         state::ClientState,
         test_helpers::{MockNetwork, MockUi},
     };
-    use common::{auth::MAX_ATTEMPTS, input::sanitize, protocol::ServerMessage};
+    use common::{
+        auth::MAX_ATTEMPTS,
+        input::sanitize,
+        protocol::{ServerMessage, AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE},
+    };
 
     #[test]
     fn client_banner_is_printed_correctly() {
@@ -104,7 +108,7 @@ mod tests {
         let mut network_auth = MockNetwork::new();
 
         let malicious_info = ServerMessage::ServerInfo {
-            message: format!("Incorrect passcode. Try again.{}", esc),
+            message: format!("{}{}", AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE, esc),
         };
         network_auth.queue_server_message(malicious_info);
 
@@ -116,7 +120,8 @@ mod tests {
             "expected one server info message to be displayed"
         );
         assert_eq!(
-            ui_auth.messages[0], "Server: Incorrect passcode. Try again.",
+            ui_auth.messages[0],
+            format!("Server: {}", AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE),
             "server info message was not correctly sanitized"
         );
         assert_eq!(ui_auth.prompts.len(), 1, "expected one prompt to be shown");
