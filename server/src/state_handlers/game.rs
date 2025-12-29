@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use bincode::{config::standard, serde::decode_from_slice};
 
 use crate::{
@@ -6,9 +8,21 @@ use crate::{
 };
 use common::{net::AppChannel, protocol::ClientMessage};
 
+const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
+
 pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option<ServerState> {
-    for client_id in network.clients_id() {
+    let start_time = Instant::now();
+    let mut messages_processed = 0;
+
+    'client_loop: for client_id in network.clients_id() {
         while let Some(data) = network.receive_message(client_id, AppChannel::Unreliable) {
+            if messages_processed % 10 == 0 && start_time.elapsed() > NETWORK_TIME_BUDGET {
+                eprintln!("Network budget exceeded. Deferring remaining packets to next tick.");
+                break 'client_loop;
+            }
+
+            messages_processed += 1;
+
             let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
                 eprintln!(
                     "Client {} sent malformed data. Disconnecting them.",
