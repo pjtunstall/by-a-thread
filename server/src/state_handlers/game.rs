@@ -12,7 +12,7 @@ const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
 
 pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option<ServerState> {
     let start_time = Instant::now();
-    let mut messages_processed = 0;
+    let mut messages_processed: usize = 0;
 
     'client_loop: for client_id in network.clients_id() {
         while let Some(data) = network.receive_message(client_id, AppChannel::Unreliable) {
