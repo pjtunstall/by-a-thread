@@ -132,7 +132,3 @@ where
         self.tail = self.tail.max(new_tail);
     }
 }
-
-pub fn u16_from_u64(a: u64) -> u16 {
-    (a % (1_u64 << 16)) as u16
-}

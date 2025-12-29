@@ -6,10 +6,7 @@ use crate::{
     net::NetworkHandle,
     state::ClientState,
 };
-use common::{
-    net::AppChannel,
-    ring::{self, WireItem},
-};
+use common::{net::AppChannel, ring::WireItem};
 
 pub fn handle(
     game_state: &mut Game,
@@ -21,7 +18,7 @@ pub fn handle(
 
     // TODO: Replace with proper logic to calculate the target tick.
     let target_tick: u64 = 0;
-    let wire_tick: u16 = ring::u16_from_u64(target_tick);
+    let wire_tick: u16 = target_tick as u16;
 
     let input = player_input_from_keys(target_tick);
     game_state.input_history.insert(target_tick, input);
