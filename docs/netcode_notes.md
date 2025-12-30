@@ -223,7 +223,7 @@ Q: Why have a low broadcast rate? That is, why have the server update its physic
 Server: input repeating (called 'zero-order hold' in control theory and signal processing) for missing data.
 ```
 
-Q. Why the difference: in the absence of current data, the server reuses the most recent input, whereas the client assumes no action by remote players? A. Humans tend to keep doing what they were doing. When the server decides they moved, they moved; by contrast, the client defaults to no action for remote players when there's no data, because repeating the previous data might result in rubber banding if the server corrects it.
+Q. Why the difference: in the absence of current data, the server reuses the most recent input, whereas the client assumes no action by remote players? A. Humans tend to keep doing what they were doing. When the server decides they moved, they moved; by contrast, the client defaults to no action for remote players when there's no data, because repeating the previous data might result in rubber banding if the server corrects it. In a racing game, say, we might use extrapolation and assume that they keep moving according to their last known velocity, but in a maze game, players are more likely to suddenly change their velocity, so we assume no movement unless we know better.
 
 ## Implementation
 
