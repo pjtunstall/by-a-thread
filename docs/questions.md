@@ -1,4 +1,8 @@
 - Should I give the server game state its own loop so the server doesn't have to be checking what state it's in every tick?
-- Client: have a time limit on checking for messages (as the server now does) in case they arrive faster than can be processed, and we get stuck in the loop.
-- Should the input buffers be fields of `ServerPlayer` or of the game state itself?
-- And, more generally, how should I distribute the data between game state and `ServerPlayer`? Should I go for more of a ECS design, with separate arrays for different characteristics of the players, since their indices will stay the same throughout the game, or should I stick with the idea of putting all of each player's data on `ServerPlayer`?
+  - No, keep it simple. Easier to handle interruption. But I introduced a separate loop for the client. Does a different principle really apply here?
+- Distribution of server game state data and server player.
+  - Thin AoS: rigid body, consisting of position and velocity (presumably also orientation and angular velocity), then input buffers separately, then a HashMap from client ids to indices, then cold data (stuff like connection status that won't be used every tick).
+  - Should I use pure SoA after all. It's not really any harder to think about, and it might encourage me into better habits. In any case, I can perform movement updates separately from collision detection.
+  - The snapshot that's sent will only need position and orientation, not velocity. Should it be `Vec<Option<PlayerState>>` or just `Vec<PlayerState>`. Clients will receive notifications that players are out of the game via reliable channel, so they'll know already and won't have to be told each time who to ignore. But would the chance to send `None` for knowcked-out players (instead of a default value) save on bandwidth?
+    - Better than both: send a validity mask along with a `[Vec<f32>; 4]`.
+  - Collision detection, with its branchy logic, tends to prevent SIMD optimization; hence keeping it separate from position updates allows the latter to be optimized.
