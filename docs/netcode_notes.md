@@ -454,3 +454,54 @@ impl SeqUnwrapper {
 - Works the same on client and server; each peer keeps its own SeqUnwrapper per stream (inputs from a client, snapshots from server, etc.).
 - You can still store ring buffers indexed by seq16 & mask but use the unwrapped u64 for “newer than”, timeouts, and ordering logic.
 - So yes: you “guess” based on the last seen value using the half‑range rule. That lets you transmit u16 while internally using u64 to avoid wrap bugs."
+
+## Extracting active
+
+```rust
+// A constant defines your Max Players (Constraint)
+const MAX_PLAYERS: usize = 10;
+
+// Internal Server State: Fixed-size arrays (Zero heap allocation for these fields)
+pub struct GameServer<const N: usize> {
+    pub pos_x: [f32; N],
+    pub pos_z: [f32; N],
+    pub active: [bool; N],
+}
+
+impl<const N: usize> GameServer<N> {
+    pub fn new() -> Self {
+        Self {
+            // Arrays are stack-allocated (or inline in the struct)
+            pos_x: [0.0; N],
+            pos_z: [0.0; N],
+            active: [false; N],
+        }
+    }
+
+    // The "Translation Layer"
+    // Converts internal Fixed Arrays -> Network Variable Vecs
+    pub fn get_snapshot(&self) -> MazeSnapshot {
+        // Pre-allocate to avoid re-allocations during the loop
+        // We guess that roughly half might be active, or use N for safety
+        let mut snapshot_pos_x = Vec::with_capacity(N);
+        let mut snapshot_pos_z = Vec::with_capacity(N);
+        let mut mask = 0u32;
+
+        for i in 0..N {
+            if self.active[i] {
+                mask |= 1 << i;
+                // Copy from Array to Packet Vec
+                snapshot_pos_x.push(self.pos_x[i]);
+                snapshot_pos_z.push(self.pos_z[i]);
+            }
+        }
+
+        MazeSnapshot {
+            active_mask: mask,
+            pos_x: snapshot_pos_x,
+            pos_z: snapshot_pos_z,
+            // ...
+        }
+    }
+}
+```
