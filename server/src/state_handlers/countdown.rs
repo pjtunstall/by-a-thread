@@ -44,6 +44,6 @@ pub fn handle(
 
         let game_data = std::mem::take(&mut state.game_data);
 
-        Some(ServerState::Game(Game::new(game_data, state.host_id)))
+        Some(ServerState::Game(Game::new(game_data)))
     }
 }

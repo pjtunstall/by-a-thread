@@ -19,12 +19,11 @@ use common::{
 pub struct Game {
     pub maze: Maze,
     pub players: Vec<ServerPlayer>,
-    pub host_id: Option<u64>,
     pub client_id_to_index: HashMap<u64, usize>,
 }
 
 impl Game {
-    pub fn new(initial_data: InitialData, host_id: Option<u64>) -> Self {
+    pub fn new(initial_data: InitialData) -> Self {
         let maze = initial_data.maze;
         let mut client_id_to_index = HashMap::new();
         let players = initial_data
@@ -39,7 +38,6 @@ impl Game {
         Self {
             maze,
             players,
-            host_id,
             client_id_to_index,
         }
     }
