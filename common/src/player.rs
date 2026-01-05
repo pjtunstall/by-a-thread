@@ -230,6 +230,7 @@ pub struct PlayerInput {
     pub yaw_right: bool,
     pub pitch_up: bool,
     pub pitch_down: bool,
+    pub fire: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, Display, IntoStaticStr)]

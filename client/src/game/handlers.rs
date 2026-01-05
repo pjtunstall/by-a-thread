@@ -21,7 +21,6 @@ pub fn handle(
     let wire_tick: u16 = target_tick as u16;
 
     let input = player_input_from_keys(target_tick);
-    game_state.input_history.insert(target_tick, input);
 
     let wire_input = WireItem {
         id: wire_tick,
@@ -29,6 +28,10 @@ pub fn handle(
     };
     let message = encode_to_vec(&wire_input, standard()).expect("failed to encode player input");
     network.send_message(AppChannel::Unreliable, message);
+
+    game_state.input_history.insert(target_tick, input);
+
+    println!("{:?}", wire_input);
 
     None
 }

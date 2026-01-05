@@ -15,13 +15,16 @@ const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
 // - Process inputs for current tick.
 // - Send customized snapshot to each player.
 // (See also the `Game` struct in `server/src/state.rs`.)
+
+// TODO: If connection times out during game (and elsewhere), show a suitable
+// message in the UI; currently it just goes black.
 pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option<ServerState> {
-    check_for_inputs(network, state);
+    get_inputs(network, state);
 
     None
 }
 
-fn check_for_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
+fn get_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
     let start_time = Instant::now();
     let mut messages_processed: usize = 0;
 
@@ -50,6 +53,8 @@ fn check_for_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
                     for i in 0..n {
                         if state.players[i].client_id == client_id {
                             state.players[i].input_buffer.insert(input);
+                            println!("Hello!");
+                            println!("{:?}", state.players[0].input_buffer.get(0));
                             break;
                         }
                     }

@@ -189,9 +189,10 @@ fn apply_server_transition(
                 .as_secs_f64()
                 + time::now().as_secs_f64();
 
+            let game_data_clone = countdown_state.game_data.clone();
             let message = ServerMessage::CountdownStarted {
                 end_time,
-                game_data: std::mem::take(&mut countdown_state.game_data),
+                game_data: game_data_clone,
             };
             let payload = encode_to_vec(&message, standard())
                 .expect("failed to serialize CountDownStarted mesage");
