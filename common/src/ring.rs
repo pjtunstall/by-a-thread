@@ -14,6 +14,7 @@ pub struct StoredItem<T: Clone + Default> {
     pub data: T,
 }
 
+// Ids are unambiguous within ±2^15 ticks (~9.1 min); choose `N` well below that.
 #[derive(Clone, Debug)]
 pub struct Ring<T: Clone + Default, const N: usize> {
     array: [StoredItem<T>; N], // N must be a power of 2, as enforced by the constructor.
@@ -72,16 +73,6 @@ where
     T: Clone + Default + PartialEq + Eq,
 {
     pub fn new() -> Self {
-        const {
-            // Thanks to the `i16` cast in extend (2's complement),
-            // we can only unambiguishly distinguish between items in
-            // the window [-32_68, +32_767] (2 << 15).
-            assert!(
-                N <= 1 << 14, // Half the signed horizon: big safety margin.
-                "N must be <= 16384 to avoid sequence wrapping ambiguity"
-            );
-        }
-
         Self {
             ring: Ring::<T, N>::new(),
             head: 0,
@@ -114,15 +105,20 @@ where
         self.ring.get(tick)
     }
 
-    pub fn extend(&self, id: u16) -> Option<u64> {
+    // Map a 16-bit wire id to the closest plausible 64-bit tick near the
+    // current head, handling wrap-around. In case of overflow, return None.
+    fn extend(&self, id: u16) -> Option<u64> {
         let head = self.head;
         let head_u16 = head as u16;
         let modular_difference = id.wrapping_sub(head_u16);
 
         // Cast by 2's complement, so that `modular_difference` is negative when
-        // greater than (1 << 15), allowing us to cast it to i16 and add the
+        // greater than 2^15, allowing us to cast it to `i16` and add the
         // resulting signed `difference` to baseline. This saves us some
-        // conditional branching.
+        // conditional branching. The trick assumes the id is within 2^15 ticks
+        // (~9.1 minutes at 60Hz) of the head. If the item is an old one from
+        // 9.1-18.2 minutes after the head, it will be interpreted as up to 9.1
+        // minutes before the head.
         let difference = (modular_difference as i16) as i64;
 
         head.checked_add_signed(difference)
@@ -130,5 +126,82 @@ where
 
     pub fn advance_tail(&mut self, new_tail: u64) {
         self.tail = self.tail.max(new_tail);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ring_returns_data_for_matching_tick() {
+        let mut ring = Ring::<u32, 8>::new();
+
+        ring.insert(3, 10);
+
+        assert_eq!(ring.get(3), Some(&10));
+        assert_eq!(ring.get(4), None);
+    }
+
+    #[test]
+    fn ring_replaces_slot_with_more_recent_tick() {
+        let mut ring = Ring::<u32, 8>::new();
+
+        ring.insert(1, 7);
+        ring.insert(9, 42);
+
+        assert_eq!(ring.get(1), None);
+        assert_eq!(ring.get(9), Some(&42));
+    }
+
+    #[test]
+    fn network_buffer_does_not_overwrite_with_older_tick_at_same_index() {
+        let mut buffer = NetworkBuffer::<u32, 8>::new();
+
+        buffer.insert(WireItem { id: 2, data: 1 });
+        buffer.insert(WireItem { id: 10, data: 2 });
+
+        buffer.insert(WireItem { id: 2, data: 3 });
+
+        assert_eq!(buffer.get(10), Some(&2));
+        assert_eq!(buffer.get(2), None);
+        assert_eq!(buffer.head, 10);
+    }
+
+    #[test]
+    fn network_buffer_replaces_slot_with_newer_tick() {
+        let mut buffer = NetworkBuffer::<u32, 8>::new();
+
+        buffer.insert(WireItem { id: 1, data: 1 });
+        buffer.insert(WireItem { id: 9, data: 2 });
+
+        assert_eq!(buffer.get(1), None);
+        assert_eq!(buffer.get(9), Some(&2));
+        assert_eq!(buffer.head, 9);
+    }
+
+    #[test]
+    fn network_buffer_drops_ticks_at_or_before_tail() {
+        let mut buffer = NetworkBuffer::<u32, 8>::new();
+
+        buffer.insert(WireItem { id: 12, data: 99 });
+        buffer.advance_tail(12);
+
+        buffer.insert(WireItem { id: 4, data: 7 });
+
+        assert_eq!(buffer.get(4), None);
+        assert_eq!(buffer.get(12), Some(&99));
+        assert_eq!(buffer.head, 12);
+    }
+
+    #[test]
+    fn extend_handles_wraparound_and_overflow() {
+        let mut buffer = NetworkBuffer::<u8, 8>::new();
+
+        buffer.head = 65_000;
+        assert_eq!(buffer.extend(64_000), Some(64_000));
+
+        buffer.head = u64::MAX - 1;
+        assert_eq!(buffer.extend(4), None);
     }
 }
