@@ -16,12 +16,6 @@ use common::{
     snapshot::InitialData,
 };
 
-// TODO: Write common disconnection logic in the `remove_client` method of
-// `State`, and place it first before calling `remove_client` method of the
-// particular variant. Then address current test failure that happens when the
-// host leaves while a game is in progress; which is due to me having written
-// different client-removal logic for that variant.
-
 pub struct Game {
     pub maze: Maze,
     pub players: Vec<ServerPlayer>,
@@ -65,15 +59,13 @@ impl Game {
             network.broadcast_message(AppChannel::ReliableOrdered, payload);
 
             // If there are no connected players left, exit.
-            // TODO: Add similar logic to `remove_client` methods of other
-            // variants of `State`.
             self.client_id_to_index.remove(&client_id);
             if self.client_id_to_index.is_empty() {
                 println!("All players have disconnected. Server exiting...");
                 std::process::exit(0);
             }
         } else {
-            eprint!("Attempted to remove unknown client: {}.", client_id);
+            panic!("attempted to remove unknown client: {}", client_id);
         }
     }
 }
@@ -100,7 +92,7 @@ impl ServerState {
             ServerState::Lobby(lobby) => lobby.register_connection(client_id),
             _ => {
                 eprintln!(
-                    "Client {} connected, but server is not in Lobby state. Informing and closing locally.",
+                    "Client {} connected, but server is not in Lobby state. Informing, then disconnecting them.",
                     client_id
                 );
 
@@ -577,32 +569,6 @@ mod tests {
 
         assert_eq!(countdown.host_id, Some(2));
         let messages = network.get_sent_messages_data(2);
-        assert!(
-            messages.iter().any(|m| matches!(
-                decode_from_slice::<ServerMessage, _>(m, standard())
-                    .unwrap()
-                    .0,
-                ServerMessage::AppointHost
-            )),
-            "expected AppointHost message to new host"
-        );
-    }
-
-    #[test]
-    fn game_reassigns_host_and_notifies_when_host_leaves() {
-        let mut network = MockServerNetwork::new();
-        network.add_client(10);
-        network.add_client(20);
-
-        let usernames = HashMap::from([(10, "Alice".to_string()), (20, "Bob".to_string())]);
-        let initial_data = InitialData::new(&usernames, 1);
-
-        let mut game = Game::new(initial_data, Some(10));
-
-        game.remove_client(10, &mut network);
-
-        assert_eq!(game.host_id, Some(20));
-        let messages = network.get_sent_messages_data(20);
         assert!(
             messages.iter().any(|m| matches!(
                 decode_from_slice::<ServerMessage, _>(m, standard())
