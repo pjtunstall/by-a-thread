@@ -11,7 +11,8 @@ use common::{net::AppChannel, protocol::ClientMessage};
 const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
 
 // TODO:
-// - Check for inputs and stow in the appropriate player's input buffer. DONE.
+// - Have the client calculate a suitable target tick, then let the server
+//   advance increment its tick with `saturating_add`.
 // - Process inputs for current tick.
 // - Send customized snapshot to each player.
 // (See also the `Game` struct in `server/src/state.rs`.)
@@ -52,9 +53,13 @@ fn get_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
                 ClientMessage::Input(input) => {
                     for i in 0..n {
                         if state.players[i].client_id == client_id {
+                            // TODO: Once input-handling is in place, delete
+                            // this comment. This comment is just a reminder
+                            // that the input is being received correctly. It's
+                            // not being inserted because the buffer insert
+                            // method only inserts an item if there isn't
+                            // already one for the given tick.
                             state.players[i].input_buffer.insert(input);
-                            println!("Hello!");
-                            println!("{:?}", state.players[0].input_buffer.get(0));
                             break;
                         }
                     }
