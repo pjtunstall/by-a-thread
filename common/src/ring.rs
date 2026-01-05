@@ -14,7 +14,8 @@ pub struct StoredItem<T: Clone + Default> {
     pub data: T,
 }
 
-// Ids are unambiguous within ±2^15 ticks (~9.1 min); choose `N` well below that.
+// `WireItem` ids are unambiguous within ±2^15 ticks (~9.1 min) (see `extend`);
+// choose `N` well below that.
 #[derive(Clone, Debug)]
 pub struct Ring<T: Clone + Default, const N: usize> {
     array: [StoredItem<T>; N], // N must be a power of 2, as enforced by the constructor.
