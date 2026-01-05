@@ -14,23 +14,34 @@ pub struct ServerPlayer {
     pub name: String,
     pub state: PlayerState,
     pub color: Color,
-    pub disconnected: bool,
-    pub alive: bool,
+    pub status: Status,
 }
 
 impl ServerPlayer {
     pub fn new(player: Player) -> Self {
+        let status = if player.disconnected {
+            Status::Disconnected
+        } else {
+            Status::Alive
+        };
+
         Self {
             name: player.name,
             index: player.index,
             state: player.state,
             color: player.color,
-            disconnected: player.disconnected,
-            alive: player.alive,
+            status,
             client_id: player.client_id,
             last_processed_tick: 0,
             last_input: None,
             input_buffer: NetworkBuffer::new(),
         }
     }
+}
+
+#[repr(u8)]
+pub enum Status {
+    Alive,
+    Dead,
+    Disconnected,
 }

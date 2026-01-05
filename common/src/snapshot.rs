@@ -5,11 +5,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     maze::{self, Maze, maker::Algorithm},
-    player::{self, Player, PlayerState},
-    ring::WireItem,
+    player::{self, Player, WirePlayer, WirePlayerLocal},
 };
 
-pub type Snapshot = WireItem<Vec<PlayerState>>;
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
+pub struct Snapshot {
+    remote: Vec<WirePlayer>,
+    local: WirePlayerLocal,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct InitialData {

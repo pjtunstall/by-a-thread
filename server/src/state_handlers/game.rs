@@ -10,6 +10,11 @@ use common::{net::AppChannel, protocol::ClientMessage};
 
 const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
 
+// TODO:
+// - Check for inputs and stow in the appropriate player's input buffer.
+// - Process inputs for current tick.
+// - Send customized snapshot to each player.
+// (See also the `Game` struct in `server/src/state.rs`.)
 pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option<ServerState> {
     let start_time = Instant::now();
     let mut messages_processed: usize = 0;

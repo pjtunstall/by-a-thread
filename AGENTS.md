@@ -8,23 +8,6 @@ Always use the modern module file structure, i.e. no `mod.rs`.
 
 ## Imports
 
-### Group into three blocks: std, 3rd-party, and own
-
-Group import statements at the head of a file into three paragraphs: std first, then 3rd party, then imports from my own project workspace.
-
-```rust
-use std::collections::HashMap;
-
-use macroquad::prelude::*;
-use renet::RenetClient;
-
-use crate::{
-    session::ClientSession,
-    state::{ClientState, Lobby},
-};
-use common::{self, player::Player};
-```
-
 ### Group together nested items
 
 Group together nested items using curly braces. Thus:
@@ -41,6 +24,23 @@ rather than
 ```rust
 use common::input::{UiKey, sanitize};
 use common::player::UsernameError;
+```
+
+### Group into three blocks: std, 3rd-party, and own
+
+Group import statements at the head of a file into three paragraphs: std first, then 3rd party, then imports from my own project workspace.
+
+```rust
+use std::collections::HashMap;
+
+use macroquad::prelude::*;
+use renet::RenetClient;
+
+use crate::{
+    session::ClientSession,
+    state::{ClientState, Lobby},
+};
+use common::{self, player::Player};
 ```
 
 ## Error messages

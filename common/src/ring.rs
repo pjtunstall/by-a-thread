@@ -2,8 +2,8 @@ use std::array;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, PartialEq)]
-pub struct WireItem<T: Clone + Default> {
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WireItem<T: Clone + Default + PartialEq + Eq> {
     pub id: u16,
     pub data: T,
 }
@@ -22,7 +22,7 @@ pub struct Ring<T: Clone + Default, const N: usize> {
 
 impl<T, const N: usize> Ring<T, N>
 where
-    T: Clone + Default,
+    T: Clone + Default + PartialEq + Eq,
 {
     pub fn new() -> Self {
         const {
@@ -69,7 +69,7 @@ pub struct NetworkBuffer<T: Clone + Default, const N: usize> {
 
 impl<T, const N: usize> NetworkBuffer<T, N>
 where
-    T: Clone + Default,
+    T: Clone + Default + PartialEq + Eq,
 {
     pub fn new() -> Self {
         const {

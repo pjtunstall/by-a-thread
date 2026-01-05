@@ -5,13 +5,78 @@ use std::{
 
 use bincode::{config::standard, serde::encode_to_vec};
 
-use crate::{net::ServerNetworkHandle, player::ServerPlayer};
+use crate::{
+    net::ServerNetworkHandle,
+    player::{ServerPlayer, Status},
+};
 use common::{
     maze::Maze,
     net::AppChannel,
     protocol::{GAME_ALREADY_STARTED_MESSAGE, ServerMessage},
     snapshot::InitialData,
 };
+
+// TODO: Write common disconnection logic in the `remove_client` method of
+// `State`, and place it first before calling `remove_client` method of the
+// particular variant. Then address current test failure that happens when the
+// host leaves while a game is in progress; which is due to me having written
+// different client-removal logic for that variant.
+
+pub struct Game {
+    pub maze: Maze,
+    pub players: Vec<ServerPlayer>,
+    pub host_id: Option<u64>,
+    pub client_id_to_index: HashMap<u64, usize>,
+}
+
+impl Game {
+    pub fn new(initial_data: InitialData, host_id: Option<u64>) -> Self {
+        let maze = initial_data.maze;
+        let mut client_id_to_index = HashMap::new();
+        let players = initial_data
+            .players
+            .into_iter()
+            .map(|player| {
+                client_id_to_index.insert(player.client_id, player.index);
+                ServerPlayer::new(player)
+            })
+            .collect();
+
+        Self {
+            maze,
+            players,
+            host_id,
+            client_id_to_index,
+        }
+    }
+
+    pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
+        if let Some(&index) = self.client_id_to_index.get(&client_id) {
+            let player = &mut self.players[index];
+            let name = player.name.clone();
+            println!(
+                "Client {} ({}) disconnected during game.",
+                client_id, player.name
+            );
+            self.players[index].status = Status::Disconnected;
+            let message = ServerMessage::UserLeft { username: name };
+            let payload =
+                encode_to_vec(&message, standard()).expect("failed to serialize UserLeft");
+            network.broadcast_message(AppChannel::ReliableOrdered, payload);
+
+            // If there are no connected players left, exit.
+            // TODO: Add similar logic to `remove_client` methods of other
+            // variants of `State`.
+            self.client_id_to_index.remove(&client_id);
+            if self.client_id_to_index.is_empty() {
+                println!("All players have disconnected. Server exiting...");
+                std::process::exit(0);
+            }
+        } else {
+            eprint!("Attempted to remove unknown client: {}.", client_id);
+        }
+    }
+}
 
 pub enum ServerState {
     Lobby(Lobby),
@@ -150,67 +215,11 @@ impl Countdown {
     }
 }
 
-// TODO: Replace game_data with maze and a Vec<ServerPlayer>.
-pub struct Game {
-    pub maze: Maze,
-    pub players: Vec<ServerPlayer>,
-    pub host_id: Option<u64>,
-}
-
-impl Game {
-    pub fn new(initial_data: InitialData, host_id: Option<u64>) -> Self {
-        let maze = initial_data.maze;
-        let players = initial_data
-            .players
-            .into_iter()
-            .map(|player| ServerPlayer::new(player))
-            .collect();
-
-        Self {
-            maze,
-            players,
-            host_id,
-        }
-    }
-
-    pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
-        if let Some(player) = self.players.iter().find(|p| p.client_id == client_id) {
-            let username = player.name.clone();
-            println!(
-                "Client {} ({}) disconnected during game.",
-                client_id, username
-            );
-            let message = ServerMessage::UserLeft { username };
-            let payload =
-                encode_to_vec(&message, standard()).expect("failed to serialize UserLeft");
-            network.broadcast_message(AppChannel::ReliableOrdered, payload);
-        }
-        // Mark player as disconnected instead of removing to preserve indices.
-        if let Some(player) = self.players.iter_mut().find(|p| p.client_id == client_id) {
-            player.disconnected = true;
-        }
-
-        let host_was_removed = self.host_id == Some(client_id);
-        let no_host = self.host_id.is_none();
-        let has_connected_players = self.players.iter().any(|p| !p.disconnected);
-
-        if !has_connected_players {
-            self.host_id = None;
-        } else if host_was_removed || no_host {
-            if let Some(new_host) = self.players.iter().find(|p| !p.disconnected) {
-                self.host_id = Some(new_host.client_id);
-                notify_new_host(network, new_host.client_id);
-                println!("Host reassigned to client {}", new_host.client_id);
-            }
-        }
-    }
-}
-
 #[derive(Clone)]
 pub struct Lobby {
+    pub usernames: HashMap<u64, String>,
     auth_attempts: HashMap<u64, u8>,
     pending_usernames: HashSet<u64>,
-    pub usernames: HashMap<u64, String>,
     host_client_id: Option<u64>,
 }
 

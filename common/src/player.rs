@@ -200,6 +200,25 @@ impl PlayerState {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Default)]
+pub struct WirePlayer {
+    pub position: Vec3,
+    pub yaw: f32,
+    pub pitch: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Default)]
+pub struct WirePlayerLocal {
+    pub position: Vec3,
+    pub velocity: Vec3,
+
+    pub yaw: f32,
+    pub pitch: f32,
+
+    pub yaw_velocity: f32,
+    pub pitch_velocity: f32,
+}
+
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, Eq, PartialEq)]
 pub struct PlayerInput {
     pub target_tick: u64,
