@@ -1,6 +1,6 @@
 use std::{
     net::{SocketAddr, UdpSocket},
-    time::{Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use macroquad::prelude::*;
@@ -27,6 +27,7 @@ pub struct ClientRunner {
     pub transport: NetcodeClientTransport,
     pub ui: Gui,
     last_updated: Instant,
+    last_frame_dt: Duration,
     assets: Assets,
 }
 
@@ -66,6 +67,7 @@ impl ClientRunner {
             transport,
             ui,
             last_updated: Instant::now(),
+            last_frame_dt: Duration::ZERO,
             assets,
         })
     }
@@ -78,6 +80,7 @@ impl ClientRunner {
         let now = Instant::now();
         let dt = now - self.last_updated;
         self.last_updated = now;
+        self.last_frame_dt = dt;
 
         let mut result: Result<(), String> = Ok(());
 
@@ -141,14 +144,75 @@ impl ClientRunner {
             return;
         }
 
+        let smoothed_rtt = self.session.smoothed_rtt;
+        let estimated_server_time = self.session.estimated_server_time;
+        let mut accumulator = self.session.accumulator;
+        let mut current_tick = self.session.current_tick;
+        let mut simulated_time =
+            current_tick as f64 * crate::time::TICK_DURATION_IDEAL + accumulator;
+        let dt_seconds = self.last_frame_dt.as_secs_f64();
+
+        let mut should_transition = false;
+        let mut next_state_option = None;
+
         match self.session.state_mut() {
             ClientState::Game(game_state) => {
                 let mut network_handle =
                     RenetNetworkHandle::new(&mut self.client, &mut self.transport);
-                if let Some(next_state) =
-                    game::handlers::handle(game_state, &self.assets, &mut network_handle)
+                let (updated_accumulator, updated_sim_time) = crate::time::update_accumulator(
+                    accumulator,
+                    simulated_time,
+                    smoothed_rtt,
+                    estimated_server_time,
+                    dt_seconds,
+                );
+                accumulator = updated_accumulator;
+                simulated_time = updated_sim_time;
+                let mut target_tick =
+                    crate::time::calculate_target_tick(smoothed_rtt, estimated_server_time);
+
+                // A failsafe to prevent the accumulator from growing ever
+                // greater if we fall behind.
+                const MAX_TICKS_PER_FRAME: u8 = 8;
+                let mut ticks_processed = 0;
+                while accumulator >= crate::time::TICK_DURATION_IDEAL
+                    && ticks_processed < MAX_TICKS_PER_FRAME
                 {
-                    self.session.transition(next_state);
+                    if let Some(next_state) = game::handlers::handle(
+                        game_state,
+                        &self.assets,
+                        &mut network_handle,
+                        target_tick,
+                    ) {
+                        should_transition = true;
+                        next_state_option = Some(next_state);
+                        break;
+                    }
+
+                    accumulator -= crate::time::TICK_DURATION_IDEAL;
+                    simulated_time += crate::time::TICK_DURATION_IDEAL;
+                    current_tick += 1;
+                    ticks_processed += 1;
+                    target_tick += 1;
+
+                    // If we hit the limit, discard the remaining accumulator to prevent spiral.
+                    if ticks_processed >= MAX_TICKS_PER_FRAME {
+                        accumulator = 0.0;
+                        println!("Death spiral detected: skipping ticks to catch up.");
+                    }
+                }
+
+                let _alpha = accumulator / crate::time::TICK_DURATION_IDEAL;
+                // render(alpha);
+
+                self.session.accumulator = accumulator;
+                self.session.current_tick = current_tick;
+
+                if should_transition {
+                    self.session.transition(
+                        next_state_option
+                            .expect("should be a `next_state` `should_transition` from game"),
+                    );
                 }
             }
             // TODO: Following the pattern of the game handler, pass inner state to each
@@ -175,6 +239,9 @@ impl ClientRunner {
     }
 
     pub fn start_game(&mut self) -> Result<(), ()> {
+        self.session.current_tick =
+            crate::time::calculate_initial_tick(self.session.estimated_server_time);
+
         let initial_data = match self.session.state_mut() {
             ClientState::Lobby(Lobby::Countdown { game_data, .. }) => std::mem::take(game_data),
             other => {
