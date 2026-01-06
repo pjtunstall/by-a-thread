@@ -240,8 +240,9 @@ pub async fn run_client_loop(
     }
 }
 
-// TODO: Remove eventually if it stays unused, along with the strum crate and
-// derivation of macro for turning the `Color` enum into a `String`.
+// TODO: Remove this function eventually if it stays unused, along with the
+// strum crate and derivation of macro for turning the `Color` enum into a
+// `String`.
 pub fn print_player_list(ui: &mut dyn LobbyUi, session: &ClientSession, players: &Vec<Player>) {
     ui.show_message("\nPlayers:");
     for player in players {
