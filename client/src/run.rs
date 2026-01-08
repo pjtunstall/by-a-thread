@@ -216,15 +216,17 @@ impl ClientRunner {
                         let ticks_to_skip =
                             (accumulated_time / crate::time::TICK_DURATION).floor() as u64;
 
-                        sim_tick += ticks_to_skip;
+                        if ticks_to_skip > 0 {
+                            sim_tick += ticks_to_skip;
 
-                        // Keep the fractional remainder for smoothness.
-                        accumulated_time -= ticks_to_skip as f64 * crate::time::TICK_DURATION;
+                            // Keep the fractional remainder for smoothness.
+                            accumulated_time -= ticks_to_skip as f64 * crate::time::TICK_DURATION;
 
-                        println!(
-                            "Death spiral: Skipped {} ticks to realign clock. Current `sim_tick`: {}",
-                            ticks_to_skip, sim_tick
-                        );
+                            println!(
+                                "Death spiral: Skipped {} ticks to realign clock. Current `sim_tick`: {}",
+                                ticks_to_skip, sim_tick
+                            );
+                        }
                     }
                 }
 

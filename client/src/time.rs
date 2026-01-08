@@ -135,19 +135,15 @@ pub fn smooth_dt(continuous_sim_time: f64, target_time: f64, frame_dt: f64) -> f
     const HARD_SNAP_THRESHOLD: f64 = 0.25;
     const NUDGE_CLAMP: f64 = 0.002;
 
-    // How far behind/ahead is our sim clock?
     let error = target_time - continuous_sim_time;
 
-    let adjustment = if error.abs() > HARD_SNAP_THRESHOLD {
-        // Large desync: snap the clock by the full error.
-        error
-    } else {
-        // Small desync: nudge a fraction, clamped to avoid visible stutter.
-        (error * 0.1).clamp(-NUDGE_CLAMP, NUDGE_CLAMP)
-    };
+    // Large desync: snap the clock by the full error.
+    if error.abs() > HARD_SNAP_THRESHOLD {
+        return error;
+    }
 
-    // Add this frame's real time plus the nudge; advance sim clock by the same
-    // amount.
+    // Small desync: nudge a fraction, clamped to avoid visible stutter.
+    let adjustment = (error * 0.1).clamp(-NUDGE_CLAMP, NUDGE_CLAMP);
     frame_dt + adjustment
 }
 
