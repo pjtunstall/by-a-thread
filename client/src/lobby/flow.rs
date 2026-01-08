@@ -39,12 +39,12 @@ pub async fn update(
         }
     }
 
-    if session.is_countdown_finished() {
-        return LobbyStep::StartGame;
-    }
-
     if let Some(next_state) = transition(session, ui, network_handle, assets) {
         return LobbyStep::Transition(next_state);
+    }
+
+    if session.is_countdown_finished() {
+        return LobbyStep::StartGame;
     }
 
     let ui_state = session.prepare_ui_state();

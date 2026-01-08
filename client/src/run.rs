@@ -140,8 +140,9 @@ impl ClientRunner {
             ));
             eprintln!("Disconnected: {}{}", disconnect_message, separator);
             self.session.disconnected_notified = true;
-            self.ui.draw(false, false);
         }
+
+        self.ui.draw(false, false);
     }
 
     async fn update_client_state(&mut self) {
@@ -281,17 +282,8 @@ impl ClientRunner {
             }
         };
 
-        let maze_meshes = match maze_meshes {
-            Some(maze_meshes) => maze_meshes,
-            None => {
-                self.ui
-                    .show_sanitized_error("Maze meshes were not built before game start.");
-                self.session.transition(ClientState::Disconnected {
-                    message: "maze meshes were not built before game start".to_string(),
-                });
-                return Err(());
-            }
-        };
+        let maze_meshes =
+            maze_meshes.expect("maze meshes should be built during countdown");
 
         let Some(local_player_index) = initial_data
             .players

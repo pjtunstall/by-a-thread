@@ -32,6 +32,16 @@ pub fn handle(
         }),
     ) = (assets, session.state_mut())
     {
+        if game_data.maze.grid.is_empty()
+            || game_data.maze.grid[0].is_empty()
+            || game_data.maze.spaces.is_empty()
+        {
+            ui.show_sanitized_error("Maze data is missing. Disconnecting.");
+            return Some(ClientState::Disconnected {
+                message: "maze data is missing".to_string(),
+            });
+        }
+
         if maze_meshes.is_none() {
             let built_meshes = maze::build_maze_meshes(
                 &game_data.maze,
