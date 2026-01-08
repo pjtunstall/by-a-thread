@@ -29,7 +29,7 @@
 - Compute target server tick: `estimated_server_time + smoothed_rtt/2 + jitter_margin` (`~50 ms` configurable) divided by tick duration.
 - Record current input in input history at `tick & (INPUT_HISTORY_LEN - 1)` and send the latest few inputs redundantly.
 - When a new snapshot arrives, set it as baseline, reconcile to it, then replay queued inputs (prediction) up to current tick before rendering.
-- Fixed timestep for simulation; cap catch-up work per frame to avoid spirals; discard leftover accumulator if limit is hit.
+- Fixed timestep for simulation; cap catch-up work per frame to avoid spirals; discard leftover accumulated_time if limit is hit.
 - Process reliable messages before unreliable so death state halts reconciliation/prediction.
 
 ## Remote Players

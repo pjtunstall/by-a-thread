@@ -32,7 +32,7 @@ impl Game {
         // TODO: Reconciliation and prediction.
     }
 
-    pub fn draw(&self, assets: &Assets) {
+    pub fn draw(&self, assets: &Assets, _alpha: f64) {
         clear_background(color::BEIGE);
 
         let position = self.players[self.local_player_index].state.position;

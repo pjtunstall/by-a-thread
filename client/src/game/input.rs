@@ -2,9 +2,9 @@ use macroquad::prelude::*;
 
 use common::player::PlayerInput;
 
-pub fn player_input_from_keys(target_tick: u64) -> PlayerInput {
+pub fn player_input_from_keys(sim_tick: u64) -> PlayerInput {
     PlayerInput {
-        target_tick,
+        sim_tick,
         forward: is_key_down(KeyCode::W),
         backward: is_key_down(KeyCode::S),
         left: is_key_down(KeyCode::A),

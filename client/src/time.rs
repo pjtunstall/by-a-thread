@@ -19,8 +19,8 @@ const DEADZONE_THRESHOLD: f64 = 0.002;
 const RTT_ALPHA_SPIKE: f64 = 0.1;
 const RTT_ALPHA_IMPROVEMENT: f64 = 0.01;
 
-const SERVER_TICK_RATE: f64 = 60.0;
-pub const TICK_DURATION_IDEAL: f64 = 1.0 / SERVER_TICK_RATE;
+const TICK_RATE: f64 = 60.0;
+pub const TICK_DURATION: f64 = 1.0 / TICK_RATE;
 // Three ticks (50ms) is probably a safe starting buffer.
 // If inputs arrive late on the server, increase this.
 const JITTER_SAFETY_MARGIN: f64 = 0.05; // Consider raising to 4 ticks?
@@ -116,35 +116,27 @@ pub fn update_clock(session: &mut ClientSession, network: &mut RenetNetworkHandl
 }
 
 // Target = "what time is it now" + "travel time" + "safety margin".
-pub fn calculate_target_tick(smoothed_rtt: f64, estimated_server_time: f64) -> u64 {
+pub fn calculate_target_time(smoothed_rtt: f64, estimated_server_time: f64) -> f64 {
     let travel_time = smoothed_rtt / 2.0;
-    let target_sim_time = estimated_server_time + travel_time + JITTER_SAFETY_MARGIN; // Input arrival time.
-    let target_tick = (target_sim_time / TICK_DURATION_IDEAL).floor() as u64;
-
-    target_tick
+    estimated_server_time + travel_time + JITTER_SAFETY_MARGIN
 }
 
+pub fn calculate_target_tick(target_time: f64) -> u64 {
+    (target_time / TICK_DURATION).floor() as u64
+}
+
+// TODO: Decide: is this necessary? Of so, is it correct?
 pub fn calculate_initial_tick(estimated_server_time: f64) -> u64 {
-    (estimated_server_time / TICK_DURATION_IDEAL).floor() as u64
+    (estimated_server_time / TICK_DURATION).floor() as u64
 }
 
-// Returns (accumulator, simulated_time).
-pub fn update_accumulator(
-    mut accumulator: f64,
-    mut simulated_time: f64,
-    smoothed_rtt: f64,
-    estimated_server_time: f64,
-    dt_seconds: f64,
-) -> (f64, f64) {
+// Returns (accumulated_time, simulated_time).
+pub fn smooth_dt(continuous_sim_time: f64, target_time: f64, frame_dt: f64) -> f64 {
     const HARD_SNAP_THRESHOLD: f64 = 0.25;
     const NUDGE_CLAMP: f64 = 0.002;
 
-    // Aim for "now on server" + travel + margin.
-    let travel_time = smoothed_rtt / 2.0;
-    let target_sim_time = estimated_server_time + travel_time + JITTER_SAFETY_MARGIN;
-
     // How far behind/ahead is our sim clock?
-    let error = target_sim_time - simulated_time;
+    let error = target_time - continuous_sim_time;
 
     let adjustment = if error.abs() > HARD_SNAP_THRESHOLD {
         // Large desync: snap the clock by the full error.
@@ -154,12 +146,9 @@ pub fn update_accumulator(
         (error * 0.1).clamp(-NUDGE_CLAMP, NUDGE_CLAMP)
     };
 
-    // Add this frame's real time plus the nudge; advance sim clock by the same amount.
-    let delta = dt_seconds + adjustment;
-    accumulator += delta;
-    simulated_time += delta;
-
-    (accumulator, simulated_time)
+    // Add this frame's real time plus the nudge; advance sim clock by the same
+    // amount.
+    frame_dt + adjustment
 }
 
 // Returns a monotonic f64 time source relative to app start.

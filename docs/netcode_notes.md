@@ -132,17 +132,17 @@ let adjustment = if error.abs() > 0.25 {
 // We add Real Time + The Adjustment.
 // If we are behind, adjustment is positive (simulation runs faster).
 // If we are ahead, adjustment is negative (simulation runs slower).
-session.accumulator += raw_delta_time + adjustment;
+session.accumulated_time += raw_delta_time + adjustment;
 
 // 7. PHYSICS LOOP (FIXED STEP)
-const MAX_TICKS_PER_FRAME: u8 = 8; // A failsafe to prevent the accumulator from growing
+const MAX_TICKS_PER_FRAME: u8 = 8; // A failsafe to prevent the accumulated_time from growing
 let mut ticks_processed = 0;        // ever greater if we fall behind.
-while session.accumulator >= TICK_DURATION_IDEAL && ticks_processed < MAX_TICKS_PER_FRAME  {
+while session.accumulated_time >= TICK_DURATION_IDEAL && ticks_processed < MAX_TICKS_PER_FRAME  {
     process_input(&mut session, target_tick); // Insert into history, send to server.
     perform_tick(&mut session); // Run physics: reconcile and predict.
 
     // C. Advance State.
-    session.accumulator -= TICK_DURATION_IDEAL;
+    session.accumulated_time -= TICK_DURATION_IDEAL;
     session.current_tick += 1;
     ticks_processed += 1;
     session.simulated_time += TICK_DURATION_IDEAL;
@@ -150,15 +150,15 @@ while session.accumulator >= TICK_DURATION_IDEAL && ticks_processed < MAX_TICKS_
     // Track our time using the fixed step to stay perfectly in sync with ticks.
     session.simulated_time += TICK_DURATION_IDEAL;
 
-    // If we hit the limit, discard the remaining accumulator to prevent spiral.
+    // If we hit the limit, discard the remaining accumulated_time to prevent spiral.
     if ticks_processed >= MAX_TICKS_PER_FRAME {
-        session.accumulator = 0.0; // Or keep a small remainder, but discard the bulk.
+        session.accumulated_time = 0.0; // Or keep a small remainder, but discard the bulk.
         println!("Physics spiral detected: skipped ticks to catch up.");
     }
 }
 
 // 8. RENDER INTERPOLATION
-let alpha = session.accumulator / TICK_DURATION_IDEAL;
+let alpha = session.accumulated_time / TICK_DURATION_IDEAL;
 render(alpha);
 
 macroquad::window::next_frame().await;

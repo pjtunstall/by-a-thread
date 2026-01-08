@@ -221,7 +221,7 @@ pub struct WirePlayerLocal {
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, Eq, PartialEq)]
 pub struct PlayerInput {
-    pub target_tick: u64,
+    pub sim_tick: u64,
     pub forward: bool,
     pub backward: bool,
     pub left: bool,

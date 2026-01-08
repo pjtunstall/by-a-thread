@@ -159,11 +159,10 @@ impl ClientRunner {
 
         let smoothed_rtt = self.session.smoothed_rtt;
         let estimated_server_time = self.session.estimated_server_time;
-        let mut accumulator = self.session.accumulator;
-        let mut current_tick = self.session.current_tick;
-        let mut simulated_time =
-            current_tick as f64 * crate::time::TICK_DURATION_IDEAL + accumulator;
-        let dt_seconds = self
+        let mut accumulated_time = self.session.accumulated_time;
+        let mut continuous_sim_time = self.session.continuous_sim_time;
+        let mut sim_tick = self.session.sim_tick;
+        let frame_dt = self
             .last_frame_dt
             .as_secs_f64()
             // Clamp to avoid huge jumps if a frame stalls.
@@ -176,62 +175,67 @@ impl ClientRunner {
             ClientState::Game(game_state) => {
                 let mut network_handle =
                     RenetNetworkHandle::new(&mut self.client, &mut self.transport);
-                let (updated_accumulator, updated_sim_time) = crate::time::update_accumulator(
-                    accumulator,
-                    simulated_time,
-                    smoothed_rtt,
-                    estimated_server_time,
-                    dt_seconds,
-                );
-                accumulator = updated_accumulator;
-                simulated_time = updated_sim_time;
-                let target_tick =
-                    crate::time::calculate_target_tick(smoothed_rtt, estimated_server_time);
+
+                let target_time =
+                    crate::time::calculate_target_time(smoothed_rtt, estimated_server_time);
+                let smoothed_dt =
+                    crate::time::smooth_dt(continuous_sim_time, target_time, frame_dt);
+
+                accumulated_time += smoothed_dt;
+                continuous_sim_time += smoothed_dt;
 
                 println!(
-                    "target_tick - current_tick: {}, accumulator: {}, dt: {}",
-                    target_tick - current_tick,
-                    accumulator,
-                    dt_seconds,
+                    "continuous_sim_time - estimated_server_time: {}, accumulated_time: {}, frame_dt: {}",
+                    continuous_sim_time - estimated_server_time,
+                    accumulated_time,
+                    frame_dt,
                 );
 
-                // A failsafe to prevent the accumulator from growing ever
+                // A failsafe to prevent the accumulated_time from growing ever
                 // greater if we fall behind.
                 const MAX_TICKS_PER_FRAME: u8 = 8;
                 let mut ticks_processed = 0;
-                while accumulator >= crate::time::TICK_DURATION_IDEAL
+                while accumulated_time >= crate::time::TICK_DURATION
                     && ticks_processed < MAX_TICKS_PER_FRAME
                 {
-                    if let Some(next_state) = game::handlers::handle(
-                        game_state,
-                        &self.assets,
-                        &mut network_handle,
-                        target_tick,
-                    ) {
+                    if let Some(next_state) =
+                        game::handlers::handle(game_state, &mut network_handle, sim_tick)
+                    {
                         should_transition = true;
                         next_state_option = Some(next_state);
                         break;
                     }
 
-                    accumulator -= crate::time::TICK_DURATION_IDEAL;
-                    simulated_time += crate::time::TICK_DURATION_IDEAL;
-                    current_tick += 1;
+                    accumulated_time -= crate::time::TICK_DURATION;
+                    sim_tick += 1;
                     ticks_processed += 1;
 
-                    // If we hit the limit, discard the remaining accumulator to prevent spiral.
+                    // If we hit the limit, we need to discard the backlog to
+                    // stop a spiral.
                     if ticks_processed >= MAX_TICKS_PER_FRAME {
-                        accumulator = 0.0;
-                        println!("Death spiral detected: skipping ticks to catch up.");
+                        let ticks_to_skip =
+                            (accumulated_time / crate::time::TICK_DURATION).floor() as u64;
+
+                        sim_tick += ticks_to_skip;
+
+                        // Keep the fractional remainder for smoothness.
+                        accumulated_time -= ticks_to_skip as f64 * crate::time::TICK_DURATION;
+
+                        println!(
+                            "Death spiral: Skipped {} ticks to realign clock. Current `sim_tick`: {}",
+                            ticks_to_skip, sim_tick
+                        );
                     }
                 }
 
-                let _alpha = accumulator / crate::time::TICK_DURATION_IDEAL;
-                // render(alpha);
+                let alpha = accumulated_time / crate::time::TICK_DURATION;
+                game_state.draw(&self.assets, alpha);
 
-                self.session.accumulator = accumulator;
-                self.session.current_tick = current_tick;
+                self.session.accumulated_time = accumulated_time;
+                self.session.continuous_sim_time = continuous_sim_time;
+                self.session.sim_tick = sim_tick;
 
-                println!("accumulator after processing: {}", accumulator);
+                println!("accumulated_time after processing: {}", accumulated_time);
 
                 if should_transition {
                     self.session.transition(
@@ -264,7 +268,7 @@ impl ClientRunner {
     }
 
     pub fn start_game(&mut self) -> Result<(), ()> {
-        self.session.current_tick =
+        self.session.sim_tick =
             crate::time::calculate_initial_tick(self.session.estimated_server_time);
         self.last_updated = Instant::now();
 
