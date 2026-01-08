@@ -183,7 +183,7 @@ impl ClientRunner {
                 accumulated_time += smoothed_dt;
                 continuous_sim_time += smoothed_dt;
 
-                // println!("{frame_dt}");
+                println!("{frame_dt}");
 
                 // A failsafe to prevent the accumulated_time from growing ever
                 // greater if we fall behind.
