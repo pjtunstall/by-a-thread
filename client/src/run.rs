@@ -185,7 +185,7 @@ impl ClientRunner {
                 continuous_sim_time += smoothed_dt;
 
                 println!(
-                    "continuous_sim_time - estimated_server_time: {}, accumulated_time: {}, frame_dt: {}",
+                    "\ncontinuous_sim_time - estimated_server_time: {:6},\naccumulated_time: {:6},\nframe_dt: {:6}",
                     continuous_sim_time - estimated_server_time,
                     accumulated_time,
                     frame_dt,
