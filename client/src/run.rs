@@ -79,8 +79,17 @@ impl ClientRunner {
 
         let now = Instant::now();
         let dt = now - self.last_updated;
-        self.last_updated = now;
         self.last_frame_dt = dt;
+        // let unix_now = SystemTime::now()
+        //     .duration_since(UNIX_EPOCH)
+        //     .expect("time went backwards")
+        //     .as_secs_f64();
+        // println!(
+        //     "pump. dt: {:.3}, unix_now: {:.3}",
+        //     dt.as_secs_f64(),
+        //     unix_now
+        // );
+        self.last_updated = now;
 
         let mut result: Result<(), String> = Ok(());
 
@@ -115,6 +124,27 @@ impl ClientRunner {
         }
     }
 
+    fn display_disconnect_message(&mut self, disconnect_message: &str) {
+        if !self.session.disconnected_notified {
+            let separator = if disconnect_message
+                .chars()
+                .last()
+                .is_some_and(|c| ['.', '!', '?'].contains(&c))
+            {
+                ""
+            } else {
+                "."
+            };
+            self.ui.show_sanitized_error(&format!(
+                "Disconnected: {}{}",
+                &disconnect_message, separator
+            ));
+            eprintln!("Disconnected: {}{}", disconnect_message, separator);
+            self.session.disconnected_notified = true;
+            self.ui.draw(false, false);
+        }
+    }
+
     async fn update_client_state(&mut self) {
         if let Some(disconnect_message) = {
             if let ClientState::Disconnected { message } = self.session.state() {
@@ -123,24 +153,7 @@ impl ClientRunner {
                 None
             }
         } {
-            if !self.session.disconnected_notified {
-                let separator = if disconnect_message
-                    .chars()
-                    .last()
-                    .is_some_and(|c| ['.', '!', '?'].contains(&c))
-                {
-                    ""
-                } else {
-                    "."
-                };
-                self.ui.show_sanitized_error(&format!(
-                    "Disconnected: {}{}",
-                    &disconnect_message, separator
-                ));
-                eprintln!("Disconnected: {}{}", disconnect_message, separator);
-                self.session.disconnected_notified = true;
-            }
-            self.ui.draw(false, false);
+            self.display_disconnect_message(&disconnect_message);
             return;
         }
 
@@ -150,7 +163,11 @@ impl ClientRunner {
         let mut current_tick = self.session.current_tick;
         let mut simulated_time =
             current_tick as f64 * crate::time::TICK_DURATION_IDEAL + accumulator;
-        let dt_seconds = self.last_frame_dt.as_secs_f64();
+        let dt_seconds = self
+            .last_frame_dt
+            .as_secs_f64()
+            // Clamp to avoid huge jumps if a frame stalls.
+            .min(0.25);
 
         let mut should_transition = false;
         let mut next_state_option = None;
@@ -168,8 +185,15 @@ impl ClientRunner {
                 );
                 accumulator = updated_accumulator;
                 simulated_time = updated_sim_time;
-                let mut target_tick =
+                let target_tick =
                     crate::time::calculate_target_tick(smoothed_rtt, estimated_server_time);
+
+                println!(
+                    "target_tick - current_tick: {}, accumulator: {}, dt: {}",
+                    target_tick - current_tick,
+                    accumulator,
+                    dt_seconds,
+                );
 
                 // A failsafe to prevent the accumulator from growing ever
                 // greater if we fall behind.
@@ -193,7 +217,6 @@ impl ClientRunner {
                     simulated_time += crate::time::TICK_DURATION_IDEAL;
                     current_tick += 1;
                     ticks_processed += 1;
-                    target_tick += 1;
 
                     // If we hit the limit, discard the remaining accumulator to prevent spiral.
                     if ticks_processed >= MAX_TICKS_PER_FRAME {
@@ -207,6 +230,8 @@ impl ClientRunner {
 
                 self.session.accumulator = accumulator;
                 self.session.current_tick = current_tick;
+
+                println!("accumulator after processing: {}", accumulator);
 
                 if should_transition {
                     self.session.transition(
@@ -241,6 +266,7 @@ impl ClientRunner {
     pub fn start_game(&mut self) -> Result<(), ()> {
         self.session.current_tick =
             crate::time::calculate_initial_tick(self.session.estimated_server_time);
+        self.last_updated = Instant::now();
 
         let initial_data = match self.session.state_mut() {
             ClientState::Lobby(Lobby::Countdown { game_data, .. }) => std::mem::take(game_data),
