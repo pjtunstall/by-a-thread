@@ -1,195 +1,292 @@
+use std::fmt;
+
 use macroquad::prelude::*;
 
 pub use common::maze::{CELL_SIZE, Maze};
 
+pub struct MazeMeshes {
+    pub walls: Vec<Mesh>,
+    pub floor: Vec<Mesh>,
+    pub shadows: Vec<Mesh>,
+}
+
+impl fmt::Debug for MazeMeshes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MazeMeshes")
+            .field("walls_count", &self.walls.len())
+            .field("floor_count", &self.floor.len())
+            .field("shadows_count", &self.shadows.len())
+            .finish()
+    }
+}
+
 pub trait MazeExtension {
-    fn draw(&self, wall_texture: &Texture2D);
+    fn draw(&self, meshes: &MazeMeshes);
 }
 
 impl MazeExtension for Maze {
-    fn draw(&self, wall_texture: &Texture2D) {
-        let grid_len = self.grid.len();
+    fn draw(&self, meshes: &MazeMeshes) {
+        // Draw Floor
+        for mesh in &meshes.floor {
+            draw_mesh(mesh);
+        }
+        // Draw Shadows
+        for mesh in &meshes.shadows {
+            draw_mesh(mesh);
+        }
+        // Draw Walls
+        for mesh in &meshes.walls {
+            draw_mesh(mesh);
+        }
+    }
+}
 
-        for x in 0..grid_len {
-            for z in 0..grid_len {
-                let corner_x = (x as f32) * CELL_SIZE;
-                let corner_z = (z as f32) * CELL_SIZE;
+pub fn generate_floor_texture() -> Texture2D {
+    let half_check_size = 8.0;
+    let check_size = 2.0 * half_check_size;
+    let checks_per_cell = (CELL_SIZE / check_size).round() as u16;
 
-                if self.grid[z][x] == 0 {
-                    draw_checkerboard(x, corner_x, z, corner_z, BEIGE, BROWN);
-                } else {
-                    draw_shadow_at_base_of_walls(corner_x, corner_z);
-
-                    // This is a wall. The 'custom' function is necessary
-                    // because Macrquad's built-in `draw_cuboid` function
-                    // doesn't orient faces in a way that will keep the
-                    // texture the right way up for all of them.
-                    draw_custom_cuboid(
-                        vec3(
-                            corner_x + CELL_SIZE / 2.0,
-                            CELL_SIZE / 2.0,
-                            corner_z + CELL_SIZE / 2.0,
-                        ),
-                        vec3(CELL_SIZE, CELL_SIZE, CELL_SIZE),
-                        wall_texture,
-                        WHITE,
-                    );
-                }
+    let mut image = Image::gen_image_color(checks_per_cell, checks_per_cell, BEIGE);
+    for y in 0..checks_per_cell {
+        for x in 0..checks_per_cell {
+            if (x + y) % 2 != 0 {
+                image.set_pixel(x as u32, y as u32, BROWN);
             }
         }
     }
+    let texture = Texture2D::from_image(&image);
+    texture.set_filter(FilterMode::Nearest);
+    texture
 }
 
-fn draw_checkerboard(
-    x: usize,
-    corner_x: f32,
-    z: usize,
-    corner_z: f32,
-    color_1: Color,
-    color_2: Color,
-) {
-    let half_check_size = 8.0;
-    let check_size = 2.0 * half_check_size;
-    let checks_per_cell = (CELL_SIZE / check_size).round() as usize;
+pub fn build_maze_meshes(
+    maze: &Maze,
+    wall_texture: &Texture2D,
+    floor_texture: &Texture2D,
+) -> MazeMeshes {
+    println!("Building Maze Meshes...");
+    let height = maze.grid.len();
+    let width = if height > 0 { maze.grid[0].len() } else { 0 };
 
-    for cz in 0..checks_per_cell {
-        for cx in 0..checks_per_cell {
-            let world_cx = x * checks_per_cell + cx;
-            let world_cz = z * checks_per_cell + cz;
+    const MAX_VERTICES: usize = 2_000;
 
-            let color = if (world_cx + world_cz) % 2 == 0 {
-                color_1
+    let mut wall_builder = MeshBuilder::new(wall_texture.clone(), MAX_VERTICES, "Walls");
+    let mut floor_builder = MeshBuilder::new(floor_texture.clone(), MAX_VERTICES, "Floor");
+    let mut shadow_builder = MeshBuilder::new(Texture2D::empty(), MAX_VERTICES, "Shadows");
+
+    let w_size = vec3(CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    let w_hw = w_size.x / 2.0;
+    let w_hh = w_size.y / 2.0;
+    let w_hd = w_size.z / 2.0;
+
+    let wall_verts = [
+        vec3(-w_hw, -w_hh, w_hd),
+        vec3(w_hw, -w_hh, w_hd),
+        vec3(w_hw, w_hh, w_hd),
+        vec3(-w_hw, w_hh, w_hd),
+        vec3(-w_hw, -w_hh, -w_hd),
+        vec3(w_hw, -w_hh, -w_hd),
+        vec3(w_hw, w_hh, -w_hd),
+        vec3(-w_hw, w_hh, -w_hd),
+    ];
+    let wall_uvs = [
+        vec2(0.0, 1.0),
+        vec2(1.0, 1.0),
+        vec2(1.0, 0.0),
+        vec2(0.0, 0.0),
+    ];
+
+    let f_hw = CELL_SIZE / 2.0;
+    let f_hd = CELL_SIZE / 2.0;
+    let floor_verts_local = [
+        vec3(-f_hw, 0.0, f_hd),
+        vec3(f_hw, 0.0, f_hd),
+        vec3(f_hw, 0.0, -f_hd),
+        vec3(-f_hw, 0.0, -f_hd),
+    ];
+    let floor_uvs = [
+        vec2(0.0, 1.0),
+        vec2(1.0, 1.0),
+        vec2(1.0, 0.0),
+        vec2(0.0, 0.0),
+    ];
+
+    let s_rad = (CELL_SIZE / 2.0) + 2.0;
+    let shadow_verts_local = [
+        vec3(-s_rad, 0.06, s_rad),
+        vec3(s_rad, 0.06, s_rad),
+        vec3(s_rad, 0.06, -s_rad),
+        vec3(-s_rad, 0.06, -s_rad),
+    ];
+    let shadow_color = Color::new(0.0, 0.0, 0.0, 0.3);
+
+    for z in 0..height {
+        for x in 0..width {
+            let cell_type = maze.grid[z][x];
+            let cx = (x as f32 * CELL_SIZE) + CELL_SIZE / 2.0;
+            let cz = (z as f32 * CELL_SIZE) + CELL_SIZE / 2.0;
+
+            if cell_type == 0 {
+                let offset = vec3(cx, 0.0, cz);
+                floor_builder.add_quad(&floor_verts_local, &floor_uvs, offset, WHITE);
             } else {
-                color_2
-            };
+                let cy = CELL_SIZE / 2.0;
+                let offset = vec3(cx, cy, cz);
 
-            let pos_x = corner_x + (cx as f32 * check_size) + half_check_size;
-            let pos_z = corner_z + (cz as f32 * check_size) + half_check_size;
+                let faces = [
+                    (0, 1, 2, 3, vec3(0., 0., 1.)),
+                    (5, 4, 7, 6, vec3(0., 0., -1.)),
+                    (1, 5, 6, 2, vec3(1., 0., 0.)),
+                    (4, 0, 3, 7, vec3(-1., 0., 0.)),
+                    (3, 2, 6, 7, vec3(0., 1., 0.)),
+                    (4, 5, 1, 0, vec3(0., -1., 0.)),
+                ];
 
-            draw_plane(
-                vec3(pos_x, 0.0, pos_z),
-                vec2(half_check_size, half_check_size),
-                None,
-                color,
-            );
+                for (v1, v2, v3, v4, norm) in faces.iter() {
+                    wall_builder.add_face_from_indices(
+                        &wall_verts,
+                        *v1,
+                        *v2,
+                        *v3,
+                        *v4,
+                        *norm,
+                        &wall_uvs,
+                        offset,
+                        WHITE,
+                    );
+                }
+
+                let shadow_offset = vec3(cx, 0.0, cz);
+                shadow_builder.add_quad(
+                    &shadow_verts_local,
+                    &floor_uvs,
+                    shadow_offset,
+                    shadow_color,
+                );
+            }
         }
+    }
+
+    MazeMeshes {
+        walls: wall_builder.finalize(),
+        floor: floor_builder.finalize(),
+        shadows: shadow_builder.finalize(),
     }
 }
 
-fn draw_shadow_at_base_of_walls(corner_x: f32, corner_z: f32) {
-    let shadow_extension = 2.0; // How far the shadow sticks out.
-    let shadow_radius = (CELL_SIZE / 2.0) + shadow_extension;
-
-    draw_plane(
-        vec3(corner_x + CELL_SIZE / 2.0, 0.06, corner_z + CELL_SIZE / 2.0),
-        vec2(shadow_radius, shadow_radius),
-        None,
-        Color::new(0.0, 0.0, 0.0, 0.3),
-    );
+struct MeshBuilder {
+    name: String,
+    meshes: Vec<Mesh>,
+    vertices: Vec<Vertex>,
+    indices: Vec<u16>,
+    index_offset: u16,
+    texture: Texture2D,
+    max_verts: usize,
 }
 
-fn draw_custom_cuboid(position: Vec3, size: Vec3, texture: &Texture2D, color: Color) {
-    let half_width = size.x / 2.0;
-    let half_height = size.y / 2.0;
-    let half_depth = size.z / 2.0;
+impl MeshBuilder {
+    fn new(texture: Texture2D, max_verts: usize, name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            meshes: Vec::new(),
+            vertices: Vec::with_capacity(max_verts),
+            indices: Vec::with_capacity(max_verts * 3 / 2),
+            index_offset: 0,
+            texture,
+            max_verts,
+        }
+    }
 
-    let x = position.x;
-    let y = position.y;
-    let z = position.z;
+    fn check_flush(&mut self, verts_needed: usize) {
+        if self.vertices.len() + verts_needed > self.max_verts {
+            self.flush();
+        }
+    }
 
-    let vertices = [
-        // Front face:
-        vec3(x - half_width, y - half_height, z + half_depth), // Bottom-left-front (0).
-        vec3(x + half_width, y - half_height, z + half_depth), // Bottom-right-front (1).
-        vec3(x + half_width, y + half_height, z + half_depth), // Top-right-front (2).
-        vec3(x - half_width, y + half_height, z + half_depth), // Top-left-front (3).
-        // Back face:
-        vec3(x - half_width, y - half_height, z - half_depth), // Bottom-left-back (4).
-        vec3(x + half_width, y - half_height, z - half_depth), // Bottom-right-back (5).
-        vec3(x + half_width, y + half_height, z - half_depth), // Top-right-back (6).
-        vec3(x - half_width, y + half_height, z - half_depth), // Top-left-back (7).
-    ];
+    fn flush(&mut self) {
+        if self.vertices.is_empty() {
+            return;
+        }
 
-    // Texture coordinates:
-    let tex_coords = [
-        vec2(0.0, 1.0), // Bottom-left.
-        vec2(1.0, 1.0), // Bottom-right.
-        vec2(1.0, 0.0), // Top-right.
-        vec2(0.0, 0.0), // Top-left.
-    ];
+        println!(
+            "{} Chunk Created: {} vertices",
+            self.name,
+            self.vertices.len()
+        );
 
-    let mut vertices_data: Vec<macroquad::models::Vertex> = Vec::new();
-    let mut indices: Vec<u16> = Vec::new();
+        self.meshes.push(Mesh {
+            vertices: std::mem::take(&mut self.vertices),
+            indices: std::mem::take(&mut self.indices),
+            texture: Some(self.texture.clone()),
+        });
 
-    let mut add_face =
-        |v1_idx: usize, v2_idx: usize, v3_idx: usize, v4_idx: usize, normal: Vec3| {
-            let base_idx = vertices_data.len() as u16;
+        self.index_offset = 0;
+        self.vertices.reserve(self.max_verts);
+        self.indices.reserve(self.max_verts * 3 / 2);
+    }
 
-            // Convert normal from `Vec3` to `Vec4`.
-            let normal_vec4 = vec4(normal.x, normal.y, normal.z, 0.0);
+    fn finalize(mut self) -> Vec<Mesh> {
+        self.flush();
+        self.meshes
+    }
 
-            // Convert color to `[u8; 4]`.
-            let color_array: [u8; 4] = color.into();
+    fn add_quad(&mut self, local_verts: &[Vec3; 4], uvs: &[Vec2; 4], offset: Vec3, color: Color) {
+        self.check_flush(4);
+        let normal = vec4(0.0, 1.0, 0.0, 0.0);
+        let color_bytes: [u8; 4] = color.into();
 
-            // Add vertices for this face.
-            vertices_data.push(macroquad::models::Vertex {
-                position: vertices[v1_idx],
-                normal: normal_vec4,
-                uv: tex_coords[0],
-                color: color_array,
+        for i in 0..4 {
+            self.vertices.push(Vertex {
+                position: local_verts[i] + offset,
+                normal,
+                uv: uvs[i],
+                color: color_bytes,
             });
-            vertices_data.push(macroquad::models::Vertex {
-                position: vertices[v2_idx],
+        }
+        self.indices.extend_from_slice(&[
+            self.index_offset,
+            self.index_offset + 1,
+            self.index_offset + 2,
+            self.index_offset,
+            self.index_offset + 2,
+            self.index_offset + 3,
+        ]);
+        self.index_offset += 4;
+    }
+
+    fn add_face_from_indices(
+        &mut self,
+        all_verts: &[Vec3],
+        v1: usize,
+        v2: usize,
+        v3: usize,
+        v4: usize,
+        norm: Vec3,
+        uvs: &[Vec2; 4],
+        offset: Vec3,
+        color: Color,
+    ) {
+        self.check_flush(4);
+        let normal_vec4 = vec4(norm.x, norm.y, norm.z, 0.0);
+        let color_bytes: [u8; 4] = color.into();
+        let indices_lookup = [v1, v2, v3, v4];
+
+        for i in 0..4 {
+            self.vertices.push(Vertex {
+                position: all_verts[indices_lookup[i]] + offset,
                 normal: normal_vec4,
-                uv: tex_coords[1],
-                color: color_array,
+                uv: uvs[i],
+                color: color_bytes,
             });
-            vertices_data.push(macroquad::models::Vertex {
-                position: vertices[v3_idx],
-                normal: normal_vec4,
-                uv: tex_coords[2],
-                color: color_array,
-            });
-            vertices_data.push(macroquad::models::Vertex {
-                position: vertices[v4_idx],
-                normal: normal_vec4,
-                uv: tex_coords[3],
-                color: color_array,
-            });
-
-            // Add indices for the two triangles that make up the face.
-            indices.push(base_idx);
-            indices.push(base_idx + 1);
-            indices.push(base_idx + 2);
-
-            indices.push(base_idx);
-            indices.push(base_idx + 2);
-            indices.push(base_idx + 3);
-        };
-
-    // Front face (0,1,2,3).
-    add_face(0, 1, 2, 3, vec3(0.0, 0.0, 1.0));
-
-    // Back face (5,4,7,6).
-    add_face(5, 4, 7, 6, vec3(0.0, 0.0, -1.0));
-
-    // Right face (1,5,6,2).
-    add_face(1, 5, 6, 2, vec3(1.0, 0.0, 0.0));
-
-    // Left face (4,0,3,7).
-    add_face(4, 0, 3, 7, vec3(-1.0, 0.0, 0.0));
-
-    // Top face (3,2,6,7).
-    add_face(3, 2, 6, 7, vec3(0.0, 1.0, 0.0));
-
-    // Bottom face (4,5,1,0).
-    add_face(4, 5, 1, 0, vec3(0.0, -1.0, 0.0));
-
-    let mesh = Mesh {
-        vertices: vertices_data,
-        indices,
-        texture: Some(texture.clone()),
-    };
-
-    draw_mesh(&mesh);
+        }
+        self.indices.extend_from_slice(&[
+            self.index_offset,
+            self.index_offset + 1,
+            self.index_offset + 2,
+            self.index_offset,
+            self.index_offset + 2,
+            self.index_offset + 3,
+        ]);
+        self.index_offset += 4;
+    }
 }

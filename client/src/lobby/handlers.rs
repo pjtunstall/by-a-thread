@@ -18,6 +18,7 @@ pub async fn update(runner: &mut ClientRunner) {
         &mut runner.session,
         &mut runner.ui,
         &mut network_handle,
+        Some(&runner.assets),
         is_host,
     )
     .await

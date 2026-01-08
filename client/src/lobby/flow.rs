@@ -1,6 +1,7 @@
 use macroquad::prelude::*;
 
 use crate::{
+    assets::Assets,
     lobby::handlers,
     net::RenetNetworkHandle,
     session::ClientSession,
@@ -17,6 +18,7 @@ pub async fn update(
     session: &mut ClientSession,
     ui: &mut dyn crate::lobby::ui::LobbyUi,
     network_handle: &mut RenetNetworkHandle<'_>,
+    assets: Option<&Assets>,
     is_host: bool,
 ) -> LobbyStep {
     if session.state().is_disconnected() {
@@ -41,7 +43,7 @@ pub async fn update(
         return LobbyStep::StartGame;
     }
 
-    if let Some(next_state) = transition(session, ui, network_handle) {
+    if let Some(next_state) = transition(session, ui, network_handle, assets) {
         return LobbyStep::Transition(next_state);
     }
 
@@ -63,6 +65,7 @@ fn transition(
     session: &mut ClientSession,
     ui: &mut dyn crate::lobby::ui::LobbyUi,
     network_handle: &mut RenetNetworkHandle<'_>,
+    assets: Option<&Assets>,
 ) -> Option<ClientState> {
     match session.state() {
         ClientState::Lobby(Lobby::Startup { .. }) => handlers::startup::handle(session, ui),
@@ -85,7 +88,7 @@ fn transition(
             handlers::difficulty::handle(session, ui, network_handle)
         }
         ClientState::Lobby(Lobby::Countdown { .. }) => {
-            handlers::countdown::handle(session, ui, network_handle)
+            handlers::countdown::handle(session, ui, network_handle, assets)
         }
         ClientState::Disconnected { .. } => None,
         ClientState::Game(_) => None,

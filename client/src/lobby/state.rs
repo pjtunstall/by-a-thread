@@ -1,3 +1,4 @@
+use crate::game::world::maze::MazeMeshes;
 use common::{auth::Passcode, snapshot::InitialData};
 
 #[derive(Debug)]
@@ -24,6 +25,7 @@ pub enum Lobby {
     Countdown {
         end_time: f64,
         game_data: InitialData,
+        maze_meshes: Option<MazeMeshes>,
     },
     ChoosingDifficulty {
         prompt_printed: bool,

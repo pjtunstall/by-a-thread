@@ -20,15 +20,14 @@ use crate::{
 };
 use common::{self, player::Player};
 
-#[derive(Debug)]
 pub struct ClientRunner {
     pub session: ClientSession,
     pub client: RenetClient,
     pub transport: NetcodeClientTransport,
     pub ui: Gui,
+    pub assets: Assets,
     last_updated: Instant,
     last_frame_dt: Duration,
-    assets: Assets,
 }
 
 impl ClientRunner {
@@ -184,12 +183,7 @@ impl ClientRunner {
                 accumulated_time += smoothed_dt;
                 continuous_sim_time += smoothed_dt;
 
-                println!(
-                    "\ncontinuous_sim_time - estimated_server_time: {:6},\naccumulated_time: {:6},\nframe_dt: {:6}",
-                    continuous_sim_time - estimated_server_time,
-                    accumulated_time,
-                    frame_dt,
-                );
+                // println!("{frame_dt}");
 
                 // A failsafe to prevent the accumulated_time from growing ever
                 // greater if we fall behind.
@@ -231,13 +225,11 @@ impl ClientRunner {
                 }
 
                 let alpha = accumulated_time / crate::time::TICK_DURATION;
-                game_state.draw(&self.assets, alpha);
+                game_state.draw(alpha);
 
                 self.session.accumulated_time = accumulated_time;
                 self.session.continuous_sim_time = continuous_sim_time;
                 self.session.sim_tick = sim_tick;
-
-                println!("accumulated_time after processing: {}", accumulated_time);
 
                 if should_transition {
                     self.session.transition(
@@ -274,13 +266,29 @@ impl ClientRunner {
             crate::time::calculate_initial_tick(self.session.estimated_server_time);
         self.last_updated = Instant::now();
 
-        let initial_data = match self.session.state_mut() {
-            ClientState::Lobby(Lobby::Countdown { game_data, .. }) => std::mem::take(game_data),
+        let (initial_data, maze_meshes) = match self.session.state_mut() {
+            ClientState::Lobby(Lobby::Countdown {
+                game_data,
+                maze_meshes,
+                ..
+            }) => (std::mem::take(game_data), maze_meshes.take()),
             other => {
                 self.ui.show_sanitized_error(&format!(
                     "Tried to start game from invalid state: {:#?}.",
                     other
                 ));
+                return Err(());
+            }
+        };
+
+        let maze_meshes = match maze_meshes {
+            Some(maze_meshes) => maze_meshes,
+            None => {
+                self.ui
+                    .show_sanitized_error("Maze meshes were not built before game start.");
+                self.session.transition(ClientState::Disconnected {
+                    message: "maze meshes were not built before game start".to_string(),
+                });
                 return Err(());
             }
         };
@@ -301,6 +309,7 @@ impl ClientRunner {
             .transition(ClientState::Game(game::state::Game::new(
                 local_player_index,
                 initial_data,
+                maze_meshes,
             )));
 
         Ok(())

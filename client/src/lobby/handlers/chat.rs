@@ -40,6 +40,7 @@ pub fn handle(
                 return Some(ClientState::Lobby(Lobby::Countdown {
                     end_time,
                     game_data,
+                    maze_meshes: None,
                 }));
             }
             Ok((ServerMessage::BeginDifficultySelection, _)) => {

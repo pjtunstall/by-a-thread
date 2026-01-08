@@ -1,6 +1,8 @@
 use bincode::{config::standard, serde::decode_from_slice};
 
 use crate::{
+    assets::Assets,
+    game::world::maze,
     lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
     net::NetworkHandle,
     session::ClientSession,
@@ -12,12 +14,32 @@ pub fn handle(
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
+    assets: Option<&Assets>,
 ) -> Option<ClientState> {
     if !matches!(session.state(), ClientState::Lobby(Lobby::Countdown { .. })) {
         panic!(
             "called countdown::handle() when state was not Countdown; current state: {:?}",
             session.state()
         );
+    }
+
+    if let (
+        Some(assets),
+        ClientState::Lobby(Lobby::Countdown {
+            game_data,
+            maze_meshes,
+            ..
+        }),
+    ) = (assets, session.state_mut())
+    {
+        if maze_meshes.is_none() {
+            let built_meshes = maze::build_maze_meshes(
+                &game_data.maze,
+                &assets.wall_texture,
+                &assets.floor_texture,
+            );
+            *maze_meshes = Some(built_meshes);
+        }
     }
 
     if network.is_disconnected() {
@@ -87,6 +109,7 @@ mod tests {
         ClientState::Lobby(Lobby::Countdown {
             end_time,
             game_data: InitialData::default(),
+            maze_meshes: None,
         })
     }
 
@@ -100,7 +123,7 @@ mod tests {
         session.estimated_server_time = 0.1;
         session.transition(countdown_state_with(0.4));
 
-        let next_state = handle(&mut session, &mut ui, &mut network);
+        let next_state = handle(&mut session, &mut ui, &mut network, None);
 
         assert!(
             next_state.is_none(),
@@ -125,7 +148,7 @@ mod tests {
         session.estimated_server_time = 10.0;
         session.transition(countdown_state_with(15.0));
 
-        let next_state = handle(&mut session, &mut ui, &mut network);
+        let next_state = handle(&mut session, &mut ui, &mut network, None);
 
         assert!(next_state.is_none());
         assert!(matches!(
@@ -147,7 +170,7 @@ mod tests {
         session.estimated_server_time = 13.5;
         session.transition(countdown_state_with(15.0));
 
-        let next_state = handle(&mut session, &mut ui, &mut network);
+        let next_state = handle(&mut session, &mut ui, &mut network, None);
 
         assert!(next_state.is_none());
         assert_eq!(ui.countdown_draws.len(), 1);
@@ -167,7 +190,7 @@ mod tests {
         session.estimated_server_time = 10.0;
         session.transition(countdown_state_with(9.0));
 
-        let next_state = handle(&mut session, &mut ui, &mut network);
+        let next_state = handle(&mut session, &mut ui, &mut network, None);
 
         assert!(next_state.is_none());
     }
@@ -182,7 +205,7 @@ mod tests {
         session.transition(countdown_state_with(15.0));
         network.set_disconnected(true, "Server hung up.");
 
-        let next_state = handle(&mut session, &mut ui, &mut network);
+        let next_state = handle(&mut session, &mut ui, &mut network, None);
 
         assert!(next_state.is_some());
         if let Some(ClientState::Disconnected { message }) = next_state {
