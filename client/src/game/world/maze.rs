@@ -64,7 +64,7 @@ pub fn build_maze_meshes(
     wall_texture: &Texture2D,
     floor_texture: &Texture2D,
 ) -> MazeMeshes {
-    println!("Building Maze Meshes...");
+    println!("Building maze meshes...");
     let height = maze.grid.len();
     let width = if height > 0 { maze.grid[0].len() } else { 0 };
 
@@ -209,7 +209,7 @@ impl MeshBuilder {
         }
 
         println!(
-            "{} Chunk Created: {} vertices",
+            "{} chunk created: {} vertices",
             self.name,
             self.vertices.len()
         );
