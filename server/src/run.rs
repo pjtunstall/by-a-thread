@@ -3,7 +3,7 @@ use std::{
     io::stdout,
     net::{SocketAddr, UdpSocket},
     thread,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use bincode::{config::standard, serde::encode_to_vec};
@@ -23,7 +23,7 @@ use crate::{
 use common::{
     self,
     auth::Passcode,
-    constants::{BROADCAST_PER_MILLIS, TICK_MICROS},
+    constants::{BROADCAST_INTERVAL, IDEAL_TICK_DURATION},
     net::AppChannel,
     protocol::{GAME_ALREADY_STARTED_MESSAGE, ServerMessage},
     time,
@@ -61,9 +61,6 @@ fn server_loop(
 ) {
     let mut last_updated = Instant::now();
     let mut last_sync_time = Instant::now();
-    let sync_interval = Duration::from_millis(BROADCAST_PER_MILLIS);
-
-    let target_tick_duration = Duration::from_micros(TICK_MICROS);
 
     loop {
         let now = Instant::now();
@@ -77,7 +74,7 @@ fn server_loop(
 
         let mut network_handle = RenetServerNetworkHandle { server };
 
-        if now.duration_since(last_sync_time) > sync_interval {
+        if now.duration_since(last_sync_time) > BROADCAST_INTERVAL {
             sync_clocks(&mut network_handle);
             last_sync_time = now;
         }
@@ -87,8 +84,8 @@ fn server_loop(
         transport.send_packets(server);
 
         let elapsed = Instant::now() - last_updated;
-        if elapsed < target_tick_duration {
-            thread::sleep(target_tick_duration - elapsed);
+        if elapsed < IDEAL_TICK_DURATION {
+            thread::sleep(IDEAL_TICK_DURATION - elapsed);
         }
     }
 }
