@@ -8,7 +8,8 @@ use bincode::{config::standard, serde::decode_from_slice};
 use crate::{net::ServerNetworkHandle, player::ServerPlayer, state::Game};
 use common::{net::AppChannel, protocol::ClientMessage};
 
-const MAX_INPUTS_PER_TICK: u8 = 128;
+const MAX_INPUTS_PER_CLIENT_PER_TICK: u8 = 128;
+// On how many ticks has the client exceeded their maximum.
 const MAX_OVER_CAP_STRIKES: u8 = 8;
 
 pub fn receive_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
@@ -64,14 +65,14 @@ pub fn receive_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
             let message = match decode_message(&data) {
                 Ok(message) => message,
                 Err(error) => {
-                    eprintln!("{}", error.message(client_id, &player.name));
+                    println!("{}", error.message(client_id, &player.name));
                     network.disconnect(client_id);
                     break;
                 }
             };
 
             if let Err(error) = handle_message(player, message) {
-                eprintln!("{}", error.message(client_id, &player.name));
+                println!("{}", error.message(client_id, &player.name));
                 network.disconnect(client_id);
                 break;
             }
@@ -103,10 +104,10 @@ impl InputCapEvent {
     fn message(&self, client_id: u64, player_name: &str) -> String {
         match self {
             InputCapEvent::OverLimit { .. } => format!(
-                "client {client_id} ({player_name}) exceeded the per-tick message limit; discarding further messages this tick"
+                "Client {client_id} ({player_name}) exceeded the per-tick message limit; discarding further messages this tick."
             ),
             InputCapEvent::Disconnected => format!(
-                "client {client_id} ({player_name}) repeatedly exceeded the message limit; disconnecting them"
+                "Client {client_id} ({player_name}) repeatedly exceeded the message limit; disconnecting them."
             ),
         }
     }
@@ -121,7 +122,7 @@ impl TimeBudgetEvent {
     fn message(&self) -> &'static str {
         match self {
             TimeBudgetEvent::Exceeded => {
-                "network budget exceeded; deferring collection of any further messages till the next tick"
+                "Time budget exceeded; deferring collection of any further messages till the next tick."
             }
         }
     }
@@ -135,7 +136,7 @@ enum InputError {
 
 impl InputError {
     fn message(&self, client_id: u64, player_name: &str) -> String {
-        format!("client {client_id} ({player_name}) {self}; disconnecting them")
+        format!("Client {client_id} ({player_name}) {self}; disconnecting them.")
     }
 }
 
@@ -171,7 +172,7 @@ fn apply_input_cap(
     messages_received: &mut u8,
     over_cap_recorded: &mut bool,
 ) -> InputCapOutcome {
-    if *messages_received >= MAX_INPUTS_PER_TICK {
+    if *messages_received >= MAX_INPUTS_PER_CLIENT_PER_TICK {
         let mut event = None;
         if !*over_cap_recorded {
             *over_cap_recorded = true;
