@@ -159,7 +159,7 @@ impl ClientRunner {
 
         match &mut self.session.state {
             ClientState::Game(game_state) => {
-                if let Some(next_state) = Self::run_ticks(
+                if let Some(next_state) = Self::run_frame(
                     &mut self.session.clock,
                     game_state,
                     &mut self.client,
@@ -234,7 +234,7 @@ impl ClientRunner {
         Ok(())
     }
 
-    fn run_ticks(
+    fn run_frame(
         clock: &mut Clock,
         game_state: &mut game::state::Game,
         client: &mut RenetClient,
