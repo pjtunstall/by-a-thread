@@ -205,8 +205,7 @@ impl ClientRunner {
                     sim_tick += 1;
                     ticks_processed += 1;
 
-                    // If we hit the limit, we need to discard the backlog to
-                    // stop a spiral.
+                    // If at the limit, discard the backlog to stop a spiral.
                     if ticks_processed >= MAX_TICKS_PER_FRAME {
                         let ticks_to_skip =
                             (accumulated_time / crate::time::TICK_DURATION).floor() as u64;
@@ -218,7 +217,7 @@ impl ClientRunner {
                             accumulated_time -= ticks_to_skip as f64 * crate::time::TICK_DURATION;
 
                             println!(
-                                "Death spiral: Skipped {} ticks to realign clock. Current `sim_tick`: {}",
+                                "Death spiral: skipped {} ticks to realign clock. Current `sim_tick`: {}",
                                 ticks_to_skip, sim_tick
                             );
                         }
@@ -282,8 +281,7 @@ impl ClientRunner {
             }
         };
 
-        let maze_meshes =
-            maze_meshes.expect("maze meshes should be built during countdown");
+        let maze_meshes = maze_meshes.expect("maze meshes should be built during countdown");
 
         let Some(local_player_index) = initial_data
             .players
