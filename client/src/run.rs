@@ -17,6 +17,7 @@ use crate::{
     net::{self, DisconnectKind, RenetNetworkHandle},
     session::{ClientSession, Clock},
     state::{ClientState, Lobby},
+    time::TICK_DURATION,
 };
 use common::{self, player::Player};
 
@@ -27,7 +28,7 @@ pub struct ClientRunner {
     pub ui: Gui,
     pub assets: Assets,
     last_updated: Instant,
-    last_frame_dt: Duration,
+    frame_dt: Duration,
 }
 
 impl ClientRunner {
@@ -66,7 +67,7 @@ impl ClientRunner {
             transport,
             ui,
             last_updated: Instant::now(),
-            last_frame_dt: Duration::ZERO,
+            frame_dt: Duration::ZERO,
             assets,
         })
     }
@@ -78,7 +79,7 @@ impl ClientRunner {
 
         let now = Instant::now();
         let dt = now - self.last_updated;
-        self.last_frame_dt = dt;
+        self.frame_dt = dt;
         // let unix_now = SystemTime::now()
         //     .duration_since(UNIX_EPOCH)
         //     .expect("time went backwards")
@@ -159,14 +160,23 @@ impl ClientRunner {
 
         match &mut self.session.state {
             ClientState::Game(game_state) => {
-                if let Some(next_state) = Self::run_frame(
+                let mut network_handle =
+                    RenetNetworkHandle::new(&mut self.client, &mut self.transport);
+
+                Self::adjust_game_clock(&mut self.session.clock, self.frame_dt);
+
+                match Self::advance_simulation(
                     &mut self.session.clock,
+                    &mut network_handle,
                     game_state,
-                    &mut self.client,
-                    &mut self.transport,
-                    self.last_frame_dt,
                 ) {
-                    self.session.transition(next_state);
+                    Some(next_state) => {
+                        self.session.transition(next_state);
+                    }
+                    _ => {
+                        let alpha = self.session.clock.accumulated_time / TICK_DURATION;
+                        game_state.draw(alpha);
+                    }
                 }
             }
             // TODO: Following the pattern of the game handler, pass inner state to each
@@ -234,28 +244,27 @@ impl ClientRunner {
         Ok(())
     }
 
-    fn run_frame(
-        clock: &mut Clock,
-        game_state: &mut game::state::Game,
-        client: &mut RenetClient,
-        transport: &mut NetcodeClientTransport,
-        last_frame_dt: Duration,
-    ) -> Option<ClientState> {
-        let mut network_handle = RenetNetworkHandle::new(client, transport);
-
+    fn adjust_game_clock(clock: &mut Clock, frame_dt: Duration) {
         let target_time =
             crate::time::calculate_target_time(clock.smoothed_rtt, clock.estimated_server_time);
-        let frame_dt = last_frame_dt
+        let frame_dt_secs = frame_dt
             .as_secs_f64()
             // Clamp to avoid huge jumps if a frame stalls.
             .min(0.25);
-        let smoothed_dt = crate::time::smooth_dt(clock.continuous_sim_time, target_time, frame_dt);
+        let smoothed_dt =
+            crate::time::smooth_dt(clock.continuous_sim_time, target_time, frame_dt_secs);
 
         clock.accumulated_time += smoothed_dt;
         clock.continuous_sim_time += smoothed_dt;
 
-        println!("{frame_dt}");
+        println!("{frame_dt_secs}");
+    }
 
+    fn advance_simulation(
+        clock: &mut Clock,
+        network_handle: &mut RenetNetworkHandle<'_>,
+        game_state: &mut game::state::Game,
+    ) -> Option<ClientState> {
         let mut transition = None;
 
         // A failsafe to prevent the accumulated_time from growing ever
@@ -266,7 +275,7 @@ impl ClientRunner {
         while clock.accumulated_time >= crate::time::TICK_DURATION
             && ticks_processed < MAX_TICKS_PER_FRAME
         {
-            game_state.input(&mut network_handle, clock.sim_tick);
+            game_state.input(network_handle, clock.sim_tick);
             transition = game_state.update();
 
             clock.accumulated_time -= crate::time::TICK_DURATION;
@@ -291,9 +300,6 @@ impl ClientRunner {
                 }
             }
         }
-
-        let alpha = clock.accumulated_time / crate::time::TICK_DURATION;
-        game_state.draw(alpha);
 
         transition
     }
