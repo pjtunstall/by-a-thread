@@ -25,7 +25,11 @@ pub const TICK_DURATION: f64 = 1.0 / TICK_RATE;
 // If inputs arrive late on the server, increase this.
 const JITTER_SAFETY_MARGIN: f64 = 0.05; // Consider raising to 4 ticks?
 
-pub fn update_clock(session: &mut ClientSession, network: &mut RenetNetworkHandle, dt: Duration) {
+pub fn estimate_server_clock(
+    session: &mut ClientSession,
+    network: &mut RenetNetworkHandle,
+    dt: Duration,
+) {
     // Always advance time by the frame delta.
     // This keeps the game smooth between network packets.
     session.clock.estimated_server_time += dt.as_secs_f64();

@@ -101,7 +101,7 @@ impl ClientRunner {
 
         {
             let mut network_handle = RenetNetworkHandle::new(&mut self.client, &mut self.transport);
-            crate::time::update_clock(&mut self.session, &mut network_handle, dt);
+            crate::time::estimate_server_clock(&mut self.session, &mut network_handle, dt);
         }
 
         if let Err(e) = self.transport.send_packets(&mut self.client) {
@@ -160,11 +160,10 @@ impl ClientRunner {
 
         match &mut self.session.state {
             ClientState::Game(game_state) => {
+                Self::update_simulation_clock(&mut self.session.clock, self.frame_dt);
+
                 let mut network_handle =
                     RenetNetworkHandle::new(&mut self.client, &mut self.transport);
-
-                Self::adjust_game_clock(&mut self.session.clock, self.frame_dt);
-
                 match Self::advance_simulation(
                     &mut self.session.clock,
                     &mut network_handle,
@@ -244,7 +243,7 @@ impl ClientRunner {
         Ok(())
     }
 
-    fn adjust_game_clock(clock: &mut Clock, frame_dt: Duration) {
+    fn update_simulation_clock(clock: &mut Clock, frame_dt: Duration) {
         let target_time =
             crate::time::calculate_target_time(clock.smoothed_rtt, clock.estimated_server_time);
         let frame_dt_secs = frame_dt
