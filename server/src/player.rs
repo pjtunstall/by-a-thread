@@ -19,7 +19,7 @@ pub struct ServerPlayer {
 }
 
 impl ServerPlayer {
-    pub fn new(player: Player) -> Self {
+    pub fn new(player: Player, current_tick: u64) -> Self {
         let status = if player.disconnected {
             Status::Disconnected
         } else {
@@ -35,7 +35,7 @@ impl ServerPlayer {
             client_id: player.client_id,
             last_processed_tick: 0,
             last_input: None,
-            input_buffer: NetworkBuffer::new(),
+            input_buffer: NetworkBuffer::new(current_tick, current_tick),
             over_cap_strikes: 0,
         }
     }

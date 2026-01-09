@@ -26,6 +26,7 @@ pub struct Game {
 
 impl Game {
     pub fn new(initial_data: InitialData) -> Self {
+        let current_tick = (common::time::now_as_secs_f64() / TICK_SECS) as u64;
         let maze = initial_data.maze;
         let mut client_id_to_index = HashMap::new();
         let players = initial_data
@@ -33,10 +34,9 @@ impl Game {
             .into_iter()
             .map(|player| {
                 client_id_to_index.insert(player.client_id, player.index);
-                ServerPlayer::new(player)
+                ServerPlayer::new(player, current_tick)
             })
             .collect();
-        let current_tick = (common::time::now_as_secs_f64() / TICK_SECS) as u64;
 
         Self {
             maze,

@@ -73,11 +73,11 @@ impl<T, const N: usize> NetworkBuffer<T, N>
 where
     T: Clone + Default + PartialEq + Eq,
 {
-    pub fn new() -> Self {
+    pub fn new(head: u64, tail: u64) -> Self {
         Self {
             ring: Ring::<T, N>::new(),
-            head: 0,
-            tail: 0,
+            head,
+            tail,
         }
     }
 
@@ -157,7 +157,7 @@ mod tests {
 
     #[test]
     fn network_buffer_does_not_overwrite_with_older_tick_at_same_index() {
-        let mut buffer = NetworkBuffer::<u32, 8>::new();
+        let mut buffer = NetworkBuffer::<u32, 8>::new(0, 0);
 
         buffer.insert(WireItem { id: 2, data: 1 });
         buffer.insert(WireItem { id: 10, data: 2 });
@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     fn network_buffer_replaces_slot_with_newer_tick() {
-        let mut buffer = NetworkBuffer::<u32, 8>::new();
+        let mut buffer = NetworkBuffer::<u32, 8>::new(0, 0);
 
         buffer.insert(WireItem { id: 1, data: 1 });
         buffer.insert(WireItem { id: 9, data: 2 });
@@ -183,7 +183,7 @@ mod tests {
 
     #[test]
     fn network_buffer_drops_ticks_at_or_before_tail() {
-        let mut buffer = NetworkBuffer::<u32, 8>::new();
+        let mut buffer = NetworkBuffer::<u32, 8>::new(0, 0);
 
         buffer.insert(WireItem { id: 12, data: 99 });
         buffer.advance_tail(12);
@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn extend_handles_wraparound_and_overflow() {
-        let mut buffer = NetworkBuffer::<u8, 8>::new();
+        let mut buffer = NetworkBuffer::<u8, 8>::new(0, 0);
 
         buffer.head = 65_000;
         assert_eq!(buffer.extend(64_000), Some(64_000));
