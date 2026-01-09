@@ -10,6 +10,8 @@ use crate::{
 };
 
 pub const MAX_USERNAME_LENGTH: usize = 16;
+pub const MAX_INPUTS_PER_TICK: u8 = 8;
+pub const MAX_OVER_CAP_STRIKES: u8 = 8;
 
 // TODO: Consider changing to `f64` for simulation, and converting to `f32` to
 // send and to render.

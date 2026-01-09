@@ -15,6 +15,7 @@ pub struct ServerPlayer {
     pub state: PlayerState,
     pub color: Color,
     pub status: Status,
+    pub over_cap_strikes: u8,
 }
 
 impl ServerPlayer {
@@ -35,6 +36,7 @@ impl ServerPlayer {
             last_processed_tick: 0,
             last_input: None,
             input_buffer: NetworkBuffer::new(),
+            over_cap_strikes: 0,
         }
     }
 }
