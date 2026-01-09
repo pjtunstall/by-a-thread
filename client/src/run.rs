@@ -180,22 +180,23 @@ impl ClientRunner {
 
                 println!("{frame_dt}");
 
+                // We won't be able to call `self.session.transition` directly
+                // while its fields `state` and `clock` are mutably borrowed, so
+                // instead we record whether a there's to be a transition, and
+                // call `self.session.transition` at the end of this `match`
+                // arm, after the borrows are released.
+                let mut transition = None;
+
                 // A failsafe to prevent the accumulated_time from growing ever
                 // greater if we fall behind.
                 const MAX_TICKS_PER_FRAME: u8 = 8;
                 let mut ticks_processed = 0;
-                let mut should_transition = false;
-                let mut next_state_option = None;
+
                 while clock.accumulated_time >= crate::time::TICK_DURATION
                     && ticks_processed < MAX_TICKS_PER_FRAME
                 {
-                    if let Some(next_state) =
-                        game::handlers::handle(game_state, &mut network_handle, clock.sim_tick)
-                    {
-                        should_transition = true;
-                        next_state_option = Some(next_state);
-                        break;
-                    }
+                    game_state.input(&mut network_handle, clock.sim_tick);
+                    transition = game_state.update();
 
                     clock.accumulated_time -= crate::time::TICK_DURATION;
                     clock.sim_tick += 1;
@@ -224,11 +225,8 @@ impl ClientRunner {
                 let alpha = clock.accumulated_time / crate::time::TICK_DURATION;
                 game_state.draw(alpha);
 
-                if should_transition {
-                    self.session.transition(
-                        next_state_option
-                            .expect("should be a `next_state` `should_transition` from game"),
-                    );
+                if let Some(next_state) = transition {
+                    self.session.transition(next_state);
                 }
             }
             // TODO: Following the pattern of the game handler, pass inner state to each

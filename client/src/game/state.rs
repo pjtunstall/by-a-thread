@@ -1,13 +1,24 @@
 use std::fmt;
 
+use bincode::{config::standard, serde::encode_to_vec};
 use macroquad::{color, prelude::*, window::clear_background};
 
-use crate::game::world::maze::{MazeExtension, MazeMeshes};
+use crate::{
+    game::{
+        input::player_input_from_keys,
+        world::maze::{MazeExtension, MazeMeshes},
+    },
+    net::NetworkHandle,
+    state::ClientState,
+};
 use common::{
     constants::INPUT_HISTORY_LENGTH,
     maze::Maze,
+    net::AppChannel,
     player::{Player, PlayerInput},
+    protocol::ClientMessage,
     ring::Ring,
+    ring::WireItem,
     snapshot::InitialData,
 };
 
@@ -35,8 +46,24 @@ impl Game {
         }
     }
 
-    pub fn update(&mut self) {
+    pub fn input(&mut self, network: &mut dyn NetworkHandle, sim_tick: u64) {
+        let wire_tick: u16 = sim_tick as u16;
+        let input = player_input_from_keys(sim_tick);
+        let wire_input = WireItem {
+            id: wire_tick,
+            data: input,
+        };
+        let client_message = ClientMessage::Input(wire_input);
+        let payload =
+            encode_to_vec(&client_message, standard()).expect("failed to encode player input");
+        network.send_message(AppChannel::Unreliable, payload);
+        self.input_history.insert(sim_tick, input);
+        // println!("{:?}", client_message);
+    }
+
+    pub fn update(&mut self) -> Option<ClientState> {
         // TODO: Reconciliation and prediction.
+        None
     }
 
     pub fn draw(&self, _alpha: f64) {
