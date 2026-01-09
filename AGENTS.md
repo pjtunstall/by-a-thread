@@ -61,7 +61,7 @@ runner
 
 ## Comments
 
-Comments should follow normal English punctuation: `// Like this.` not `// Like this`.
+Comments should follow normal English punctuation: `// Like this.` not `// Like this`, except perhaps for single words or numbers.
 
 ## Naming
 
