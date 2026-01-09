@@ -11,8 +11,7 @@ use common::{net::AppChannel, protocol::ClientMessage};
 const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
 
 // TODO:
-// - Have the client calculate a suitable target tick, then let the server
-//   advance increment its tick with `saturating_add`.
+// - Have the server increment its tick.
 // - Process inputs for current tick.
 // - Send customized snapshot to each player.
 // (See also the `Game` struct in `server/src/state.rs`.)

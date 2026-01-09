@@ -9,7 +9,7 @@ use crate::{
     net::{NetworkHandle, RenetNetworkHandle},
     session::{ClientSession, ClockSample},
 };
-use common::{net::AppChannel, protocol::ServerMessage};
+use common::{constants::TICK_SECS, net::AppChannel, protocol::ServerMessage};
 
 const SAMPLE_WINDOW_SIZE: usize = 30;
 const HARD_SNAP_THRESHOLD: f64 = 1.0;
@@ -19,8 +19,6 @@ const DEADZONE_THRESHOLD: f64 = 0.002;
 const RTT_ALPHA_SPIKE: f64 = 0.1;
 const RTT_ALPHA_IMPROVEMENT: f64 = 0.01;
 
-const TICK_RATE: f64 = 60.0;
-pub const TICK_DURATION: f64 = 1.0 / TICK_RATE;
 // Three ticks (50ms) is probably a safe starting buffer.
 // If inputs arrive late on the server, increase this.
 const JITTER_SAFETY_MARGIN: f64 = 0.05; // Consider raising to 4 ticks?
@@ -128,12 +126,12 @@ pub fn calculate_target_time(smoothed_rtt: f64, estimated_server_time: f64) -> f
 }
 
 pub fn calculate_target_tick(target_time: f64) -> u64 {
-    (target_time / TICK_DURATION).floor() as u64
+    (target_time / TICK_SECS).floor() as u64
 }
 
 // TODO: Decide: is this necessary? Of so, is it correct?
 pub fn calculate_initial_tick(estimated_server_time: f64) -> u64 {
-    (estimated_server_time / TICK_DURATION).floor() as u64
+    (estimated_server_time / TICK_SECS).floor() as u64
 }
 
 // Returns (accumulated_time, simulated_time).

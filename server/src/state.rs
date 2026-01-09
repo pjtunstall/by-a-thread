@@ -10,6 +10,7 @@ use crate::{
     player::{ServerPlayer, Status},
 };
 use common::{
+    constants::TICK_SECS,
     maze::Maze,
     net::AppChannel,
     protocol::{GAME_ALREADY_STARTED_MESSAGE, ServerMessage},
@@ -20,6 +21,7 @@ pub struct Game {
     pub maze: Maze,
     pub players: Vec<ServerPlayer>,
     pub client_id_to_index: HashMap<u64, usize>,
+    pub current_tick: u64,
 }
 
 impl Game {
@@ -34,11 +36,13 @@ impl Game {
                 ServerPlayer::new(player)
             })
             .collect();
+        let current_tick = (common::time::now_as_secs_f64() / TICK_SECS) as u64;
 
         Self {
             maze,
             players,
             client_id_to_index,
+            current_tick,
         }
     }
 

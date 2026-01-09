@@ -17,9 +17,8 @@ use crate::{
     net::{self, DisconnectKind, RenetNetworkHandle},
     session::{ClientSession, Clock},
     state::{ClientState, Lobby},
-    time::TICK_DURATION,
 };
-use common::{self, player::Player};
+use common::{self, constants::TICK_SECS, player::Player};
 
 pub struct ClientRunner {
     pub session: ClientSession,
@@ -173,7 +172,7 @@ impl ClientRunner {
                         self.session.transition(next_state);
                     }
                     _ => {
-                        let alpha = self.session.clock.accumulated_time / TICK_DURATION;
+                        let alpha = self.session.clock.accumulated_time / TICK_SECS;
                         game_state.draw(alpha);
                     }
                 }
@@ -271,26 +270,23 @@ impl ClientRunner {
         const MAX_TICKS_PER_FRAME: u8 = 8;
         let mut ticks_processed = 0;
 
-        while clock.accumulated_time >= crate::time::TICK_DURATION
-            && ticks_processed < MAX_TICKS_PER_FRAME
-        {
+        while clock.accumulated_time >= TICK_SECS && ticks_processed < MAX_TICKS_PER_FRAME {
             game_state.input(network_handle, clock.sim_tick);
             transition = game_state.update();
 
-            clock.accumulated_time -= crate::time::TICK_DURATION;
+            clock.accumulated_time -= TICK_SECS;
             clock.sim_tick += 1;
             ticks_processed += 1;
 
             // If at the limit, discard the backlog to stop a spiral.
             if ticks_processed >= MAX_TICKS_PER_FRAME {
-                let ticks_to_skip =
-                    (clock.accumulated_time / crate::time::TICK_DURATION).floor() as u64;
+                let ticks_to_skip = (clock.accumulated_time / TICK_SECS).floor() as u64;
 
                 if ticks_to_skip > 0 {
                     clock.sim_tick += ticks_to_skip;
 
                     // Keep the fractional remainder for smoothness.
-                    clock.accumulated_time -= ticks_to_skip as f64 * crate::time::TICK_DURATION;
+                    clock.accumulated_time -= ticks_to_skip as f64 * TICK_SECS;
 
                     println!(
                         "Death spiral: skipped {} ticks to realign clock. Current `sim_tick`: {}",

@@ -5,11 +5,14 @@ use serde::{Deserialize, Serialize};
 use strum::{Display, IntoStaticStr};
 
 use crate::{
-    constants::TICK_SECS,
+    constants::TICK_SECS_F32,
     maze::{self, Maze},
 };
 
 pub const MAX_USERNAME_LENGTH: usize = 16;
+
+// TODO: Consider changing to `f64` for simulation, and converting to `f32` to
+// send and to render.
 
 pub const HEIGHT: f32 = 24.0; // Height of the player's eye level from the ground.
 pub const RADIUS: f32 = 8.0;
@@ -108,11 +111,11 @@ impl Player {
             move_wish = move_wish.normalize();
         }
 
-        self.state.velocity += move_wish * ACCELERATION * TICK_SECS;
+        self.state.velocity += move_wish * ACCELERATION * TICK_SECS_F32;
 
         let current_speed = self.state.velocity.length();
         if current_speed > 0.0 {
-            let drop = current_speed * FRICTION * TICK_SECS;
+            let drop = current_speed * FRICTION * TICK_SECS_F32;
             let new_speed = (current_speed - drop).max(0.0);
 
             if current_speed > MAX_SPEED {
@@ -134,7 +137,7 @@ impl Player {
         }
 
         let p = self.state.position;
-        let move_step = self.state.velocity * TICK_SECS;
+        let move_step = self.state.velocity * TICK_SECS_F32;
         let new_position = p + move_step;
 
         let contact_point = p + self.state.velocity.normalize() * RADIUS;
@@ -149,21 +152,21 @@ impl Player {
             if is_moving_forward {
                 self.state.yaw_velocity = 0.0;
                 let turn_direction = maze::which_way_to_turn(&p, &contact_point);
-                self.state.yaw += MAX_ROTATION_SPEED * turn_direction * TICK_SECS;
+                self.state.yaw += MAX_ROTATION_SPEED * turn_direction * TICK_SECS_F32;
             }
         }
     }
 
     #[inline(always)]
     fn apply_axis_rotation(angle: &mut f32, velocity: &mut f32, wish: f32) {
-        *velocity += wish * ROTATION_ACCELERATION * TICK_SECS;
+        *velocity += wish * ROTATION_ACCELERATION * TICK_SECS_F32;
 
         let speed = (*velocity).abs();
         if speed > 0.001 {
             if speed > MAX_ROTATION_SPEED {
                 *velocity = velocity.signum() * MAX_ROTATION_SPEED;
             } else {
-                let drop = speed * ROTATION_FRICTION * TICK_SECS;
+                let drop = speed * ROTATION_FRICTION * TICK_SECS_F32;
                 let new_speed = (speed - drop).max(0.0);
                 *velocity *= new_speed / speed;
             }
@@ -171,7 +174,7 @@ impl Player {
             *velocity = 0.0;
         }
 
-        *angle += *velocity * TICK_SECS;
+        *angle += *velocity * TICK_SECS_F32;
     }
 }
 
