@@ -15,7 +15,7 @@ use crate::{
         ui::{Gui, LobbyUi},
     },
     net::{self, DisconnectKind, RenetNetworkHandle},
-    session::ClientSession,
+    session::{ClientSession, Clock},
     state::{ClientState, Lobby},
 };
 use common::{self, player::Player};
@@ -159,73 +159,13 @@ impl ClientRunner {
 
         match &mut self.session.state {
             ClientState::Game(game_state) => {
-                let clock = &mut self.session.clock;
-                let mut network_handle =
-                    RenetNetworkHandle::new(&mut self.client, &mut self.transport);
-
-                let target_time = crate::time::calculate_target_time(
-                    clock.smoothed_rtt,
-                    clock.estimated_server_time,
-                );
-                let frame_dt = self
-                    .last_frame_dt
-                    .as_secs_f64()
-                    // Clamp to avoid huge jumps if a frame stalls.
-                    .min(0.25);
-                let smoothed_dt =
-                    crate::time::smooth_dt(clock.continuous_sim_time, target_time, frame_dt);
-
-                clock.accumulated_time += smoothed_dt;
-                clock.continuous_sim_time += smoothed_dt;
-
-                println!("{frame_dt}");
-
-                // We won't be able to call `self.session.transition` directly
-                // while its fields `state` and `clock` are mutably borrowed, so
-                // instead we record whether a there's to be a transition, and
-                // call `self.session.transition` at the end of this `match`
-                // arm, after the borrows are released.
-                let mut transition = None;
-
-                // A failsafe to prevent the accumulated_time from growing ever
-                // greater if we fall behind.
-                const MAX_TICKS_PER_FRAME: u8 = 8;
-                let mut ticks_processed = 0;
-
-                while clock.accumulated_time >= crate::time::TICK_DURATION
-                    && ticks_processed < MAX_TICKS_PER_FRAME
-                {
-                    game_state.input(&mut network_handle, clock.sim_tick);
-                    transition = game_state.update();
-
-                    clock.accumulated_time -= crate::time::TICK_DURATION;
-                    clock.sim_tick += 1;
-                    ticks_processed += 1;
-
-                    // If at the limit, discard the backlog to stop a spiral.
-                    if ticks_processed >= MAX_TICKS_PER_FRAME {
-                        let ticks_to_skip =
-                            (clock.accumulated_time / crate::time::TICK_DURATION).floor() as u64;
-
-                        if ticks_to_skip > 0 {
-                            clock.sim_tick += ticks_to_skip;
-
-                            // Keep the fractional remainder for smoothness.
-                            clock.accumulated_time -=
-                                ticks_to_skip as f64 * crate::time::TICK_DURATION;
-
-                            println!(
-                                "Death spiral: skipped {} ticks to realign clock. Current `sim_tick`: {}",
-                                ticks_to_skip, clock.sim_tick
-                            );
-                        }
-                    }
-                }
-
-                let alpha = clock.accumulated_time / crate::time::TICK_DURATION;
-                game_state.draw(alpha);
-
-                if let Some(next_state) = transition {
+                if let Some(next_state) = Self::run_ticks(
+                    &mut self.session.clock,
+                    game_state,
+                    &mut self.client,
+                    &mut self.transport,
+                    self.last_frame_dt,
+                ) {
                     self.session.transition(next_state);
                 }
             }
@@ -292,6 +232,70 @@ impl ClientRunner {
             )));
 
         Ok(())
+    }
+
+    fn run_ticks(
+        clock: &mut Clock,
+        game_state: &mut game::state::Game,
+        client: &mut RenetClient,
+        transport: &mut NetcodeClientTransport,
+        last_frame_dt: Duration,
+    ) -> Option<ClientState> {
+        let mut network_handle = RenetNetworkHandle::new(client, transport);
+
+        let target_time =
+            crate::time::calculate_target_time(clock.smoothed_rtt, clock.estimated_server_time);
+        let frame_dt = last_frame_dt
+            .as_secs_f64()
+            // Clamp to avoid huge jumps if a frame stalls.
+            .min(0.25);
+        let smoothed_dt = crate::time::smooth_dt(clock.continuous_sim_time, target_time, frame_dt);
+
+        clock.accumulated_time += smoothed_dt;
+        clock.continuous_sim_time += smoothed_dt;
+
+        println!("{frame_dt}");
+
+        let mut transition = None;
+
+        // A failsafe to prevent the accumulated_time from growing ever
+        // greater if we fall behind.
+        const MAX_TICKS_PER_FRAME: u8 = 8;
+        let mut ticks_processed = 0;
+
+        while clock.accumulated_time >= crate::time::TICK_DURATION
+            && ticks_processed < MAX_TICKS_PER_FRAME
+        {
+            game_state.input(&mut network_handle, clock.sim_tick);
+            transition = game_state.update();
+
+            clock.accumulated_time -= crate::time::TICK_DURATION;
+            clock.sim_tick += 1;
+            ticks_processed += 1;
+
+            // If at the limit, discard the backlog to stop a spiral.
+            if ticks_processed >= MAX_TICKS_PER_FRAME {
+                let ticks_to_skip =
+                    (clock.accumulated_time / crate::time::TICK_DURATION).floor() as u64;
+
+                if ticks_to_skip > 0 {
+                    clock.sim_tick += ticks_to_skip;
+
+                    // Keep the fractional remainder for smoothness.
+                    clock.accumulated_time -= ticks_to_skip as f64 * crate::time::TICK_DURATION;
+
+                    println!(
+                        "Death spiral: skipped {} ticks to realign clock. Current `sim_tick`: {}",
+                        ticks_to_skip, clock.sim_tick
+                    );
+                }
+            }
+        }
+
+        let alpha = clock.accumulated_time / crate::time::TICK_DURATION;
+        game_state.draw(alpha);
+
+        transition
     }
 }
 
