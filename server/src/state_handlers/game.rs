@@ -12,8 +12,10 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
     // TODO:
     // - Process inputs for current tick.
     // - Send customized snapshot to each player.
-    // - Have the server increment its tick.
     // (See also the `Game` struct in `server/src/state.rs`.)
+
+    state.current_tick += 1;
+    println!("{}", state.current_tick);
 
     None
 }

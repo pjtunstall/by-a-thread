@@ -190,6 +190,7 @@ impl ClientRunner {
     }
 
     pub fn start_game(&mut self) -> Result<(), ()> {
+        self.session.clock.continuous_sim_time = self.session.clock.estimated_server_time;
         self.session.clock.sim_tick =
             crate::time::calculate_initial_tick(self.session.clock.estimated_server_time);
         self.last_updated = Instant::now();
@@ -246,7 +247,8 @@ impl ClientRunner {
         clock.accumulated_time += smoothed_dt;
         clock.continuous_sim_time += smoothed_dt;
 
-        println!("{frame_dt_secs}");
+        // println!("{frame_dt_secs}");
+        println!("{}", clock.sim_tick);
     }
 
     fn advance_simulation(
