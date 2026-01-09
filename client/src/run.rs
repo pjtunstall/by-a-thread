@@ -157,32 +157,26 @@ impl ClientRunner {
             return;
         }
 
-        let smoothed_rtt = self.session.smoothed_rtt;
-        let estimated_server_time = self.session.estimated_server_time;
-        let mut accumulated_time = self.session.accumulated_time;
-        let mut continuous_sim_time = self.session.continuous_sim_time;
-        let mut sim_tick = self.session.sim_tick;
-        let frame_dt = self
-            .last_frame_dt
-            .as_secs_f64()
-            // Clamp to avoid huge jumps if a frame stalls.
-            .min(0.25);
-
-        let mut should_transition = false;
-        let mut next_state_option = None;
-
-        match self.session.state_mut() {
+        match &mut self.session.state {
             ClientState::Game(game_state) => {
+                let clock = &mut self.session.clock;
                 let mut network_handle =
                     RenetNetworkHandle::new(&mut self.client, &mut self.transport);
 
-                let target_time =
-                    crate::time::calculate_target_time(smoothed_rtt, estimated_server_time);
+                let target_time = crate::time::calculate_target_time(
+                    clock.smoothed_rtt,
+                    clock.estimated_server_time,
+                );
+                let frame_dt = self
+                    .last_frame_dt
+                    .as_secs_f64()
+                    // Clamp to avoid huge jumps if a frame stalls.
+                    .min(0.25);
                 let smoothed_dt =
-                    crate::time::smooth_dt(continuous_sim_time, target_time, frame_dt);
+                    crate::time::smooth_dt(clock.continuous_sim_time, target_time, frame_dt);
 
-                accumulated_time += smoothed_dt;
-                continuous_sim_time += smoothed_dt;
+                clock.accumulated_time += smoothed_dt;
+                clock.continuous_sim_time += smoothed_dt;
 
                 println!("{frame_dt}");
 
@@ -190,46 +184,45 @@ impl ClientRunner {
                 // greater if we fall behind.
                 const MAX_TICKS_PER_FRAME: u8 = 8;
                 let mut ticks_processed = 0;
-                while accumulated_time >= crate::time::TICK_DURATION
+                let mut should_transition = false;
+                let mut next_state_option = None;
+                while clock.accumulated_time >= crate::time::TICK_DURATION
                     && ticks_processed < MAX_TICKS_PER_FRAME
                 {
                     if let Some(next_state) =
-                        game::handlers::handle(game_state, &mut network_handle, sim_tick)
+                        game::handlers::handle(game_state, &mut network_handle, clock.sim_tick)
                     {
                         should_transition = true;
                         next_state_option = Some(next_state);
                         break;
                     }
 
-                    accumulated_time -= crate::time::TICK_DURATION;
-                    sim_tick += 1;
+                    clock.accumulated_time -= crate::time::TICK_DURATION;
+                    clock.sim_tick += 1;
                     ticks_processed += 1;
 
                     // If at the limit, discard the backlog to stop a spiral.
                     if ticks_processed >= MAX_TICKS_PER_FRAME {
                         let ticks_to_skip =
-                            (accumulated_time / crate::time::TICK_DURATION).floor() as u64;
+                            (clock.accumulated_time / crate::time::TICK_DURATION).floor() as u64;
 
                         if ticks_to_skip > 0 {
-                            sim_tick += ticks_to_skip;
+                            clock.sim_tick += ticks_to_skip;
 
                             // Keep the fractional remainder for smoothness.
-                            accumulated_time -= ticks_to_skip as f64 * crate::time::TICK_DURATION;
+                            clock.accumulated_time -=
+                                ticks_to_skip as f64 * crate::time::TICK_DURATION;
 
                             println!(
                                 "Death spiral: skipped {} ticks to realign clock. Current `sim_tick`: {}",
-                                ticks_to_skip, sim_tick
+                                ticks_to_skip, clock.sim_tick
                             );
                         }
                     }
                 }
 
-                let alpha = accumulated_time / crate::time::TICK_DURATION;
+                let alpha = clock.accumulated_time / crate::time::TICK_DURATION;
                 game_state.draw(alpha);
-
-                self.session.accumulated_time = accumulated_time;
-                self.session.continuous_sim_time = continuous_sim_time;
-                self.session.sim_tick = sim_tick;
 
                 if should_transition {
                     self.session.transition(
@@ -262,8 +255,8 @@ impl ClientRunner {
     }
 
     pub fn start_game(&mut self) -> Result<(), ()> {
-        self.session.sim_tick =
-            crate::time::calculate_initial_tick(self.session.estimated_server_time);
+        self.session.clock.sim_tick =
+            crate::time::calculate_initial_tick(self.session.clock.estimated_server_time);
         self.last_updated = Instant::now();
 
         let (initial_data, maze_meshes) = match self.session.state_mut() {

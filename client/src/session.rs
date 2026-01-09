@@ -18,12 +18,7 @@ pub struct ClientSession {
     pub client_id: u64,
     pub is_host: bool,
     pub state: ClientState,
-    pub estimated_server_time: f64,
-    pub clock_samples: VecDeque<ClockSample>,
-    pub smoothed_rtt: f64,
-    pub accumulated_time: f64,
-    pub continuous_sim_time: f64,
-    pub sim_tick: u64,
+    pub clock: Clock,
     pub input_queue: Vec<String>,
     pub local_player_index: Option<usize>,
     pub disconnected_notified: bool,
@@ -40,12 +35,7 @@ impl ClientSession {
             state: ClientState::Lobby(Lobby::Startup {
                 prompt_printed: false,
             }),
-            estimated_server_time: 0.0,
-            clock_samples: VecDeque::new(),
-            smoothed_rtt: 0.0,
-            accumulated_time: 0.0,
-            continuous_sim_time: 0.0,
-            sim_tick: 0,
+            clock: Clock::new(),
             input_queue: Vec::new(),
             local_player_index: None,
             disconnected_notified: false,
@@ -100,7 +90,7 @@ impl ClientSession {
     }
 
     pub fn is_countdown_finished(&self) -> bool {
-        matches!(self.state(), ClientState::Lobby(Lobby::Countdown { end_time, .. }) if self.estimated_server_time >= *end_time)
+        matches!(self.state(), ClientState::Lobby(Lobby::Countdown { end_time, .. }) if self.clock.estimated_server_time >= *end_time)
     }
 
     pub fn set_chat_waiting_for_server(&mut self, waiting: bool) {
@@ -266,6 +256,29 @@ impl Default for ClientState {
 pub struct InputUiState {
     pub mode: InputMode,
     pub show_waiting_message: bool,
+}
+
+#[derive(Debug)]
+pub struct Clock {
+    pub estimated_server_time: f64,
+    pub clock_samples: VecDeque<ClockSample>,
+    pub smoothed_rtt: f64,
+    pub accumulated_time: f64,
+    pub continuous_sim_time: f64,
+    pub sim_tick: u64,
+}
+
+impl Clock {
+    pub fn new() -> Self {
+        Self {
+            estimated_server_time: 0.0,
+            clock_samples: VecDeque::new(),
+            smoothed_rtt: 0.0,
+            accumulated_time: 0.0,
+            continuous_sim_time: 0.0,
+            sim_tick: 0,
+        }
+    }
 }
 
 pub fn username_prompt() -> String {

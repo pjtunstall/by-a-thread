@@ -91,7 +91,7 @@ pub fn handle(
         _ => return None,
     };
 
-    let time_remaining = end_time - session.estimated_server_time;
+    let time_remaining = end_time - session.clock.estimated_server_time;
 
     let countdown_value = if time_remaining < 0.0 {
         0
@@ -129,7 +129,7 @@ mod tests {
         let mut ui = MockUi::new();
         let mut network = MockNetwork::new();
 
-        session.estimated_server_time = 0.1;
+        session.clock.estimated_server_time = 0.1;
         session.transition(countdown_state_with(0.4));
 
         let next_state = handle(&mut session, &mut ui, &mut network, None);
@@ -154,7 +154,7 @@ mod tests {
         let mut ui = MockUi::new();
         let mut network = MockNetwork::new();
 
-        session.estimated_server_time = 10.0;
+        session.clock.estimated_server_time = 10.0;
         session.transition(countdown_state_with(15.0));
 
         let next_state = handle(&mut session, &mut ui, &mut network, None);
@@ -176,7 +176,7 @@ mod tests {
         let mut ui = MockUi::new();
         let mut network = MockNetwork::new();
 
-        session.estimated_server_time = 13.5;
+        session.clock.estimated_server_time = 13.5;
         session.transition(countdown_state_with(15.0));
 
         let next_state = handle(&mut session, &mut ui, &mut network, None);
@@ -196,7 +196,7 @@ mod tests {
         let mut ui = MockUi::new();
         let mut network = MockNetwork::new();
 
-        session.estimated_server_time = 10.0;
+        session.clock.estimated_server_time = 10.0;
         session.transition(countdown_state_with(9.0));
 
         let next_state = handle(&mut session, &mut ui, &mut network, None);
