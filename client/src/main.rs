@@ -22,7 +22,7 @@ async fn main() {
     let socket = match UdpSocket::bind("127.0.0.1:0") {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("Failed to bind client socket: {}", e);
+            eprintln!("failed to bind client socket: {}", e);
             return;
         }
     };

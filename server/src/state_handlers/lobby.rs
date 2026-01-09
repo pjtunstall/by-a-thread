@@ -36,7 +36,7 @@ pub fn handle(
         while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
             let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
                 eprintln!(
-                    "Client {} sent malformed data. Disconnecting them.",
+                    "client {} sent malformed data; disconnecting them",
                     client_id
                 );
                 network.disconnect(client_id);
@@ -46,7 +46,7 @@ pub fn handle(
             match message {
                 ClientMessage::SendPasscode(guess_bytes) => {
                     if !state.is_authenticating(client_id) {
-                        eprintln!("Client {} sent passcode in wrong state.", client_id);
+                        eprintln!("client {} sent passcode in wrong state", client_id);
                         continue;
                     }
 
@@ -90,7 +90,7 @@ pub fn handle(
                         }
                         AuthAttemptOutcome::Disconnect => {
                             eprintln!(
-                                "Client {} failed authentication. Disconnecting them.",
+                                "client {} failed authentication; disconnecting them",
                                 client_id
                             );
                             let message = ServerMessage::ServerInfo {
@@ -106,7 +106,7 @@ pub fn handle(
                 }
                 ClientMessage::SetUsername(username_text) => {
                     if !state.needs_username(client_id) {
-                        eprintln!("Client {} sent username in wrong state.", client_id);
+                        eprintln!("client {} sent username in wrong state", client_id);
                         continue;
                     }
 
@@ -196,7 +196,7 @@ pub fn handle(
                             .expect("failed to serialize ChatMessage");
                         network.broadcast_message(AppChannel::ReliableOrdered, payload);
                     } else {
-                        eprintln!("Client {} sent chat message in wrong state.", client_id);
+                        eprintln!("client {} sent chat message in wrong state", client_id);
                     }
                 }
                 ClientMessage::RequestStartGame => {
@@ -209,7 +209,7 @@ pub fn handle(
                         // 'state' and restore their input prompt. The client code should
                         // prevent a non-host client from asking to move to the difficulty
                         // choice state. This guarantees it.
-                        eprintln!("Client {}, not host, tried to start game.", client_id);
+                        eprintln!("client {} (not host) tried to start game", client_id);
                         let message = ServerMessage::DenyDifficultySelection;
                         let payload = encode_to_vec(&message, standard())
                             .expect("failed to serialize NoHost message");
@@ -218,12 +218,12 @@ pub fn handle(
                 }
                 ClientMessage::SetDifficulty(_) => {
                     eprintln!(
-                        "Client {} sent SetDifficulty in Lobby state. Ignoring.",
+                        "client {} sent SetDifficulty in lobby state; ignoring",
                         client_id
                     );
                 }
                 ClientMessage::Input(_) => {
-                    eprintln!("Client {} sent game input. Ignoring.", client_id)
+                    eprintln!("client {} sent game input; ignoring", client_id)
                 }
             }
         }

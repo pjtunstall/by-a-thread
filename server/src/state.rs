@@ -94,7 +94,7 @@ impl ServerState {
             ServerState::Lobby(lobby) => lobby.register_connection(client_id),
             _ => {
                 eprintln!(
-                    "Client {} connected, but server is not in Lobby state. Informing, then disconnecting them.",
+                    "client {} connected, but server is not in lobby state; informing, then disconnecting them",
                     client_id
                 );
 

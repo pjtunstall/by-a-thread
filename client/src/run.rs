@@ -45,7 +45,7 @@ impl ClientRunner {
             .expect("system time is before unix epoch");
         socket
             .set_nonblocking(true)
-            .map_err(|e| format!("Failed to set socket as non-blocking: {}", e))?;
+            .map_err(|e| format!("failed to set socket as non-blocking: {}", e))?;
         let connect_token = net::create_connect_token(
             current_time_duration,
             protocol_id,
@@ -55,7 +55,7 @@ impl ClientRunner {
         );
         let authentication = ClientAuthentication::Secure { connect_token };
         let transport = NetcodeClientTransport::new(current_time_duration, authentication, socket)
-            .map_err(|e| format!("Failed to create network transport: {}", e))?;
+            .map_err(|e| format!("failed to create network transport: {}", e))?;
         let connection_config = common::net::connection_config();
         let client = RenetClient::new(connection_config);
         let session = ClientSession::new(client_id);
@@ -129,7 +129,7 @@ impl ClientRunner {
                 "Disconnected: {}{}",
                 &disconnect_message, separator
             ));
-            eprintln!("Disconnected: {}{}", disconnect_message, separator);
+            eprintln!("disconnected: {}{}", disconnect_message, separator);
             self.session.disconnected_notified = true;
         }
 

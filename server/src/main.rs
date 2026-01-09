@@ -58,10 +58,10 @@ fn main() {
             socket
         }
         Err(e) => {
-            eprintln!("Error: Failed to bind socket.");
-            eprintln!("Details: {}.", e);
+            eprintln!("error: failed to bind socket");
+            eprintln!("details: {}", e);
             if e.kind() == io::ErrorKind::AddrInUse {
-                eprintln!("Is another instance of the server already running?");
+                eprintln!("is another instance of the server already running");
             }
             process::exit(1);
         }

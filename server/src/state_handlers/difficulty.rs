@@ -22,7 +22,7 @@ pub fn handle(
     state: &mut ChoosingDifficulty,
 ) -> Option<ServerState> {
     let Some(host_id) = state.host_id() else {
-        eprintln!("Difficulty selection has no host; ignoring inputs.");
+        eprintln!("difficulty selection has no host; ignoring inputs");
         return None;
     };
 
@@ -30,7 +30,7 @@ pub fn handle(
         while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
             let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
                 eprintln!(
-                    "Client {} sent malformed data. Disconnecting them.",
+                    "client {} sent malformed data; disconnecting them",
                     client_id
                 );
                 network.disconnect(client_id);
@@ -40,12 +40,12 @@ pub fn handle(
             match message {
                 ClientMessage::SetDifficulty(level) => {
                     if client_id != host_id {
-                        eprintln!("Non-host {} tried to set difficulty.", client_id);
+                        eprintln!("non-host {} tried to set difficulty", client_id);
                         continue;
                     }
 
                     if !(1..=3).contains(&level) {
-                        eprintln!("Host {} sent invalid difficulty level: {}.", host_id, level);
+                        eprintln!("host {} sent invalid difficulty level: {}", host_id, level);
                         let msg = ServerMessage::ServerInfo {
                             message: "Invalid choice. Please press 1, 2, or 3.".to_string(),
                         };
@@ -107,12 +107,12 @@ pub fn handle(
                 }
                 ClientMessage::RequestStartGame => {
                     eprintln!(
-                        "Client {} asked to choose difficulty, but the host is already doing so. Ignoring.",
+                        "client {} asked to choose difficulty, but the host is already doing so; ignoring",
                         client_id
                     );
                 }
                 ClientMessage::Input(_) => {
-                    eprintln!("Client {} sent in-game input. Ignoring.", client_id);
+                    eprintln!("client {} sent in-game input; ignoring", client_id);
                 }
             }
         }
