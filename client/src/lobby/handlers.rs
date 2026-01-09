@@ -10,7 +10,7 @@ pub mod waiting;
 use super::flow::LobbyStep;
 use crate::{net::RenetNetworkHandle, run::ClientRunner};
 
-pub async fn update(runner: &mut ClientRunner) {
+pub fn update(runner: &mut ClientRunner) {
     let mut network_handle = RenetNetworkHandle::new(&mut runner.client, &mut runner.transport);
     let is_host = runner.session.is_host;
 
@@ -21,7 +21,6 @@ pub async fn update(runner: &mut ClientRunner) {
         Some(&runner.assets),
         is_host,
     )
-    .await
     {
         LobbyStep::Continue => {}
         LobbyStep::StartGame => {

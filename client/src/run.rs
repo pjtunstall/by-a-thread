@@ -145,7 +145,7 @@ impl ClientRunner {
         self.ui.draw(false, false);
     }
 
-    async fn update_client_state(&mut self) {
+    fn update_client_state(&mut self) {
         if let Some(disconnect_message) = {
             if let ClientState::Disconnected { message } = self.session.state() {
                 Some(message.clone())
@@ -234,9 +234,7 @@ impl ClientRunner {
             // correct type is sent, rather than having explicit guards at the start of each
             // handler. This will mean passing the inner state to the handler, rather than
             // passing `session`.`
-            ClientState::Lobby(_) => {
-                lobby::handlers::update(self).await;
-            }
+            ClientState::Lobby(_) => lobby::handlers::update(self),
             // Other states will include Debrief (with map, leaderboard, and chat),
             // and NearDeathExperience, unless the latter is included in Game.
             _ => {
@@ -323,7 +321,7 @@ pub async fn run_client_loop(
         }
 
         runner.pump_network();
-        runner.update_client_state().await;
+        runner.update_client_state();
 
         next_frame().await;
     }

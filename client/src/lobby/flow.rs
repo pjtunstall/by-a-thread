@@ -14,7 +14,7 @@ pub enum LobbyStep {
     Transition(ClientState),
 }
 
-pub async fn update(
+pub fn update(
     session: &mut ClientSession,
     ui: &mut dyn crate::lobby::ui::LobbyUi,
     network_handle: &mut RenetNetworkHandle<'_>,
