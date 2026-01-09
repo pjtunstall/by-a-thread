@@ -19,21 +19,20 @@ const DEADZONE_THRESHOLD: f64 = 0.002;
 const RTT_ALPHA_SPIKE: f64 = 0.1;
 const RTT_ALPHA_IMPROVEMENT: f64 = 0.01;
 
-// Three ticks (50ms) is probably a safe starting buffer.
-// If inputs arrive late on the server, increase this.
-const JITTER_SAFETY_MARGIN: f64 = 0.05; // Consider raising to 4 ticks?
+// Three ticks (50ms) is probably a safe starting buffer, but if inputs arrive
+// late on the server, consider increasing it, e.g. to 4 ticks.
+const JITTER_SAFETY_MARGIN: f64 = 0.05;
 
 pub fn estimate_server_clock(
     session: &mut ClientSession,
     network: &mut RenetNetworkHandle,
     dt: Duration,
 ) {
-    // Always advance time by the frame delta.
-    // This keeps the game smooth between network packets.
-    session.clock.estimated_server_time += dt.as_secs_f64();
+    if session.clock.estimated_server_time > 0.0 {
+        session.clock.estimated_server_time += dt.as_secs_f64();
+    }
 
     let now_seconds = get_monotonic_seconds();
-
     let mut latest_rtt = None;
 
     // Drain pending messages, append samples, then trim the window.
@@ -44,8 +43,8 @@ pub fn estimate_server_clock(
             let rtt = network.rtt();
 
             // Only add valid samples.
-            if !rtt.is_nan() && rtt > 0.0 {
-                session.clock.clock_samples.push_back(ClockSample {
+            if rtt.is_finite() {
+                session.clock.samples.push_back(ClockSample {
                     server_time: server_sent_time,
                     client_receive_time: now_seconds,
                     rtt,
@@ -53,23 +52,23 @@ pub fn estimate_server_clock(
                 latest_rtt = Some(rtt);
 
                 // Maintain window size.
-                if session.clock.clock_samples.len() > SAMPLE_WINDOW_SIZE {
-                    session.clock.clock_samples.pop_front();
+                if session.clock.samples.len() > SAMPLE_WINDOW_SIZE {
+                    session.clock.samples.pop_front();
                 }
             }
         }
     }
 
-    if session.clock.clock_samples.is_empty() {
+    if session.clock.samples.is_empty() {
         return;
     }
 
     // We assume the sample with the lowest RTT is the one least affected by network jitter.
     let best_sample = match session
         .clock
-        .clock_samples
+        .samples
         .iter()
-        .filter(|s| s.rtt.is_finite())
+        .filter(|&s| s.rtt.is_finite())
         .min_by(|a, b| a.rtt.partial_cmp(&b.rtt).unwrap())
     {
         Some(sample) => sample,

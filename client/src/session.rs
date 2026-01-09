@@ -261,7 +261,7 @@ pub struct InputUiState {
 #[derive(Debug)]
 pub struct Clock {
     pub estimated_server_time: f64,
-    pub clock_samples: VecDeque<ClockSample>,
+    pub samples: VecDeque<ClockSample>,
     pub smoothed_rtt: f64,
     pub accumulated_time: f64,
     pub continuous_sim_time: f64,
@@ -272,7 +272,7 @@ impl Clock {
     pub fn new() -> Self {
         Self {
             estimated_server_time: 0.0,
-            clock_samples: VecDeque::new(),
+            samples: VecDeque::new(),
             smoothed_rtt: 0.0,
             accumulated_time: 0.0,
             continuous_sim_time: 0.0,
