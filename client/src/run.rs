@@ -79,15 +79,6 @@ impl ClientRunner {
         let now = Instant::now();
         let dt = now - self.last_updated;
         self.frame_dt = dt;
-        // let unix_now = SystemTime::now()
-        //     .duration_since(UNIX_EPOCH)
-        //     .expect("time went backwards")
-        //     .as_secs_f64();
-        // println!(
-        //     "pump. dt: {:.3}, unix_now: {:.3}",
-        //     dt.as_secs_f64(),
-        //     unix_now
-        // );
         self.last_updated = now;
 
         let mut result: Result<(), String> = Ok(());
