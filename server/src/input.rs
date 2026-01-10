@@ -14,7 +14,7 @@ const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
 // An independent guard against excessive messages arriving from one client;
 // when this limit is reached, we skip subsequent messages till there are no
 // more messages from that client or the time limit is reached.
-const MAX_MESSAGES_PER_CLIENT_PER_TICK: u32 = 128;
+const MAX_MESSAGES_PER_CLIENT_PER_TICK: u32 = 32;
 // This is how many ticks we'll allow a client to exceed their message limit before
 // disconnecting them. `over_cap_strikes` decays by 1 on ticks where the client
 // stays under the cap, so we slowly forgive a client who improves.
@@ -31,10 +31,12 @@ pub fn receive_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
 
     'client_loop: for client_id in network.clients_id() {
         let Some(&player_index) = state.client_id_to_index.get(&client_id) else {
-            panic!("client_id {client_id} not found in `client_id_to_index` `HashMap`");
+            eprintln!("client_id {client_id} not found in `client_id_to_index` `HashMap`");
+            continue;
         };
 
         while let Some(data) = network.receive_message(client_id, AppChannel::Unreliable) {
+            // Doesn't protect against a client sending a huge message.
             if total_messages_received % 10 == 0 && start_time.elapsed() > NETWORK_TIME_BUDGET {
                 println!("{}", TimeBudgetEvent::Exceeded.message());
                 break 'client_loop;
