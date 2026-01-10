@@ -54,7 +54,7 @@ pub enum ServerMessage {
     DenyDifficultySelection,  // Refuse non-host client who asks to choose a difficulty level.
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum ClientMessage {
     SendPasscode(Vec<u8>),
     SetUsername(String),

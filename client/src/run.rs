@@ -191,8 +191,9 @@ impl ClientRunner {
 
     pub fn start_game(&mut self) -> Result<(), ()> {
         self.session.clock.continuous_sim_time = self.session.clock.estimated_server_time;
-        self.session.clock.sim_tick =
+        let sim_tick =
             crate::time::calculate_initial_tick(self.session.clock.estimated_server_time);
+        self.session.clock.sim_tick = sim_tick;
         self.last_updated = Instant::now();
 
         let (initial_data, maze_meshes) = match self.session.state_mut() {
@@ -218,7 +219,7 @@ impl ClientRunner {
             .position(|p| p.client_id == self.session.client_id)
         else {
             self.session.transition(ClientState::Disconnected {
-                message: format!("could not find you in list of players"),
+                message: format!("could not find you in the list of players"),
             });
             return Err(());
         };
@@ -229,6 +230,7 @@ impl ClientRunner {
                 local_player_index,
                 initial_data,
                 maze_meshes,
+                sim_tick,
             )));
 
         Ok(())

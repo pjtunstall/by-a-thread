@@ -12,14 +12,14 @@ use crate::{
     state::ClientState,
 };
 use common::{
-    constants::INPUT_HISTORY_LENGTH,
+    constants::{INPUT_HISTORY_LENGTH, SNAPSHOT_BUFFER_LENGTH},
     maze::Maze,
     net::AppChannel,
     player::{Player, PlayerInput},
     protocol::ClientMessage,
-    ring::Ring,
     ring::WireItem,
-    snapshot::InitialData,
+    ring::{NetworkBuffer, Ring},
+    snapshot::{InitialData, Snapshot},
 };
 
 pub struct Game {
@@ -27,8 +27,8 @@ pub struct Game {
     pub maze: Maze,
     pub maze_meshes: MazeMeshes,
     pub players: Vec<Player>,
-    // pub snapshot_buffer: [Snapshot; SNAPSHOT_BUFFER_LENGTH], // 16 broadcasts, 0.8s at 20Hz.
     pub input_history: Ring<PlayerInput, INPUT_HISTORY_LENGTH>, // 256: ~4.3s at 60Hz.
+    pub snapshot_buffer: NetworkBuffer<Snapshot, SNAPSHOT_BUFFER_LENGTH>, // 16 broadcasts, 0.8s at 20Hz.
 }
 
 impl Game {
@@ -36,6 +36,7 @@ impl Game {
         local_player_index: usize,
         initial_data: InitialData,
         maze_meshes: MazeMeshes,
+        sim_tick: u64,
     ) -> Self {
         Self {
             local_player_index,
@@ -43,6 +44,15 @@ impl Game {
             maze_meshes,
             players: initial_data.players,
             input_history: Ring::new(),
+            // TODO: Decide on initial head and tail. The server's
+            // `input_buffer` uses `current_tick` for both. The danger is that
+            // when a new snapshot arrives, if the tail is at 0, the 16-bit id
+            // will be mapped to 64-bit id close to 0 and store it with that
+            // wrong id. When we try to get the snapshot for a 64-bit value
+            // close to now, the `get` method will map it to an index and see
+            // that the snapshot at that index has a different id, one close to
+            // 0, and thus think we don't have the right snapshot.
+            snapshot_buffer: NetworkBuffer::new(sim_tick, sim_tick),
         }
     }
 
