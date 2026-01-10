@@ -7,7 +7,7 @@ pub const INPUT_BUFFER_LENGTH: usize = 128;
 
 pub struct ServerPlayer {
     pub last_processed_tick: u64,
-    pub last_input: Option<PlayerInput>,
+    pub last_input: PlayerInput,
     pub input_buffer: NetworkBuffer<PlayerInput, INPUT_BUFFER_LENGTH>,
     pub index: usize,
     pub client_id: u64,
@@ -34,7 +34,7 @@ impl ServerPlayer {
             status,
             client_id: player.client_id,
             last_processed_tick: 0,
-            last_input: None,
+            last_input: PlayerInput::default(),
             input_buffer: NetworkBuffer::new(current_tick, current_tick),
             over_cap_strikes: 0,
         }

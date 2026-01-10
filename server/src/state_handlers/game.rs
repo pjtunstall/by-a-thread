@@ -1,3 +1,5 @@
+use common::player::PlayerInput;
+
 use crate::{
     input,
     net::ServerNetworkHandle,
@@ -13,10 +15,22 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
     // - Process inputs for current tick. Placeholder:
     let n = state.players.len();
     for i in 0..n {
-        println!(
-            "{:?}",
-            state.players[i].input_buffer.get(state.current_tick)
-        );
+        let input = state.players[i].input_buffer.get(state.current_tick);
+
+        match input {
+            Some(&input) => {
+                println!("{:?}", input);
+                state.players[i].last_input = input;
+            }
+            None => {
+                println!(
+                    "Mismatched input ids for player '{}'; falling back to default input",
+                    state.players[i].name
+                );
+                state.players[i].last_input = PlayerInput::default();
+            }
+        }
+
         state.players[i]
             .input_buffer
             .advance_tail(state.current_tick);
