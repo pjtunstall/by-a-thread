@@ -8,9 +8,18 @@ use bincode::{config::standard, serde::decode_from_slice};
 use crate::{net::ServerNetworkHandle, player::ServerPlayer, state::Game};
 use common::{net::AppChannel, protocol::ClientMessage};
 
-const MAX_INPUTS_PER_CLIENT_PER_TICK: u8 = 128;
-// On how many ticks has the client exceeded their maximum.
+// A guard against getting stuck here if messages are coming faster than we can
+// drain the queue.
+const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
+// An independent guard against excessive messages arriving from one client;
+// when this limit is reached, we skip subsequent messages till there are no
+// more messages from that client or the time limit is reached.
+const MAX_MESSAGES_PER_CLIENT_PER_TICK: u8 = 128;
+// This is how many ticks we'll allow a client to exceed their message limit before
+// disconnecting them.
 const MAX_OVER_CAP_STRIKES: u8 = 8;
+
+// TODO: Consider how realistic these numbers are?
 
 pub fn receive_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
     let start_time = Instant::now();
@@ -79,8 +88,6 @@ pub fn receive_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
         }
     }
 }
-
-const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum InputCapAction {
@@ -172,11 +179,11 @@ fn apply_input_cap(
     messages_received: &mut u8,
     over_cap_recorded: &mut bool,
 ) -> InputCapOutcome {
-    if *messages_received >= MAX_INPUTS_PER_CLIENT_PER_TICK {
+    if *messages_received >= MAX_MESSAGES_PER_CLIENT_PER_TICK {
         let mut event = None;
         if !*over_cap_recorded {
             *over_cap_recorded = true;
-            player.over_cap_strikes = player.over_cap_strikes.saturating_add(1);
+            player.over_cap_strikes += 1;
             if player.over_cap_strikes >= MAX_OVER_CAP_STRIKES {
                 event = Some(InputCapEvent::Disconnected);
             } else {
