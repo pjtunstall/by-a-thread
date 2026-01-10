@@ -9,8 +9,6 @@ use crate::{
 pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option<ServerState> {
     input::receive_inputs(network, state);
 
-    // TODO:
-    // - Process inputs for current tick. Placeholder:
     let n = state.players.len();
     for i in 0..n {
         let input_option = state.players[i].input_buffer.get(state.current_tick);
@@ -29,14 +27,16 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
         };
         println!("{:?}", input);
 
+        // TODO: Run physics for this player.
+
         state.players[i]
             .input_buffer
             .advance_tail(state.current_tick);
     }
 
-    // - Send customized snapshot to each player: their own velocity and
-    //   everyone's position.
-    // (See also the `Game` struct in `server/src/state.rs`.)
+    // TODO: Send customized snapshot to each player: their own velocity and
+    // everyone's position. (See also the `Game` struct in
+    // `server/src/state.rs`.)
 
     state.current_tick += 1;
     // println!("{}", state.current_tick);
