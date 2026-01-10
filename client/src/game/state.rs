@@ -84,14 +84,22 @@ impl Game {
     // TODO: Consider disparity in naming between snapshot as data without id,
     // and snapshot as WireItem together with id.
     pub fn receive_snapshots(&mut self, network: &mut dyn NetworkHandle) {
-        let mut messages_received: u32 = 0;
         let start_time = Instant::now();
+        let mut messages_received: u32 = 0;
+        let mut is_shedding_load = false;
+
         while let Some(data) = network.receive_message(AppChannel::Unreliable) {
             if messages_received % 10 == 0 && start_time.elapsed() > NETWORK_TIME_BUDGET {
-                println!(
-                    "Exceeded the per-frame message limit; deferring collection of any further snapshots till the next tick."
-                );
-                break;
+                if !is_shedding_load {
+                    println!(
+                        "Exceeded the time budget. Discarding remaining snapshots to flush the queue."
+                    );
+                    is_shedding_load = true;
+                }
+            }
+
+            if is_shedding_load {
+                continue;
             }
 
             messages_received += 1;
@@ -102,12 +110,12 @@ impl Game {
                 }
                 Ok((other, _)) => {
                     eprintln!(
-                        "unexpected message type received from server: {}",
+                        "Unexpected message type received from server: {}. Ignoring.",
                         other.variant_name()
                     );
                 }
                 Err(error) => {
-                    eprintln!("failed to decode server message: {}", error);
+                    eprintln!("Failed to decode server message: {}. Skipping.", error);
                     continue;
                 }
             }

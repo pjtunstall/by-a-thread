@@ -4,65 +4,68 @@ use std::{
 };
 
 use bincode::{config::standard, serde::decode_from_slice};
+use rand::{rng, seq::SliceRandom};
 
 use crate::{net::ServerNetworkHandle, player::ServerPlayer, state::Game};
 use common::{net::AppChannel, protocol::ClientMessage};
 
-// A guard against getting stuck here if messages are coming faster than we can
-// drain the queue.
 const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
-// An independent guard against excessive messages arriving from one client;
-// when this limit is reached, we skip subsequent messages till there are no
-// more messages from that client or the time limit is reached.
-const MAX_MESSAGES_PER_CLIENT_PER_TICK: u32 = 32;
-// This is how many ticks we'll allow a client to exceed their message limit before
-// disconnecting them. `over_cap_strikes` decays by 1 on ticks where the client
-// stays under the cap, so we slowly forgive a client who improves.
+const MAX_MESSAGES_PER_CLIENT_PER_TICK: u32 = 128;
 const MAX_OVER_CAP_STRIKES: u8 = 8;
-
-// TODO: Consider how realistic these numbers are?
 
 pub fn receive_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
     let start_time = Instant::now();
     let mut total_messages_received: u32 = 0;
-    let total_players = state.players.len();
-    let mut messages_received = vec![0_u32; total_players];
-    let mut over_cap_recorded = vec![false; total_players];
 
-    'client_loop: for client_id in network.clients_id() {
+    let mut is_shedding_load = false;
+
+    let mut client_ids: Vec<_> = network.clients_id().into_iter().collect();
+
+    // This randomization ensures that if the server is overloaded, packet loss
+    // is distributed fairly rather than punishing the same player every tick.
+    client_ids.shuffle(&mut rng());
+
+    for client_id in client_ids {
         let Some(&player_index) = state.client_id_to_index.get(&client_id) else {
-            eprintln!("client_id {client_id} not found in `client_id_to_index` `HashMap`");
+            eprintln!("client {client_id} connected but not in player index yet; skipping");
             continue;
         };
 
+        let mut messages_this_client = 0;
+        let player = &mut state.players[player_index];
+
         while let Some(data) = network.receive_message(client_id, AppChannel::Unreliable) {
-            // Doesn't protect against a client sending a huge message.
             if total_messages_received % 10 == 0 && start_time.elapsed() > NETWORK_TIME_BUDGET {
-                println!("{}", TimeBudgetEvent::Exceeded.message());
-                break 'client_loop;
+                if !is_shedding_load {
+                    println!("{}", TimeBudgetEvent::Exceeded.message());
+                    is_shedding_load = true;
+                }
+            }
+
+            if is_shedding_load {
+                continue;
             }
 
             total_messages_received += 1;
 
-            let player = &mut state.players[player_index];
-            let cap_outcome = apply_input_cap(
-                player,
-                &mut messages_received[player_index],
-                &mut over_cap_recorded[player_index],
-            );
+            let cap_outcome = apply_input_cap(player, &mut messages_this_client);
+
             if let Some(event) = cap_outcome.event {
                 match event {
                     InputCapEvent::OverLimit { .. } => {
-                        println!("{}", event.message(&player.name))
+                        println!("{}", event.message(&player.name));
                     }
                     InputCapEvent::Disconnected => {
-                        eprintln!("{}", event.message(&player.name))
+                        eprintln!("{}", event.message(&player.name));
                     }
                 }
             }
+
             match cap_outcome.action {
                 InputCapAction::Process => {}
-                InputCapAction::Skip => continue,
+                InputCapAction::Skip => {
+                    continue;
+                }
                 InputCapAction::Disconnect => {
                     network.disconnect(client_id);
                     break;
@@ -84,10 +87,10 @@ pub fn receive_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
                 break;
             }
         }
-    }
 
-    for (player_index, player) in state.players.iter_mut().enumerate() {
-        if !over_cap_recorded[player_index] && player.over_cap_strikes > 0 {
+        // We forgive one strike if the client stayed under the message limit
+        // this tick.
+        if messages_this_client < MAX_MESSAGES_PER_CLIENT_PER_TICK && player.over_cap_strikes > 0 {
             player.over_cap_strikes -= 1;
         }
     }
@@ -115,10 +118,10 @@ impl InputCapEvent {
     fn message(&self, player_name: &str) -> String {
         match self {
             InputCapEvent::OverLimit { .. } => format!(
-                "Player '{player_name}' exceeded the per-tick message limit; discarding further messages this tick."
+                "player '{player_name}' exceeded the per-tick message limit; discarding further messages this tick"
             ),
             InputCapEvent::Disconnected => format!(
-                "Player '{player_name}' repeatedly exceeded the message limit; disconnecting them."
+                "player '{player_name}' repeatedly exceeded the message limit; disconnecting them"
             ),
         }
     }
@@ -133,7 +136,7 @@ impl TimeBudgetEvent {
     fn message(&self) -> &'static str {
         match self {
             TimeBudgetEvent::Exceeded => {
-                "Time budget exceeded; deferring collection of any further messages till the next tick."
+                "time budget exceeded; dropping remaining messages to flush the queue"
             }
         }
     }
@@ -147,7 +150,7 @@ enum InputError {
 
 impl InputError {
     fn message(&self, client_id: u64, player_name: &str) -> String {
-        format!("Client {client_id} ({player_name}) {self}; disconnecting them.")
+        format!("client {client_id} ({player_name}) {self}; disconnecting them")
     }
 }
 
@@ -178,16 +181,14 @@ fn handle_message(player: &mut ServerPlayer, message: ClientMessage) -> Result<(
     }
 }
 
-fn apply_input_cap(
-    player: &mut ServerPlayer,
-    messages_received: &mut u32,
-    over_cap_recorded: &mut bool,
-) -> InputCapOutcome {
+fn apply_input_cap(player: &mut ServerPlayer, messages_received: &mut u32) -> InputCapOutcome {
     if *messages_received >= MAX_MESSAGES_PER_CLIENT_PER_TICK {
         let mut event = None;
-        if !*over_cap_recorded {
-            *over_cap_recorded = true;
+
+        // Only apply a strike when they first hit the limit.
+        if *messages_received == MAX_MESSAGES_PER_CLIENT_PER_TICK {
             player.over_cap_strikes += 1;
+
             if player.over_cap_strikes >= MAX_OVER_CAP_STRIKES {
                 event = Some(InputCapEvent::Disconnected);
             } else {
@@ -196,10 +197,15 @@ fn apply_input_cap(
                 });
             }
         }
-        let action = match event {
-            Some(InputCapEvent::Disconnected) => InputCapAction::Disconnect,
-            _ => InputCapAction::Skip,
+
+        *messages_received += 1;
+
+        let action = if player.over_cap_strikes >= MAX_OVER_CAP_STRIKES {
+            InputCapAction::Disconnect
+        } else {
+            InputCapAction::Skip
         };
+
         return InputCapOutcome { action, event };
     }
 
