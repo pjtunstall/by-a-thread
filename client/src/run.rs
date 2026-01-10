@@ -9,7 +9,7 @@ use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
 use crate::{
     assets::Assets,
-    game,
+    game::{self, input},
     lobby::{
         self,
         ui::{Gui, LobbyUi},
@@ -166,11 +166,12 @@ impl ClientRunner {
                     }
                 }
             }
-            // TODO: Following the pattern of the game handler, pass inner state to each
-            // of the lobby substate handlers so as to let the type system enforce that the
-            // correct type is sent, rather than having explicit guards at the start of each
-            // handler. This will mean passing the inner state to the handler, rather than
-            // passing `session`.`
+            // TODO: Following the pattern of the game handler, pass inner state
+            // to each of the lobby substate handlers so as to let the type
+            // system enforce that the correct type is sent, rather than having
+            // explicit guards at the start of each handler. This will mean
+            // passing the inner state to the handler, rather than passing
+            // `session`.`
             ClientState::Lobby(_) => lobby::handlers::update(self),
             // Other states will include Debrief (with map, leaderboard, and chat),
             // and NearDeathExperience, unless the latter is included in Game.
@@ -263,11 +264,17 @@ impl ClientRunner {
         const MAX_TICKS_PER_FRAME: u8 = 8;
         let mut ticks_processed = 0;
 
-        game_state.reconcile(clock.sim_tick);
+        let head = game_state.snapshot_buffer.head;
+        if game_state.reconcile(head) {
+            game_state.apply_input_range(head, clock.sim_tick);
+        }
 
         while clock.accumulated_time >= TICK_SECS && ticks_processed < MAX_TICKS_PER_FRAME {
-            game_state.input(network_handle, clock.sim_tick);
-            game_state.predict(clock.sim_tick);
+            let sim_tick = clock.sim_tick;
+            let input = input::player_input_from_keys(sim_tick);
+            game_state.send_input(network_handle, input, sim_tick);
+            game_state.input_history.insert(sim_tick, input);
+            game_state.apply_input(sim_tick);
             transition = game_state.update();
 
             clock.accumulated_time -= TICK_SECS;
@@ -291,7 +298,6 @@ impl ClientRunner {
                 }
             }
         }
-
         transition
     }
 }

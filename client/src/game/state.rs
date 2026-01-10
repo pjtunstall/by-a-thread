@@ -10,10 +10,7 @@ use bincode::{
 use macroquad::{color, prelude::*, window::clear_background};
 
 use crate::{
-    game::{
-        input::player_input_from_keys,
-        world::maze::{MazeExtension, MazeMeshes},
-    },
+    game::world::maze::{MazeExtension, MazeMeshes},
     net::NetworkHandle,
     state::ClientState,
 };
@@ -40,6 +37,7 @@ pub struct Game {
     pub input_history: Ring<PlayerInput, INPUT_HISTORY_LENGTH>, // 256: ~4.3s at 60Hz.
     pub snapshot_buffer: NetworkBuffer<Snapshot, SNAPSHOT_BUFFER_LENGTH>, // 16 broadcasts, 0.8s at 20Hz.
     pub is_first_snapshot_received: bool,
+    pub last_reconciled_tick: Option<u64>,
 }
 
 impl Game {
@@ -62,12 +60,17 @@ impl Game {
             // id will be extended correctly to 64 bits.
             snapshot_buffer: NetworkBuffer::new(sim_tick, sim_tick),
             is_first_snapshot_received: false,
+            last_reconciled_tick: None,
         }
     }
 
-    pub fn input(&mut self, network: &mut dyn NetworkHandle, sim_tick: u64) {
+    pub fn send_input(
+        &mut self,
+        network: &mut dyn NetworkHandle,
+        input: PlayerInput,
+        sim_tick: u64,
+    ) {
         let wire_tick: u16 = sim_tick as u16;
-        let input = player_input_from_keys(sim_tick);
         let wire_input = WireItem {
             id: wire_tick,
             data: input,
@@ -76,7 +79,6 @@ impl Game {
         let payload =
             encode_to_vec(&client_message, standard()).expect("failed to encode player input");
         network.send_message(AppChannel::Unreliable, payload);
-        self.input_history.insert(sim_tick, input);
         // println!("{:?}", client_message);
     }
 
@@ -125,8 +127,17 @@ impl Game {
         }
     }
 
-    pub fn reconcile(&mut self, sim_tick: u64) {
-        if let Some(snapshot) = self.snapshot_buffer.get(sim_tick) {
+    pub fn reconcile(&mut self, head: u64) -> bool {
+        if let Some(last) = self.last_reconciled_tick {
+            if head <= last {
+                return false;
+            }
+        }
+
+        if let Some(snapshot) = self.snapshot_buffer.get(head) {
+            self.is_first_snapshot_received = true;
+            self.last_reconciled_tick = Some(head);
+
             let local_state = &mut self.players[self.local_player_index].state;
             local_state.position = snapshot.local.position;
             local_state.velocity = snapshot.local.velocity;
@@ -134,11 +145,21 @@ impl Game {
             local_state.pitch = snapshot.local.pitch;
             local_state.yaw_velocity = snapshot.local.yaw_velocity;
             local_state.pitch_velocity = snapshot.local.pitch_velocity;
+
+            true
+        } else {
+            false
         }
     }
 
-    pub fn predict(&mut self, sim_tick: u64) {
-        if let Some(input) = self.input_history.get(sim_tick) {
+    pub fn apply_input_range(&mut self, from: u64, to: u64) {
+        for tick in from..=to {
+            self.apply_input(tick);
+        }
+    }
+
+    pub fn apply_input(&mut self, tick: u64) {
+        if let Some(input) = self.input_history.get(tick) {
             self.players[self.local_player_index]
                 .state
                 .update(&self.maze, input);

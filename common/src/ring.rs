@@ -65,7 +65,7 @@ where
 #[derive(Clone, Debug)]
 pub struct NetworkBuffer<T: Clone + Default, const N: usize> {
     ring: Ring<T, N>,
-    head: u64,     // The "write" cursor: most recent item inserted.
+    pub head: u64, // The "write" cursor: most recent item inserted.
     pub tail: u64, // The "read" cursor: last input processed or last snapshot interpolated.
 }
 
