@@ -1,4 +1,7 @@
-use std::fmt;
+use std::{
+    fmt,
+    time::{Duration, Instant},
+};
 
 use bincode::{
     config::standard,
@@ -24,6 +27,10 @@ use common::{
     ring::{NetworkBuffer, Ring},
     snapshot::{InitialData, Snapshot},
 };
+
+// A guard against getting stuck in loop receiving snapshots from server if
+// messages are coming faster than we can drain the queue.
+const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
 
 pub struct Game {
     pub local_player_index: usize,
@@ -77,13 +84,18 @@ impl Game {
     // TODO: Consider disparity in naming between snapshot as data without id,
     // and snapshot as WireItem together with id.
     pub fn receive_snapshots(&mut self, network: &mut dyn NetworkHandle) {
-        // while let Some(data) = network.receive_message(client_id, AppChannel::Unreliable) {
-        //     if total_messages_received % 10 == 0 && start_time.elapsed() > NETWORK_TIME_BUDGET {
-        //         println!("{}", TimeBudgetEvent::Exceeded.message());
-        //         break client_loop;
-        //     }
-        // }
+        let mut messages_received: u32 = 0;
+        let start_time = Instant::now();
         while let Some(data) = network.receive_message(AppChannel::Unreliable) {
+            if messages_received % 10 == 0 && start_time.elapsed() > NETWORK_TIME_BUDGET {
+                println!(
+                    "Exceeded the per-frame message limit; deferring collection of any further snapshots till the next tick."
+                );
+                break;
+            }
+
+            messages_received += 1;
+
             match decode_from_slice::<ServerMessage, _>(&data, standard()) {
                 Ok((ServerMessage::Snapshot(snapshot), _)) => {
                     self.snapshot_buffer.insert(snapshot);
