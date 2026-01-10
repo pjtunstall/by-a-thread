@@ -5,13 +5,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     maze::{self, Maze, maker::Algorithm},
-    player::{self, Player, WirePlayer, WirePlayerLocal},
+    player::{self, Player, WirePlayerLocal, WirePlayerRemote},
 };
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Snapshot {
-    remote: Vec<WirePlayer>,
-    local: WirePlayerLocal,
+    pub remote: Vec<WirePlayerRemote>,
+    pub local: WirePlayerLocal,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

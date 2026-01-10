@@ -25,18 +25,21 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
                 state.players[i].last_input
             }
         };
+
         println!("{:?}", input);
 
-        // TODO: Run physics for this player.
-
+        state.players[i].state.update(&state.maze, &input);
         state.players[i]
             .input_buffer
             .advance_tail(state.current_tick);
     }
 
-    // TODO: Send customized snapshot to each player: their own velocity and
-    // everyone's position. (See also the `Game` struct in
-    // `server/src/state.rs`.)
+    for i in 0..n {
+        // TODO: Send customized snapshot to each player: their own velocity and
+        // everyone's position. (See also the `Game` struct in
+        // `server/src/state.rs`.)
+        let snapshot = state.snapshot_for(i);
+    }
 
     state.current_tick += 1;
     // println!("{}", state.current_tick);

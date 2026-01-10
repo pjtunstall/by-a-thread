@@ -48,6 +48,31 @@ impl Player {
             current_tick: 0,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+pub struct PlayerState {
+    pub position: Vec3,
+    pub velocity: Vec3,
+
+    pub yaw: f32,
+    pub pitch: f32,
+
+    pub yaw_velocity: f32,
+    pub pitch_velocity: f32,
+}
+
+impl PlayerState {
+    pub fn new(position: Vec3) -> Self {
+        Self {
+            position,
+            velocity: vec3(0.0, 0.0, 0.0),
+            pitch: 0.1,
+            yaw: 0.0,
+            pitch_velocity: 0.0,
+            yaw_velocity: 0.0,
+        }
+    }
 
     // TODO: The OBE on player death will be implemented purely on the client.
     // It will just involve camera movement rather than actual state change.
@@ -74,19 +99,15 @@ impl Player {
             pitch_wish -= 1.0;
         }
 
-        Self::apply_axis_rotation(&mut self.state.yaw, &mut self.state.yaw_velocity, yaw_wish);
-        Self::apply_axis_rotation(
-            &mut self.state.pitch,
-            &mut self.state.pitch_velocity,
-            pitch_wish,
-        );
+        Self::apply_axis_rotation(&mut self.yaw, &mut self.yaw_velocity, yaw_wish);
+        Self::apply_axis_rotation(&mut self.pitch, &mut self.pitch_velocity, pitch_wish);
 
-        self.state.pitch = self.state.pitch.clamp(
+        self.pitch = self.pitch.clamp(
             -std::f32::consts::FRAC_PI_2 + 0.1,
             std::f32::consts::FRAC_PI_2 - 0.1,
         );
 
-        let forward = vec3(self.state.yaw.sin(), 0.0, self.state.yaw.cos());
+        let forward = vec3(self.yaw.sin(), 0.0, self.yaw.cos());
 
         forward
     }
@@ -111,48 +132,48 @@ impl Player {
             move_wish = move_wish.normalize();
         }
 
-        self.state.velocity += move_wish * ACCELERATION * TICK_SECS_F32;
+        self.velocity += move_wish * ACCELERATION * TICK_SECS_F32;
 
-        let current_speed = self.state.velocity.length();
+        let current_speed = self.velocity.length();
         if current_speed > 0.0 {
             let drop = current_speed * FRICTION * TICK_SECS_F32;
             let new_speed = (current_speed - drop).max(0.0);
 
             if current_speed > MAX_SPEED {
-                self.state.velocity = self.state.velocity.normalize() * MAX_SPEED;
+                self.velocity = self.velocity.normalize() * MAX_SPEED;
             } else {
-                self.state.velocity *= new_speed / current_speed;
+                self.velocity *= new_speed / current_speed;
             }
         }
 
-        if self.state.velocity.length_squared() < 0.001 {
-            self.state.velocity = Vec3::ZERO;
+        if self.velocity.length_squared() < 0.001 {
+            self.velocity = Vec3::ZERO;
         }
     }
 
     fn resolve_collision(&mut self, maze: &Maze, forward: Vec3) {
-        if self.state.velocity.length_squared() < 0.001 {
-            self.state.velocity = Vec3::ZERO;
+        if self.velocity.length_squared() < 0.001 {
+            self.velocity = Vec3::ZERO;
             return;
         }
 
-        let p = self.state.position;
-        let move_step = self.state.velocity * TICK_SECS_F32;
+        let p = self.position;
+        let move_step = self.velocity * TICK_SECS_F32;
         let new_position = p + move_step;
 
-        let contact_point = p + self.state.velocity.normalize() * RADIUS;
+        let contact_point = p + self.velocity.normalize() * RADIUS;
 
-        let is_moving_forward = self.state.velocity.dot(forward) > 0.0;
+        let is_moving_forward = self.velocity.dot(forward) > 0.0;
 
         if maze.is_way_clear(&contact_point) {
-            self.state.position = new_position;
+            self.position = new_position;
         } else {
-            self.state.velocity = Vec3::ZERO;
+            self.velocity = Vec3::ZERO;
 
             if is_moving_forward {
-                self.state.yaw_velocity = 0.0;
+                self.yaw_velocity = 0.0;
                 let turn_direction = maze::which_way_to_turn(&p, &contact_point);
-                self.state.yaw += MAX_ROTATION_SPEED * turn_direction * TICK_SECS_F32;
+                self.yaw += MAX_ROTATION_SPEED * turn_direction * TICK_SECS_F32;
             }
         }
     }
@@ -178,36 +199,21 @@ impl Player {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-pub struct PlayerState {
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Default)]
+pub struct WirePlayerRemote {
     pub position: Vec3,
-    pub velocity: Vec3,
-
     pub yaw: f32,
     pub pitch: f32,
-
-    pub yaw_velocity: f32,
-    pub pitch_velocity: f32,
 }
 
-impl PlayerState {
-    pub fn new(position: Vec3) -> Self {
+impl WirePlayerRemote {
+    pub fn from(player_state: PlayerState) -> Self {
         Self {
-            position,
-            velocity: vec3(0.0, 0.0, 0.0),
-            pitch: 0.1,
-            yaw: 0.0,
-            pitch_velocity: 0.0,
-            yaw_velocity: 0.0,
+            position: player_state.position,
+            yaw: player_state.yaw,
+            pitch: player_state.pitch,
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Default)]
-pub struct WirePlayer {
-    pub position: Vec3,
-    pub yaw: f32,
-    pub pitch: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Default)]
@@ -220,6 +226,21 @@ pub struct WirePlayerLocal {
 
     pub yaw_velocity: f32,
     pub pitch_velocity: f32,
+}
+
+impl WirePlayerLocal {
+    pub fn from(player_state: PlayerState) -> Self {
+        Self {
+            position: player_state.position,
+            velocity: player_state.velocity,
+
+            yaw: player_state.yaw,
+            pitch: player_state.pitch,
+
+            yaw_velocity: player_state.yaw_velocity,
+            pitch_velocity: player_state.pitch_velocity,
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, Eq, PartialEq)]

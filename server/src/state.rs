@@ -13,8 +13,9 @@ use common::{
     constants::TICK_SECS,
     maze::Maze,
     net::AppChannel,
+    player::{WirePlayerLocal, WirePlayerRemote},
     protocol::{GAME_ALREADY_STARTED_MESSAGE, ServerMessage},
-    snapshot::InitialData,
+    snapshot::{InitialData, Snapshot},
 };
 
 pub struct Game {
@@ -69,6 +70,23 @@ impl Game {
         } else {
             panic!("attempted to remove unknown client: {}", client_id);
         }
+    }
+
+    // TODO: See if this can be made more robust. See if it can be made neater
+    // with iterator methods.
+    pub fn snapshot_for(&self, i: usize) -> Snapshot {
+        let mut local = WirePlayerLocal::default();
+        let mut remote = Vec::new();
+        let player = &self.players[i];
+        for j in 0..self.players.len() {
+            if i == j {
+                local = WirePlayerLocal::from(player.state);
+            } else {
+                remote.push(WirePlayerRemote::from(player.state));
+            }
+        }
+
+        Snapshot { local, remote }
     }
 }
 
