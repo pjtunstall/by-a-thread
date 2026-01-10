@@ -26,8 +26,9 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
     for i in 0..state.players.len() {
         let _snapshot = state.snapshot_for(i);
 
-        // TODO: Send customized snapshot to each player: their own velocity and
-        // everyone's position.
+        // TODO: Add a variant `ServerMessage::Snapshot` in common::protocol.
+        // Update `match` blocks everywhere as needed. Use this variant to send
+        // the snapshot to the ith player.
     }
 
     state.current_tick += 1;
