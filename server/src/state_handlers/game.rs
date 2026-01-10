@@ -1,5 +1,3 @@
-use common::player::PlayerInput;
-
 use crate::{
     input,
     net::ServerNetworkHandle,
@@ -15,32 +13,33 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
     // - Process inputs for current tick. Placeholder:
     let n = state.players.len();
     for i in 0..n {
-        let input = state.players[i].input_buffer.get(state.current_tick);
-
-        match input {
+        let input_option = state.players[i].input_buffer.get(state.current_tick);
+        let input = match input_option {
             Some(&input) => {
-                println!("{:?}", input);
                 state.players[i].last_input = input;
+                input
             }
             None => {
-                println!(
-                    "Mismatched input ids for player '{}'; falling back to default input",
-                    state.players[i].name
-                );
-                state.players[i].last_input = PlayerInput::default();
+                // println!(
+                //     "Mismatched input ids for player '{}'; falling back to last known input",
+                //     state.players[i].name
+                // );
+                state.players[i].last_input
             }
-        }
+        };
+        println!("{:?}", input);
 
         state.players[i]
             .input_buffer
             .advance_tail(state.current_tick);
     }
 
-    // - Send customized snapshot to each player.
+    // - Send customized snapshot to each player: their own velocity and
+    //   everyone's position.
     // (See also the `Game` struct in `server/src/state.rs`.)
 
     state.current_tick += 1;
-    println!("{}", state.current_tick);
+    // println!("{}", state.current_tick);
 
     None
 }

@@ -248,7 +248,7 @@ impl ClientRunner {
         clock.continuous_sim_time += smoothed_dt;
 
         // println!("{frame_dt_secs}");
-        println!("{}", clock.sim_tick);
+        // println!("{}", clock.sim_tick);
     }
 
     fn advance_simulation(
