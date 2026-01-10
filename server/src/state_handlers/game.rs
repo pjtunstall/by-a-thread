@@ -5,7 +5,7 @@ use crate::{
     net::ServerNetworkHandle,
     state::{Game, ServerState},
 };
-use common::{net::AppChannel, protocol::ServerMessage};
+use common::{net::AppChannel, protocol::ServerMessage, ring::WireItem, snapshot::Snapshot};
 
 // TODO: Consider if any of this logic belongs with the `Game` struct iN `server/src/state.rs`.
 
@@ -28,7 +28,10 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
 
     for i in 0..state.players.len() {
         let snapshot = state.snapshot_for(i);
-        let message = ServerMessage::Snapshot(snapshot);
+        let message = ServerMessage::Snapshot(WireItem::<Snapshot> {
+            id: state.current_tick as u16,
+            data: snapshot,
+        });
         let payload = encode_to_vec(&message, standard()).expect("failed to serialize ServerTime");
         network.send_message(
             state.players[i].client_id,

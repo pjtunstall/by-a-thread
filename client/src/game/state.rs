@@ -1,6 +1,9 @@
 use std::fmt;
 
-use bincode::{config::standard, serde::encode_to_vec};
+use bincode::{
+    config::standard,
+    serde::{decode_from_slice, encode_to_vec},
+};
 use macroquad::{color, prelude::*, window::clear_background};
 
 use crate::{
@@ -16,7 +19,7 @@ use common::{
     maze::Maze,
     net::AppChannel,
     player::{Player, PlayerInput},
-    protocol::ClientMessage,
+    protocol::{ClientMessage, ServerMessage},
     ring::WireItem,
     ring::{NetworkBuffer, Ring},
     snapshot::{InitialData, Snapshot},
@@ -69,6 +72,34 @@ impl Game {
         network.send_message(AppChannel::Unreliable, payload);
         self.input_history.insert(sim_tick, input);
         // println!("{:?}", client_message);
+    }
+
+    // TODO: Consider disparity in naming between snapshot as data without id,
+    // and snapshot as WireItem together with id.
+    pub fn receive_snapshots(&mut self, network: &mut dyn NetworkHandle) {
+        // while let Some(data) = network.receive_message(client_id, AppChannel::Unreliable) {
+        //     if total_messages_received % 10 == 0 && start_time.elapsed() > NETWORK_TIME_BUDGET {
+        //         println!("{}", TimeBudgetEvent::Exceeded.message());
+        //         break client_loop;
+        //     }
+        // }
+        while let Some(data) = network.receive_message(AppChannel::Unreliable) {
+            match decode_from_slice::<ServerMessage, _>(&data, standard()) {
+                Ok((ServerMessage::Snapshot(snapshot), _)) => {
+                    self.snapshot_buffer.insert(snapshot);
+                }
+                Ok((other, _)) => {
+                    eprintln!(
+                        "unexpected message type received from server: {}",
+                        other.variant_name()
+                    );
+                }
+                Err(error) => {
+                    eprintln!("failed to decode server message: {}", error);
+                    continue;
+                }
+            }
+        }
     }
 
     pub fn update(&mut self) -> Option<ClientState> {

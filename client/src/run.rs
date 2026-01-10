@@ -152,13 +152,9 @@ impl ClientRunner {
             ClientState::Game(game_state) => {
                 Self::update_simulation_clock(&mut self.session.clock, self.frame_dt);
 
-                let mut network_handle =
-                    RenetNetworkHandle::new(&mut self.client, &mut self.transport);
-                match Self::advance_simulation(
-                    &mut self.session.clock,
-                    &mut network_handle,
-                    game_state,
-                ) {
+                let mut network = RenetNetworkHandle::new(&mut self.client, &mut self.transport);
+                game_state.receive_snapshots(&mut network);
+                match Self::advance_simulation(&mut self.session.clock, &mut network, game_state) {
                     Some(next_state) => {
                         self.session.transition(next_state);
                     }
