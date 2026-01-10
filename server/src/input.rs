@@ -24,8 +24,9 @@ const MAX_OVER_CAP_STRIKES: u8 = 8;
 pub fn receive_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
     let start_time = Instant::now();
     let mut total_messages_received: u32 = 0;
-    let mut messages_received = vec![0_u8; state.players.len()];
-    let mut over_cap_recorded = vec![false; state.players.len()];
+    let total_players = state.players.len();
+    let mut messages_received = vec![0_u8; total_players];
+    let mut over_cap_recorded = vec![false; total_players];
 
     for player in &mut state.players {
         if player.over_cap_strikes > 0 {
