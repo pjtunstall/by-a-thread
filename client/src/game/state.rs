@@ -92,7 +92,7 @@ impl Game {
             if messages_received % 10 == 0 && start_time.elapsed() > NETWORK_TIME_BUDGET {
                 if !is_shedding_load {
                     println!(
-                        "Exceeded the time budget. Discarding remaining snapshots to flush the queue."
+                        "Exceeded the time budget. Discarding other snapshots to flush the queue."
                     );
                     is_shedding_load = true;
                 }
