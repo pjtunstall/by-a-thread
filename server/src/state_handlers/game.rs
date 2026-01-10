@@ -4,6 +4,8 @@ use crate::{
     state::{Game, ServerState},
 };
 
+// TODO: Consider if any of this logic belongs with the `Game` struct iN `server/src/state.rs`.
+
 // TODO: If connection times out during game (and elsewhere), show a suitable
 // message in the UI; currently it just goes black.
 pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option<ServerState> {
@@ -35,10 +37,10 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
     }
 
     for i in 0..n {
-        // TODO: Send customized snapshot to each player: their own velocity and
-        // everyone's position. (See also the `Game` struct in
-        // `server/src/state.rs`.)
         let snapshot = state.snapshot_for(i);
+
+        // TODO: Send customized snapshot to each player: their own velocity and
+        // everyone's position.
     }
 
     state.current_tick += 1;

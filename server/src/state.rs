@@ -72,19 +72,16 @@ impl Game {
         }
     }
 
-    // TODO: See if this can be made more robust. See if it can be made neater
-    // with iterator methods.
     pub fn snapshot_for(&self, i: usize) -> Snapshot {
-        let mut local = WirePlayerLocal::default();
-        let mut remote = Vec::new();
-        let player = &self.players[i];
-        for j in 0..self.players.len() {
-            if i == j {
-                local = WirePlayerLocal::from(player.state);
-            } else {
-                remote.push(WirePlayerRemote::from(player.state));
-            }
-        }
+        let local = WirePlayerLocal::from(self.players[i].state);
+
+        let remote = self
+            .players
+            .iter()
+            .enumerate()
+            .filter(|&(j, _)| j != i)
+            .map(|(_, p)| WirePlayerRemote::from(p.state))
+            .collect();
 
         Snapshot { local, remote }
     }

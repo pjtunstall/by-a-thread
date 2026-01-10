@@ -206,8 +206,8 @@ pub struct WirePlayerRemote {
     pub pitch: f32,
 }
 
-impl WirePlayerRemote {
-    pub fn from(player_state: PlayerState) -> Self {
+impl From<PlayerState> for WirePlayerRemote {
+    fn from(player_state: PlayerState) -> Self {
         Self {
             position: player_state.position,
             yaw: player_state.yaw,
@@ -228,8 +228,8 @@ pub struct WirePlayerLocal {
     pub pitch_velocity: f32,
 }
 
-impl WirePlayerLocal {
-    pub fn from(player_state: PlayerState) -> Self {
+impl From<PlayerState> for WirePlayerLocal {
+    fn from(player_state: PlayerState) -> Self {
         Self {
             position: player_state.position,
             velocity: player_state.velocity,
