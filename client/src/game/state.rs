@@ -110,13 +110,12 @@ impl Game {
                 }
                 Ok((other, _)) => {
                     eprintln!(
-                        "Unexpected message type received from server: {}. Ignoring.",
+                        "unexpected message type received from server: {}",
                         other.variant_name()
                     );
                 }
                 Err(error) => {
-                    eprintln!("Failed to decode server message: {}. Skipping.", error);
-                    continue;
+                    eprintln!("failed to decode server message: {}", error);
                 }
             }
         }
