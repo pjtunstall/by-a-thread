@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{player::PlayerInput, ring::WireItem, snapshot::InitialData};
+use crate::{
+    player::PlayerInput,
+    ring::WireItem,
+    snapshot::{InitialData, Snapshot},
+};
 
 pub const AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE: &str =
     "Incorrect passcode. Disconnecting.";
@@ -17,6 +21,7 @@ pub fn auth_success_message(max_username_length: usize) -> String {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
+    Snapshot(Snapshot),
     ServerTime(f64),
     CountdownStarted {
         end_time: f64,

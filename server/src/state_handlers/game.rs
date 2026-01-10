@@ -1,8 +1,11 @@
+use bincode::{config::standard, serde::encode_to_vec};
+
 use crate::{
     input,
     net::ServerNetworkHandle,
     state::{Game, ServerState},
 };
+use common::{net::AppChannel, protocol::ServerMessage};
 
 // TODO: Consider if any of this logic belongs with the `Game` struct iN `server/src/state.rs`.
 
@@ -24,11 +27,14 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
     }
 
     for i in 0..state.players.len() {
-        let _snapshot = state.snapshot_for(i);
-
-        // TODO: Add a variant `ServerMessage::Snapshot` in common::protocol.
-        // Update `match` blocks everywhere as needed. Use this variant to send
-        // the snapshot to the ith player.
+        let snapshot = state.snapshot_for(i);
+        let message = ServerMessage::Snapshot(snapshot);
+        let payload = encode_to_vec(&message, standard()).expect("failed to serialize ServerTime");
+        network.send_message(
+            state.players[i].client_id,
+            AppChannel::ReliableOrdered,
+            payload,
+        );
     }
 
     state.current_tick += 1;
