@@ -21,7 +21,7 @@ pub fn receive_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
 
     let mut client_ids: Vec<_> = network.clients_id().into_iter().collect();
 
-    // This randomization ensures that if the server is overloaded, packet loss
+    // This randomization ensures that if the server is overloaded, message loss
     // is distributed fairly rather than punishing the same player every tick.
     client_ids.shuffle(&mut rng());
 
