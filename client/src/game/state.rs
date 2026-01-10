@@ -39,6 +39,7 @@ pub struct Game {
     pub players: Vec<Player>,
     pub input_history: Ring<PlayerInput, INPUT_HISTORY_LENGTH>, // 256: ~4.3s at 60Hz.
     pub snapshot_buffer: NetworkBuffer<Snapshot, SNAPSHOT_BUFFER_LENGTH>, // 16 broadcasts, 0.8s at 20Hz.
+    pub is_first_snapshot_received: bool,
 }
 
 impl Game {
@@ -54,15 +55,13 @@ impl Game {
             maze_meshes,
             players: initial_data.players,
             input_history: Ring::new(),
-            // TODO: Decide on initial head and tail. The server's
-            // `input_buffer` uses `current_tick` for both. The danger is that
-            // when a new snapshot arrives, if the tail is at 0, the 16-bit id
-            // will be mapped to 64-bit id close to 0 and store it with that
-            // wrong id. When we try to get the snapshot for a 64-bit value
-            // close to now, the `get` method will map it to an index and see
-            // that the snapshot at that index has a different id, one close to
-            // 0, and thus think we don't have the right snapshot.
+            // `head` and `tail` will be reset when the first snapshot is
+            // inserted with `snapshot_buffer.insert_first_item`. Here `tail` is
+            // arbitrary. We really just need `head` to be within ±2^15 ticks of
+            // the tick on which the snapshot was sent so that it's 16-bit wire
+            // id will be extended correctly to 64 bits.
             snapshot_buffer: NetworkBuffer::new(sim_tick, sim_tick),
+            is_first_snapshot_received: false,
         }
     }
 
@@ -106,7 +105,12 @@ impl Game {
 
             match decode_from_slice::<ServerMessage, _>(&data, standard()) {
                 Ok((ServerMessage::Snapshot(snapshot), _)) => {
-                    self.snapshot_buffer.insert(snapshot);
+                    if self.is_first_snapshot_received {
+                        self.snapshot_buffer.insert(snapshot);
+                    } else {
+                        self.is_first_snapshot_received = true;
+                        self.snapshot_buffer.insert_first_item(snapshot);
+                    }
                 }
                 Ok((other, _)) => {
                     eprintln!(
@@ -121,8 +125,27 @@ impl Game {
         }
     }
 
+    pub fn reconcile(&mut self, sim_tick: u64) {
+        if let Some(snapshot) = self.snapshot_buffer.get(sim_tick) {
+            let local_state = &mut self.players[self.local_player_index].state;
+            local_state.position = snapshot.local.position;
+            local_state.velocity = snapshot.local.velocity;
+            local_state.yaw = snapshot.local.yaw;
+            local_state.pitch = snapshot.local.pitch;
+            local_state.yaw_velocity = snapshot.local.yaw_velocity;
+            local_state.pitch_velocity = snapshot.local.pitch_velocity;
+        }
+    }
+
+    pub fn predict(&mut self, sim_tick: u64) {
+        if let Some(input) = self.input_history.get(sim_tick) {
+            self.players[self.local_player_index]
+                .state
+                .update(&self.maze, input);
+        }
+    }
+
     pub fn update(&mut self) -> Option<ClientState> {
-        // TODO: Reconciliation and prediction.
         None
     }
 

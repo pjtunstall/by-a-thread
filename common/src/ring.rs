@@ -65,8 +65,8 @@ where
 #[derive(Clone, Debug)]
 pub struct NetworkBuffer<T: Clone + Default, const N: usize> {
     ring: Ring<T, N>,
-    head: u64, // The "write" cursor: most recent item inserted.
-    tail: u64, // The "read" cursor: last input processed or last snapshot interpolated.
+    head: u64,     // The "write" cursor: most recent item inserted.
+    pub tail: u64, // The "read" cursor: last input processed or last snapshot interpolated.
 }
 
 impl<T, const N: usize> NetworkBuffer<T, N>
@@ -99,6 +99,15 @@ where
                 // Update the head if the new item is more recent.
                 self.head = self.head.max(tick);
             }
+        }
+    }
+
+    pub fn insert_first_item(&mut self, wire_item: WireItem<T>) {
+        let WireItem { id, data } = wire_item;
+        if let Some(tick) = self.extend(id) {
+            self.ring.insert(tick, data);
+            self.head = tick;
+            self.tail = tick;
         }
     }
 

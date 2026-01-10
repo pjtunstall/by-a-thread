@@ -258,13 +258,16 @@ impl ClientRunner {
     ) -> Option<ClientState> {
         let mut transition = None;
 
-        // A failsafe to prevent the accumulated_time from growing ever
-        // greater if we fall behind.
+        // A failsafe to prevent `accumulated_time` from growing ever greater
+        // if we fall behind.
         const MAX_TICKS_PER_FRAME: u8 = 8;
         let mut ticks_processed = 0;
 
+        game_state.reconcile(clock.sim_tick);
+
         while clock.accumulated_time >= TICK_SECS && ticks_processed < MAX_TICKS_PER_FRAME {
             game_state.input(network_handle, clock.sim_tick);
+            game_state.predict(clock.sim_tick);
             transition = game_state.update();
 
             clock.accumulated_time -= TICK_SECS;
