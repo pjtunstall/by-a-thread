@@ -173,10 +173,10 @@ impl Game {
     pub fn draw(&self, _alpha: f64) {
         clear_background(color::BEIGE);
 
-        let position = self.players[self.local_player_index].state.position;
-
-        let yaw: f32 = 0.0;
-        let pitch: f32 = 0.1;
+        let i = self.local_player_index;
+        let position = self.players[i].state.position;
+        let yaw = self.players[i].state.yaw;
+        let pitch = self.players[i].state.pitch;
 
         set_camera(&Camera3D {
             position,

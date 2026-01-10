@@ -114,7 +114,7 @@ impl PlayerState {
 
     fn apply_translation(&mut self, input: &PlayerInput, forward: Vec3) {
         let mut move_wish = Vec3::ZERO;
-        let right = vec3(forward.z, 0.0, -forward.x);
+        let right = vec3(forward.z, 0.0, forward.x);
         if input.forward {
             move_wish += forward;
         }
