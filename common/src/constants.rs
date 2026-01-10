@@ -12,8 +12,9 @@ pub const TICK_SECS_F32: f32 = TICK_SECS as f32; // Used in `common::player` for
 // The following `Duration`s are used by server to manage its loop.
 pub const TICK_MICROS: u64 = (TICK_SECS * 1_000_000.0 + 0.5) as u64;
 pub const IDEAL_TICK_DURATION: Duration = Duration::from_micros(TICK_MICROS);
-pub const BROADCAST_PER_MILLIS: u64 = 50;
-pub const BROADCAST_INTERVAL: Duration = Duration::from_millis(BROADCAST_PER_MILLIS);
+pub const TICKS_PER_BROADCAST: u64 = 3;
+pub const BROADCAST_MICROS: u64 = TICKS_PER_BROADCAST * TICK_MICROS;
+pub const BROADCAST_INTERVAL: Duration = Duration::from_micros(BROADCAST_MICROS); // 50ms.
 
 // Server:
 pub const INPUT_BUFFER_LENGTH: usize = 128; // 128 ticks, ~2.1s at 60Hz.

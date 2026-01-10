@@ -5,7 +5,10 @@ use crate::{
     net::ServerNetworkHandle,
     state::{Game, ServerState},
 };
-use common::{net::AppChannel, protocol::ServerMessage, ring::WireItem, snapshot::Snapshot};
+use common::{
+    constants::TICKS_PER_BROADCAST, net::AppChannel, protocol::ServerMessage, ring::WireItem,
+    snapshot::Snapshot,
+};
 
 // TODO: Consider if any of this logic belongs with the `Game` struct iN `server/src/state.rs`.
 
@@ -14,6 +17,7 @@ use common::{net::AppChannel, protocol::ServerMessage, ring::WireItem, snapshot:
 pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option<ServerState> {
     input::receive_inputs(network, state);
 
+    // TODO: Randomize as in input collection for fairness.
     for player in &mut state.players {
         if let Some(&input) = player.input_buffer.get(state.current_tick) {
             player.last_input = input;
@@ -26,18 +30,22 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
         player.input_buffer.advance_tail(state.current_tick);
     }
 
-    for i in 0..state.players.len() {
-        let snapshot = state.snapshot_for(i);
-        let message = ServerMessage::Snapshot(WireItem::<Snapshot> {
-            id: state.current_tick as u16,
-            data: snapshot,
-        });
-        let payload = encode_to_vec(&message, standard()).expect("failed to serialize ServerTime");
-        network.send_message(
-            state.players[i].client_id,
-            AppChannel::ReliableOrdered,
-            payload,
-        );
+    // Only send snapshots every third tick.
+    if state.current_tick % TICKS_PER_BROADCAST == 0 {
+        for i in 0..state.players.len() {
+            let snapshot = state.snapshot_for(i);
+            let message = ServerMessage::Snapshot(WireItem::<Snapshot> {
+                id: state.current_tick as u16,
+                data: snapshot,
+            });
+            let payload =
+                encode_to_vec(&message, standard()).expect("failed to serialize ServerTime");
+            network.send_message(
+                state.players[i].client_id,
+                AppChannel::ReliableOrdered,
+                payload,
+            );
+        }
     }
 
     state.current_tick += 1;
