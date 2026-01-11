@@ -19,7 +19,7 @@ use common::{
     constants::{INPUT_HISTORY_LENGTH, SNAPSHOT_BUFFER_LENGTH},
     maze::Maze,
     net::AppChannel,
-    player::{Player, PlayerInput, WirePlayerRemote},
+    player::{Player, PlayerInput},
     protocol::{ClientMessage, ServerMessage},
     ring::WireItem,
     ring::{NetworkBuffer, Ring},
@@ -196,17 +196,30 @@ impl Game {
 
         let remote_a = &snapshot_a.remote;
         let remote_b = &snapshot_b.remote;
-        let count = remote_a.len().min(remote_b.len());
-        let mut interpolated = Vec::with_capacity(count);
+        let mut remote_index = 0;
 
-        for i in 0..count {
-            let a = remote_a[i];
-            let b = remote_b[i];
-            interpolated.push(WirePlayerRemote {
-                position: a.position + (b.position - a.position) * alpha,
-                yaw: a.yaw + (b.yaw - a.yaw) * alpha,
-                pitch: a.pitch + (b.pitch - a.pitch) * alpha,
-            });
+        for (index, player) in self.players.iter_mut().enumerate() {
+            if index == self.local_player_index {
+                continue;
+            }
+
+            debug_assert!(remote_a.len() == 3);
+            debug_assert!(remote_b.len() == 3);
+            let Some(a) = remote_a.get(remote_index) else {
+                // With that assumption, we should never get here...
+                return None;
+            };
+            let Some(b) = remote_b.get(remote_index) else {
+                // ...or here.
+                return None;
+            };
+
+            let state = &mut player.state;
+            state.position = a.position + (b.position - a.position) * alpha;
+            state.yaw = a.yaw + (b.yaw - a.yaw) * alpha;
+            state.pitch = a.pitch + (b.pitch - a.pitch) * alpha;
+
+            remote_index += 1;
         }
 
         // We subtract a wide safety margin in case `estimated_server_time` goes
@@ -236,9 +249,9 @@ impl Game {
             position,
             target: position
                 + vec3(
-                    yaw.sin() * pitch.cos(),
+                    -yaw.sin() * pitch.cos(),
                     pitch.sin(),
-                    yaw.cos() * pitch.cos(),
+                    -yaw.cos() * pitch.cos(),
                 ),
             up: vec3(0.0, 1.0, 0.0),
             ..Default::default()
