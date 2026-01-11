@@ -20,7 +20,7 @@ use common::{
     constants::{INPUT_HISTORY_LENGTH, SNAPSHOT_BUFFER_LENGTH},
     maze::Maze,
     net::AppChannel,
-    player::{Player, PlayerInput},
+    player::{self, Player, PlayerInput},
     protocol::{ClientMessage, ServerMessage},
     ring::WireItem,
     ring::{NetworkBuffer, Ring},
@@ -260,6 +260,7 @@ impl Game {
 
         self.maze.draw(&self.maze_meshes);
         self.draw_remote_players(assets);
+        // self.draw_test_sphere(assets);
     }
 
     fn draw_remote_players(&self, assets: &Assets) {
@@ -268,9 +269,28 @@ impl Game {
                 continue;
             }
 
-            draw_ball_at(&assets.ball_mesh, player.state.position);
+            draw_sphere(
+                player.state.position,
+                player::RADIUS,
+                Some(&assets.ball_texture),
+                WHITE,
+            );
         }
     }
+
+    // fn draw_test_sphere(&self, assets: &Assets) {
+    //     let local_player = &self.players[self.local_player_index];
+    //     let yaw = local_player.state.yaw;
+    //     let pitch = local_player.state.pitch;
+    //     let forward = vec3(
+    //         -yaw.sin() * pitch.cos(),
+    //         pitch.sin(),
+    //         -yaw.cos() * pitch.cos(),
+    //     );
+    //     let position = local_player.state.position + forward * player::RADIUS * 6.0;
+
+    //     draw_sphere(position, player::RADIUS, Some(&assets.ball_texture), WHITE);
+    // }
 }
 
 impl fmt::Debug for Game {
@@ -283,22 +303,4 @@ impl fmt::Debug for Game {
             .field("input_history", &self.input_history)
             .finish()
     }
-}
-
-fn draw_ball_at(ball_mesh: &Mesh, position: Vec3) {
-    let mut vertices = Vec::with_capacity(ball_mesh.vertices.len());
-
-    for vertex in &ball_mesh.vertices {
-        let mut vertex = vertex.clone();
-        vertex.position += position;
-        vertices.push(vertex);
-    }
-
-    let translated_mesh = Mesh {
-        vertices,
-        indices: ball_mesh.indices.clone(),
-        texture: ball_mesh.texture.clone(),
-    };
-
-    draw_mesh(&translated_mesh);
 }

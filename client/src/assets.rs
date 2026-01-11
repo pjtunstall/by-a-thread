@@ -7,6 +7,7 @@ use common::{maze::CELL_SIZE, player::RADIUS};
 pub struct Assets {
     pub floor_texture: Texture2D,
     pub wall_texture: Texture2D,
+    pub ball_texture: Texture2D,
     pub ball_mesh: Mesh,
 }
 
@@ -17,13 +18,14 @@ impl Assets {
 
         let ball_bytes = include_bytes!("../assets/ball.png");
         let ball_texture = Texture2D::from_file_with_format(ball_bytes, None);
-        let ball_mesh = generate_ball_mesh(Some(ball_texture));
+        let ball_mesh = generate_ball_mesh(Some(ball_texture.clone()));
 
         let floor_texture = generate_floor_texture();
 
         Self {
             floor_texture,
             wall_texture,
+            ball_texture,
             ball_mesh,
         }
     }
