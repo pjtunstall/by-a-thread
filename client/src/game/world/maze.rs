@@ -59,6 +59,7 @@ pub fn generate_floor_texture() -> Texture2D {
     texture
 }
 
+// TODO: Investigate why the shadow is flickery with movement.
 pub fn build_maze_meshes(
     maze: &Maze,
     wall_texture: &Texture2D,
