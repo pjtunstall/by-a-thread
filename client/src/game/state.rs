@@ -13,6 +13,7 @@ use crate::{
     game::world::maze::{MazeExtension, MazeMeshes},
     net::NetworkHandle,
     state::ClientState,
+    time::INTERPOLATION_DELAY_SECS,
 };
 use common::{
     constants::{INPUT_HISTORY_LENGTH, SNAPSHOT_BUFFER_LENGTH},
@@ -166,11 +167,27 @@ impl Game {
         }
     }
 
+    pub fn calculate_interpolation_alpha(&mut self, estimated_server_time: f64) -> f64 {
+        let interpolation_time = estimated_server_time - INTERPOLATION_DELAY_SECS;
+        // TODO: Get flanking snapshots and calculate the time corresponding to
+        // each of their ticks.
+        let a_time = a.tick as f64;
+        let b_time = b.tick as f64;
+        let alpha = (interpolation_time - a_time) / (a_time - b_time);
+        alpha
+    }
+
+    // TODO: Handle possible change of state to post-game. That would be due to
+    // collision with bullets, which will be sent on the reliable channel from
+    // the server. I'll see whether this function is needed when I
+    // implement that, or whether the state change is best placed elsewhere.
     pub fn update(&mut self) -> Option<ClientState> {
         None
     }
 
-    pub fn draw(&self, _alpha: f64) {
+    // TODO: `prediction_alpha` would be for smoothing the local player between
+    // ticks if I allow faster than 60Hz frame rate for devices that support it.
+    pub fn draw(&self, _prediction_alpha: f64) {
         clear_background(color::BEIGE);
 
         let i = self.local_player_index;

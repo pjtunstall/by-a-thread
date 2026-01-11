@@ -11,6 +11,8 @@ use crate::{
 };
 use common::{constants::TICK_SECS, net::AppChannel, protocol::ServerMessage};
 
+pub const INTERPOLATION_DELAY_SECS: f64 = 100.0;
+
 const SAMPLE_WINDOW_SIZE: usize = 30;
 const HARD_SNAP_THRESHOLD: f64 = 1.0;
 const ALPHA_SPEED_UP: f64 = 0.15;

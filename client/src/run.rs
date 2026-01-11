@@ -161,8 +161,14 @@ impl ClientRunner {
                         self.session.transition(next_state);
                     }
                     _ => {
-                        let alpha = self.session.clock.accumulated_time / TICK_SECS;
-                        game_state.draw(alpha);
+                        let interpolation_alpha = game_state.calculate_interpolation_alpha(
+                            self.session.clock.estimated_server_time,
+                        );
+                        // TODO: `prediction_alpha` would be for smoothing the local player between
+                        // ticks if I allow faster than 60Hz frame rate for devices that support it.
+                        let prediction_alpha = self.session.clock.accumulated_time / TICK_SECS;
+
+                        game_state.draw(prediction_alpha);
                     }
                 }
             }
