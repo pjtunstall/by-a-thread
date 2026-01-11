@@ -54,12 +54,21 @@ impl Game {
             maze_meshes,
             players: initial_data.players,
             input_history: Ring::new(),
-            // `head` and `tail` will be reset when the first snapshot is
-            // inserted with `snapshot_buffer.insert_first_item`. Here `tail` is
-            // arbitrary. We really just need `head` to be within ±2^15 ticks of
-            // the tick on which the snapshot was sent so that it's 16-bit wire
-            // id will be extended correctly to 64 bits.
-            snapshot_buffer: NetworkBuffer::new(sim_tick, sim_tick),
+
+            // `head` will be reset when the first snapshot is inserted, but
+            // still we need an initial `head` that's within ±2^15 ticks of the
+            // tick on which the first snapshot was sent so that the first
+            // snapshot's 16-bit wire id will be extended to the correct 64-bit
+            // storage id.
+
+            // The `tail` (used as a guard against writing outdated items on the
+            // `input_buffers`) is not used here due to its minimal advantage.
+            // While it could, in principle, be set to `tick_a` of
+            // `calculate_interpolation_data`, that doesn't seem worth the
+            // trade-offs: looking up the snapshots again in `draw`, copying
+            // them, returning a value, or borrowing gymnastics.
+            snapshot_buffer: NetworkBuffer::new(sim_tick, 0),
+
             is_first_snapshot_received: false,
             last_reconciled_tick: None,
         }
@@ -108,12 +117,7 @@ impl Game {
 
             match decode_from_slice::<ServerMessage, _>(&data, standard()) {
                 Ok((ServerMessage::Snapshot(snapshot), _)) => {
-                    if self.is_first_snapshot_received {
-                        self.snapshot_buffer.insert(snapshot);
-                    } else {
-                        self.is_first_snapshot_received = true;
-                        self.snapshot_buffer.insert_first_item(snapshot);
-                    }
+                    self.snapshot_buffer.insert(snapshot);
                 }
                 Ok((other, _)) => {
                     eprintln!(

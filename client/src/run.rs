@@ -163,6 +163,7 @@ impl ClientRunner {
                     _ => {
                         let interpolation_data = game_state
                             .calculate_interpolation_data(self.session.clock.estimated_server_time);
+
                         // TODO: `prediction_alpha` would be for smoothing the
                         // local player between ticks if I allow faster than
                         // 60Hz frame rate for devices that support it. As yet,

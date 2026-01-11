@@ -107,7 +107,6 @@ where
         if let Some(tick) = self.extend(id) {
             self.ring.insert(tick, data);
             self.head = tick;
-            self.tail = tick;
         }
     }
 
