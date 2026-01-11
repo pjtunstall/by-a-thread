@@ -19,7 +19,7 @@ use common::{
     constants::{INPUT_HISTORY_LENGTH, SNAPSHOT_BUFFER_LENGTH},
     maze::Maze,
     net::AppChannel,
-    player::{Player, PlayerInput},
+    player::{Player, PlayerInput, WirePlayerRemote},
     protocol::{ClientMessage, ServerMessage},
     ring::WireItem,
     ring::{NetworkBuffer, Ring},
@@ -171,10 +171,7 @@ impl Game {
         }
     }
 
-    pub fn calculate_interpolation_data(
-        &self,
-        estimated_server_time: f64,
-    ) -> Option<(f64, &Snapshot, &Snapshot)> {
+    pub fn interpolate(&self, estimated_server_time: f64) -> Option<Vec<WirePlayerRemote>> {
         let interpolation_time = estimated_server_time - INTERPOLATION_DELAY_SECS;
         let start_search_tick = crate::time::tick_from_time(interpolation_time);
         let mut a_tick = start_search_tick;
@@ -202,8 +199,24 @@ impl Game {
         let a_time = crate::time::time_from_tick(a_tick);
         let b_time = crate::time::time_from_tick(b_tick);
         let alpha = (interpolation_time - a_time) / (b_time - a_time);
+        let alpha = alpha as f32;
 
-        Some((alpha, snapshot_a, snapshot_b))
+        let remote_a = &snapshot_a.remote;
+        let remote_b = &snapshot_b.remote;
+        let count = remote_a.len().min(remote_b.len());
+        let mut interpolated = Vec::with_capacity(count);
+
+        for i in 0..count {
+            let a = remote_a[i];
+            let b = remote_b[i];
+            interpolated.push(WirePlayerRemote {
+                position: a.position + (b.position - a.position) * alpha,
+                yaw: a.yaw + (b.yaw - a.yaw) * alpha,
+                pitch: a.pitch + (b.pitch - a.pitch) * alpha,
+            });
+        }
+
+        Some(interpolated)
     }
 
     // TODO: Handle possible change of state to post-game. That would be due to
@@ -217,9 +230,9 @@ impl Game {
     // TODO: `prediction_alpha` would be for smoothing the local player between
     // ticks if I allow faster than 60Hz frame rate for devices that support it.
     pub fn draw(
-        &self,
+        &mut self,
         _prediction_alpha: f64,
-        _interpolation_data: Option<(f64, &Snapshot, &Snapshot)>,
+        _interpolated_players: Option<Vec<WirePlayerRemote>>,
     ) {
         clear_background(color::BEIGE);
 
