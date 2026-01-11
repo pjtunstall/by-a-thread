@@ -151,6 +151,9 @@ impl PlayerState {
         }
     }
 
+    // Collisions with walls.
+    // TODO: Fix jerkiness. Consider effect on orientation. Decide what I
+    // actually want the effect to be.
     fn resolve_collision(&mut self, maze: &Maze, forward: Vec3) {
         if self.velocity.length_squared() < 0.001 {
             self.velocity = Vec3::ZERO;
