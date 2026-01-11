@@ -62,11 +62,12 @@ impl Game {
             // correct 64-bit storage id.
 
             // The `tail` (used as a guard against writing outdated items on the
-            // `input_buffers`) is not used here due to its minimal advantage.
-            // While it could, in principle, be set to `tick_a` of
-            // `calculate_interpolation_data`, that doesn't seem worth the
-            // trade-offs: looking up the snapshots again in `draw`, copying
-            // them, returning a value, or borrowing gymnastics.
+            // `input_buffers`) is not used here due to its minimal advantage
+            // and the inconvenience of advancing `snapshot_buffer.tail` after
+            // calculating the interpolated remote players. (If I do decide to
+            // advance it, I'd want to do so to `tick_a - safety_margin`, e.g.
+            // 60, in case `estimated_server_time` goes temporarily backwards
+            // due to network fluctutuation.)
             snapshot_buffer: NetworkBuffer::new(sim_tick, 0),
 
             is_first_snapshot_received: false,
@@ -174,31 +175,31 @@ impl Game {
     pub fn interpolate(&self, estimated_server_time: f64) -> Option<Vec<WirePlayerRemote>> {
         let interpolation_time = estimated_server_time - INTERPOLATION_DELAY_SECS;
         let start_search_tick = crate::time::tick_from_time(interpolation_time);
-        let mut a_tick = start_search_tick;
+        let mut tick_a = start_search_tick;
         let limit = 8;
 
-        while self.snapshot_buffer.get(a_tick).is_none() {
-            if start_search_tick - a_tick > limit {
+        while self.snapshot_buffer.get(tick_a).is_none() {
+            if start_search_tick - tick_a > limit {
                 return None;
             };
-            a_tick -= 1;
+            tick_a -= 1;
         }
 
-        let mut b_tick = start_search_tick + 1;
+        let mut tick_b = start_search_tick + 1;
 
-        while self.snapshot_buffer.get(b_tick).is_none() {
-            if b_tick - (start_search_tick + 1) > limit {
+        while self.snapshot_buffer.get(tick_b).is_none() {
+            if tick_b - (start_search_tick + 1) > limit {
                 return None;
             }
-            b_tick += 1;
+            tick_b += 1;
         }
 
-        let snapshot_a = self.snapshot_buffer.get(a_tick)?;
-        let snapshot_b = self.snapshot_buffer.get(b_tick)?;
+        let snapshot_a = self.snapshot_buffer.get(tick_a)?;
+        let snapshot_b = self.snapshot_buffer.get(tick_b)?;
 
-        let a_time = crate::time::time_from_tick(a_tick);
-        let b_time = crate::time::time_from_tick(b_tick);
-        let alpha = (interpolation_time - a_time) / (b_time - a_time);
+        let time_a = crate::time::time_from_tick(tick_a);
+        let time_b = crate::time::time_from_tick(tick_b);
+        let alpha = (interpolation_time - time_a) / (time_b - time_a);
         let alpha = alpha as f32;
 
         let remote_a = &snapshot_a.remote;
