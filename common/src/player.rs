@@ -20,7 +20,7 @@ pub const MAX_SPEED: f32 = 240.0; // Units per second.
 pub const ACCELERATION: f32 = 1200.0; // Reaches max in 0.2 seconds.
 pub const FRICTION: f32 = 5.0;
 pub const MAX_ROTATION_SPEED: f32 = 4.0 * PI; // 2 turns per second.
-pub const ROTATION_ACCELERATION: f32 = (MAX_ROTATION_SPEED / 0.2) * PI; // Max in 0.2 seconds.
+pub const ROTATION_ACCELERATION: f32 = (MAX_ROTATION_SPEED / 0.4) * PI; // Max in 0.2 seconds.
 pub const ROTATION_FRICTION: f32 = 10.0; // Stop in ~0.2 seconds when key is released.
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
