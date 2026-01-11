@@ -10,6 +10,7 @@ use bincode::{
 use macroquad::{color, prelude::*, window::clear_background};
 
 use crate::{
+    assets::Assets,
     game::world::maze::{MazeExtension, MazeMeshes},
     net::NetworkHandle,
     state::ClientState,
@@ -237,7 +238,7 @@ impl Game {
 
     // TODO: `prediction_alpha` would be for smoothing the local player between
     // ticks if I allow faster than 60Hz frame rate for devices that support it.
-    pub fn draw(&mut self, _prediction_alpha: f64) {
+    pub fn draw(&mut self, _prediction_alpha: f64, assets: &Assets) {
         clear_background(color::BEIGE);
 
         let i = self.local_player_index;
@@ -258,6 +259,17 @@ impl Game {
         });
 
         self.maze.draw(&self.maze_meshes);
+        self.draw_remote_players(assets);
+    }
+
+    fn draw_remote_players(&self, assets: &Assets) {
+        for (index, player) in self.players.iter().enumerate() {
+            if index == self.local_player_index {
+                continue;
+            }
+
+            draw_ball_at(&assets.ball_mesh, player.state.position);
+        }
     }
 }
 
@@ -271,4 +283,22 @@ impl fmt::Debug for Game {
             .field("input_history", &self.input_history)
             .finish()
     }
+}
+
+fn draw_ball_at(ball_mesh: &Mesh, position: Vec3) {
+    let mut vertices = Vec::with_capacity(ball_mesh.vertices.len());
+
+    for vertex in &ball_mesh.vertices {
+        let mut vertex = vertex.clone();
+        vertex.position += position;
+        vertices.push(vertex);
+    }
+
+    let translated_mesh = Mesh {
+        vertices,
+        indices: ball_mesh.indices.clone(),
+        texture: ball_mesh.texture.clone(),
+    };
+
+    draw_mesh(&translated_mesh);
 }

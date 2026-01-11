@@ -172,7 +172,7 @@ impl ClientRunner {
                             game_state.snapshot_buffer.advance_tail(new_tail);
                         }
 
-                        game_state.draw(prediction_alpha);
+                        game_state.draw(prediction_alpha, &self.assets);
                     }
                 }
             }
