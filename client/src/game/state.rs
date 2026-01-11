@@ -60,14 +60,6 @@ impl Game {
             // ticks of the tick on which the first snapshot was sent so that
             // the first snapshot's 16-bit wire id will be extended to the
             // correct 64-bit storage id.
-
-            // The `tail` (used as a guard against writing outdated items on the
-            // `input_buffers`) is not used here due to its minimal advantage
-            // and the inconvenience of advancing `snapshot_buffer.tail` after
-            // calculating the interpolated remote players. (If I do decide to
-            // advance it, I'd want to do so to `tick_a - safety_margin`, e.g.
-            // 60, in case `estimated_server_time` goes temporarily backwards
-            // due to network fluctutuation.)
             snapshot_buffer: NetworkBuffer::new(sim_tick, 0),
 
             is_first_snapshot_received: false,
@@ -172,7 +164,7 @@ impl Game {
         }
     }
 
-    pub fn interpolate(&self, estimated_server_time: f64) -> Option<Vec<WirePlayerRemote>> {
+    pub fn interpolate(&mut self, estimated_server_time: f64) -> Option<u64> {
         let interpolation_time = estimated_server_time - INTERPOLATION_DELAY_SECS;
         let start_search_tick = crate::time::tick_from_time(interpolation_time);
         let mut tick_a = start_search_tick;
@@ -217,7 +209,9 @@ impl Game {
             });
         }
 
-        Some(interpolated)
+        // We subtract a wide safety margin in case `estimated_server_time` goes
+        // back temporarily backwards due to network fluctuation.
+        Some(tick_a - 60)
     }
 
     // TODO: Handle possible change of state to post-game. That would be due to
@@ -230,11 +224,7 @@ impl Game {
 
     // TODO: `prediction_alpha` would be for smoothing the local player between
     // ticks if I allow faster than 60Hz frame rate for devices that support it.
-    pub fn draw(
-        &mut self,
-        _prediction_alpha: f64,
-        _interpolated_players: Option<Vec<WirePlayerRemote>>,
-    ) {
+    pub fn draw(&mut self, _prediction_alpha: f64) {
         clear_background(color::BEIGE);
 
         let i = self.local_player_index;

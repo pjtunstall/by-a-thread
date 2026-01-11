@@ -166,10 +166,13 @@ impl ClientRunner {
                         // 60Hz frame rate for devices that support it. As yet,
                         // it's unused in `draw`.
                         let prediction_alpha = self.session.clock.accumulated_time / TICK_SECS;
-                        let interpolated_players =
-                            game_state.interpolate(self.session.clock.estimated_server_time);
+                        if let Some(new_tail) =
+                            game_state.interpolate(self.session.clock.estimated_server_time)
+                        {
+                            game_state.snapshot_buffer.advance_tail(new_tail);
+                        }
 
-                        game_state.draw(prediction_alpha, interpolated_players);
+                        game_state.draw(prediction_alpha);
                     }
                 }
             }
