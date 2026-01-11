@@ -161,14 +161,13 @@ impl ClientRunner {
                         self.session.transition(next_state);
                     }
                     _ => {
-                        let interpolation_alpha = game_state.calculate_interpolation_alpha(
-                            self.session.clock.estimated_server_time,
-                        );
+                        let interpolation_data = game_state
+                            .calculate_interpolation_data(self.session.clock.estimated_server_time);
                         // TODO: `prediction_alpha` would be for smoothing the local player between
                         // ticks if I allow faster than 60Hz frame rate for devices that support it.
                         let prediction_alpha = self.session.clock.accumulated_time / TICK_SECS;
 
-                        game_state.draw(prediction_alpha);
+                        game_state.draw(prediction_alpha, interpolation_data);
                     }
                 }
             }
@@ -196,8 +195,7 @@ impl ClientRunner {
 
     pub fn start_game(&mut self) -> Result<(), ()> {
         self.session.clock.continuous_sim_time = self.session.clock.estimated_server_time;
-        let sim_tick =
-            crate::time::calculate_initial_tick(self.session.clock.estimated_server_time);
+        let sim_tick = crate::time::tick_from_time(self.session.clock.estimated_server_time);
         self.session.clock.sim_tick = sim_tick;
         self.last_updated = Instant::now();
 

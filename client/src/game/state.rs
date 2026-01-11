@@ -167,14 +167,39 @@ impl Game {
         }
     }
 
-    pub fn calculate_interpolation_alpha(&mut self, estimated_server_time: f64) -> f64 {
+    pub fn calculate_interpolation_data(
+        &self,
+        estimated_server_time: f64,
+    ) -> Option<(f64, &Snapshot, &Snapshot)> {
         let interpolation_time = estimated_server_time - INTERPOLATION_DELAY_SECS;
-        // TODO: Get flanking snapshots and calculate the time corresponding to
-        // each of their ticks.
-        let a_time = a.tick as f64;
-        let b_time = b.tick as f64;
-        let alpha = (interpolation_time - a_time) / (a_time - b_time);
-        alpha
+        let start_search_tick = crate::time::tick_from_time(interpolation_time);
+        let mut a_tick = start_search_tick;
+        let limit = 8;
+
+        while self.snapshot_buffer.get(a_tick).is_none() {
+            if start_search_tick - a_tick > limit {
+                return None;
+            };
+            a_tick -= 1;
+        }
+
+        let mut b_tick = start_search_tick + 1;
+
+        while self.snapshot_buffer.get(b_tick).is_none() {
+            if b_tick - (start_search_tick + 1) > limit {
+                return None;
+            }
+            b_tick += 1;
+        }
+
+        let snapshot_a = self.snapshot_buffer.get(a_tick)?;
+        let snapshot_b = self.snapshot_buffer.get(b_tick)?;
+
+        let a_time = crate::time::time_from_tick(a_tick);
+        let b_time = crate::time::time_from_tick(b_tick);
+        let alpha = (interpolation_time - a_time) / (b_time - a_time);
+
+        Some((alpha, snapshot_a, snapshot_b))
     }
 
     // TODO: Handle possible change of state to post-game. That would be due to
@@ -187,7 +212,11 @@ impl Game {
 
     // TODO: `prediction_alpha` would be for smoothing the local player between
     // ticks if I allow faster than 60Hz frame rate for devices that support it.
-    pub fn draw(&self, _prediction_alpha: f64) {
+    pub fn draw(
+        &self,
+        _prediction_alpha: f64,
+        _interpolation_data: Option<(f64, &Snapshot, &Snapshot)>,
+    ) {
         clear_background(color::BEIGE);
 
         let i = self.local_player_index;

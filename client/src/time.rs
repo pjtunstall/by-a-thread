@@ -126,13 +126,12 @@ pub fn calculate_target_time(smoothed_rtt: f64, estimated_server_time: f64) -> f
     estimated_server_time + travel_time + JITTER_SAFETY_MARGIN
 }
 
-pub fn calculate_target_tick(target_time: f64) -> u64 {
-    (target_time / TICK_SECS).floor() as u64
+pub fn tick_from_time(time: f64) -> u64 {
+    (time / TICK_SECS).floor() as u64
 }
 
-// TODO: Decide: is this necessary? Of so, is it correct?
-pub fn calculate_initial_tick(estimated_server_time: f64) -> u64 {
-    (estimated_server_time / TICK_SECS).floor() as u64
+pub fn time_from_tick(tick: u64) -> f64 {
+    tick as f64 * TICK_SECS
 }
 
 // Returns (accumulated_time, simulated_time).
