@@ -55,11 +55,11 @@ impl Game {
             players: initial_data.players,
             input_history: Ring::new(),
 
-            // `head` will be reset when the first snapshot is inserted, but
-            // still we need an initial `head` that's within ±2^15 ticks of the
-            // tick on which the first snapshot was sent so that the first
-            // snapshot's 16-bit wire id will be extended to the correct 64-bit
-            // storage id.
+            // `snapshot_buffer.head` will be reset when the first snapshot is
+            // inserted, but still we need an initial `head` that's within ±2^15
+            // ticks of the tick on which the first snapshot was sent so that
+            // the first snapshot's 16-bit wire id will be extended to the
+            // correct 64-bit storage id.
 
             // The `tail` (used as a guard against writing outdated items on the
             // `input_buffers`) is not used here due to its minimal advantage.
