@@ -336,6 +336,8 @@ pub async fn run_client_loop(
             break;
         }
 
+        runner.session.clock.fps.update();
+        println!("{}", runner.session.clock.fps.rate);
         runner.pump_network();
         runner.update_client_state();
 

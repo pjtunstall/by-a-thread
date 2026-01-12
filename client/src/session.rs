@@ -1,6 +1,7 @@
 use std::{collections::VecDeque, time::Instant};
 
 use crate::{
+    frame::FrameRate,
     lobby::state::Lobby,
     state::{ClientState, InputMode},
 };
@@ -266,6 +267,7 @@ pub struct Clock {
     pub accumulated_time: f64,
     pub continuous_sim_time: f64,
     pub sim_tick: u64,
+    pub fps: FrameRate,
 }
 
 impl Clock {
@@ -277,6 +279,7 @@ impl Clock {
             accumulated_time: 0.0,
             continuous_sim_time: 0.0,
             sim_tick: 0,
+            fps: FrameRate::default(),
         }
     }
 }
