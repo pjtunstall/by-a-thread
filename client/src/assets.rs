@@ -3,6 +3,7 @@ use macroquad::prelude::*;
 use common::maze::CELL_SIZE;
 
 pub struct Assets {
+    pub font: Font,
     pub floor_texture: Texture2D,
     pub wall_texture: Texture2D,
     pub ball_texture: Texture2D,
@@ -10,6 +11,10 @@ pub struct Assets {
 
 impl Assets {
     pub async fn load() -> Self {
+        let font =
+            load_ttf_font_from_bytes(include_bytes!("../assets/fonts/NotoSerifBold-MmDx.ttf"))
+                .expect("failed to load font");
+
         let wall_bytes = include_bytes!("../assets/bull.png");
         let wall_texture = Texture2D::from_file_with_format(wall_bytes, None);
 
@@ -19,6 +24,7 @@ impl Assets {
         let floor_texture = generate_floor_texture();
 
         Self {
+            font,
             floor_texture,
             wall_texture,
             ball_texture,

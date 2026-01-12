@@ -2,6 +2,8 @@ pub mod gui;
 
 use std::{fmt, net::SocketAddr};
 
+use macroquad::prelude::Font;
+
 use common::{
     input::{UiKey, sanitize},
     player::UsernameError,
@@ -39,11 +41,11 @@ pub trait LobbyUi {
     fn show_error(&mut self, message: &str);
     fn show_warning(&mut self, message: &str);
     fn show_prompt(&mut self, prompt: &str);
-    fn draw(&self, should_show_input: bool, show_cursor: bool);
+    fn draw(&self, should_show_input: bool, show_cursor: bool, font: Option<&Font>);
     fn poll_input(&mut self, limit: usize, is_host: bool) -> Result<Option<String>, UiInputError>;
     fn poll_single_key(&mut self) -> Result<Option<UiKey>, UiInputError>;
     fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr, client_id: u64);
-    fn draw_countdown(&mut self, countdown_text: &str);
+    fn draw_countdown(&mut self, countdown_text: &str, font: Option<&Font>);
 
     fn show_sanitized_message(&mut self, message: &str) {
         self.show_message(&sanitize(message));

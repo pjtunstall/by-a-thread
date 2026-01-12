@@ -99,7 +99,8 @@ pub fn handle(
         time_remaining.floor() as u64
     };
 
-    ui.draw_countdown(&format!("{}", countdown_value));
+    let font = assets.map(|assets| &assets.font);
+    ui.draw_countdown(&format!("{}", countdown_value), font);
 
     // We return None here always. The transition to the next state,
     // Game, is triggered elsewhere: when the time reaches 0, run.rs

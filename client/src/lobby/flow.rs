@@ -1,5 +1,3 @@
-use macroquad::prelude::*;
-
 use crate::{
     assets::Assets,
     lobby::handlers,
@@ -55,7 +53,8 @@ pub fn update(
     if !session.is_countdown_active() {
         let should_show_input = matches!(ui_state.mode, crate::state::InputMode::Enabled);
         let show_cursor = should_show_input;
-        ui.draw(should_show_input, show_cursor);
+        let font = assets.map(|assets| &assets.font);
+        ui.draw(should_show_input, show_cursor, font);
     }
 
     LobbyStep::Continue

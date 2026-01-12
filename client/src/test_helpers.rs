@@ -1,6 +1,7 @@
 use std::{collections::VecDeque, net::SocketAddr};
 
 use bincode::{config::standard, serde::encode_to_vec};
+use macroquad::prelude::Font;
 
 use crate::{
     lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
@@ -48,7 +49,7 @@ impl MockUi {
 }
 
 impl LobbyUi for MockUi {
-    fn draw(&self, _should_show_input: bool, _show_cursor: bool) {
+    fn draw(&self, _should_show_input: bool, _show_cursor: bool, _font: Option<&Font>) {
         // No-op for tests.
     }
     fn show_message(&mut self, message: &str) {
@@ -98,7 +99,7 @@ impl LobbyUi for MockUi {
         ));
     }
 
-    fn draw_countdown(&mut self, countdown_text: &str) {
+    fn draw_countdown(&mut self, countdown_text: &str, _font: Option<&Font>) {
         self.countdown_draws.push(countdown_text.to_string());
     }
 }

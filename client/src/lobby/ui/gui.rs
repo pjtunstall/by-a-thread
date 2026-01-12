@@ -53,7 +53,7 @@ impl Gui {
         }
     }
 
-    pub fn draw(&self, should_show_input: bool, show_cursor: bool) {
+    pub fn draw(&self, should_show_input: bool, show_cursor: bool, font: Option<&Font>) {
         clear_background(BACKGROUND_COLOR);
 
         let line_height = FONT_SIZE * 1.2;
@@ -63,9 +63,15 @@ impl Gui {
         let mut current_baseline = screen_height() - BOTTOM_PAD;
 
         if should_show_input {
-            self.draw_input(&mut current_baseline, line_height, max_width, show_cursor);
+            self.draw_input(
+                &mut current_baseline,
+                line_height,
+                max_width,
+                show_cursor,
+                font,
+            );
         } // and move the current_baseline to the line above the input.
-        self.draw_chat_history(current_baseline, line_height, max_width);
+        self.draw_chat_history(current_baseline, line_height, max_width, font);
     }
 
     fn draw_input(
@@ -74,26 +80,50 @@ impl Gui {
         line_height: f32,
         max_width: f32,
         show_cursor: bool,
+        font: Option<&Font>,
     ) {
         let full_input_text = format!("{}{}", PROMPT, self.input_buffer);
-        let input_lines = self.wrap_text(&full_input_text, max_width);
+        let input_lines = self.wrap_text(&full_input_text, max_width, font);
 
         let input_start_y = *current_baseline - ((input_lines.len() as f32 - 1.0) * line_height);
         let mut draw_y = input_start_y;
 
         for line in input_lines.iter() {
-            draw_text(line, SIDE_PAD, draw_y, FONT_SIZE, INPUT_COLOR);
+            // draw_text(line, SIDE_PAD, draw_y, FONT_SIZE, INPUT_COLOR);
+
+            if let Some(font) = font {
+                draw_text_ex(
+                    line,
+                    SIDE_PAD,
+                    draw_y,
+                    TextParams {
+                        font: Some(font),
+                        font_size: FONT_SIZE as u16,
+                        color: INPUT_COLOR,
+                        ..Default::default()
+                    },
+                );
+            } else {
+                draw_text(line, SIDE_PAD, draw_y, FONT_SIZE, INPUT_COLOR);
+            }
+
             draw_y += line_height;
         }
 
         if show_cursor && (get_time() * 2.0) as i32 % 2 == 0 {
-            self.draw_cursor(input_start_y, &input_lines, line_height);
+            self.draw_cursor(input_start_y, &input_lines, line_height, font);
         }
 
         *current_baseline -= input_lines.len() as f32 * line_height;
     }
 
-    fn draw_cursor(&self, input_start_y: f32, input_lines: &Vec<String>, line_height: f32) {
+    fn draw_cursor(
+        &self,
+        input_start_y: f32,
+        input_lines: &Vec<String>,
+        line_height: f32,
+        font: Option<&Font>,
+    ) {
         // Determine the logical index of the cursor within the FULL text (including the prompt). We use char indices because cursor_pos is a char count.
         let prompt_len = PROMPT.chars().count();
         let target_char_index = self.cursor_pos + prompt_len;
@@ -115,7 +145,7 @@ impl Gui {
                 // Get the text strictly before the cursor on this specific line.
                 let sub_string: String = line.chars().take(index_in_line).collect();
 
-                let text_width = self.measure_text_strict(&sub_string);
+                let text_width = self.measure_text_strict(&sub_string, font);
 
                 cursor_x = SIDE_PAD + text_width;
                 cursor_y = input_start_y + (i as f32 * line_height);
@@ -131,33 +161,52 @@ impl Gui {
         if !cursor_found && !input_lines.is_empty() {
             let last_idx = input_lines.len() - 1;
             let last_line = &input_lines[last_idx];
-            let text_width = self.measure_text_strict(last_line);
+            let text_width = self.measure_text_strict(last_line, font);
             cursor_x = SIDE_PAD + text_width;
             cursor_y = input_start_y + (last_idx as f32 * line_height);
         } else if input_lines.is_empty() {
-            cursor_x = SIDE_PAD + self.measure_text_strict(PROMPT);
+            cursor_x = SIDE_PAD + self.measure_text_strict(PROMPT, font);
             cursor_y = input_start_y;
         }
 
         draw_rectangle(cursor_x, cursor_y - FONT_SIZE + 5.0, 2.0, FONT_SIZE, WHITE);
     }
 
-    fn draw_chat_history(&self, mut current_baseline: f32, line_height: f32, max_width: f32) {
+    fn draw_chat_history(
+        &self,
+        mut current_baseline: f32,
+        line_height: f32,
+        max_width: f32,
+        font: Option<&Font>,
+    ) {
         for (message, color) in self.message_history.iter().rev() {
-            let lines = self.wrap_text(message, max_width);
+            let lines = self.wrap_text(message, max_width, font);
             for line in lines.iter().rev() {
                 if current_baseline < line_height * 2.0 {
                     break;
                 }
-                draw_text(line, SIDE_PAD, current_baseline, FONT_SIZE, *color);
+                if let Some(font) = font {
+                    draw_text_ex(
+                        line,
+                        SIDE_PAD,
+                        current_baseline,
+                        TextParams {
+                            font: Some(font),
+                            font_size: FONT_SIZE as u16,
+                            color: *color,
+                            ..Default::default()
+                        },
+                    );
+                } else {
+                    draw_text(line, SIDE_PAD, current_baseline, FONT_SIZE, *color);
+                }
                 current_baseline -= line_height;
             }
         }
     }
 
     // Measure text width, forcing the inclusion of trailing spaces.
-    fn measure_text_strict(&self, text: &str) -> f32 {
-        let font: Option<&Font> = None;
+    fn measure_text_strict(&self, text: &str, font: Option<&Font>) -> f32 {
         let font_size = FONT_SIZE as u16;
         let line_spacing = 1.0;
 
@@ -173,7 +222,7 @@ impl Gui {
         }
     }
 
-    fn wrap_text(&self, text: &str, max_width: f32) -> Vec<String> {
+    fn wrap_text(&self, text: &str, max_width: f32, font: Option<&Font>) -> Vec<String> {
         let mut wrapped_lines = Vec::new();
 
         for line in text.lines() {
@@ -197,7 +246,7 @@ impl Gui {
                 };
 
                 let line_with_word = format!("{}{}", current_line, word);
-                let line_with_word_width = self.measure_text_strict(&line_with_word);
+                let line_with_word_width = self.measure_text_strict(&line_with_word, font);
 
                 // Case 1: Word fits on the current line.
                 if line_with_word_width <= max_width {
@@ -206,7 +255,7 @@ impl Gui {
                 }
 
                 // Word doesn't fit - need to handle wrapping.
-                let word_width = self.measure_text_strict(&word);
+                let word_width = self.measure_text_strict(&word, font);
                 let is_at_prompt_only = current_line.trim() == ">";
                 let word_fits_on_new_line = word_width <= max_width;
 
@@ -227,7 +276,7 @@ impl Gui {
                     // current_line (which might be ">"), so the prompt stays attached
                     for character in word.chars() {
                         let line_with_char = format!("{}{}", current_line, character);
-                        let line_with_char_width = self.measure_text_strict(&line_with_char);
+                        let line_with_char_width = self.measure_text_strict(&line_with_char, font);
 
                         if line_with_char_width > max_width {
                             // Current line is now full - push it and start fresh
@@ -293,8 +342,8 @@ impl LobbyUi for Gui {
         self.add_history(&format!("  Your ID:       {}", client_id), BANNER_COLOR);
     }
 
-    fn draw(&self, should_show_input: bool, show_cursor: bool) {
-        Gui::draw(self, should_show_input, show_cursor);
+    fn draw(&self, should_show_input: bool, show_cursor: bool, font: Option<&Font>) {
+        Gui::draw(self, should_show_input, show_cursor, font);
     }
 
     fn poll_input(&mut self, limit: usize, is_host: bool) -> Result<Option<String>, UiInputError> {
@@ -419,19 +468,33 @@ impl LobbyUi for Gui {
         Ok(None)
     }
 
-    fn draw_countdown(&mut self, countdown_text: &str) {
+    fn draw_countdown(&mut self, countdown_text: &str, font: Option<&Font>) {
         clear_background(BLACK);
 
         let font_size = 120.0;
         let text_color = WHITE;
 
-        let text_dimensions = measure_text(countdown_text, None, font_size as u16, 1.0);
+        let text_dimensions = measure_text(countdown_text, font, font_size as u16, 1.0);
         let screen_center_x = screen_width() / 2.0;
         let screen_center_y = screen_height() / 2.0;
 
         let x_pos = screen_center_x - text_dimensions.width / 2.0;
         let y_pos = screen_center_y + text_dimensions.height / 2.0;
 
-        draw_text(countdown_text, x_pos, y_pos, font_size, text_color);
+        if let Some(font) = font {
+            draw_text_ex(
+                countdown_text,
+                x_pos,
+                y_pos,
+                TextParams {
+                    font: Some(font),
+                    font_size: font_size as u16,
+                    color: text_color,
+                    ..Default::default()
+                },
+            );
+        } else {
+            draw_text(countdown_text, x_pos, y_pos, font_size, text_color);
+        }
     }
 }

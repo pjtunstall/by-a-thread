@@ -133,7 +133,7 @@ impl ClientRunner {
             self.session.disconnected_notified = true;
         }
 
-        self.ui.draw(false, false);
+        self.ui.draw(false, false, Some(&self.assets.font));
     }
 
     fn update_client_state(&mut self) {
@@ -337,7 +337,7 @@ pub async fn run_client_loop(
         }
 
         runner.session.clock.fps.update();
-        println!("{}", runner.session.clock.fps.rate);
+        // println!("{}", runner.session.clock.fps.rate);
         runner.pump_network();
         runner.update_client_state();
 
