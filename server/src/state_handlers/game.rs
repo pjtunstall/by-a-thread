@@ -140,7 +140,7 @@ fn update_bullets(state: &mut Game, events: &mut Vec<BulletEvent>) {
                 }
 
                 match bullet.bounce_off_wall(&state.maze) {
-                    WallBounce::HitInanimate => {
+                    WallBounce::Bounce => {
                         hit_inanimate = true;
                     }
                     WallBounce::Stuck => {

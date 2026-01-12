@@ -406,7 +406,7 @@ impl Game {
                         bullet.bounce_off_ground();
                         match bullet.bounce_off_wall(maze) {
                             bullets::WallBounce::Stuck => return false,
-                            bullets::WallBounce::HitInanimate => {}
+                            bullets::WallBounce::Bounce => {}
                             bullets::WallBounce::None => {}
                         }
 
@@ -655,7 +655,7 @@ impl ClientBullet {
             bullets::WallBounce::Stuck
         } else {
             self.redirect(normal);
-            bullets::WallBounce::HitInanimate
+            bullets::WallBounce::Bounce
         }
     }
 

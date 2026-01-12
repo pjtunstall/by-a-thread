@@ -87,7 +87,7 @@ impl Bullet {
             WallBounce::Stuck
         } else {
             self.redirect(normal);
-            WallBounce::HitInanimate
+            WallBounce::Bounce
         }
     }
 
@@ -100,7 +100,7 @@ impl Bullet {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WallBounce {
     None,
-    HitInanimate,
+    Bounce,
     Stuck,
 }
 
