@@ -40,11 +40,7 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
             });
             let payload =
                 encode_to_vec(&message, standard()).expect("failed to serialize ServerTime");
-            network.send_message(
-                state.players[i].client_id,
-                AppChannel::ReliableOrdered,
-                payload,
-            );
+            network.send_message(state.players[i].client_id, AppChannel::Unreliable, payload);
         }
     }
 

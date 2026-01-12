@@ -70,6 +70,37 @@ impl Maze {
 
         outside_maze || grid[end_z][end_x] == 0
     }
+
+    pub fn get_wall_normal(&self, position: Vec3, direction: Vec3, speed: f32) -> Vec3 {
+        let previous_position = position - (speed + 0.1) * direction;
+        let current_grid_pos = (position / CELL_SIZE).floor();
+        let previous_grid_pos = (previous_position / CELL_SIZE).floor();
+
+        let delta = current_grid_pos - previous_grid_pos;
+
+        // If we didn't cross a grid boundary, return the negative direction as fallback.
+        if delta.x == 0.0 && delta.z == 0.0 {
+            return -direction;
+        }
+
+        let is_wall_on_x_side = delta.x != 0.0
+            && !self.is_way_clear(&(previous_position + Vec3::new(delta.x * CELL_SIZE, 0.0, 0.0)));
+
+        let is_wall_on_z_side = delta.z != 0.0
+            && !self.is_way_clear(&(previous_position + Vec3::new(0.0, 0.0, delta.z * CELL_SIZE)));
+
+        if is_wall_on_x_side && is_wall_on_z_side {
+            // Inside corner.
+            -direction
+        } else if is_wall_on_x_side {
+            Vec3::new(-delta.x.signum(), 0.0, 0.0)
+        } else if is_wall_on_z_side {
+            Vec3::new(0.0, 0.0, -delta.z.signum())
+        } else {
+            // Outside corner.
+            -Vec3::new(delta.x, 0.0, delta.z).normalize()
+        }
+    }
 }
 
 impl fmt::Debug for Maze {
