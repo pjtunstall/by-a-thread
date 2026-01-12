@@ -75,6 +75,8 @@ fn server_loop(
 
         let mut network_handle = RenetServerNetworkHandle { server };
 
+        // TODO: Could this be done in the same conditional block as snapshots
+        // are sent in `game` to avoid checking twice?
         if now.duration_since(last_sync_time) > BROADCAST_INTERVAL {
             sync_clocks(&mut network_handle);
             last_sync_time = now;
