@@ -287,14 +287,10 @@ impl Game {
                 continue;
             }
 
-            debug_assert!(remote_a.len() == 3);
-            debug_assert!(remote_b.len() == 3);
             let Some(a) = remote_a.get(remote_index) else {
-                // With that assumption, we should never get here...
                 return None;
             };
             let Some(b) = remote_b.get(remote_index) else {
-                // ...or here.
                 return None;
             };
 
