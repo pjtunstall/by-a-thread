@@ -372,6 +372,9 @@ impl Game {
             if index == self.local_player_index {
                 continue;
             }
+            if !player.alive {
+                continue;
+            }
 
             draw_sphere(
                 player.state.position,
