@@ -48,7 +48,7 @@ impl Player {
             disconnected: false,
             alive: true,
             current_tick: 0,
-            health: 9,
+            health: MAX_HEALTH,
         }
     }
 }
