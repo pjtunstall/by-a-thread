@@ -1,10 +1,3 @@
-/* TODO: Consider this:
-
-"Given promotions happen offscreen, the cleanest option is to eliminate visible correction entirely: On confirm, keep the provisional bullet’s current position and velocity, just assign the server ID and mark confirmed. Skip any positional adjustment unless the error is huge.
-We can add a “max correction” threshold: if the server‑extrapolated position is within (say) 5–10 units of the provisional, ignore it; otherwise blend. That would make most promotions invisible while still correcting rare big mismatches."
-
-*/
-
 use std::{
     fmt,
     time::{Duration, Instant},
@@ -41,6 +34,13 @@ use common::{
 // A guard against getting stuck in loop receiving snapshots from server if
 // messages are coming faster than we can drain the queue.
 const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
+const BULLET_COLOR_MODE: BulletColorMode = BulletColorMode::ConfirmThenRed;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BulletColorMode {
+    ConfirmThenRed, // Turn red on confirmation from server, for debugging.
+    FadeToRed,
+}
 
 pub struct Game {
     pub local_player_index: usize,
@@ -389,7 +389,20 @@ impl Game {
         const BULLET_DRAW_RADIUS: f32 = 4.0;
 
         for bullet in &self.bullets {
-            draw_sphere(bullet.position, BULLET_DRAW_RADIUS, None, WHITE);
+            let color = match BULLET_COLOR_MODE {
+                BulletColorMode::ConfirmThenRed => {
+                    if bullet.confirmed {
+                        RED
+                    } else {
+                        WHITE
+                    }
+                }
+                BulletColorMode::FadeToRed => {
+                    let fade = bullet.fade_amount(self.last_sim_tick);
+                    Color::new(1.0, fade, fade, fade)
+                }
+            };
+            draw_sphere(bullet.position, BULLET_DRAW_RADIUS, None, color);
         }
     }
 
@@ -632,6 +645,16 @@ impl ClientBullet {
 
     pub fn is_provisional_for(&self, fire_nonce: u32) -> bool {
         !self.confirmed && self.fire_nonce == Some(fire_nonce)
+    }
+
+    pub fn fade_amount(&self, sim_tick: u64) -> f32 {
+        let age = sim_tick.saturating_sub(self.spawn_tick);
+        let lifespan_ticks = (bullets::LIFESPAN_SECS / TICK_SECS).ceil() as u64;
+        if lifespan_ticks == 0 {
+            return 1.0;
+        }
+        let t = age as f32 / lifespan_ticks as f32;
+        (1.0 - t).clamp(0.0, 1.0)
     }
 
     pub fn start_blend(&mut self, target: Vec3, ticks: u8) {

@@ -169,10 +169,6 @@ fn update_bullets(state: &mut Game, events: &mut Vec<BulletEvent>) {
         {
             let bullet = &mut state.bullets[index];
             for (player_index, player) in state.players.iter_mut().enumerate() {
-                if player_index == bullet.owner_index {
-                    continue;
-                }
-
                 if !matches!(player.status, crate::player::Status::Alive) {
                     continue;
                 }

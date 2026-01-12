@@ -19,7 +19,11 @@ use crate::{
     session::{ClientSession, Clock},
     state::{ClientState, Lobby},
 };
-use common::{self, constants::TICK_SECS, player::Player};
+use common::{
+    self,
+    constants::TICK_SECS,
+    player::{Player, PlayerInput},
+};
 
 pub struct ClientRunner {
     pub session: ClientSession,
@@ -293,8 +297,14 @@ impl ClientRunner {
 
         while clock.accumulated_time >= TICK_SECS && ticks_processed < MAX_TICKS_PER_FRAME {
             let sim_tick = clock.sim_tick;
-            let input = input::player_input_from_keys(sim_tick);
-            let mut input = input;
+            if game_state.players[game_state.local_player_index].health == 0 {
+                clock.accumulated_time -= TICK_SECS;
+                clock.sim_tick += 1;
+                ticks_processed += 1;
+                continue;
+            }
+
+            let mut input = input::player_input_from_keys(sim_tick);
             game_state.prepare_fire_input(sim_tick, &mut input);
             game_state.send_input(network_handle, input, sim_tick);
             game_state.input_history.insert(sim_tick, input);
