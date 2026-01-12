@@ -16,12 +16,17 @@ pub struct ServerPlayer {
     pub color: Color,
     pub status: Status,
     pub over_cap_strikes: u8,
+    pub health: u8,
+    pub last_fire_tick: Option<u64>,
+    pub bullets_in_air: usize,
 }
 
 impl ServerPlayer {
     pub fn new(player: Player, current_tick: u64) -> Self {
         let status = if player.disconnected {
             Status::Disconnected
+        } else if player.health == 0 {
+            Status::Dead
         } else {
             Status::Alive
         };
@@ -37,6 +42,9 @@ impl ServerPlayer {
             last_input: PlayerInput::default(),
             input_buffer: NetworkBuffer::new(current_tick, current_tick),
             over_cap_strikes: 0,
+            health: player.health,
+            last_fire_tick: None,
+            bullets_in_air: 0,
         }
     }
 }

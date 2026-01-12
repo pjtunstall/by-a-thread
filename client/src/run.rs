@@ -278,7 +278,12 @@ impl ClientRunner {
 
         let head = game_state.snapshot_buffer.head;
         if game_state.reconcile(head) {
-            game_state.apply_input_range(head, clock.sim_tick);
+            let start_replay = head + 1;
+            let end_replay = clock.sim_tick + 1;
+
+            if start_replay <= end_replay {
+                game_state.apply_input_range(start_replay, end_replay);
+            }
         }
 
         while clock.accumulated_time >= TICK_SECS && ticks_processed < MAX_TICKS_PER_FRAME {
@@ -287,7 +292,7 @@ impl ClientRunner {
             game_state.send_input(network_handle, input, sim_tick);
             game_state.input_history.insert(sim_tick, input);
             game_state.apply_input(sim_tick);
-            transition = game_state.update();
+            transition = game_state.update(sim_tick);
 
             clock.accumulated_time -= TICK_SECS;
             clock.sim_tick += 1;

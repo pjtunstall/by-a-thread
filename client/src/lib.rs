@@ -1,4 +1,5 @@
 pub mod assets;
+pub mod fade;
 pub mod frame;
 pub mod game;
 pub mod info;

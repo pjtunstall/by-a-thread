@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod bullets;
 pub mod chat;
 pub mod constants;
 pub mod input;

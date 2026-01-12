@@ -1,3 +1,4 @@
+use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -22,6 +23,7 @@ pub fn auth_success_message(max_username_length: usize) -> String {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
     Snapshot(WireItem<Snapshot>),
+    BulletEvent(BulletEvent),
     ServerTime(f64),
     CountdownStarted {
         end_time: f64,
@@ -58,6 +60,7 @@ impl ServerMessage {
     pub fn variant_name(&self) -> &'static str {
         match self {
             Self::Snapshot(_) => "Snapshot",
+            Self::BulletEvent(_) => "BulletEvent",
             Self::ServerTime(_) => "ServerTime",
             Self::CountdownStarted { .. } => "CountdownStarted",
             Self::Welcome { .. } => "Welcome",
@@ -72,6 +75,36 @@ impl ServerMessage {
             Self::DenyDifficultySelection => "DenyDifficultySelection",
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+pub enum BulletEvent {
+    Spawn {
+        bullet_id: u32,
+        tick: u64,
+        position: Vec3,
+        velocity: Vec3,
+    },
+    Bounce {
+        bullet_id: u32,
+        tick: u64,
+        position: Vec3,
+        velocity: Vec3,
+    },
+    Hit {
+        bullet_id: u32,
+        tick: u64,
+        position: Vec3,
+        velocity: Vec3,
+        target_index: usize,
+        target_health: u8,
+    },
+    Expire {
+        bullet_id: u32,
+        tick: u64,
+        position: Vec3,
+        velocity: Vec3,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]

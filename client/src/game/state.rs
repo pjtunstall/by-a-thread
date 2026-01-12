@@ -11,6 +11,7 @@ use macroquad::{color, prelude::*, window::clear_background};
 
 use crate::{
     assets::Assets,
+    fade::{self, Fade},
     frame::FrameRate,
     game::world::maze::{MazeExtension, MazeMeshes},
     info,
@@ -23,7 +24,7 @@ use common::{
     maze::Maze,
     net::AppChannel,
     player::{self, Player, PlayerInput},
-    protocol::{ClientMessage, ServerMessage},
+    protocol::{BulletEvent, ClientMessage, ServerMessage},
     ring::WireItem,
     ring::{NetworkBuffer, Ring},
     snapshot::{InitialData, Snapshot},
@@ -43,6 +44,10 @@ pub struct Game {
     pub snapshot_buffer: NetworkBuffer<Snapshot, SNAPSHOT_BUFFER_LENGTH>, // 16 broadcasts, 0.8s at 20Hz.
     pub is_first_snapshot_received: bool,
     pub last_reconciled_tick: Option<u64>,
+    pub bullets: Vec<ClientBullet>,
+    pub flash: Option<Fade>,
+    pub fade_to_black: Option<Fade>,
+    pub fade_to_black_finished: bool,
 }
 
 impl Game {
@@ -70,6 +75,10 @@ impl Game {
 
             is_first_snapshot_received: false,
             last_reconciled_tick: None,
+            bullets: Vec::new(),
+            flash: None,
+            fade_to_black: None,
+            fade_to_black_finished: false,
         }
     }
 
@@ -118,6 +127,9 @@ impl Game {
                 Ok((ServerMessage::Snapshot(snapshot), _)) => {
                     self.snapshot_buffer.insert(snapshot);
                 }
+                Ok((ServerMessage::BulletEvent(event), _)) => {
+                    self.apply_bullet_event(event);
+                }
                 Ok((other, _)) => {
                     eprintln!(
                         "unexpected message type received from server: {}",
@@ -126,6 +138,23 @@ impl Game {
                 }
                 Err(error) => {
                     eprintln!("failed to decode server message: {}", error);
+                }
+            }
+        }
+
+        while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
+            match decode_from_slice::<ServerMessage, _>(&data, standard()) {
+                Ok((ServerMessage::BulletEvent(event), _)) => {
+                    self.apply_bullet_event(event);
+                }
+                Ok((other, _)) => {
+                    eprintln!(
+                        "unexpected reliable message type received from server: {}",
+                        other.variant_name()
+                    );
+                }
+                Err(error) => {
+                    eprintln!("failed to decode reliable server message: {}", error);
                 }
             }
         }
@@ -237,7 +266,8 @@ impl Game {
     // collision with bullets, which will be sent on the reliable channel from
     // the server. I'll see whether this function is needed when I
     // implement that, or whether the state change is best placed elsewhere.
-    pub fn update(&mut self) -> Option<ClientState> {
+    pub fn update(&mut self, sim_tick: u64) -> Option<ClientState> {
+        self.update_bullets(sim_tick);
         None
     }
 
@@ -265,9 +295,30 @@ impl Game {
 
         self.maze.draw(&self.maze_meshes);
         self.draw_remote_players(assets);
+        self.draw_bullets();
         // self.draw_test_sphere(assets);
 
         info::draw(self, assets, fps, info::INFO_SCALE);
+
+        // Handle fading to black when the local player dies. This block must
+        // be placed after drawing the scene so that the fade covers everything
+        // and not just the background. If this becomes a problem, consider
+        // decoupling the drawing of the fade (and likewise the flash) from
+        // checking whether it's still fading.
+        if let Some(fade) = &self.fade_to_black {
+            if !fade.is_still_fading_so_draw() {
+                clear_background(BLACK); // Avoids a brief flash after the fade completes.
+                self.fade_to_black_finished = true;
+            }
+        }
+
+        // Draw fading flash over the whole screen to indicate that the local
+        // player has recently been hit.
+        if let Some(flash) = &self.flash {
+            if !flash.is_still_fading_so_draw() {
+                self.flash = None;
+            }
+        }
     }
 
     fn draw_remote_players(&self, assets: &Assets) {
@@ -285,6 +336,85 @@ impl Game {
         }
     }
 
+    fn draw_bullets(&self) {
+        const BULLET_DRAW_RADIUS: f32 = 4.0;
+
+        for bullet in &self.bullets {
+            draw_sphere(bullet.position, BULLET_DRAW_RADIUS, None, WHITE);
+        }
+    }
+
+    fn update_bullets(&mut self, sim_tick: u64) {
+        for bullet in &mut self.bullets {
+            if sim_tick <= bullet.last_update_tick {
+                continue;
+            }
+
+            let ticks = sim_tick - bullet.last_update_tick;
+            bullet.advance(ticks);
+            bullet.last_update_tick = sim_tick;
+        }
+    }
+
+    fn apply_bullet_event(&mut self, event: BulletEvent) {
+        match event {
+            BulletEvent::Spawn {
+                bullet_id,
+                tick,
+                position,
+                velocity,
+            } => {
+                self.bullets
+                    .push(ClientBullet::new(bullet_id, position, velocity, tick));
+            }
+            BulletEvent::Bounce {
+                bullet_id,
+                tick,
+                position,
+                velocity,
+            } => {
+                if let Some(bullet) = self.bullets.iter_mut().find(|b| b.id == bullet_id) {
+                    bullet.position = position;
+                    bullet.velocity = velocity;
+                    bullet.last_update_tick = tick;
+                }
+            }
+            BulletEvent::Hit {
+                bullet_id,
+                tick,
+                position,
+                velocity,
+                target_index,
+                target_health,
+            } => {
+                if let Some(player) = self.players.get_mut(target_index) {
+                    player.health = target_health;
+                    player.alive = target_health > 0;
+                }
+
+                if target_index == self.local_player_index {
+                    if target_health == 0 {
+                        self.fade_to_black = Some(fade::new_fade_to_black());
+                        self.fade_to_black_finished = false;
+                    } else {
+                        self.flash = Some(fade::new_flash());
+                    }
+                }
+
+                if target_health == 0 {
+                    self.bullets.retain(|b| b.id != bullet_id);
+                } else if let Some(bullet) = self.bullets.iter_mut().find(|b| b.id == bullet_id) {
+                    bullet.position = position;
+                    bullet.velocity = velocity;
+                    bullet.last_update_tick = tick;
+                }
+            }
+            BulletEvent::Expire { bullet_id, .. } => {
+                self.bullets.retain(|b| b.id != bullet_id);
+            }
+        }
+    }
+
     // fn draw_test_sphere(&self, assets: &Assets) {
     //     let local_player = &self.players[self.local_player_index];
     //     let yaw = local_player.state.yaw;
@@ -298,6 +428,30 @@ impl Game {
 
     //     draw_sphere(position, player::RADIUS, Some(&assets.ball_texture), WHITE);
     // }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ClientBullet {
+    pub id: u32,
+    pub position: Vec3,
+    pub velocity: Vec3,
+    pub last_update_tick: u64,
+}
+
+impl ClientBullet {
+    pub fn new(id: u32, position: Vec3, velocity: Vec3, last_update_tick: u64) -> Self {
+        Self {
+            id,
+            position,
+            velocity,
+            last_update_tick,
+        }
+    }
+
+    pub fn advance(&mut self, ticks: u64) {
+        let delta = ticks as f32 * common::constants::TICK_SECS_F32;
+        self.position += self.velocity * delta;
+    }
 }
 
 impl fmt::Debug for Game {

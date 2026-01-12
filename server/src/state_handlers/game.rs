@@ -6,7 +6,11 @@ use crate::{
     state::{Game, ServerState},
 };
 use common::{
-    constants::TICKS_PER_BROADCAST, net::AppChannel, protocol::ServerMessage, ring::WireItem,
+    bullets::{self, Bullet, WallBounce},
+    constants::TICKS_PER_BROADCAST,
+    net::AppChannel,
+    protocol::{BulletEvent, ServerMessage},
+    ring::WireItem,
     snapshot::Snapshot,
 };
 
@@ -26,8 +30,66 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
         let input = player.last_input;
         // println!("{:?}", input);
 
-        player.state.update(&state.maze, &input);
+        if matches!(player.status, crate::player::Status::Alive) {
+            player.state.update(&state.maze, &input);
+        }
         player.input_buffer.advance_tail(state.current_tick);
+    }
+
+    let mut bullet_events = Vec::new();
+
+    for (player_index, player) in state.players.iter_mut().enumerate() {
+        if !matches!(player.status, crate::player::Status::Alive) {
+            continue;
+        }
+
+        if !player.last_input.fire {
+            continue;
+        }
+
+        let cooldown_ticks = bullets::cooldown_ticks();
+        let can_fire = player
+            .last_fire_tick
+            .map(|tick| state.current_tick.saturating_sub(tick) >= cooldown_ticks)
+            .unwrap_or(true);
+
+        if !can_fire || player.bullets_in_air >= bullets::MAX_BULLETS_PER_PLAYER {
+            continue;
+        }
+
+        let direction = bullets::direction_from_yaw_pitch(player.state.yaw, player.state.pitch);
+        if direction == glam::Vec3::ZERO {
+            continue;
+        }
+
+        let position = bullets::spawn_position(player.state.position, direction);
+        let velocity = direction * bullets::SPEED;
+        let bullet_id = state.next_bullet_id;
+        state.next_bullet_id = state.next_bullet_id.wrapping_add(1);
+
+        state
+            .bullets
+            .push(Bullet::new(bullet_id, player_index, position, velocity, state.current_tick));
+        player.last_fire_tick = Some(state.current_tick);
+        player.bullets_in_air += 1;
+
+        bullet_events.push(BulletEvent::Spawn {
+            bullet_id,
+            tick: state.current_tick,
+            position,
+            velocity,
+        });
+    }
+
+    update_bullets(state, &mut bullet_events);
+
+    if !bullet_events.is_empty() {
+        for event in bullet_events {
+            let message = ServerMessage::BulletEvent(event);
+            let payload =
+                encode_to_vec(&message, standard()).expect("failed to serialize bullet event");
+            network.broadcast_message(AppChannel::ReliableOrdered, payload);
+        }
     }
 
     // Only send snapshots every third tick.
@@ -48,4 +110,124 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
     // println!("{}", state.current_tick);
 
     None
+}
+
+fn update_bullets(state: &mut Game, events: &mut Vec<BulletEvent>) {
+    let mut index = 0;
+    while index < state.bullets.len() {
+        let mut remove = false;
+        let mut bounced = false;
+
+        {
+            let bullet = &mut state.bullets[index];
+            bullet.advance(1);
+
+            if bullet.is_expired(state.current_tick) || bullet.has_bounced_enough() {
+                events.push(BulletEvent::Expire {
+                    bullet_id: bullet.id,
+                    tick: state.current_tick,
+                    position: bullet.position,
+                    velocity: bullet.velocity,
+                });
+                remove = true;
+            } else {
+                if bullet.bounce_off_ground() {
+                    bounced = true;
+                }
+
+                match bullet.bounce_off_wall(&state.maze) {
+                    WallBounce::Bounced => {
+                        bounced = true;
+                    }
+                    WallBounce::Stuck => {
+                        events.push(BulletEvent::Expire {
+                            bullet_id: bullet.id,
+                            tick: state.current_tick,
+                            position: bullet.position,
+                            velocity: bullet.velocity,
+                        });
+                        remove = true;
+                    }
+                    WallBounce::None => {}
+                }
+            }
+        }
+
+        if remove {
+            let bullet = state.bullets.swap_remove(index);
+            if let Some(owner) = state.players.get_mut(bullet.owner_index) {
+                owner.bullets_in_air = owner.bullets_in_air.saturating_sub(1);
+            }
+            continue;
+        }
+
+        let mut hit_event = None;
+        {
+            let bullet = &mut state.bullets[index];
+            for (player_index, player) in state.players.iter_mut().enumerate() {
+                if player_index == bullet.owner_index {
+                    continue;
+                }
+
+                if !matches!(player.status, crate::player::Status::Alive) {
+                    continue;
+                }
+
+                if !bullets::is_bullet_colliding_with_player(bullet.position, player.state.position)
+                {
+                    continue;
+                }
+
+                let new_health = player.health.saturating_sub(1);
+                player.health = new_health;
+                if new_health == 0 {
+                    player.status = crate::player::Status::Dead;
+                }
+
+                if new_health > 0 {
+                    let delta = player.state.position - bullet.position;
+                    let normal = if delta.length_squared() > 0.001 {
+                        delta.normalize()
+                    } else {
+                        -bullet.velocity.normalize_or_zero()
+                    };
+                    bullet.redirect(normal);
+                } else {
+                    remove = true;
+                }
+
+                hit_event = Some(BulletEvent::Hit {
+                    bullet_id: bullet.id,
+                    tick: state.current_tick,
+                    position: bullet.position,
+                    velocity: bullet.velocity,
+                    target_index: player_index,
+                    target_health: new_health,
+                });
+                break;
+            }
+        }
+
+        if let Some(event) = hit_event {
+            events.push(event);
+        } else if bounced {
+            let bullet = &state.bullets[index];
+            events.push(BulletEvent::Bounce {
+                bullet_id: bullet.id,
+                tick: state.current_tick,
+                position: bullet.position,
+                velocity: bullet.velocity,
+            });
+        }
+
+        if remove {
+            let bullet = state.bullets.swap_remove(index);
+            if let Some(owner) = state.players.get_mut(bullet.owner_index) {
+                owner.bullets_in_air = owner.bullets_in_air.saturating_sub(1);
+            }
+            continue;
+        }
+
+        index += 1;
+    }
 }

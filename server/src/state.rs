@@ -10,6 +10,7 @@ use crate::{
     player::{ServerPlayer, Status},
 };
 use common::{
+    bullets::Bullet,
     constants::TICK_SECS,
     maze::Maze,
     net::AppChannel,
@@ -23,6 +24,8 @@ pub struct Game {
     pub players: Vec<ServerPlayer>,
     pub client_id_to_index: HashMap<u64, usize>,
     pub current_tick: u64,
+    pub bullets: Vec<Bullet>,
+    pub next_bullet_id: u32,
 }
 
 impl Game {
@@ -44,6 +47,8 @@ impl Game {
             players,
             client_id_to_index,
             current_tick,
+            bullets: Vec::new(),
+            next_bullet_id: 0,
         }
     }
 
