@@ -3,7 +3,7 @@ use std::{
     io::stdout,
     net::{SocketAddr, UdpSocket},
     thread,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use bincode::{config::standard, serde::encode_to_vec};
@@ -59,6 +59,7 @@ fn server_loop(
     state: &mut ServerState,
     passcode: &Passcode,
 ) {
+    let mut next_tick_time = Instant::now();
     let mut last_updated = Instant::now();
     let mut last_sync_time = Instant::now();
 
@@ -83,9 +84,13 @@ fn server_loop(
 
         transport.send_packets(server);
 
-        let elapsed = Instant::now() - last_updated;
-        if elapsed < IDEAL_TICK_DURATION {
-            thread::sleep(IDEAL_TICK_DURATION - elapsed);
+        next_tick_time += IDEAL_TICK_DURATION;
+
+        let current_time = Instant::now();
+        if next_tick_time > current_time {
+            thread::sleep(next_tick_time - current_time);
+        } else if current_time.duration_since(next_tick_time) > Duration::from_millis(250) {
+            next_tick_time = current_time;
         }
     }
 }

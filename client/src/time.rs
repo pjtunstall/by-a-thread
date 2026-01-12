@@ -11,7 +11,7 @@ use crate::{
 };
 use common::{constants::TICK_SECS, net::AppChannel, protocol::ServerMessage};
 
-pub const INTERPOLATION_DELAY_SECS: f64 = 100.0;
+pub const INTERPOLATION_DELAY_SECS: f64 = 0.1;
 
 const SAMPLE_WINDOW_SIZE: usize = 30;
 const HARD_SNAP_THRESHOLD: f64 = 1.0;
@@ -137,7 +137,7 @@ pub fn time_from_tick(tick: u64) -> f64 {
 // Returns (accumulated_time, simulated_time).
 pub fn smooth_dt(continuous_sim_time: f64, target_time: f64, frame_dt: f64) -> f64 {
     const HARD_SNAP_THRESHOLD: f64 = 0.25;
-    const NUDGE_CLAMP: f64 = 0.002;
+    const NUDGE_CLAMP: f64 = 0.01;
 
     let error = target_time - continuous_sim_time;
 

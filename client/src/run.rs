@@ -278,6 +278,11 @@ impl ClientRunner {
 
         let head = game_state.snapshot_buffer.head;
         if game_state.reconcile(head) {
+            let tick_diff = clock.sim_tick as i64 - head as i64;
+            println!(
+                "sim_tick: {} | last snapshot: {} | Lead: {}",
+                clock.sim_tick, head, tick_diff
+            );
             let start_replay = head + 1;
             let end_replay = clock.sim_tick + 1;
 
