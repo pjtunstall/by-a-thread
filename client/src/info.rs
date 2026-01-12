@@ -3,7 +3,12 @@ pub mod map;
 
 use macroquad::prelude::*;
 
-use crate::{assets::Assets, frame::FrameRate, game::state::Game};
+use crate::{
+    assets::Assets,
+    frame::FrameRate,
+    game::state::Game,
+};
+use common::player::MAX_HEALTH;
 
 const BASE_INDENTATION: f32 = 10.0;
 const BASE_PADDING: f32 = 10.0;
@@ -69,6 +74,15 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate, scale: f32) {
         fps,
         x,
         circle_top + circle_gap,
+        circle_radius,
+        &assets.font,
+        stat_font_size,
+    );
+    circles::draw_health(
+        local_player.health,
+        MAX_HEALTH,
+        x,
+        circle_top + circle_gap * 2.0,
         circle_radius,
         &assets.font,
         stat_font_size,

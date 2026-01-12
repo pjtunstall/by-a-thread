@@ -22,6 +22,7 @@ pub const FRICTION: f32 = 5.0;
 pub const MAX_ROTATION_SPEED: f32 = 4.0 * PI; // 2 turns per second.
 pub const ROTATION_ACCELERATION: f32 = (MAX_ROTATION_SPEED / 0.4) * PI; // Max in 0.2 seconds.
 pub const ROTATION_FRICTION: f32 = 10.0; // Stop in ~0.2 seconds when key is released.
+pub const MAX_HEALTH: u8 = 9;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Player {
@@ -33,6 +34,7 @@ pub struct Player {
     pub disconnected: bool,
     pub alive: bool,
     pub current_tick: u64,
+    pub health: u8,
 }
 
 impl Player {
@@ -46,6 +48,7 @@ impl Player {
             disconnected: false,
             alive: true,
             current_tick: 0,
+            health: 9,
         }
     }
 }
