@@ -1,3 +1,10 @@
+/* TODO: Consider this:
+
+"Given promotions happen offscreen, the cleanest option is to eliminate visible correction entirely: On confirm, keep the provisional bullet’s current position and velocity, just assign the server ID and mark confirmed. Skip any positional adjustment unless the error is huge.
+We can add a “max correction” threshold: if the server‑extrapolated position is within (say) 5–10 units of the provisional, ignore it; otherwise blend. That would make most promotions invisible while still correcting rare big mismatches."
+
+*/
+
 use std::{
     fmt,
     time::{Duration, Instant},
