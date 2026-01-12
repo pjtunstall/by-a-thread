@@ -65,15 +65,14 @@ pub fn build_maze_meshes(
     wall_texture: &Texture2D,
     floor_texture: &Texture2D,
 ) -> MazeMeshes {
-    println!("Building maze meshes...");
     let height = maze.grid.len();
     let width = if height > 0 { maze.grid[0].len() } else { 0 };
 
     const MAX_VERTICES: usize = 2_000;
 
-    let mut wall_builder = MeshBuilder::new(wall_texture.clone(), MAX_VERTICES, "Walls");
-    let mut floor_builder = MeshBuilder::new(floor_texture.clone(), MAX_VERTICES, "Floor");
-    let mut shadow_builder = MeshBuilder::new(Texture2D::empty(), MAX_VERTICES, "Shadows");
+    let mut wall_builder = MeshBuilder::new(wall_texture.clone(), MAX_VERTICES);
+    let mut floor_builder = MeshBuilder::new(floor_texture.clone(), MAX_VERTICES);
+    let mut shadow_builder = MeshBuilder::new(Texture2D::empty(), MAX_VERTICES);
 
     let w_size = vec3(CELL_SIZE, CELL_SIZE, CELL_SIZE);
     let w_hw = w_size.x / 2.0;
@@ -176,7 +175,6 @@ pub fn build_maze_meshes(
 }
 
 struct MeshBuilder {
-    name: String,
     meshes: Vec<Mesh>,
     vertices: Vec<Vertex>,
     indices: Vec<u16>,
@@ -186,9 +184,8 @@ struct MeshBuilder {
 }
 
 impl MeshBuilder {
-    fn new(texture: Texture2D, max_verts: usize, name: &str) -> Self {
+    fn new(texture: Texture2D, max_verts: usize) -> Self {
         Self {
-            name: name.to_string(),
             meshes: Vec::new(),
             vertices: Vec::with_capacity(max_verts),
             indices: Vec::with_capacity(max_verts * 3 / 2),
@@ -208,12 +205,6 @@ impl MeshBuilder {
         if self.vertices.is_empty() {
             return;
         }
-
-        println!(
-            "{} chunk created: {} vertices",
-            self.name,
-            self.vertices.len()
-        );
 
         self.meshes.push(Mesh {
             vertices: std::mem::take(&mut self.vertices),
