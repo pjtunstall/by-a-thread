@@ -10,6 +10,7 @@ use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 use crate::{
     assets::Assets,
     game::{self, input},
+    info,
     lobby::{
         self,
         ui::{Gui, LobbyUi},
@@ -172,7 +173,7 @@ impl ClientRunner {
                             game_state.snapshot_buffer.advance_tail(new_tail);
                         }
 
-                        game_state.draw(prediction_alpha, &self.assets);
+                        game_state.draw(prediction_alpha, &self.assets, &self.session.clock.fps);
                     }
                 }
             }
@@ -220,6 +221,7 @@ impl ClientRunner {
         };
 
         let maze_meshes = maze_meshes.expect("maze meshes should be built during countdown");
+        let info_map = info::map::initialize_map(&initial_data.maze, &self.assets.font);
 
         let Some(local_player_index) = initial_data
             .players
@@ -239,6 +241,7 @@ impl ClientRunner {
                 initial_data,
                 maze_meshes,
                 sim_tick,
+                info_map,
             )));
 
         Ok(())

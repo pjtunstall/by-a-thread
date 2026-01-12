@@ -11,7 +11,9 @@ use macroquad::{color, prelude::*, window::clear_background};
 
 use crate::{
     assets::Assets,
+    frame::FrameRate,
     game::world::maze::{MazeExtension, MazeMeshes},
+    info,
     net::NetworkHandle,
     state::ClientState,
     time::INTERPOLATION_DELAY_SECS,
@@ -36,6 +38,7 @@ pub struct Game {
     pub maze: Maze,
     pub maze_meshes: MazeMeshes,
     pub players: Vec<Player>,
+    pub info_map: info::map::MapOverlay,
     pub input_history: Ring<PlayerInput, INPUT_HISTORY_LENGTH>, // 256: ~4.3s at 60Hz.
     pub snapshot_buffer: NetworkBuffer<Snapshot, SNAPSHOT_BUFFER_LENGTH>, // 16 broadcasts, 0.8s at 20Hz.
     pub is_first_snapshot_received: bool,
@@ -48,12 +51,14 @@ impl Game {
         initial_data: InitialData,
         maze_meshes: MazeMeshes,
         sim_tick: u64,
+        info_map: info::map::MapOverlay,
     ) -> Self {
         Self {
             local_player_index,
             maze: initial_data.maze,
             maze_meshes,
             players: initial_data.players,
+            info_map,
             input_history: Ring::new(),
 
             // `snapshot_buffer.head` will be reset when the first snapshot is
@@ -238,7 +243,7 @@ impl Game {
 
     // TODO: `prediction_alpha` would be for smoothing the local player between
     // ticks if I allow faster than 60Hz frame rate for devices that support it.
-    pub fn draw(&mut self, _prediction_alpha: f64, assets: &Assets) {
+    pub fn draw(&mut self, _prediction_alpha: f64, assets: &Assets, fps: &FrameRate) {
         clear_background(color::BEIGE);
 
         let i = self.local_player_index;
@@ -261,6 +266,8 @@ impl Game {
         self.maze.draw(&self.maze_meshes);
         self.draw_remote_players(assets);
         // self.draw_test_sphere(assets);
+
+        info::draw(self, assets, fps);
     }
 
     fn draw_remote_players(&self, assets: &Assets) {

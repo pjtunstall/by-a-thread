@@ -3,24 +3,14 @@ pub mod map;
 
 use macroquad::prelude::*;
 
-use crate::session::ClientSession;
+use crate::{assets::Assets, frame::FrameRate, game::state::Game};
 
 pub const FONT_SIZE: f32 = 6.0;
 pub const BG_COLOR: Color = Color::new(1.0, 1.0, 1.0, 0.8);
 
-pub fn update(session: &mut ClientSession) {
-    map::update::update_players_on_map(session);
-}
-
-pub fn draw(session: &ClientSession) {
-    let ClientSession {
-        map,
-        local_player,
-        fps,
-        map_rect,
-        font,
-        ..
-    } = session;
+pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate) {
+    let local_player = &game_state.players[game_state.local_player_index];
+    let local_state = &local_player.state;
 
     push_camera_state();
     set_default_camera();
@@ -31,8 +21,10 @@ pub fn draw(session: &ClientSession) {
     let line_height = FONT_SIZE;
 
     // Draw map.
+    let map_overlay = &game_state.info_map;
+
     draw_texture_ex(
-        map,
+        &map_overlay.texture,
         x_indentation,
         y_indentation,
         WHITE,
@@ -42,15 +34,18 @@ pub fn draw(session: &ClientSession) {
         },
     );
 
-    map::update::draw_players_on_map(session, padding, x_indentation, y_indentation, line_height);
+    map::update::draw_players_on_map(
+        game_state,
+        padding,
+        x_indentation,
+        y_indentation,
+        line_height,
+        &assets.font,
+    );
 
-    let x = map_rect
-        .expect("map rect should exist by now; see `main`")
-        .w
-        + 40.0;
-    circles::draw_compass(local_player, x);
-    circles::draw_fps(fps, x, font);
-    circles::draw_health(local_player.health, x, font);
+    let x = map_overlay.rect.w + 40.0;
+    circles::draw_compass(local_state, x);
+    circles::draw_fps(fps, x, &assets.font);
 
     pop_camera_state();
 }
