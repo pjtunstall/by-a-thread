@@ -646,6 +646,7 @@ impl ClientBullet {
         self.blend_ticks_left = ticks;
     }
 
+    // TODO: Push `if` up?
     pub fn apply_blend(&mut self, ticks: u64) {
         if self.blend_ticks_left == 0 {
             return;
