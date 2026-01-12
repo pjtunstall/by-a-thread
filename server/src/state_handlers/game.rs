@@ -47,6 +47,9 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
             continue;
         }
 
+        let fire_nonce = player.last_input.fire_nonce;
+        player.last_input.fire_nonce = None;
+
         let cooldown_ticks = bullets::cooldown_ticks();
         let can_fire = player
             .last_fire_tick
@@ -78,6 +81,7 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
             tick: state.current_tick,
             position,
             velocity,
+            fire_nonce,
         });
     }
 

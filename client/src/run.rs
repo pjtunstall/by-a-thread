@@ -289,6 +289,8 @@ impl ClientRunner {
         while clock.accumulated_time >= TICK_SECS && ticks_processed < MAX_TICKS_PER_FRAME {
             let sim_tick = clock.sim_tick;
             let input = input::player_input_from_keys(sim_tick);
+            let mut input = input;
+            game_state.prepare_fire_input(sim_tick, &mut input);
             game_state.send_input(network_handle, input, sim_tick);
             game_state.input_history.insert(sim_tick, input);
             game_state.apply_input(sim_tick);

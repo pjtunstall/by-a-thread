@@ -84,6 +84,7 @@ pub enum BulletEvent {
         tick: u64,
         position: Vec3,
         velocity: Vec3,
+        fire_nonce: Option<u32>,
     },
     HitInanimate {
         bullet_id: u32,

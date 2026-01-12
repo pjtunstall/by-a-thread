@@ -20,8 +20,9 @@ use crate::{
     time::INTERPOLATION_DELAY_SECS,
 };
 use common::{
-    constants::{INPUT_HISTORY_LENGTH, SNAPSHOT_BUFFER_LENGTH},
-    maze::Maze,
+    bullets,
+    constants::{INPUT_HISTORY_LENGTH, SNAPSHOT_BUFFER_LENGTH, TICK_SECS, TICK_SECS_F32},
+    maze::{Maze, CELL_SIZE},
     net::AppChannel,
     player::{self, Player, PlayerInput},
     protocol::{BulletEvent, ClientMessage, ServerMessage},
@@ -48,6 +49,8 @@ pub struct Game {
     pub flash: Option<Fade>,
     pub fade_to_black: Option<Fade>,
     pub fade_to_black_finished: bool,
+    pub fire_nonce_counter: u32,
+    pub last_fire_tick: Option<u64>,
 }
 
 impl Game {
@@ -79,6 +82,8 @@ impl Game {
             flash: None,
             fade_to_black: None,
             fade_to_black_finished: false,
+            fire_nonce_counter: 0,
+            last_fire_tick: None,
         }
     }
 
@@ -98,6 +103,47 @@ impl Game {
             encode_to_vec(&client_message, standard()).expect("failed to encode player input");
         network.send_message(AppChannel::Unreliable, payload);
         // println!("{:?}", client_message);
+    }
+
+    pub fn prepare_fire_input(&mut self, sim_tick: u64, input: &mut PlayerInput) {
+        if !input.fire {
+            return;
+        }
+
+        let cooldown_ticks = bullets::cooldown_ticks();
+        let can_fire = self
+            .last_fire_tick
+            .map(|tick| sim_tick.saturating_sub(tick) >= cooldown_ticks)
+            .unwrap_or(true);
+        let bullets_in_air = self
+            .bullets
+            .iter()
+            .filter(|bullet| bullet.is_local)
+            .count();
+
+        if !can_fire || bullets_in_air >= bullets::MAX_BULLETS_PER_PLAYER {
+            return;
+        }
+
+        let local_state = &self.players[self.local_player_index].state;
+        let direction = bullets::direction_from_yaw_pitch(local_state.yaw, local_state.pitch);
+        if direction == Vec3::ZERO {
+            return;
+        }
+
+        let fire_nonce = self.fire_nonce_counter;
+        self.fire_nonce_counter = self.fire_nonce_counter.wrapping_add(1);
+        self.last_fire_tick = Some(sim_tick);
+        input.fire_nonce = Some(fire_nonce);
+
+        let position = bullets::spawn_position(local_state.position, direction);
+        let velocity = direction * bullets::SPEED;
+        self.bullets.push(ClientBullet::new_provisional(
+            fire_nonce,
+            position,
+            velocity,
+            sim_tick,
+        ));
     }
 
     // TODO: Consider disparity in naming between snapshot as data without id,
@@ -345,15 +391,44 @@ impl Game {
     }
 
     fn update_bullets(&mut self, sim_tick: u64) {
-        for bullet in &mut self.bullets {
-            if sim_tick <= bullet.last_update_tick {
-                continue;
+        const PROVISIONAL_TIMEOUT_TICKS: u64 = 30;
+        let lifespan_ticks = (bullets::LIFESPAN_SECS / TICK_SECS).ceil() as u64;
+        let maze = &self.maze;
+
+        self.bullets.retain_mut(|bullet| {
+            if sim_tick > bullet.last_update_tick {
+                let ticks = sim_tick - bullet.last_update_tick;
+                if bullet.confirmed {
+                    bullet.advance(ticks);
+                } else {
+                    for _ in 0..ticks {
+                        bullet.advance(1);
+                        bullet.bounce_off_ground();
+                        match bullet.bounce_off_wall(maze) {
+                            bullets::WallBounce::Stuck => return false,
+                            bullets::WallBounce::HitInanimate => {}
+                            bullets::WallBounce::None => {}
+                        }
+
+                        if bullet.has_bounced_enough() {
+                            return false;
+                        }
+                    }
+                }
+                bullet.last_update_tick = sim_tick;
             }
 
-            let ticks = sim_tick - bullet.last_update_tick;
-            bullet.advance(ticks);
-            bullet.last_update_tick = sim_tick;
-        }
+            if !bullet.confirmed {
+                if sim_tick.saturating_sub(bullet.spawn_tick) > PROVISIONAL_TIMEOUT_TICKS {
+                    return false;
+                }
+                if sim_tick.saturating_sub(bullet.spawn_tick) > lifespan_ticks {
+                    return false;
+                }
+            }
+
+            true
+        });
     }
 
     fn apply_bullet_event(&mut self, event: BulletEvent) {
@@ -363,9 +438,29 @@ impl Game {
                 tick,
                 position,
                 velocity,
+                fire_nonce,
             } => {
+                if let Some(fire_nonce) = fire_nonce {
+                    if let Some(bullet) = self
+                        .bullets
+                        .iter_mut()
+                        .find(|bullet| bullet.is_provisional_for(fire_nonce))
+                    {
+                        bullet.confirm(bullet_id, position, velocity, tick);
+                        return;
+                    }
+
+                    self.bullets.push(ClientBullet::new_confirmed_local(
+                        bullet_id,
+                        position,
+                        velocity,
+                        tick,
+                    ));
+                    return;
+                }
+
                 self.bullets
-                    .push(ClientBullet::new(bullet_id, position, velocity, tick));
+                    .push(ClientBullet::new_confirmed(bullet_id, position, velocity, tick));
             }
             BulletEvent::HitInanimate {
                 bullet_id,
@@ -373,7 +468,8 @@ impl Game {
                 position,
                 velocity,
             } => {
-                if let Some(bullet) = self.bullets.iter_mut().find(|b| b.id == bullet_id) {
+                if let Some(bullet) = self.bullets.iter_mut().find(|b| b.id == Some(bullet_id))
+                {
                     bullet.position = position;
                     bullet.velocity = velocity;
                     bullet.last_update_tick = tick;
@@ -402,15 +498,17 @@ impl Game {
                 }
 
                 if target_health == 0 {
-                    self.bullets.retain(|b| b.id != bullet_id);
-                } else if let Some(bullet) = self.bullets.iter_mut().find(|b| b.id == bullet_id) {
+                    self.bullets.retain(|b| b.id != Some(bullet_id));
+                } else if let Some(bullet) =
+                    self.bullets.iter_mut().find(|b| b.id == Some(bullet_id))
+                {
                     bullet.position = position;
                     bullet.velocity = velocity;
                     bullet.last_update_tick = tick;
                 }
             }
             BulletEvent::Expire { bullet_id, .. } => {
-                self.bullets.retain(|b| b.id != bullet_id);
+                self.bullets.retain(|b| b.id != Some(bullet_id));
             }
         }
     }
@@ -432,26 +530,143 @@ impl Game {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ClientBullet {
-    pub id: u32,
+    pub id: Option<u32>,
+    pub fire_nonce: Option<u32>,
     pub position: Vec3,
     pub velocity: Vec3,
     pub last_update_tick: u64,
+    pub spawn_tick: u64,
+    pub confirmed: bool,
+    pub is_local: bool,
+    pub bounces: u8,
 }
 
 impl ClientBullet {
-    pub fn new(id: u32, position: Vec3, velocity: Vec3, last_update_tick: u64) -> Self {
+    pub fn new_confirmed(
+        id: u32,
+        position: Vec3,
+        velocity: Vec3,
+        last_update_tick: u64,
+    ) -> Self {
         Self {
-            id,
+            id: Some(id),
+            fire_nonce: None,
             position,
             velocity,
             last_update_tick,
+            spawn_tick: last_update_tick,
+            confirmed: true,
+            is_local: false,
+            bounces: 0,
         }
+    }
+
+    pub fn new_confirmed_local(
+        id: u32,
+        position: Vec3,
+        velocity: Vec3,
+        last_update_tick: u64,
+    ) -> Self {
+        Self {
+            id: Some(id),
+            fire_nonce: None,
+            position,
+            velocity,
+            last_update_tick,
+            spawn_tick: last_update_tick,
+            confirmed: true,
+            is_local: true,
+            bounces: 0,
+        }
+    }
+
+    pub fn new_provisional(
+        fire_nonce: u32,
+        position: Vec3,
+        velocity: Vec3,
+        last_update_tick: u64,
+    ) -> Self {
+        Self {
+            id: None,
+            fire_nonce: Some(fire_nonce),
+            position,
+            velocity,
+            last_update_tick,
+            spawn_tick: last_update_tick,
+            confirmed: false,
+            is_local: true,
+            bounces: 0,
+        }
+    }
+
+    pub fn confirm(&mut self, id: u32, position: Vec3, velocity: Vec3, tick: u64) {
+        self.id = Some(id);
+        self.fire_nonce = None;
+        self.position = position;
+        self.velocity = velocity;
+        self.last_update_tick = tick;
+        self.spawn_tick = tick;
+        self.confirmed = true;
+        self.is_local = true;
+        self.bounces = 0;
     }
 
     pub fn advance(&mut self, ticks: u64) {
         let delta = ticks as f32 * common::constants::TICK_SECS_F32;
         self.position += self.velocity * delta;
     }
+
+    pub fn is_provisional_for(&self, fire_nonce: u32) -> bool {
+        !self.confirmed && self.fire_nonce == Some(fire_nonce)
+    }
+
+    pub fn has_bounced_enough(&self) -> bool {
+        self.bounces > bullets::MAX_BOUNCES
+    }
+
+    pub fn bounce_off_ground(&mut self) -> bool {
+        if self.position.y < 0.0 && self.velocity.y < 0.0 {
+            self.velocity.y *= -1.0;
+            self.bounces += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn bounce_off_wall(&mut self, maze: &Maze) -> bullets::WallBounce {
+        let bullet_is_not_above_wall_height = self.position.y < CELL_SIZE;
+        let has_bullet_crossed_a_wall = !maze.is_way_clear(&self.position);
+        let is_bullet_colliding_with_a_wall =
+            bullet_is_not_above_wall_height && has_bullet_crossed_a_wall;
+
+        if !is_bullet_colliding_with_a_wall {
+            return bullets::WallBounce::None;
+        }
+
+        let direction = self.velocity.normalize_or_zero();
+        if direction == Vec3::ZERO {
+            return bullets::WallBounce::Stuck;
+        }
+
+        let speed = self.velocity.length() * TICK_SECS_F32;
+        let normal = maze.get_wall_normal(self.position, direction, speed);
+        if normal == Vec3::ZERO {
+            bullets::WallBounce::Stuck
+        } else {
+            self.redirect(normal);
+            bullets::WallBounce::HitInanimate
+        }
+    }
+
+    fn redirect(&mut self, normal: Vec3) {
+        self.velocity = reflect(self.velocity, normal);
+        self.bounces += 1;
+    }
+}
+
+fn reflect(direction: Vec3, normal: Vec3) -> Vec3 {
+    direction - 2.0 * direction.dot(normal) * normal
 }
 
 impl fmt::Debug for Game {

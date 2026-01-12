@@ -261,6 +261,7 @@ pub struct PlayerInput {
     pub pitch_up: bool,
     pub pitch_down: bool,
     pub fire: bool,
+    pub fire_nonce: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, Display, IntoStaticStr)]
