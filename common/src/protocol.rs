@@ -85,13 +85,13 @@ pub enum BulletEvent {
         position: Vec3,
         velocity: Vec3,
     },
-    Bounce {
+    HitInanimate {
         bullet_id: u32,
         tick: u64,
         position: Vec3,
         velocity: Vec3,
     },
-    Hit {
+    HitPlayer {
         bullet_id: u32,
         tick: u64,
         position: Vec3,

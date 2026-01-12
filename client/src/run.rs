@@ -282,7 +282,7 @@ impl ClientRunner {
             let end_replay = clock.sim_tick + 1;
 
             if start_replay <= end_replay {
-                game_state.apply_input_range(start_replay, end_replay);
+                game_state.apply_input_range_inclusive(start_replay, end_replay);
             }
         }
 

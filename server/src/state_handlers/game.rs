@@ -116,7 +116,7 @@ fn update_bullets(state: &mut Game, events: &mut Vec<BulletEvent>) {
     let mut index = 0;
     while index < state.bullets.len() {
         let mut remove = false;
-        let mut bounced = false;
+        let mut hit_inanimate = false;
 
         {
             let bullet = &mut state.bullets[index];
@@ -132,12 +132,12 @@ fn update_bullets(state: &mut Game, events: &mut Vec<BulletEvent>) {
                 remove = true;
             } else {
                 if bullet.bounce_off_ground() {
-                    bounced = true;
+                    hit_inanimate = true;
                 }
 
                 match bullet.bounce_off_wall(&state.maze) {
-                    WallBounce::Bounced => {
-                        bounced = true;
+                    WallBounce::HitInanimate => {
+                        hit_inanimate = true;
                     }
                     WallBounce::Stuck => {
                         events.push(BulletEvent::Expire {
@@ -161,7 +161,7 @@ fn update_bullets(state: &mut Game, events: &mut Vec<BulletEvent>) {
             continue;
         }
 
-        let mut hit_event = None;
+        let mut hit_player_event = None;
         {
             let bullet = &mut state.bullets[index];
             for (player_index, player) in state.players.iter_mut().enumerate() {
@@ -196,7 +196,7 @@ fn update_bullets(state: &mut Game, events: &mut Vec<BulletEvent>) {
                     remove = true;
                 }
 
-                hit_event = Some(BulletEvent::Hit {
+                hit_player_event = Some(BulletEvent::HitPlayer {
                     bullet_id: bullet.id,
                     tick: state.current_tick,
                     position: bullet.position,
@@ -208,11 +208,11 @@ fn update_bullets(state: &mut Game, events: &mut Vec<BulletEvent>) {
             }
         }
 
-        if let Some(event) = hit_event {
+        if let Some(event) = hit_player_event {
             events.push(event);
-        } else if bounced {
+        } else if hit_inanimate {
             let bullet = &state.bullets[index];
-            events.push(BulletEvent::Bounce {
+            events.push(BulletEvent::HitInanimate {
                 bullet_id: bullet.id,
                 tick: state.current_tick,
                 position: bullet.position,

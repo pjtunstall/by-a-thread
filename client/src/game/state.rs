@@ -185,7 +185,7 @@ impl Game {
         }
     }
 
-    pub fn apply_input_range(&mut self, from: u64, to: u64) {
+    pub fn apply_input_range_inclusive(&mut self, from: u64, to: u64) {
         for tick in from..=to {
             self.apply_input(tick);
         }
@@ -367,7 +367,7 @@ impl Game {
                 self.bullets
                     .push(ClientBullet::new(bullet_id, position, velocity, tick));
             }
-            BulletEvent::Bounce {
+            BulletEvent::HitInanimate {
                 bullet_id,
                 tick,
                 position,
@@ -379,7 +379,7 @@ impl Game {
                     bullet.last_update_tick = tick;
                 }
             }
-            BulletEvent::Hit {
+            BulletEvent::HitPlayer {
                 bullet_id,
                 tick,
                 position,
