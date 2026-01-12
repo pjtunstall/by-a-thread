@@ -19,11 +19,7 @@ use crate::{
     session::{ClientSession, Clock},
     state::{ClientState, Lobby},
 };
-use common::{
-    self,
-    constants::TICK_SECS,
-    player::{Player, PlayerInput},
-};
+use common::{self, constants::TICK_SECS, player::Player};
 
 pub struct ClientRunner {
     pub session: ClientSession,

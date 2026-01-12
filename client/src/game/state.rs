@@ -36,6 +36,7 @@ use common::{
 const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
 const BULLET_COLOR_MODE: BulletColorMode = BulletColorMode::ConfirmThenRed;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BulletColorMode {
     ConfirmThenRed, // Turn red on confirmation from server, for debugging.
