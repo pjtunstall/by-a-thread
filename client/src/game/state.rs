@@ -267,7 +267,7 @@ impl Game {
         self.draw_remote_players(assets);
         // self.draw_test_sphere(assets);
 
-        info::draw(self, assets, fps);
+        info::draw(self, assets, fps, info::INFO_SCALE);
     }
 
     fn draw_remote_players(&self, assets: &Assets) {

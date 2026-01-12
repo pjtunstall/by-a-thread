@@ -1,9 +1,8 @@
 use macroquad::prelude::*;
 
-use super::{SPACE_SYMBOL, WALL_SYMBOL};
-use crate::{game::state::Game, info::FONT_SIZE};
+use crate::game::state::Game;
 use common::maze::CELL_SIZE;
-
+use super::{SPACE_SYMBOL, WALL_SYMBOL};
 // Color aliases: https://docs.rs/macroquad/latest/macroquad/color/colors/index.html
 pub const COLORS: [Color; 10] = [
     RED, LIME, PINK, YELLOW, GREEN, BLUE, MAROON, ORANGE, PURPLE, SKYBLUE,
@@ -35,10 +34,11 @@ pub fn draw_players_on_map(
     y_indentation: f32,
     line_height: f32,
     font: &Font,
+    font_size: u16,
 ) {
     let font = Some(font);
-    let wall_metrics = measure_text(WALL_SYMBOL, font, FONT_SIZE as u16, 1.0);
-    let space_metrics = measure_text(SPACE_SYMBOL, font, FONT_SIZE as u16, 1.0);
+    let wall_metrics = measure_text(WALL_SYMBOL, font, font_size, 1.0);
+    let space_metrics = measure_text(SPACE_SYMBOL, font, font_size, 1.0);
 
     let symbol_width = wall_metrics.width.max(space_metrics.width);
     let grid = &game_state.maze.grid;
@@ -54,7 +54,7 @@ pub fn draw_players_on_map(
             y_indentation + padding + (row as f32 + 1.0) * line_height,
             TextParams {
                 font,
-                font_size: FONT_SIZE as u16,
+                font_size,
                 color: COLORS[color_index % COLORS.len()],
                 ..Default::default()
             },
@@ -74,7 +74,7 @@ pub fn draw_players_on_map(
                 y_indentation + padding + (row as f32 + 1.0) * line_height,
                 TextParams {
                     font,
-                    font_size: FONT_SIZE as u16,
+                    font_size,
                     color: COLORS[color_index % COLORS.len()],
                     ..Default::default()
                 },
