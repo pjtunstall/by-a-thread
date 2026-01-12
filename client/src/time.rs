@@ -11,19 +11,24 @@ use crate::{
 };
 use common::{constants::TICK_SECS, net::AppChannel, protocol::ServerMessage};
 
-pub const INTERPOLATION_DELAY_SECS: f64 = 0.1;
-
-const SAMPLE_WINDOW_SIZE: usize = 30;
+const SAMPLE_WINDOW_SIZE: usize = 10;
 const HARD_SNAP_THRESHOLD: f64 = 1.0;
-const ALPHA_SPEED_UP: f64 = 0.15;
-const ALPHA_SLOW_DOWN: f64 = 0.02;
+const ALPHA_SPEED_UP: f64 = 0.1;
+const ALPHA_SLOW_DOWN: f64 = 0.1;
 const DEADZONE_THRESHOLD: f64 = 0.002;
 const RTT_ALPHA_SPIKE: f64 = 0.1;
 const RTT_ALPHA_IMPROVEMENT: f64 = 0.01;
+pub const INTERPOLATION_DELAY_SECS: f64 = 0.1;
+const NUDGE_CLAMP: f64 = 0.01;
 
 // Three ticks (50ms) is probably a safe starting buffer, but if inputs arrive
 // late on the server, consider increasing it, e.g. to 4 ticks.
 const JITTER_SAFETY_MARGIN: f64 = 0.05;
+
+// 1 second of sample age is weighted as equivalent to 20ms of extra RTT. This
+// ensures we prefer a slightly higher RTT from *now* over a perfect RTT from 1
+// second ago.
+const AGE_PENALTY_FACTOR: f64 = 0.02;
 
 pub fn estimate_server_clock(
     session: &mut ClientSession,
@@ -65,14 +70,23 @@ pub fn estimate_server_clock(
         return;
     }
 
-    // We assume the sample with the lowest RTT is the one least affected by network jitter.
+    // We select the best sample by balancing RTT against how old the data is.
+    // Minimizing the score (RTT + Age Penalty) prevents the clock from getting
+    // stuck on an old "lucky" packet with low RTT while the server time drifts.
     let best_sample = match session
         .clock
         .samples
         .iter()
         .filter(|&s| s.rtt.is_finite())
-        .min_by(|a, b| a.rtt.partial_cmp(&b.rtt).unwrap())
-    {
+        .min_by(|a, b| {
+            let age_a = now_seconds - a.client_receive_time;
+            let age_b = now_seconds - b.client_receive_time;
+
+            let score_a = a.rtt + (age_a * AGE_PENALTY_FACTOR);
+            let score_b = b.rtt + (age_b * AGE_PENALTY_FACTOR);
+
+            score_a.partial_cmp(&score_b).unwrap()
+        }) {
         Some(sample) => sample,
         None => {
             println!("No usable samples, e.g. all samples are NaN?");
@@ -97,7 +111,7 @@ pub fn estimate_server_clock(
         return;
     }
 
-    // Asymmetric smoothing: speed up fast, slow down slowly.
+    // Apply symmetric smoothing to align the estimated server time with the target.
     let clock_alpha = if error > 0.0 {
         ALPHA_SPEED_UP
     } else {
@@ -136,9 +150,6 @@ pub fn time_from_tick(tick: u64) -> f64 {
 
 // Returns (accumulated_time, simulated_time).
 pub fn smooth_dt(continuous_sim_time: f64, target_time: f64, frame_dt: f64) -> f64 {
-    const HARD_SNAP_THRESHOLD: f64 = 0.25;
-    const NUDGE_CLAMP: f64 = 0.01;
-
     let error = target_time - continuous_sim_time;
 
     // Large desync: snap the clock by the full error.
