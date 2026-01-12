@@ -109,7 +109,11 @@ pub fn is_bullet_colliding_with_player(bullet_position: Vec3, player_position: V
 }
 
 pub fn direction_from_yaw_pitch(yaw: f32, pitch: f32) -> Vec3 {
-    let direction = vec3(-yaw.sin() * pitch.cos(), pitch.sin(), -yaw.cos() * pitch.cos());
+    let direction = vec3(
+        -yaw.sin() * pitch.cos(),
+        pitch.sin(),
+        -yaw.cos() * pitch.cos(),
+    );
     direction.normalize_or_zero()
 }
 
