@@ -22,7 +22,7 @@ use crate::{
 use common::{
     bullets,
     constants::{INPUT_HISTORY_LENGTH, SNAPSHOT_BUFFER_LENGTH, TICK_SECS, TICK_SECS_F32},
-    maze::{Maze, CELL_SIZE},
+    maze::{CELL_SIZE, Maze},
     net::AppChannel,
     player::{self, Player, PlayerInput},
     protocol::{BulletEvent, ClientMessage, ServerMessage},
@@ -51,6 +51,7 @@ pub struct Game {
     pub fade_to_black_finished: bool,
     pub fire_nonce_counter: u32,
     pub last_fire_tick: Option<u64>,
+    pub last_sim_tick: u64,
 }
 
 impl Game {
@@ -84,6 +85,7 @@ impl Game {
             fade_to_black_finished: false,
             fire_nonce_counter: 0,
             last_fire_tick: None,
+            last_sim_tick: sim_tick,
         }
     }
 
@@ -115,11 +117,7 @@ impl Game {
             .last_fire_tick
             .map(|tick| sim_tick.saturating_sub(tick) >= cooldown_ticks)
             .unwrap_or(true);
-        let bullets_in_air = self
-            .bullets
-            .iter()
-            .filter(|bullet| bullet.is_local)
-            .count();
+        let bullets_in_air = self.bullets.iter().filter(|bullet| bullet.is_local).count();
 
         if !can_fire || bullets_in_air >= bullets::MAX_BULLETS_PER_PLAYER {
             return;
@@ -139,10 +137,7 @@ impl Game {
         let position = bullets::spawn_position(local_state.position, direction);
         let velocity = direction * bullets::SPEED;
         self.bullets.push(ClientBullet::new_provisional(
-            fire_nonce,
-            position,
-            velocity,
-            sim_tick,
+            fire_nonce, position, velocity, sim_tick,
         ));
     }
 
@@ -313,6 +308,7 @@ impl Game {
     // the server. I'll see whether this function is needed when I
     // implement that, or whether the state change is best placed elsewhere.
     pub fn update(&mut self, sim_tick: u64) -> Option<ClientState> {
+        self.last_sim_tick = sim_tick;
         self.update_bullets(sim_tick);
         None
     }
@@ -400,6 +396,7 @@ impl Game {
                 let ticks = sim_tick - bullet.last_update_tick;
                 if bullet.confirmed {
                     bullet.advance(ticks);
+                    bullet.apply_blend(ticks);
                 } else {
                     for _ in 0..ticks {
                         bullet.advance(1);
@@ -440,27 +437,35 @@ impl Game {
                 velocity,
                 fire_nonce,
             } => {
+                let adjusted_position =
+                    extrapolate_bullet_position(position, velocity, tick, self.last_sim_tick);
+                const PROMOTION_BLEND_TICKS: u8 = 16;
                 if let Some(fire_nonce) = fire_nonce {
                     if let Some(bullet) = self
                         .bullets
                         .iter_mut()
                         .find(|bullet| bullet.is_provisional_for(fire_nonce))
                     {
-                        bullet.confirm(bullet_id, position, velocity, tick);
+                        bullet.confirm(bullet_id, velocity, self.last_sim_tick);
+                        bullet.start_blend(adjusted_position, PROMOTION_BLEND_TICKS);
                         return;
                     }
 
                     self.bullets.push(ClientBullet::new_confirmed_local(
                         bullet_id,
-                        position,
+                        adjusted_position,
                         velocity,
-                        tick,
+                        self.last_sim_tick,
                     ));
                     return;
                 }
 
-                self.bullets
-                    .push(ClientBullet::new_confirmed(bullet_id, position, velocity, tick));
+                self.bullets.push(ClientBullet::new_confirmed(
+                    bullet_id,
+                    adjusted_position,
+                    velocity,
+                    self.last_sim_tick,
+                ));
             }
             BulletEvent::HitInanimate {
                 bullet_id,
@@ -468,8 +473,7 @@ impl Game {
                 position,
                 velocity,
             } => {
-                if let Some(bullet) = self.bullets.iter_mut().find(|b| b.id == Some(bullet_id))
-                {
+                if let Some(bullet) = self.bullets.iter_mut().find(|b| b.id == Some(bullet_id)) {
                     bullet.position = position;
                     bullet.velocity = velocity;
                     bullet.last_update_tick = tick;
@@ -539,15 +543,12 @@ pub struct ClientBullet {
     pub confirmed: bool,
     pub is_local: bool,
     pub bounces: u8,
+    pub blend_step: Vec3,
+    pub blend_ticks_left: u8,
 }
 
 impl ClientBullet {
-    pub fn new_confirmed(
-        id: u32,
-        position: Vec3,
-        velocity: Vec3,
-        last_update_tick: u64,
-    ) -> Self {
+    pub fn new_confirmed(id: u32, position: Vec3, velocity: Vec3, last_update_tick: u64) -> Self {
         Self {
             id: Some(id),
             fire_nonce: None,
@@ -558,6 +559,8 @@ impl ClientBullet {
             confirmed: true,
             is_local: false,
             bounces: 0,
+            blend_step: Vec3::ZERO,
+            blend_ticks_left: 0,
         }
     }
 
@@ -577,6 +580,8 @@ impl ClientBullet {
             confirmed: true,
             is_local: true,
             bounces: 0,
+            blend_step: Vec3::ZERO,
+            blend_ticks_left: 0,
         }
     }
 
@@ -596,19 +601,21 @@ impl ClientBullet {
             confirmed: false,
             is_local: true,
             bounces: 0,
+            blend_step: Vec3::ZERO,
+            blend_ticks_left: 0,
         }
     }
 
-    pub fn confirm(&mut self, id: u32, position: Vec3, velocity: Vec3, tick: u64) {
+    pub fn confirm(&mut self, id: u32, velocity: Vec3, tick: u64) {
         self.id = Some(id);
         self.fire_nonce = None;
-        self.position = position;
         self.velocity = velocity;
         self.last_update_tick = tick;
-        self.spawn_tick = tick;
         self.confirmed = true;
         self.is_local = true;
         self.bounces = 0;
+        self.blend_step = Vec3::ZERO;
+        self.blend_ticks_left = 0;
     }
 
     pub fn advance(&mut self, ticks: u64) {
@@ -618,6 +625,28 @@ impl ClientBullet {
 
     pub fn is_provisional_for(&self, fire_nonce: u32) -> bool {
         !self.confirmed && self.fire_nonce == Some(fire_nonce)
+    }
+
+    pub fn start_blend(&mut self, target: Vec3, ticks: u8) {
+        if ticks == 0 {
+            self.position = target;
+            self.blend_step = Vec3::ZERO;
+            self.blend_ticks_left = 0;
+            return;
+        }
+
+        self.blend_step = (target - self.position) / ticks as f32;
+        self.blend_ticks_left = ticks;
+    }
+
+    pub fn apply_blend(&mut self, ticks: u64) {
+        if self.blend_ticks_left == 0 {
+            return;
+        }
+
+        let steps = ticks.min(self.blend_ticks_left as u64) as u8;
+        self.position += self.blend_step * steps as f32;
+        self.blend_ticks_left -= steps;
     }
 
     pub fn has_bounced_enough(&self) -> bool {
@@ -667,6 +696,20 @@ impl ClientBullet {
 
 fn reflect(direction: Vec3, normal: Vec3) -> Vec3 {
     direction - 2.0 * direction.dot(normal) * normal
+}
+
+fn extrapolate_bullet_position(
+    position: Vec3,
+    velocity: Vec3,
+    event_tick: u64,
+    sim_tick: u64,
+) -> Vec3 {
+    if sim_tick <= event_tick {
+        return position;
+    }
+
+    let ticks = sim_tick - event_tick;
+    position + velocity * (ticks as f32 * TICK_SECS_F32)
 }
 
 impl fmt::Debug for Game {
