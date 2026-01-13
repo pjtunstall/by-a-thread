@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use macroquad::prelude::*;
 
 use super::BG_COLOR;
@@ -8,7 +10,7 @@ pub fn draw_compass(local_state: &PlayerState, x: f32, y: f32, radius: f32) {
     let r = radius;
     draw_circle(x, y, r, BG_COLOR);
 
-    let theta = local_state.yaw;
+    let theta = local_state.yaw + PI;
     let c = vec2(x, y);
     let cos = theta.cos() * r;
     let sin = theta.sin() * r;
