@@ -54,6 +54,9 @@ impl Gui {
     }
 
     pub fn draw(&self, should_show_input: bool, show_cursor: bool, font: Option<&Font>) {
+        push_camera_state();
+        set_default_camera();
+
         clear_background(BACKGROUND_COLOR);
 
         let line_height = FONT_SIZE * 1.2;
@@ -72,6 +75,8 @@ impl Gui {
             );
         } // and move the current_baseline to the line above the input.
         self.draw_chat_history(current_baseline, line_height, max_width, font);
+
+        pop_camera_state();
     }
 
     fn draw_input(
@@ -469,6 +474,9 @@ impl LobbyUi for Gui {
     }
 
     fn draw_countdown(&mut self, countdown_text: &str, font: Option<&Font>) {
+        push_camera_state();
+        set_default_camera();
+
         clear_background(BLACK);
 
         let font_size = 120.0;
@@ -496,5 +504,7 @@ impl LobbyUi for Gui {
         } else {
             draw_text(countdown_text, x_pos, y_pos, font_size, text_color);
         }
+
+        pop_camera_state();
     }
 }
