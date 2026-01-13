@@ -2,6 +2,7 @@ use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
 };
+use glam::Vec3;
 
 use crate::{
     input,
@@ -19,7 +20,7 @@ use common::{
     snapshot::Snapshot,
 };
 
-// TODO: Consider if any of this logic belongs with the `Game` struct iN `server/src/state.rs`.
+// TODO: Consider if any of this logic belongs with the `Game` struct in `server/src/state.rs`.
 
 // TODO: If connection times out during game (and elsewhere), show a suitable
 // message in the UI; currently it just goes black.
@@ -27,7 +28,14 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
     handle_reliable_messages(network, state);
     input::receive_inputs(network, state);
 
-    // TODO: Randomize as in input collection for fairness.
+    let player_positions: Vec<(usize, Vec3)> = state
+        .players
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.health > 0)
+        .map(|(i, p)| (i, p.state.position))
+        .collect();
+
     for player in &mut state.players {
         if let Some(&input) = player.input_buffer.get(state.current_tick) {
             player.last_input = input;
@@ -37,7 +45,9 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
         // println!("{:?}", input);
 
         if matches!(player.status, crate::player::Status::Alive) {
-            player.state.update(&state.maze, &input);
+            player
+                .state
+                .update(&state.maze, &input, player.index, &player_positions, 1.0);
         }
         player.input_buffer.advance_tail(state.current_tick);
     }
@@ -76,9 +86,13 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
         let bullet_id = state.next_bullet_id;
         state.next_bullet_id = state.next_bullet_id.wrapping_add(1);
 
-        state
-            .bullets
-            .push(Bullet::new(bullet_id, player_index, position, velocity, state.current_tick));
+        state.bullets.push(Bullet::new(
+            bullet_id,
+            player_index,
+            position,
+            velocity,
+            state.current_tick,
+        ));
         player.last_fire_tick = Some(state.current_tick);
         player.bullets_in_air += 1;
 
@@ -161,9 +175,7 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                         .players
                         .iter()
                         .filter(|player| player.client_id != client_id)
-                        .filter(|player| {
-                            state.after_game_chat_clients.contains(&player.client_id)
-                        })
+                        .filter(|player| state.after_game_chat_clients.contains(&player.client_id))
                         .map(|player| player.name.clone())
                         .collect::<Vec<_>>();
 
@@ -177,14 +189,18 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                     let message = ServerMessage::UserJoined {
                         username: state.players[player_index].name.clone(),
                     };
-                    let payload =
-                        encode_to_vec(&message, standard()).expect("failed to serialize UserJoined");
+                    let payload = encode_to_vec(&message, standard())
+                        .expect("failed to serialize UserJoined");
 
                     for other_id in &state.after_game_chat_clients {
                         if *other_id == client_id {
                             continue;
                         }
-                        network.send_message(*other_id, AppChannel::ReliableOrdered, payload.clone());
+                        network.send_message(
+                            *other_id,
+                            AppChannel::ReliableOrdered,
+                            payload.clone(),
+                        );
                     }
                 }
                 ClientMessage::SendChat(content) => {
@@ -222,7 +238,11 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                     let payload = encode_to_vec(&message, standard())
                         .expect("failed to serialize ChatMessage");
                     for other_id in &state.after_game_chat_clients {
-                        network.send_message(*other_id, AppChannel::ReliableOrdered, payload.clone());
+                        network.send_message(
+                            *other_id,
+                            AppChannel::ReliableOrdered,
+                            payload.clone(),
+                        );
                     }
                 }
                 _ => {}

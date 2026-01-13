@@ -297,10 +297,23 @@ impl Game {
     }
 
     pub fn apply_input(&mut self, tick: u64) {
+        let own_index = self.local_player_index;
+        let player_positions: Vec<(usize, Vec3)> = self
+            .players
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.health > 0)
+            .map(|(i, p)| (i, p.state.position))
+            .collect();
+
         if let Some(input) = self.input_history.get(tick) {
-            self.players[self.local_player_index]
-                .state
-                .update(&self.maze, input);
+            self.players[own_index].state.update(
+                &self.maze,
+                input,
+                own_index,
+                &player_positions,
+                0.5,
+            );
         }
     }
 

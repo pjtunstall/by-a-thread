@@ -74,10 +74,18 @@ impl PlayerState {
         }
     }
 
-    pub fn update(&mut self, maze: &Maze, input: &PlayerInput) {
+    pub fn update(
+        &mut self,
+        maze: &Maze,
+        input: &PlayerInput,
+        own_index: usize,
+        player_positions: &Vec<(usize, Vec3)>,
+        repulsion_strength: f32,
+    ) {
         let forward = self.apply_rotations(input);
         self.apply_translation(input, forward);
-        self.resolve_collision(maze);
+        self.resolve_collision_with_walls(maze);
+        self.resolve_collision_with_other_players(own_index, player_positions, repulsion_strength);
     }
 
     fn apply_rotations(&mut self, input: &PlayerInput) -> Vec3 {
@@ -149,7 +157,7 @@ impl PlayerState {
         }
     }
 
-    fn resolve_collision(&mut self, maze: &Maze) {
+    fn resolve_collision_with_walls(&mut self, maze: &Maze) {
         if self.velocity.length_squared() < 0.001 {
             self.velocity = Vec3::ZERO;
             return;
@@ -166,7 +174,38 @@ impl PlayerState {
         }
     }
 
-    #[inline(always)]
+    fn resolve_collision_with_other_players(
+        &mut self,
+        own_index: usize,
+        player_positions: &[(usize, Vec3)],
+        repulsion_strength: f32,
+    ) {
+        const MIN_DIST: f32 = RADIUS * 2.0;
+        const MIN_DIST_SQ: f32 = MIN_DIST * MIN_DIST;
+
+        for &(index, other_pos) in player_positions {
+            if index == own_index {
+                continue;
+            }
+
+            let diff = self.position - other_pos;
+            let dist_sq = diff.length_squared();
+
+            if dist_sq < MIN_DIST_SQ && dist_sq > 0.0001 {
+                let dist = dist_sq.sqrt();
+                let overlap = MIN_DIST - dist;
+                let normal = diff / dist;
+
+                self.position += normal * (overlap * repulsion_strength);
+
+                let vel_along_normal = self.velocity.dot(normal);
+                if vel_along_normal < 0.0 {
+                    self.velocity -= normal * vel_along_normal;
+                }
+            }
+        }
+    }
+
     fn apply_axis_rotation(angle: &mut f32, velocity: &mut f32, wish: f32) {
         *velocity += wish * ROTATION_ACCELERATION * TICK_SECS_F32;
 

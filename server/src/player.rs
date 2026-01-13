@@ -5,6 +5,8 @@ use common::{
 
 pub const INPUT_BUFFER_LENGTH: usize = 128;
 
+// TODO: Consider whether to give it an `alive` field; or maybe better to remove
+// that field from `Player` and use `health` as the single source of truth.
 pub struct ServerPlayer {
     pub last_processed_tick: u64,
     pub last_input: PlayerInput,
