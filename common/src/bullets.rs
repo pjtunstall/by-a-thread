@@ -68,9 +68,8 @@ impl Bullet {
 
     pub fn bounce_off_wall(&mut self, maze: &Maze) -> WallBounce {
         let bullet_is_not_above_wall_height = self.position.y < CELL_SIZE;
-        let has_bullet_crossed_a_wall = !maze.is_way_clear(&self.position);
         let is_bullet_colliding_with_a_wall =
-            bullet_is_not_above_wall_height && has_bullet_crossed_a_wall;
+            bullet_is_not_above_wall_height && !maze.is_sphere_clear(&self.position, BULLET_RADIUS);
 
         if !is_bullet_colliding_with_a_wall {
             return WallBounce::None;

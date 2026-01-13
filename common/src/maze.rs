@@ -154,47 +154,6 @@ impl fmt::Display for Maze {
     }
 }
 
-pub fn which_way_to_turn(old_position: &Vec3, contact_point: &Vec3) -> f32 {
-    let grid_old_x = (old_position.x / CELL_SIZE) as usize;
-    let grid_old_z = (old_position.z / CELL_SIZE) as usize;
-    let grid_new_x = (contact_point.x / CELL_SIZE) as usize;
-    let grid_new_z = (contact_point.z / CELL_SIZE) as usize;
-
-    if grid_new_z < grid_old_z {
-        if old_position.x < contact_point.x {
-            return -1.0;
-        } else {
-            return 1.0;
-        }
-    }
-
-    if grid_new_z > grid_old_z {
-        if old_position.x < contact_point.x {
-            return 1.0;
-        } else {
-            return -1.0;
-        }
-    }
-
-    if grid_new_x < grid_old_x {
-        if old_position.z < contact_point.z {
-            return 1.0;
-        } else {
-            return -1.0;
-        }
-    }
-
-    if grid_new_x > grid_old_x {
-        if old_position.z < contact_point.z {
-            return -1.0;
-        } else {
-            return 1.0;
-        }
-    }
-
-    0.0
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::VecDeque;
@@ -281,5 +240,30 @@ mod tests {
             "all spaces should be connected:\n{}",
             maze.log()
         );
+    }
+
+    #[test]
+    fn test_is_sphere_clear() {
+        let grid = vec![
+            vec![1, 1, 1],
+            vec![1, 0, 1],
+            vec![1, 1, 1],
+        ];
+        let mut spaces = Vec::new();
+        for (z, row) in grid.iter().enumerate() {
+            for (x, cell) in row.iter().enumerate() {
+                if *cell == 0 {
+                    spaces.push((z, x));
+                }
+            }
+        }
+        let maze = Maze { grid, spaces };
+
+        let center = vec3(1.5 * CELL_SIZE, 0.0, 1.5 * CELL_SIZE);
+        assert!(maze.is_sphere_clear(&center, 1.0));
+        assert!(!maze.is_sphere_clear(&center, 33.0));
+
+        let outside = vec3(-10.0, 0.0, -10.0);
+        assert!(maze.is_sphere_clear(&outside, 5.0));
     }
 }

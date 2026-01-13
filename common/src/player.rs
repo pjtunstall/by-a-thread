@@ -4,10 +4,7 @@ use glam::{Vec3, vec3};
 use serde::{Deserialize, Serialize};
 use strum::{Display, IntoStaticStr};
 
-use crate::{
-    constants::TICK_SECS_F32,
-    maze::{self, Maze},
-};
+use crate::{constants::TICK_SECS_F32, maze::Maze};
 
 pub const MAX_USERNAME_LENGTH: usize = 16;
 
@@ -82,7 +79,7 @@ impl PlayerState {
     pub fn update(&mut self, maze: &Maze, input: &PlayerInput) {
         let forward = self.apply_rotations(input);
         self.apply_translation(input, forward);
-        self.resolve_collision(maze, forward);
+        self.resolve_collision(maze);
     }
 
     fn apply_rotations(&mut self, input: &PlayerInput) -> Vec3 {
@@ -154,10 +151,7 @@ impl PlayerState {
         }
     }
 
-    // Collisions with walls.
-    // TODO: Fix jerkiness. Consider effect on orientation. Decide what I
-    // actually want the effect to be.
-    fn resolve_collision(&mut self, maze: &Maze, forward: Vec3) {
+    fn resolve_collision(&mut self, maze: &Maze) {
         if self.velocity.length_squared() < 0.001 {
             self.velocity = Vec3::ZERO;
             return;
@@ -167,20 +161,10 @@ impl PlayerState {
         let move_step = self.velocity * TICK_SECS_F32;
         let new_position = p + move_step;
 
-        let contact_point = p + self.velocity.normalize() * RADIUS;
-
-        let is_moving_forward = self.velocity.dot(forward) > 0.0;
-
         if maze.is_sphere_clear(&new_position, RADIUS) {
             self.position = new_position;
         } else {
             self.velocity = Vec3::ZERO;
-
-            if is_moving_forward {
-                self.yaw_velocity = 0.0;
-                let turn_direction = maze::which_way_to_turn(&p, &contact_point);
-                self.yaw += MAX_ROTATION_SPEED * turn_direction * TICK_SECS_F32;
-            }
         }
     }
 
