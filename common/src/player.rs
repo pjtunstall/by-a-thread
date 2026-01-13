@@ -171,7 +171,7 @@ impl PlayerState {
 
         let is_moving_forward = self.velocity.dot(forward) > 0.0;
 
-        if maze.is_way_clear(&contact_point) {
+        if maze.is_sphere_clear(&new_position, RADIUS) {
             self.position = new_position;
         } else {
             self.velocity = Vec3::ZERO;

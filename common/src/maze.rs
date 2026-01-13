@@ -71,6 +71,45 @@ impl Maze {
         outside_maze || grid[end_z][end_x] == 0
     }
 
+    pub fn is_sphere_clear(&self, center: &Vec3, radius: f32) -> bool {
+        let grid = &self.grid;
+        let grid_width = grid[0].len() as isize;
+        let grid_height = grid.len() as isize;
+
+        let min_x = ((center.x - radius) / CELL_SIZE).floor() as isize;
+        let max_x = ((center.x + radius) / CELL_SIZE).floor() as isize;
+        let min_z = ((center.z - radius) / CELL_SIZE).floor() as isize;
+        let max_z = ((center.z + radius) / CELL_SIZE).floor() as isize;
+
+        for z in min_z..=max_z {
+            for x in min_x..=max_x {
+                if x < 0 || z < 0 || x >= grid_width || z >= grid_height {
+                    continue;
+                }
+
+                if grid[z as usize][x as usize] == 0 {
+                    continue;
+                }
+
+                let cell_min_x = x as f32 * CELL_SIZE;
+                let cell_max_x = cell_min_x + CELL_SIZE;
+                let cell_min_z = z as f32 * CELL_SIZE;
+                let cell_max_z = cell_min_z + CELL_SIZE;
+
+                let closest_x = center.x.clamp(cell_min_x, cell_max_x);
+                let closest_z = center.z.clamp(cell_min_z, cell_max_z);
+                let dx = center.x - closest_x;
+                let dz = center.z - closest_z;
+
+                if dx * dx + dz * dz < radius * radius {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+
     pub fn get_wall_normal(&self, position: Vec3, direction: Vec3, speed: f32) -> Vec3 {
         let previous_position = position - (speed + 0.1) * direction;
         let current_grid_pos = (position / CELL_SIZE).floor();
