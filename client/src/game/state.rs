@@ -13,9 +13,11 @@ use crate::{
     assets::Assets,
     fade::{self, Fade},
     frame::FrameRate,
+    game::input,
     game::world::maze::{MazeExtension, MazeMeshes},
     info,
     net::NetworkHandle,
+    session::Clock,
     state::ClientState,
     time::INTERPOLATION_DELAY_SECS,
 };
@@ -82,20 +84,18 @@ impl Game {
         let interpolated_positions = players.iter().map(|player| player.state.position).collect();
 
         Self {
-            local_player_index,
-            maze: initial_data.maze,
-            maze_meshes,
-            players,
-            info_map,
-            input_history: Ring::new(),
-
             // `snapshot_buffer.head` will be reset when the first snapshot is
             // inserted, but still we need an initial `head` that's within ±2^15
             // ticks of the tick on which the first snapshot was sent so that
             // the first snapshot's 16-bit wire id will be extended to the
             // correct 64-bit storage id.
             snapshot_buffer: NetworkBuffer::new(sim_tick, 0),
-
+            local_player_index,
+            maze: initial_data.maze,
+            maze_meshes,
+            players,
+            info_map,
+            input_history: Ring::new(),
             is_first_snapshot_received: false,
             last_reconciled_tick: None,
             bullets: Vec::new(),
@@ -164,7 +164,7 @@ impl Game {
 
     // TODO: Consider disparity in naming between snapshot as data without id,
     // and snapshot as WireItem together with id.
-    pub fn receive_snapshots(&mut self, network: &mut dyn NetworkHandle) {
+    pub fn receive_game_messages(&mut self, network: &mut dyn NetworkHandle) {
         let start_time = Instant::now();
         let mut messages_received: u32 = 0;
         let mut is_shedding_load = false;
@@ -220,6 +220,24 @@ impl Game {
                 }
             }
         }
+    }
+
+    pub fn update_with_network(
+        &mut self,
+        clock: &mut Clock,
+        network: &mut dyn NetworkHandle,
+    ) -> Option<ClientState> {
+        self.receive_game_messages(network);
+
+        if let Some(new_tail) = self.interpolate(clock.estimated_server_time) {
+            self.snapshot_buffer.advance_tail(new_tail);
+        }
+
+        if !self.pending_bullet_events.is_empty() {
+            self.apply_pending_bullet_events();
+        }
+
+        self.advance_simulation(clock, network)
     }
 
     pub fn reconcile(&mut self, head: u64) -> bool {
@@ -319,16 +337,16 @@ impl Game {
         self.interpolated_positions
             .extend(self.players.iter().map(|player| player.state.position));
 
-        if !self.pending_bullet_events.is_empty() {
-            let events = std::mem::take(&mut self.pending_bullet_events);
-            for event in events {
-                self.apply_bullet_event(event);
-            }
-        }
-
         // We subtract a big safety margin in case `estimated_server_time` goes
         // momentarily backwards due to network instability.
         Some(tick_a - 60)
+    }
+
+    pub fn apply_pending_bullet_events(&mut self) {
+        let events = std::mem::take(&mut self.pending_bullet_events);
+        for event in events {
+            self.apply_bullet_event(event);
+        }
     }
 
     // TODO: Handle possible change of state to post-game. That would be due to
@@ -339,6 +357,66 @@ impl Game {
         self.last_sim_tick = sim_tick;
         self.update_bullets(sim_tick);
         None
+    }
+
+    fn advance_simulation(
+        &mut self,
+        clock: &mut Clock,
+        network: &mut dyn NetworkHandle,
+    ) -> Option<ClientState> {
+        let mut transition = None;
+
+        // A failsafe to prevent `accumulated_time` from growing ever greater
+        // if we fall behind.
+        const MAX_TICKS_PER_FRAME: u8 = 8;
+        let mut ticks_processed = 0;
+
+        let head = self.snapshot_buffer.head;
+        if self.reconcile(head) {
+            let start_replay = head + 1;
+            let end_replay = clock.sim_tick + 1;
+
+            if start_replay <= end_replay {
+                self.apply_input_range_inclusive(start_replay, end_replay);
+            }
+        }
+
+        while clock.accumulated_time >= TICK_SECS && ticks_processed < MAX_TICKS_PER_FRAME {
+            let sim_tick = clock.sim_tick;
+
+            if self.players[self.local_player_index].health > 0 {
+                let mut input = input::player_input_from_keys(sim_tick);
+                self.prepare_fire_input(sim_tick, &mut input);
+                self.send_input(network, input, sim_tick);
+                self.input_history.insert(sim_tick, input);
+                self.apply_input(sim_tick);
+            }
+
+            transition = self.update(sim_tick);
+
+            clock.accumulated_time -= TICK_SECS;
+            clock.sim_tick += 1;
+            ticks_processed += 1;
+
+            // If at the limit, discard the backlog to stop a spiral.
+            if ticks_processed >= MAX_TICKS_PER_FRAME {
+                let ticks_to_skip = (clock.accumulated_time / TICK_SECS).floor() as u64;
+
+                if ticks_to_skip > 0 {
+                    clock.sim_tick += ticks_to_skip;
+
+                    // Keep the fractional remainder for smoothness.
+                    clock.accumulated_time -= ticks_to_skip as f64 * TICK_SECS;
+
+                    println!(
+                        "Death spiral: skipped {} ticks to realign clock. Current `sim_tick`: {}",
+                        ticks_to_skip, clock.sim_tick
+                    );
+                }
+            }
+        }
+
+        transition
     }
 
     // TODO: `prediction_alpha` would be for smoothing the local player between

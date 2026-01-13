@@ -9,7 +9,7 @@ use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
 use crate::{
     assets::Assets,
-    game::{self, input},
+    game,
     info,
     lobby::{
         self,
@@ -155,15 +155,7 @@ impl ClientRunner {
 
                 let mut network = RenetNetworkHandle::new(&mut self.client, &mut self.transport);
 
-                game_state.receive_snapshots(&mut network);
-
-                if let Some(new_tail) =
-                    game_state.interpolate(self.session.clock.estimated_server_time)
-                {
-                    game_state.snapshot_buffer.advance_tail(new_tail);
-                }
-
-                match Self::advance_simulation(&mut self.session.clock, &mut network, game_state) {
+                match game_state.update_with_network(&mut self.session.clock, &mut network) {
                     Some(next_state) => {
                         self.session.transition(next_state);
                     }
@@ -264,70 +256,7 @@ impl ClientRunner {
         // println!("{}", clock.sim_tick);
     }
 
-    fn advance_simulation(
-        clock: &mut Clock,
-        network_handle: &mut RenetNetworkHandle<'_>,
-        game_state: &mut game::state::Game,
-    ) -> Option<ClientState> {
-        let mut transition = None;
-
-        // A failsafe to prevent `accumulated_time` from growing ever greater
-        // if we fall behind.
-        const MAX_TICKS_PER_FRAME: u8 = 8;
-        let mut ticks_processed = 0;
-
-        let head = game_state.snapshot_buffer.head;
-        if game_state.reconcile(head) {
-            // let tick_diff = clock.sim_tick as i64 - head as i64;
-            // println!(
-            //     "sim_tick: {} | last snapshot: {} | Lead: {}",
-            //     clock.sim_tick, head, tick_diff
-            // );
-            let start_replay = head + 1;
-            let end_replay = clock.sim_tick + 1;
-
-            if start_replay <= end_replay {
-                game_state.apply_input_range_inclusive(start_replay, end_replay);
-            }
-        }
-
-        while clock.accumulated_time >= TICK_SECS && ticks_processed < MAX_TICKS_PER_FRAME {
-            let sim_tick = clock.sim_tick;
-
-            if game_state.players[game_state.local_player_index].health > 0 {
-                let mut input = input::player_input_from_keys(sim_tick);
-                game_state.prepare_fire_input(sim_tick, &mut input);
-                game_state.send_input(network_handle, input, sim_tick);
-                game_state.input_history.insert(sim_tick, input);
-                game_state.apply_input(sim_tick);
-            }
-
-            transition = game_state.update(sim_tick);
-
-            clock.accumulated_time -= TICK_SECS;
-            clock.sim_tick += 1;
-            ticks_processed += 1;
-
-            // If at the limit, discard the backlog to stop a spiral.
-            if ticks_processed >= MAX_TICKS_PER_FRAME {
-                let ticks_to_skip = (clock.accumulated_time / TICK_SECS).floor() as u64;
-
-                if ticks_to_skip > 0 {
-                    clock.sim_tick += ticks_to_skip;
-
-                    // Keep the fractional remainder for smoothness.
-                    clock.accumulated_time -= ticks_to_skip as f64 * TICK_SECS;
-
-                    println!(
-                        "Death spiral: skipped {} ticks to realign clock. Current `sim_tick`: {}",
-                        ticks_to_skip, clock.sim_tick
-                    );
-                }
-            }
-        }
-
-        transition
-    }
+    // Simulation now lives on `Game`.
 }
 
 pub async fn run_client_loop(
