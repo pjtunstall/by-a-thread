@@ -158,6 +158,9 @@ impl ClientRunner {
 
                 match game_state.update_with_network(&mut self.session.clock, &mut network) {
                     Some(next_state) => {
+                        if matches!(next_state, ClientState::AfterGameChat { .. }) {
+                            self.ui.flush_input();
+                        }
                         self.session.transition(next_state);
                     }
                     _ => {

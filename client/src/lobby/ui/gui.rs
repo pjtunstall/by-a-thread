@@ -351,6 +351,15 @@ impl LobbyUi for Gui {
         Gui::draw(self, should_show_input, show_cursor, font);
     }
 
+    fn flush_input(&mut self) {
+        self.input_buffer.clear();
+        self.cursor_pos = 0;
+        self.right_arrow_last_pressed = None;
+        self.left_arrow_last_pressed = None;
+        self.backspace_last_pressed = None;
+        while get_char_pressed().is_some() {}
+    }
+
     fn poll_input(&mut self, limit: usize, is_host: bool) -> Result<Option<String>, UiInputError> {
         if is_key_pressed(KeyCode::Tab) {
             if is_host {
