@@ -159,18 +159,24 @@ impl PlayerState {
 
     fn resolve_collision_with_walls(&mut self, maze: &Maze) {
         if self.velocity.length_squared() < 0.001 {
-            self.velocity = Vec3::ZERO;
             return;
         }
 
-        let p = self.position;
-        let move_step = self.velocity * TICK_SECS_F32;
-        let new_position = p + move_step;
+        let dt = TICK_SECS_F32;
+        let move_step = self.velocity * dt;
 
-        if maze.is_sphere_clear(&new_position, RADIUS) {
-            self.position = new_position;
+        let test_pos_x = self.position + Vec3::new(move_step.x, 0.0, 0.0);
+        if maze.is_sphere_clear(&test_pos_x, RADIUS) {
+            self.position.x = test_pos_x.x;
         } else {
-            self.velocity = Vec3::ZERO;
+            self.velocity.x = 0.0;
+        }
+
+        let test_pos_z = self.position + Vec3::new(0.0, 0.0, move_step.z);
+        if maze.is_sphere_clear(&test_pos_z, RADIUS) {
+            self.position.z = test_pos_z.z;
+        } else {
+            self.velocity.z = 0.0;
         }
     }
 
