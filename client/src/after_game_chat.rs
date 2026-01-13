@@ -34,10 +34,7 @@ pub fn update(
         match ui_ref.poll_input(MAX_CHAT_MESSAGE_BYTES, session.is_host) {
             Ok(Some(input)) => session.add_input(input),
             Err(UiInputError::Disconnected) => {
-                ui.show_sanitized_error(&format!(
-                    "No connection: {}.",
-                    UiInputError::Disconnected
-                ));
+                ui.show_sanitized_error(&format!("No connection: {}.", UiInputError::Disconnected));
                 return Some(ClientState::Disconnected {
                     message: UiInputError::Disconnected.to_string(),
                 });
@@ -90,11 +87,11 @@ fn handle(
                 }
                 ui.show_sanitized_message(&format!("{} left the chat.", username));
             }
-            Ok((ServerMessage::Roster { online }, _)) => {
-                let message = if online.is_empty() {
-                    "Server: You are the only player online.".to_string()
+            Ok((ServerMessage::AfterGameRoster { hades_shades }, _)) => {
+                let message = if hades_shades.is_empty() {
+                    "Server: You are the only shade in Hades.".to_string()
                 } else {
-                    format!("Players online: {}", online.join(", "))
+                    format!("Shades in Hades: {}", hades_shades.join(", "))
                 };
                 ui.show_sanitized_message(&message);
                 session.mark_initial_roster_received();
@@ -128,10 +125,16 @@ fn handle(
     if network.is_disconnected() {
         ui.show_typed_error(
             UiErrorKind::NetworkDisconnect,
-            &format!("Disconnected from chat: {}.", network.get_disconnect_reason()),
+            &format!(
+                "Disconnected from chat: {}.",
+                network.get_disconnect_reason()
+            ),
         );
         Some(ClientState::Disconnected {
-            message: format!("Disconnected from chat: {}.", network.get_disconnect_reason()),
+            message: format!(
+                "Disconnected from chat: {}.",
+                network.get_disconnect_reason()
+            ),
         })
     } else {
         None

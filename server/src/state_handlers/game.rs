@@ -167,7 +167,9 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                         .map(|player| player.name.clone())
                         .collect::<Vec<_>>();
 
-                    let message = ServerMessage::Roster { online };
+                    let message = ServerMessage::AfterGameRoster {
+                        hades_shades: online,
+                    };
                     let payload =
                         encode_to_vec(&message, standard()).expect("failed to serialize Roster");
                     network.send_message(client_id, AppChannel::ReliableOrdered, payload);

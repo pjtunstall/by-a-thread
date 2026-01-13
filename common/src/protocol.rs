@@ -49,6 +49,9 @@ pub enum ServerMessage {
         username: String,
         content: String,
     },
+    AfterGameRoster {
+        hades_shades: Vec<String>,
+    },
     ServerInfo {
         message: String,
     },
@@ -70,6 +73,7 @@ impl ServerMessage {
             Self::UserJoined { .. } => "UserJoined",
             Self::UserLeft { .. } => "UserLeft",
             Self::ChatMessage { .. } => "ChatMessage",
+            Self::AfterGameRoster { .. } => "AfterGameRoster",
             Self::ServerInfo { .. } => "ServerInfo",
             Self::BeginDifficultySelection => "BeginDifficultySelection",
             Self::DenyDifficultySelection => "DenyDifficultySelection",
