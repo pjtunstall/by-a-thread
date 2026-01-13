@@ -70,6 +70,7 @@ pub struct Game {
     pub last_sim_tick: u64,
     pub interpolated_positions: Vec<Vec3>,
     pub pending_bullet_events: Vec<BulletEvent>,
+    oriented_sphere_mesh: OrientedSphereMesh,
 }
 
 impl Game {
@@ -107,6 +108,7 @@ impl Game {
             last_sim_tick: sim_tick,
             interpolated_positions,
             pending_bullet_events: Vec::new(),
+            oriented_sphere_mesh: OrientedSphereMesh::new(),
         }
     }
 
@@ -469,7 +471,7 @@ impl Game {
         }
     }
 
-    fn draw_remote_players(&self, assets: &Assets) {
+    fn draw_remote_players(&mut self, assets: &Assets) {
         for (index, player) in self.players.iter().enumerate() {
             if index == self.local_player_index {
                 continue;
@@ -478,11 +480,13 @@ impl Game {
                 continue;
             }
 
-            draw_sphere(
+            self.oriented_sphere_mesh.draw(
                 player.state.position,
                 player::RADIUS,
                 Some(&assets.ball_texture),
                 WHITE,
+                player.state.yaw,
+                player.state.pitch,
             );
         }
     }
@@ -656,20 +660,122 @@ impl Game {
             }
         }
     }
+}
 
-    // fn draw_test_sphere(&self, assets: &Assets) {
-    //     let local_player = &self.players[self.local_player_index];
-    //     let yaw = local_player.state.yaw;
-    //     let pitch = local_player.state.pitch;
-    //     let forward = vec3(
-    //         -yaw.sin() * pitch.cos(),
-    //         pitch.sin(),
-    //         -yaw.cos() * pitch.cos(),
-    //     );
-    //     let position = local_player.state.position + forward * player::RADIUS * 6.0;
+struct OrientedSphereMesh {
+    base_vertices: Vec<(Vec3, Vec2)>,
+    mesh: Mesh,
+}
 
-    //     draw_sphere(position, player::RADIUS, Some(&assets.ball_texture), WHITE);
-    // }
+impl OrientedSphereMesh {
+    fn new() -> Self {
+        const RINGS: usize = 16;
+        const SLICES: usize = 16;
+
+        let triangle_count = (RINGS + 1) * SLICES * 2;
+        let mut base_vertices = Vec::with_capacity(triangle_count * 3);
+
+        let mut push_triangle = |v1: Vec3, uv1: Vec2, v2: Vec3, uv2: Vec2, v3: Vec3, uv3: Vec2| {
+            base_vertices.push((v1, uv1));
+            base_vertices.push((v2, uv2));
+            base_vertices.push((v3, uv3));
+        };
+
+        use std::f32::consts::PI;
+        let pi34 = PI / 2. * 3.;
+        let pi2 = PI * 2.;
+        let rings = RINGS as f32;
+        let slices = SLICES as f32;
+
+        for i in 0..RINGS + 1 {
+            for j in 0..SLICES {
+                let i = i as f32;
+                let j = j as f32;
+
+                let v1 = vec3(
+                    (pi34 + (PI / (rings + 1.)) * i).cos() * (j * pi2 / slices).sin(),
+                    (pi34 + (PI / (rings + 1.)) * i).sin(),
+                    (pi34 + (PI / (rings + 1.)) * i).cos() * (j * pi2 / slices).cos(),
+                );
+                let uv1 = vec2(i / rings, j / slices);
+                let v2 = vec3(
+                    (pi34 + (PI / (rings + 1.)) * (i + 1.)).cos() * ((j + 1.) * pi2 / slices).sin(),
+                    (pi34 + (PI / (rings + 1.)) * (i + 1.)).sin(),
+                    (pi34 + (PI / (rings + 1.)) * (i + 1.)).cos() * ((j + 1.) * pi2 / slices).cos(),
+                );
+                let uv2 = vec2((i + 1.) / rings, (j + 1.) / slices);
+                let v3 = vec3(
+                    (pi34 + (PI / (rings + 1.)) * (i + 1.)).cos() * (j * pi2 / slices).sin(),
+                    (pi34 + (PI / (rings + 1.)) * (i + 1.)).sin(),
+                    (pi34 + (PI / (rings + 1.)) * (i + 1.)).cos() * (j * pi2 / slices).cos(),
+                );
+                let uv3 = vec2((i + 1.) / rings, j / slices);
+                push_triangle(v1, uv1, v2, uv2, v3, uv3);
+
+                let v1 = vec3(
+                    (pi34 + (PI / (rings + 1.)) * i).cos() * (j * pi2 / slices).sin(),
+                    (pi34 + (PI / (rings + 1.)) * i).sin(),
+                    (pi34 + (PI / (rings + 1.)) * i).cos() * (j * pi2 / slices).cos(),
+                );
+                let uv1 = vec2(i / rings, j / slices);
+                let v2 = vec3(
+                    (pi34 + (PI / (rings + 1.)) * i).cos() * ((j + 1.) * pi2 / slices).sin(),
+                    (pi34 + (PI / (rings + 1.)) * i).sin(),
+                    (pi34 + (PI / (rings + 1.)) * i).cos() * ((j + 1.) * pi2 / slices).cos(),
+                );
+                let uv2 = vec2(i / rings, (j + 1.) / slices);
+                let v3 = vec3(
+                    (pi34 + (PI / (rings + 1.)) * (i + 1.)).cos() * ((j + 1.) * pi2 / slices).sin(),
+                    (pi34 + (PI / (rings + 1.)) * (i + 1.)).sin(),
+                    (pi34 + (PI / (rings + 1.)) * (i + 1.)).cos() * ((j + 1.) * pi2 / slices).cos(),
+                );
+                let uv3 = vec2((i + 1.) / rings, (j + 1.) / slices);
+                push_triangle(v1, uv1, v2, uv2, v3, uv3);
+            }
+        }
+
+        let vertices = base_vertices
+            .iter()
+            .map(|(position, uv)| Vertex::new2(*position, *uv, WHITE))
+            .collect();
+        let indices = (0..base_vertices.len() as u16).collect();
+
+        let mesh = Mesh {
+            vertices,
+            indices,
+            texture: None,
+        };
+
+        Self {
+            base_vertices,
+            mesh,
+        }
+    }
+
+    fn draw(
+        &mut self,
+        center: Vec3,
+        radius: f32,
+        texture: Option<&Texture2D>,
+        color: Color,
+        yaw: f32,
+        pitch: f32,
+    ) {
+        let rotation = Quat::from_rotation_y(yaw) * Quat::from_rotation_x(pitch);
+        let scale = vec3(radius, radius, radius);
+        let color_bytes: [u8; 4] = color.into();
+
+        for (vertex, (base_position, uv)) in
+            self.mesh.vertices.iter_mut().zip(self.base_vertices.iter())
+        {
+            vertex.position = rotation.mul_vec3(*base_position * scale) + center;
+            vertex.uv = *uv;
+            vertex.color = color_bytes;
+        }
+
+        self.mesh.texture = texture.cloned();
+        draw_mesh(&self.mesh);
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
