@@ -59,6 +59,9 @@ impl ClientSession {
             self.disconnected_notified = false;
             self.pending_disconnect = None;
         }
+        if matches!(new_state, ClientState::AfterGameChat { .. }) {
+            self.input_queue.clear();
+        }
         self.state = new_state;
     }
 
