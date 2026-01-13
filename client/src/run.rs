@@ -157,6 +157,12 @@ impl ClientRunner {
 
                 game_state.receive_snapshots(&mut network);
 
+                if let Some(new_tail) =
+                    game_state.interpolate(self.session.clock.estimated_server_time)
+                {
+                    game_state.snapshot_buffer.advance_tail(new_tail);
+                }
+
                 match Self::advance_simulation(&mut self.session.clock, &mut network, game_state) {
                     Some(next_state) => {
                         self.session.transition(next_state);
@@ -167,12 +173,6 @@ impl ClientRunner {
                         // 60Hz frame rate for devices that support it. As yet,
                         // it's unused in `draw`.
                         let prediction_alpha = self.session.clock.accumulated_time / TICK_SECS;
-                        if let Some(new_tail) =
-                            game_state.interpolate(self.session.clock.estimated_server_time)
-                        {
-                            game_state.snapshot_buffer.advance_tail(new_tail);
-                        }
-
                         game_state.draw(prediction_alpha, &self.assets, &self.session.clock.fps);
                     }
                 }
@@ -278,11 +278,11 @@ impl ClientRunner {
 
         let head = game_state.snapshot_buffer.head;
         if game_state.reconcile(head) {
-            let tick_diff = clock.sim_tick as i64 - head as i64;
-            println!(
-                "sim_tick: {} | last snapshot: {} | Lead: {}",
-                clock.sim_tick, head, tick_diff
-            );
+            // let tick_diff = clock.sim_tick as i64 - head as i64;
+            // println!(
+            //     "sim_tick: {} | last snapshot: {} | Lead: {}",
+            //     clock.sim_tick, head, tick_diff
+            // );
             let start_replay = head + 1;
             let end_replay = clock.sim_tick + 1;
 
@@ -293,18 +293,15 @@ impl ClientRunner {
 
         while clock.accumulated_time >= TICK_SECS && ticks_processed < MAX_TICKS_PER_FRAME {
             let sim_tick = clock.sim_tick;
-            if game_state.players[game_state.local_player_index].health == 0 {
-                clock.accumulated_time -= TICK_SECS;
-                clock.sim_tick += 1;
-                ticks_processed += 1;
-                continue;
+
+            if game_state.players[game_state.local_player_index].health > 0 {
+                let mut input = input::player_input_from_keys(sim_tick);
+                game_state.prepare_fire_input(sim_tick, &mut input);
+                game_state.send_input(network_handle, input, sim_tick);
+                game_state.input_history.insert(sim_tick, input);
+                game_state.apply_input(sim_tick);
             }
 
-            let mut input = input::player_input_from_keys(sim_tick);
-            game_state.prepare_fire_input(sim_tick, &mut input);
-            game_state.send_input(network_handle, input, sim_tick);
-            game_state.input_history.insert(sim_tick, input);
-            game_state.apply_input(sim_tick);
             transition = game_state.update(sim_tick);
 
             clock.accumulated_time -= TICK_SECS;
@@ -328,6 +325,7 @@ impl ClientRunner {
                 }
             }
         }
+
         transition
     }
 }

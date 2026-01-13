@@ -82,6 +82,7 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
             position,
             velocity,
             fire_nonce,
+            owner_index: player_index,
         });
     }
 

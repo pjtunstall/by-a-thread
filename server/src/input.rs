@@ -136,7 +136,7 @@ impl TimeBudgetEvent {
     fn message(&self) -> &'static str {
         match self {
             TimeBudgetEvent::Exceeded => {
-                "time budget exceeded; dropping remaining messages to flush the queue"
+                "Time budget exceeded; dropping remaining messages to flush the queue."
             }
         }
     }

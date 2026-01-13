@@ -60,6 +60,8 @@ pub struct Game {
     pub fire_nonce_counter: u32,
     pub last_fire_tick: Option<u64>,
     pub last_sim_tick: u64,
+    pub interpolated_positions: Vec<Vec3>,
+    pub pending_bullet_events: Vec<BulletEvent>,
 }
 
 impl Game {
@@ -70,11 +72,14 @@ impl Game {
         sim_tick: u64,
         info_map: info::map::MapOverlay,
     ) -> Self {
+        let players = initial_data.players;
+        let interpolated_positions = players.iter().map(|player| player.state.position).collect();
+
         Self {
             local_player_index,
             maze: initial_data.maze,
             maze_meshes,
-            players: initial_data.players,
+            players,
             info_map,
             input_history: Ring::new(),
 
@@ -94,6 +99,8 @@ impl Game {
             fire_nonce_counter: 0,
             last_fire_tick: None,
             last_sim_tick: sim_tick,
+            interpolated_positions,
+            pending_bullet_events: Vec::new(),
         }
     }
 
@@ -177,7 +184,7 @@ impl Game {
                     self.snapshot_buffer.insert(snapshot);
                 }
                 Ok((ServerMessage::BulletEvent(event), _)) => {
-                    self.apply_bullet_event(event);
+                    self.pending_bullet_events.push(event);
                 }
                 Ok((other, _)) => {
                     eprintln!(
@@ -194,7 +201,7 @@ impl Game {
         while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
             match decode_from_slice::<ServerMessage, _>(&data, standard()) {
                 Ok((ServerMessage::BulletEvent(event), _)) => {
-                    self.apply_bullet_event(event);
+                    self.pending_bullet_events.push(event);
                 }
                 Ok((other, _)) => {
                     eprintln!(
@@ -302,6 +309,17 @@ impl Game {
             remote_index += 1;
         }
 
+        self.interpolated_positions.clear();
+        self.interpolated_positions
+            .extend(self.players.iter().map(|player| player.state.position));
+
+        if !self.pending_bullet_events.is_empty() {
+            let events = std::mem::take(&mut self.pending_bullet_events);
+            for event in events {
+                self.apply_bullet_event(event);
+            }
+        }
+
         // We subtract a wide safety margin in case `estimated_server_time` goes
         // back temporarily backwards due to network fluctuation.
         Some(tick_a - 60)
@@ -389,17 +407,21 @@ impl Game {
         const BULLET_DRAW_RADIUS: f32 = 4.0;
 
         for bullet in &self.bullets {
-            let color = match BULLET_COLOR_MODE {
-                BulletColorMode::ConfirmThenRed => {
-                    if bullet.confirmed {
-                        RED
-                    } else {
-                        WHITE
+            let color = if bullet.blend_ticks_left > 0 {
+                WHITE
+            } else {
+                match BULLET_COLOR_MODE {
+                    BulletColorMode::ConfirmThenRed => {
+                        if bullet.confirmed {
+                            RED
+                        } else {
+                            WHITE
+                        }
                     }
-                }
-                BulletColorMode::FadeToRed => {
-                    let fade = bullet.fade_amount(self.last_sim_tick);
-                    Color::new(1.0, fade, fade, fade)
+                    BulletColorMode::FadeToRed => {
+                        let fade = bullet.fade_amount(self.last_sim_tick);
+                        Color::new(1.0, fade, fade, fade)
+                    }
                 }
             };
             draw_sphere(bullet.position, BULLET_DRAW_RADIUS, None, color);
@@ -456,28 +478,33 @@ impl Game {
                 position,
                 velocity,
                 fire_nonce,
+                owner_index,
             } => {
                 let adjusted_position =
                     extrapolate_bullet_position(position, velocity, tick, self.last_sim_tick);
-                const PROMOTION_BLEND_TICKS: u8 = 16;
-                if let Some(fire_nonce) = fire_nonce {
-                    if let Some(bullet) = self
-                        .bullets
-                        .iter_mut()
-                        .find(|bullet| bullet.is_provisional_for(fire_nonce))
-                    {
-                        bullet.confirm(bullet_id, velocity, self.last_sim_tick);
-                        bullet.start_blend(adjusted_position, PROMOTION_BLEND_TICKS);
+                const PROMOTION_BLEND_TICKS: u8 = 4;
+                const REMOTE_SPAWN_BLEND_TICKS: u8 = 4;
+
+                if owner_index == self.local_player_index {
+                    if let Some(fire_nonce) = fire_nonce {
+                        if let Some(bullet) = self
+                            .bullets
+                            .iter_mut()
+                            .find(|bullet| bullet.is_provisional_for(fire_nonce))
+                        {
+                            bullet.confirm(bullet_id, velocity, self.last_sim_tick);
+                            bullet.start_blend(adjusted_position, PROMOTION_BLEND_TICKS);
+                            return;
+                        }
+
+                        self.bullets.push(ClientBullet::new_confirmed_local(
+                            bullet_id,
+                            adjusted_position,
+                            velocity,
+                            self.last_sim_tick,
+                        ));
                         return;
                     }
-
-                    self.bullets.push(ClientBullet::new_confirmed_local(
-                        bullet_id,
-                        adjusted_position,
-                        velocity,
-                        self.last_sim_tick,
-                    ));
-                    return;
                 }
 
                 self.bullets.push(ClientBullet::new_confirmed(
@@ -486,6 +513,15 @@ impl Game {
                     velocity,
                     self.last_sim_tick,
                 ));
+
+                if owner_index != self.local_player_index {
+                    if let Some(owner_position) = self.interpolated_positions.get(owner_index) {
+                        if let Some(bullet) = self.bullets.last_mut() {
+                            bullet.position = *owner_position;
+                            bullet.start_blend(adjusted_position, REMOTE_SPAWN_BLEND_TICKS);
+                        }
+                    }
+                }
             }
             BulletEvent::HitInanimate {
                 bullet_id,
