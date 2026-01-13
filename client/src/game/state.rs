@@ -262,10 +262,6 @@ impl Game {
     }
 
     pub fn interpolate(&mut self, estimated_server_time: f64) -> Option<u64> {
-        self.interpolated_positions.clear();
-        self.interpolated_positions
-            .extend(self.players.iter().map(|player| player.state.position));
-
         let interpolation_time = estimated_server_time - INTERPOLATION_DELAY_SECS;
         let start_search_tick = crate::time::tick_from_time(interpolation_time);
         let mut tick_a = start_search_tick;
@@ -331,8 +327,8 @@ impl Game {
         }
 
         // We subtract a big safety margin in case `estimated_server_time` goes
-        // backwards for a moment due to network instability.
-        Some(tick_a.saturating_sub(60))
+        // momentarily backwards due to network instability.
+        Some(tick_a - 60)
     }
 
     // TODO: Handle possible change of state to post-game. That would be due to
