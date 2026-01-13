@@ -116,6 +116,7 @@ pub enum ClientMessage {
     SendChat(String),
     RequestStartGame,
     SetDifficulty(u8),
+    EnterAfterGameChat,
     Input(WireItem<PlayerInput>),
 }
 

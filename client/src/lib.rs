@@ -1,4 +1,5 @@
 pub mod assets;
+pub mod after_game_chat;
 pub mod fade;
 pub mod frame;
 pub mod game;

@@ -4,6 +4,10 @@ pub use crate::{game::state::Game, lobby::state::Lobby};
 pub enum ClientState {
     Lobby(Lobby),
     Game(Game),
+    AfterGameChat {
+        awaiting_initial_roster: bool,
+        waiting_for_server: bool,
+    },
     Debrief,
     Disconnected { message: String },
 }

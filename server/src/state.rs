@@ -26,6 +26,7 @@ pub struct Game {
     pub current_tick: u64,
     pub bullets: Vec<Bullet>,
     pub next_bullet_id: u32,
+    pub after_game_chat_clients: HashSet<u64>,
 }
 
 impl Game {
@@ -49,6 +50,7 @@ impl Game {
             current_tick,
             bullets: Vec::new(),
             next_bullet_id: 0,
+            after_game_chat_clients: HashSet::new(),
         }
     }
 
@@ -68,6 +70,7 @@ impl Game {
 
             // If there are no connected players left, exit.
             self.client_id_to_index.remove(&client_id);
+            self.after_game_chat_clients.remove(&client_id);
             if self.client_id_to_index.is_empty() {
                 println!("All players have disconnected. Server exiting...");
                 std::process::exit(0);

@@ -8,6 +8,7 @@ use renet::RenetClient;
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
 use crate::{
+    after_game_chat,
     assets::Assets,
     game,
     info,
@@ -176,6 +177,17 @@ impl ClientRunner {
             // passing the inner state to the handler, rather than passing
             // `session`.`
             ClientState::Lobby(_) => lobby::handlers::update(self),
+            ClientState::AfterGameChat { .. } => {
+                let mut network = RenetNetworkHandle::new(&mut self.client, &mut self.transport);
+                if let Some(next_state) = after_game_chat::update(
+                    &mut self.session,
+                    &mut self.ui,
+                    &mut network,
+                    Some(&self.assets),
+                ) {
+                    self.session.transition(next_state);
+                }
+            }
             // Other states will include Debrief (with map, leaderboard, and chat),
             // and NearDeathExperience, unless the latter is included in Game.
             _ => {
@@ -315,8 +327,8 @@ pub fn print_player_list(ui: &mut dyn LobbyUi, session: &ClientSession, players:
 }
 
 fn disconnect_message(state: &ClientState, error: &str, kind: DisconnectKind) -> String {
-    if let ClientState::Lobby(lobby_state) = state {
-        match lobby_state {
+    match state {
+        ClientState::Lobby(lobby_state) => match lobby_state {
             Lobby::Connecting { .. }
                 if matches!(
                     kind,
@@ -348,7 +360,13 @@ fn disconnect_message(state: &ClientState, error: &str, kind: DisconnectKind) ->
                 return "disconnected from lobby: server closed the connection".to_string();
             }
             _ => {}
+        },
+        ClientState::AfterGameChat { .. }
+            if matches!(kind, DisconnectKind::DisconnectedByServer) =>
+        {
+            return "disconnected from chat: server closed the connection".to_string();
         }
+        _ => {}
     }
 
     format!("no connection: {}", error)

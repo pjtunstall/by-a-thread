@@ -95,11 +95,18 @@ impl ClientSession {
     }
 
     pub fn set_chat_waiting_for_server(&mut self, waiting: bool) {
-        if let ClientState::Lobby(Lobby::Chat {
-            waiting_for_server, ..
-        }) = &mut self.state
-        {
-            *waiting_for_server = waiting;
+        match &mut self.state {
+            ClientState::Lobby(Lobby::Chat {
+                waiting_for_server,
+                ..
+            })
+            | ClientState::AfterGameChat {
+                waiting_for_server,
+                ..
+            } => {
+                *waiting_for_server = waiting;
+            }
+            _ => {}
         }
     }
 
@@ -110,6 +117,10 @@ impl ClientSession {
                 waiting_for_server: true,
                 ..
             })
+                | ClientState::AfterGameChat {
+                    waiting_for_server: true,
+                    ..
+                }
         )
     }
 
@@ -133,12 +144,18 @@ impl ClientSession {
     }
 
     pub fn expect_initial_roster(&mut self) {
-        if let ClientState::Lobby(Lobby::Chat {
-            awaiting_initial_roster,
-            ..
-        }) = &mut self.state
-        {
-            *awaiting_initial_roster = true;
+        match &mut self.state {
+            ClientState::Lobby(Lobby::Chat {
+                awaiting_initial_roster,
+                ..
+            })
+            | ClientState::AfterGameChat {
+                awaiting_initial_roster,
+                ..
+            } => {
+                *awaiting_initial_roster = true;
+            }
+            _ => {}
         }
     }
 
@@ -149,16 +166,26 @@ impl ClientSession {
                 awaiting_initial_roster: true,
                 ..
             })
+                | ClientState::AfterGameChat {
+                    awaiting_initial_roster: true,
+                    ..
+                }
         )
     }
 
     pub fn mark_initial_roster_received(&mut self) {
-        if let ClientState::Lobby(Lobby::Chat {
-            awaiting_initial_roster,
-            ..
-        }) = &mut self.state
-        {
-            *awaiting_initial_roster = false;
+        match &mut self.state {
+            ClientState::Lobby(Lobby::Chat {
+                awaiting_initial_roster,
+                ..
+            })
+            | ClientState::AfterGameChat {
+                awaiting_initial_roster,
+                ..
+            } => {
+                *awaiting_initial_roster = false;
+            }
+            _ => {}
         }
     }
 
@@ -184,6 +211,15 @@ impl ClientSession {
             ClientState::Lobby(Lobby::Chat {
                 waiting_for_server, ..
             }) => {
+                if *waiting_for_server {
+                    InputMode::DisabledWaiting
+                } else {
+                    InputMode::Enabled
+                }
+            }
+            ClientState::AfterGameChat {
+                waiting_for_server, ..
+            } => {
                 if *waiting_for_server {
                     InputMode::DisabledWaiting
                 } else {

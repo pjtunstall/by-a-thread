@@ -1,4 +1,7 @@
-use bincode::{config::standard, serde::encode_to_vec};
+use bincode::{
+    config::standard,
+    serde::{decode_from_slice, encode_to_vec},
+};
 
 use crate::{
     input,
@@ -7,9 +10,11 @@ use crate::{
 };
 use common::{
     bullets::{self, Bullet, WallBounce},
+    chat::MAX_CHAT_MESSAGE_BYTES,
     constants::TICKS_PER_BROADCAST,
+    input::sanitize,
     net::AppChannel,
-    protocol::{BulletEvent, ServerMessage},
+    protocol::{BulletEvent, ClientMessage, ServerMessage},
     ring::WireItem,
     snapshot::Snapshot,
 };
@@ -19,6 +24,7 @@ use common::{
 // TODO: If connection times out during game (and elsewhere), show a suitable
 // message in the UI; currently it just goes black.
 pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option<ServerState> {
+    handle_reliable_messages(network, state);
     input::receive_inputs(network, state);
 
     // TODO: Randomize as in input collection for fairness.
@@ -93,21 +99,29 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
             let message = ServerMessage::BulletEvent(event);
             let payload =
                 encode_to_vec(&message, standard()).expect("failed to serialize bullet event");
-            network.broadcast_message(AppChannel::ReliableOrdered, payload);
+            for &client_id in state.client_id_to_index.keys() {
+                if state.after_game_chat_clients.contains(&client_id) {
+                    continue;
+                }
+                network.send_message(client_id, AppChannel::ReliableOrdered, payload.clone());
+            }
         }
     }
 
     // Only send snapshots every third tick.
     if state.current_tick % TICKS_PER_BROADCAST == 0 {
-        for i in 0..state.players.len() {
-            let snapshot = state.snapshot_for(i);
+        for (&client_id, &player_index) in &state.client_id_to_index {
+            if state.after_game_chat_clients.contains(&client_id) {
+                continue;
+            }
+            let snapshot = state.snapshot_for(player_index);
             let message = ServerMessage::Snapshot(WireItem::<Snapshot> {
                 id: state.current_tick as u16,
                 data: snapshot,
             });
             let payload =
                 encode_to_vec(&message, standard()).expect("failed to serialize ServerTime");
-            network.send_message(state.players[i].client_id, AppChannel::Unreliable, payload);
+            network.send_message(client_id, AppChannel::Unreliable, payload);
         }
     }
 
@@ -115,6 +129,104 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
     // println!("{}", state.current_tick);
 
     None
+}
+
+fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
+    for client_id in network.clients_id() {
+        while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
+            let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
+                eprintln!(
+                    "client {} sent malformed data during game; disconnecting them",
+                    client_id
+                );
+                network.disconnect(client_id);
+                continue;
+            };
+
+            match message {
+                ClientMessage::EnterAfterGameChat => {
+                    let Some(&player_index) = state.client_id_to_index.get(&client_id) else {
+                        eprintln!(
+                            "client {} entered after-game chat but was not in the game state",
+                            client_id
+                        );
+                        continue;
+                    };
+
+                    if !state.after_game_chat_clients.insert(client_id) {
+                        continue;
+                    }
+
+                    let online = state
+                        .players
+                        .iter()
+                        .filter(|player| player.client_id != client_id)
+                        .filter(|player| {
+                            state.after_game_chat_clients.contains(&player.client_id)
+                        })
+                        .map(|player| player.name.clone())
+                        .collect::<Vec<_>>();
+
+                    let message = ServerMessage::Roster { online };
+                    let payload =
+                        encode_to_vec(&message, standard()).expect("failed to serialize Roster");
+                    network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+
+                    let message = ServerMessage::UserJoined {
+                        username: state.players[player_index].name.clone(),
+                    };
+                    let payload =
+                        encode_to_vec(&message, standard()).expect("failed to serialize UserJoined");
+
+                    for other_id in &state.after_game_chat_clients {
+                        if *other_id == client_id {
+                            continue;
+                        }
+                        network.send_message(*other_id, AppChannel::ReliableOrdered, payload.clone());
+                    }
+                }
+                ClientMessage::SendChat(content) => {
+                    if !state.after_game_chat_clients.contains(&client_id) {
+                        eprintln!(
+                            "client {} sent chat message during game; ignoring",
+                            client_id
+                        );
+                        continue;
+                    }
+
+                    let Some(&player_index) = state.client_id_to_index.get(&client_id) else {
+                        continue;
+                    };
+
+                    let clean_content = sanitize(&content);
+                    let trimmed_content = clean_content.trim();
+
+                    if trimmed_content.is_empty() {
+                        continue;
+                    }
+                    if trimmed_content.len() > MAX_CHAT_MESSAGE_BYTES {
+                        println!(
+                            "Client {} sent an overly long chat message; ignoring.",
+                            client_id
+                        );
+                        continue;
+                    }
+
+                    println!("{}: {}", state.players[player_index].name, trimmed_content);
+                    let message = ServerMessage::ChatMessage {
+                        username: state.players[player_index].name.clone(),
+                        content: trimmed_content.to_string(),
+                    };
+                    let payload = encode_to_vec(&message, standard())
+                        .expect("failed to serialize ChatMessage");
+                    for other_id in &state.after_game_chat_clients {
+                        network.send_message(*other_id, AppChannel::ReliableOrdered, payload.clone());
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
 }
 
 fn update_bullets(state: &mut Game, events: &mut Vec<BulletEvent>) {

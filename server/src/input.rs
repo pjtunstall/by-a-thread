@@ -26,6 +26,14 @@ pub fn receive_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
     client_ids.shuffle(&mut rng());
 
     for client_id in client_ids {
+        if state.after_game_chat_clients.contains(&client_id) {
+            while network
+                .receive_message(client_id, AppChannel::Unreliable)
+                .is_some()
+            {}
+            continue;
+        }
+
         let Some(&player_index) = state.client_id_to_index.get(&client_id) else {
             eprintln!("client {client_id} connected but not in player index yet; skipping");
             continue;
@@ -177,6 +185,7 @@ fn handle_message(player: &mut ServerPlayer, message: ClientMessage) -> Result<(
             player.input_buffer.insert(input);
             Ok(())
         }
+        ClientMessage::EnterAfterGameChat | ClientMessage::SendChat(_) => Ok(()),
         _ => Err(InputError::UnknownType),
     }
 }

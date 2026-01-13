@@ -111,6 +111,12 @@ pub fn handle(
                         client_id
                     );
                 }
+                ClientMessage::EnterAfterGameChat => {
+                    eprintln!(
+                        "client {} sent EnterAfterGameChat while choosing difficulty; ignoring",
+                        client_id
+                    );
+                }
                 ClientMessage::Input(_) => {
                     eprintln!("client {} sent in-game input; ignoring", client_id);
                 }

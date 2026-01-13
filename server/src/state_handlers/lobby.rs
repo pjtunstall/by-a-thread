@@ -222,6 +222,12 @@ pub fn handle(
                         client_id
                     );
                 }
+                ClientMessage::EnterAfterGameChat => {
+                    eprintln!(
+                        "client {} sent EnterAfterGameChat in lobby state; ignoring",
+                        client_id
+                    );
+                }
                 ClientMessage::Input(_) => {
                     eprintln!("client {} sent game input; ignoring", client_id)
                 }

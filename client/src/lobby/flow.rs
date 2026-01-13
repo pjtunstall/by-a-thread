@@ -91,6 +91,7 @@ fn transition(
         }
         ClientState::Disconnected { .. } => None,
         ClientState::Game(_) => None,
+        ClientState::AfterGameChat { .. } => None,
         ClientState::Debrief => None,
     }
 }

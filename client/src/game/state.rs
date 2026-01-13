@@ -3,11 +3,12 @@ use std::{
     time::{Duration, Instant},
 };
 
+use ::rand::{Rng, rng};
 use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
 };
-use macroquad::{color, prelude::*, window::clear_background};
+use macroquad::prelude::*;
 
 use crate::{
     assets::Assets,
@@ -37,6 +38,11 @@ use common::{
 // messages are coming faster than we can drain the queue.
 const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
 const BULLET_COLOR_MODE: BulletColorMode = BulletColorMode::FadeToRed;
+const OBE_TIME_STEP: f32 = 1.0 / 60.0;
+const OBE_SAFE_PITCH_LIMIT: f32 = -1.56;
+const OBE_SMOOTHING_FACTOR: f32 = 0.01;
+const OBE_RISE_PER_STEP: f32 = 6.0;
+const OBE_YAW_RANGE: std::ops::Range<f32> = 0.01..0.03;
 
 // `ConfirmOnRed` mode is for debugging. When `BULLET_COLOR_MODE` is in this
 // mode, a provisional bullet fired by the local player is white, and turns red
@@ -70,6 +76,8 @@ pub struct Game {
     pub last_sim_tick: u64,
     pub interpolated_positions: Vec<Vec3>,
     pub pending_bullet_events: Vec<BulletEvent>,
+    after_game_chat_sent: bool,
+    obe_effect: Option<ObeEffect>,
     oriented_sphere_mesh: OrientedSphereMesh,
 }
 
@@ -108,6 +116,8 @@ impl Game {
             last_sim_tick: sim_tick,
             interpolated_positions,
             pending_bullet_events: Vec::new(),
+            after_game_chat_sent: false,
+            obe_effect: None,
             oriented_sphere_mesh: OrientedSphereMesh::new(),
         }
     }
@@ -229,6 +239,19 @@ impl Game {
         clock: &mut Clock,
         network: &mut dyn NetworkHandle,
     ) -> Option<ClientState> {
+        if self.fade_to_black_finished && !self.after_game_chat_sent {
+            self.after_game_chat_sent = true;
+            let message = ClientMessage::EnterAfterGameChat;
+            let payload =
+                encode_to_vec(&message, standard()).expect("failed to encode after-game chat");
+            network.send_message(AppChannel::ReliableOrdered, payload);
+
+            return Some(ClientState::AfterGameChat {
+                awaiting_initial_roster: true,
+                waiting_for_server: false,
+            });
+        }
+
         self.receive_game_messages(network);
 
         if let Some(new_tail) = self.interpolate(clock.estimated_server_time) {
@@ -424,12 +447,19 @@ impl Game {
     // TODO: `prediction_alpha` would be for smoothing the local player between
     // ticks if I allow faster than 60Hz frame rate for devices that support it.
     pub fn draw(&mut self, _prediction_alpha: f64, assets: &Assets, fps: &FrameRate) {
-        clear_background(color::BEIGE);
+        clear_background(BEIGE);
 
         let i = self.local_player_index;
-        let position = self.players[i].state.position;
-        let yaw = self.players[i].state.yaw;
-        let pitch = self.players[i].state.pitch;
+        let mut position = self.players[i].state.position;
+        let mut yaw = self.players[i].state.yaw;
+        let mut pitch = self.players[i].state.pitch;
+
+        if let Some(obe_effect) = &mut self.obe_effect {
+            obe_effect.update();
+            position.y += obe_effect.height_offset;
+            yaw += obe_effect.yaw_offset;
+            pitch = obe_effect.pitch;
+        }
 
         set_camera(&Camera3D {
             position,
@@ -640,6 +670,10 @@ impl Game {
                     if target_health == 0 {
                         self.fade_to_black = Some(fade::new_fade_to_black());
                         self.fade_to_black_finished = false;
+                        if self.obe_effect.is_none() {
+                            self.obe_effect =
+                                Some(ObeEffect::new(self.players[target_index].state));
+                        }
                     } else {
                         self.flash = Some(fade::new_flash());
                     }
@@ -658,6 +692,43 @@ impl Game {
             BulletEvent::Expire { bullet_id, .. } => {
                 self.bullets.retain(|b| b.id != Some(bullet_id));
             }
+        }
+    }
+}
+
+struct ObeEffect {
+    accumulator: f32,
+    yaw_increment: f32,
+    yaw_offset: f32,
+    pitch: f32,
+    height_offset: f32,
+}
+
+impl ObeEffect {
+    fn new(local_state: player::PlayerState) -> Self {
+        let mut rng = rng();
+        let mut yaw_increment = rng.random_range(OBE_YAW_RANGE);
+        if rng.random_range(0..2) == 0 {
+            yaw_increment = -yaw_increment;
+        }
+
+        Self {
+            accumulator: 0.0,
+            yaw_increment,
+            yaw_offset: 0.0,
+            pitch: local_state.pitch,
+            height_offset: 0.0,
+        }
+    }
+
+    fn update(&mut self) {
+        self.accumulator += get_frame_time();
+
+        while self.accumulator >= OBE_TIME_STEP {
+            self.height_offset += OBE_RISE_PER_STEP;
+            self.yaw_offset += self.yaw_increment;
+            self.pitch += (OBE_SAFE_PITCH_LIMIT - self.pitch) * OBE_SMOOTHING_FACTOR;
+            self.accumulator -= OBE_TIME_STEP;
         }
     }
 }
