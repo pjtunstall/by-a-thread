@@ -34,12 +34,18 @@ use common::{
 // A guard against getting stuck in loop receiving snapshots from server if
 // messages are coming faster than we can drain the queue.
 const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
-const BULLET_COLOR_MODE: BulletColorMode = BulletColorMode::ConfirmThenRed;
+const BULLET_COLOR_MODE: BulletColorMode = BulletColorMode::FadeToRed;
 
+// `ConfirmOnRed` mode is for debugging. When `BULLET_COLOR_MODE` is in this
+// mode, a provisional bullet fired by the local player is white, and turns red
+// on promotion (confirmation from server). Similarly, a bullet fired by a
+// remote player is spawned as white at the player's interpolated position, and
+// turns red after fast-forwarding (blending) towards the extrapolated position
+// has finished.
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BulletColorMode {
-    ConfirmThenRed, // Turn red on confirmation from server, for debugging.
+    ConfirmThenRed,
     FadeToRed,
 }
 
@@ -256,6 +262,10 @@ impl Game {
     }
 
     pub fn interpolate(&mut self, estimated_server_time: f64) -> Option<u64> {
+        self.interpolated_positions.clear();
+        self.interpolated_positions
+            .extend(self.players.iter().map(|player| player.state.position));
+
         let interpolation_time = estimated_server_time - INTERPOLATION_DELAY_SECS;
         let start_search_tick = crate::time::tick_from_time(interpolation_time);
         let mut tick_a = start_search_tick;
@@ -320,9 +330,9 @@ impl Game {
             }
         }
 
-        // We subtract a wide safety margin in case `estimated_server_time` goes
-        // back temporarily backwards due to network fluctuation.
-        Some(tick_a - 60)
+        // We subtract a big safety margin in case `estimated_server_time` goes
+        // backwards for a moment due to network instability.
+        Some(tick_a.saturating_sub(60))
     }
 
     // TODO: Handle possible change of state to post-game. That would be due to
