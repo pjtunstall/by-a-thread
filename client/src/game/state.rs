@@ -356,6 +356,8 @@ impl Game {
 
     pub fn apply_input(&mut self, tick: u64) {
         let own_index = self.local_player_index;
+
+        // Needed to detect collisions with other players.
         let player_positions: Vec<(usize, Vec3)> = self
             .players
             .iter()
