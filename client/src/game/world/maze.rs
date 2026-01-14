@@ -41,6 +41,303 @@ impl MazeExtension for Maze {
     }
 }
 
+struct WallNeighbors {
+    left: bool,
+    right: bool,
+    up: bool,
+    down: bool,
+    up_left: bool,
+    up_right: bool,
+    down_left: bool,
+    down_right: bool,
+}
+
+impl WallNeighbors {
+    fn from_grid(maze: &Maze, x: usize, z: usize, width: usize, height: usize) -> Self {
+        Self {
+            left: x > 0 && maze.grid[z][x - 1] != 0,
+            right: x + 1 < width && maze.grid[z][x + 1] != 0,
+            up: z > 0 && maze.grid[z - 1][x] != 0,
+            down: z + 1 < height && maze.grid[z + 1][x] != 0,
+            up_left: z > 0 && x > 0 && maze.grid[z - 1][x - 1] != 0,
+            up_right: z > 0 && x + 1 < width && maze.grid[z - 1][x + 1] != 0,
+            down_left: z + 1 < height && x > 0 && maze.grid[z + 1][x - 1] != 0,
+            down_right: z + 1 < height && x + 1 < width && maze.grid[z + 1][x + 1] != 0,
+        }
+    }
+}
+
+struct ShadowConfig {
+    height: f32,
+    color: Color,
+    inner: f32,
+    outer: f32,
+    overhang: f32,
+}
+
+fn add_floor_quad(
+    builder: &mut MeshBuilder,
+    verts_local: &[Vec3; 4],
+    uvs: &[Vec2; 4],
+    offset: Vec3,
+) {
+    builder.add_quad(verts_local, uvs, offset, WHITE);
+}
+
+fn add_wall_faces(
+    builder: &mut MeshBuilder,
+    wall_verts: &[Vec3; 8],
+    wall_uvs: &[Vec2; 4],
+    offset: Vec3,
+) {
+    let faces = [
+        (0, 1, 2, 3, vec3(0., 0., 1.)),
+        (5, 4, 7, 6, vec3(0., 0., -1.)),
+        (1, 5, 6, 2, vec3(1., 0., 0.)),
+        (4, 0, 3, 7, vec3(-1., 0., 0.)),
+        (3, 2, 6, 7, vec3(0., 1., 0.)),
+        (4, 5, 1, 0, vec3(0., -1., 0.)),
+    ];
+
+    for (v1, v2, v3, v4, norm) in faces.iter() {
+        builder.add_face_from_indices(
+            wall_verts,
+            *v1,
+            *v2,
+            *v3,
+            *v4,
+            *norm,
+            wall_uvs,
+            offset,
+            WHITE,
+        );
+    }
+}
+
+fn add_shadow_rect(
+    builder: &mut MeshBuilder,
+    uvs: &[Vec2; 4],
+    offset: Vec3,
+    config: &ShadowConfig,
+    x_min: f32,
+    x_max: f32,
+    z_min: f32,
+    z_max: f32,
+) {
+    let shadow_verts_local = [
+        vec3(x_min, config.height, z_max),
+        vec3(x_max, config.height, z_max),
+        vec3(x_max, config.height, z_min),
+        vec3(x_min, config.height, z_min),
+    ];
+    builder.add_quad(&shadow_verts_local, uvs, offset, config.color);
+}
+
+fn add_wall_shadow(
+    builder: &mut MeshBuilder,
+    uvs: &[Vec2; 4],
+    offset: Vec3,
+    neighbors: WallNeighbors,
+    config: &ShadowConfig,
+) {
+    add_shadow_rect(
+        builder,
+        uvs,
+        offset,
+        config,
+        -config.inner,
+        config.inner,
+        -config.inner,
+        config.inner,
+    );
+
+    if !neighbors.left {
+        let mut z_min = -config.inner;
+        let mut z_max = config.inner;
+        if neighbors.up_left {
+            z_min += config.overhang;
+        }
+        if neighbors.down_left {
+            z_max -= config.overhang;
+        }
+        if z_min < z_max {
+            add_shadow_rect(
+                builder,
+                uvs,
+                offset,
+                config,
+                -config.outer,
+                -config.inner,
+                z_min,
+                z_max,
+            );
+        }
+    }
+    if !neighbors.right {
+        let mut z_min = -config.inner;
+        let mut z_max = config.inner;
+        if neighbors.up_right {
+            z_min += config.overhang;
+        }
+        if neighbors.down_right {
+            z_max -= config.overhang;
+        }
+        if z_min < z_max {
+            add_shadow_rect(
+                builder,
+                uvs,
+                offset,
+                config,
+                config.inner,
+                config.outer,
+                z_min,
+                z_max,
+            );
+        }
+    }
+    if !neighbors.up {
+        let mut x_min = -config.inner;
+        let mut x_max = config.inner;
+        if neighbors.up_left {
+            x_min += config.overhang;
+        }
+        if neighbors.up_right {
+            x_max -= config.overhang;
+        }
+        if x_min < x_max {
+            add_shadow_rect(
+                builder,
+                uvs,
+                offset,
+                config,
+                x_min,
+                x_max,
+                -config.outer,
+                -config.inner,
+            );
+        }
+    }
+    if !neighbors.down {
+        let mut x_min = -config.inner;
+        let mut x_max = config.inner;
+        if neighbors.down_left {
+            x_min += config.overhang;
+        }
+        if neighbors.down_right {
+            x_max -= config.overhang;
+        }
+        if x_min < x_max {
+            add_shadow_rect(
+                builder,
+                uvs,
+                offset,
+                config,
+                x_min,
+                x_max,
+                config.inner,
+                config.outer,
+            );
+        }
+    }
+
+    if !neighbors.left && !neighbors.up && !neighbors.up_left {
+        add_shadow_rect(
+            builder,
+            uvs,
+            offset,
+            config,
+            -config.outer,
+            -config.inner,
+            -config.outer,
+            -config.inner,
+        );
+    }
+    if neighbors.left && neighbors.up && !neighbors.up_left {
+        add_shadow_rect(
+            builder,
+            uvs,
+            offset,
+            config,
+            -config.outer,
+            -config.inner,
+            -config.outer,
+            -config.inner,
+        );
+    }
+    if !neighbors.right && !neighbors.up && !neighbors.up_right {
+        add_shadow_rect(
+            builder,
+            uvs,
+            offset,
+            config,
+            config.inner,
+            config.outer,
+            -config.outer,
+            -config.inner,
+        );
+    }
+    if neighbors.right && neighbors.up && !neighbors.up_right {
+        add_shadow_rect(
+            builder,
+            uvs,
+            offset,
+            config,
+            config.inner,
+            config.outer,
+            -config.outer,
+            -config.inner,
+        );
+    }
+    if !neighbors.left && !neighbors.down && !neighbors.down_left {
+        add_shadow_rect(
+            builder,
+            uvs,
+            offset,
+            config,
+            -config.outer,
+            -config.inner,
+            config.inner,
+            config.outer,
+        );
+    }
+    if neighbors.left && neighbors.down && !neighbors.down_left {
+        add_shadow_rect(
+            builder,
+            uvs,
+            offset,
+            config,
+            -config.outer,
+            -config.inner,
+            config.inner,
+            config.outer,
+        );
+    }
+    if !neighbors.right && !neighbors.down && !neighbors.down_right {
+        add_shadow_rect(
+            builder,
+            uvs,
+            offset,
+            config,
+            config.inner,
+            config.outer,
+            config.inner,
+            config.outer,
+        );
+    }
+    if neighbors.right && neighbors.down && !neighbors.down_right {
+        add_shadow_rect(
+            builder,
+            uvs,
+            offset,
+            config,
+            config.inner,
+            config.outer,
+            config.inner,
+            config.outer,
+        );
+    }
+}
+
 pub fn generate_floor_texture() -> Texture2D {
     let half_check_size = 8.0;
     let check_size = 2.0 * half_check_size;
@@ -110,25 +407,14 @@ pub fn build_maze_meshes(
         vec2(0.0, 0.0),
     ];
 
-    const SHADOW_HEIGHT: f32 = 0.12;
-    let shadow_color = Color::new(0.0, 0.0, 0.0, 0.3);
     let shadow_inner = CELL_SIZE / 2.0;
     let shadow_outer = shadow_inner + 2.0;
-    let shadow_overhang = shadow_outer - shadow_inner;
-
-    let add_shadow_rect = |builder: &mut MeshBuilder,
-                           offset: Vec3,
-                           x_min: f32,
-                           x_max: f32,
-                           z_min: f32,
-                           z_max: f32| {
-        let shadow_verts_local = [
-            vec3(x_min, SHADOW_HEIGHT, z_max),
-            vec3(x_max, SHADOW_HEIGHT, z_max),
-            vec3(x_max, SHADOW_HEIGHT, z_min),
-            vec3(x_min, SHADOW_HEIGHT, z_min),
-        ];
-        builder.add_quad(&shadow_verts_local, &floor_uvs, offset, shadow_color);
+    let shadow_config = ShadowConfig {
+        height: 0.12,
+        color: Color::new(0.0, 0.0, 0.0, 0.3),
+        inner: shadow_inner,
+        outer: shadow_outer,
+        overhang: shadow_outer - shadow_inner,
     };
 
     for z in 0..height {
@@ -139,218 +425,25 @@ pub fn build_maze_meshes(
 
             if cell_type == 0 {
                 let offset = vec3(cx, 0.0, cz);
-                floor_builder.add_quad(&floor_verts_local, &floor_uvs, offset, WHITE);
+                add_floor_quad(&mut floor_builder, &floor_verts_local, &floor_uvs, offset);
             } else {
                 let cy = CELL_SIZE / 2.0;
                 let offset = vec3(cx, cy, cz);
 
-                let faces = [
-                    (0, 1, 2, 3, vec3(0., 0., 1.)),
-                    (5, 4, 7, 6, vec3(0., 0., -1.)),
-                    (1, 5, 6, 2, vec3(1., 0., 0.)),
-                    (4, 0, 3, 7, vec3(-1., 0., 0.)),
-                    (3, 2, 6, 7, vec3(0., 1., 0.)),
-                    (4, 5, 1, 0, vec3(0., -1., 0.)),
-                ];
-
-                for (v1, v2, v3, v4, norm) in faces.iter() {
-                    wall_builder.add_face_from_indices(
-                        &wall_verts,
-                        *v1,
-                        *v2,
-                        *v3,
-                        *v4,
-                        *norm,
-                        &wall_uvs,
-                        offset,
-                        WHITE,
-                    );
-                }
+                add_wall_faces(&mut wall_builder, &wall_verts, &wall_uvs, offset);
 
                 // We need to know what neighbors a wall has so that we can
                 // avoid drawing overlapping shadows, which result in a flickery
                 // effect.
-                let has_wall_left = x > 0 && maze.grid[z][x - 1] != 0;
-                let has_wall_right = x + 1 < width && maze.grid[z][x + 1] != 0;
-                let has_wall_up = z > 0 && maze.grid[z - 1][x] != 0;
-                let has_wall_down = z + 1 < height && maze.grid[z + 1][x] != 0;
-                let has_wall_up_left = z > 0 && x > 0 && maze.grid[z - 1][x - 1] != 0;
-                let has_wall_up_right = z > 0 && x + 1 < width && maze.grid[z - 1][x + 1] != 0;
-                let has_wall_down_left = z + 1 < height && x > 0 && maze.grid[z + 1][x - 1] != 0;
-                let has_wall_down_right =
-                    z + 1 < height && x + 1 < width && maze.grid[z + 1][x + 1] != 0;
-
+                let neighbors = WallNeighbors::from_grid(maze, x, z, width, height);
                 let shadow_offset = vec3(cx, 0.0, cz);
-                add_shadow_rect(
+                add_wall_shadow(
                     &mut shadow_builder,
+                    &floor_uvs,
                     shadow_offset,
-                    -shadow_inner,
-                    shadow_inner,
-                    -shadow_inner,
-                    shadow_inner,
+                    neighbors,
+                    &shadow_config,
                 );
-
-                if !has_wall_left {
-                    let mut z_min = -shadow_inner;
-                    let mut z_max = shadow_inner;
-                    if has_wall_up_left {
-                        z_min += shadow_overhang;
-                    }
-                    if has_wall_down_left {
-                        z_max -= shadow_overhang;
-                    }
-                    if z_min < z_max {
-                        add_shadow_rect(
-                            &mut shadow_builder,
-                            shadow_offset,
-                            -shadow_outer,
-                            -shadow_inner,
-                            z_min,
-                            z_max,
-                        );
-                    }
-                }
-                if !has_wall_right {
-                    let mut z_min = -shadow_inner;
-                    let mut z_max = shadow_inner;
-                    if has_wall_up_right {
-                        z_min += shadow_overhang;
-                    }
-                    if has_wall_down_right {
-                        z_max -= shadow_overhang;
-                    }
-                    if z_min < z_max {
-                        add_shadow_rect(
-                            &mut shadow_builder,
-                            shadow_offset,
-                            shadow_inner,
-                            shadow_outer,
-                            z_min,
-                            z_max,
-                        );
-                    }
-                }
-                if !has_wall_up {
-                    let mut x_min = -shadow_inner;
-                    let mut x_max = shadow_inner;
-                    if has_wall_up_left {
-                        x_min += shadow_overhang;
-                    }
-                    if has_wall_up_right {
-                        x_max -= shadow_overhang;
-                    }
-                    if x_min < x_max {
-                        add_shadow_rect(
-                            &mut shadow_builder,
-                            shadow_offset,
-                            x_min,
-                            x_max,
-                            -shadow_outer,
-                            -shadow_inner,
-                        );
-                    }
-                }
-                if !has_wall_down {
-                    let mut x_min = -shadow_inner;
-                    let mut x_max = shadow_inner;
-                    if has_wall_down_left {
-                        x_min += shadow_overhang;
-                    }
-                    if has_wall_down_right {
-                        x_max -= shadow_overhang;
-                    }
-                    if x_min < x_max {
-                        add_shadow_rect(
-                            &mut shadow_builder,
-                            shadow_offset,
-                            x_min,
-                            x_max,
-                            shadow_inner,
-                            shadow_outer,
-                        );
-                    }
-                }
-
-                if !has_wall_left && !has_wall_up && !has_wall_up_left {
-                    add_shadow_rect(
-                        &mut shadow_builder,
-                        shadow_offset,
-                        -shadow_outer,
-                        -shadow_inner,
-                        -shadow_outer,
-                        -shadow_inner,
-                    );
-                }
-                if has_wall_left && has_wall_up && !has_wall_up_left {
-                    add_shadow_rect(
-                        &mut shadow_builder,
-                        shadow_offset,
-                        -shadow_outer,
-                        -shadow_inner,
-                        -shadow_outer,
-                        -shadow_inner,
-                    );
-                }
-                if !has_wall_right && !has_wall_up && !has_wall_up_right {
-                    add_shadow_rect(
-                        &mut shadow_builder,
-                        shadow_offset,
-                        shadow_inner,
-                        shadow_outer,
-                        -shadow_outer,
-                        -shadow_inner,
-                    );
-                }
-                if has_wall_right && has_wall_up && !has_wall_up_right {
-                    add_shadow_rect(
-                        &mut shadow_builder,
-                        shadow_offset,
-                        shadow_inner,
-                        shadow_outer,
-                        -shadow_outer,
-                        -shadow_inner,
-                    );
-                }
-                if !has_wall_left && !has_wall_down && !has_wall_down_left {
-                    add_shadow_rect(
-                        &mut shadow_builder,
-                        shadow_offset,
-                        -shadow_outer,
-                        -shadow_inner,
-                        shadow_inner,
-                        shadow_outer,
-                    );
-                }
-                if has_wall_left && has_wall_down && !has_wall_down_left {
-                    add_shadow_rect(
-                        &mut shadow_builder,
-                        shadow_offset,
-                        -shadow_outer,
-                        -shadow_inner,
-                        shadow_inner,
-                        shadow_outer,
-                    );
-                }
-                if !has_wall_right && !has_wall_down && !has_wall_down_right {
-                    add_shadow_rect(
-                        &mut shadow_builder,
-                        shadow_offset,
-                        shadow_inner,
-                        shadow_outer,
-                        shadow_inner,
-                        shadow_outer,
-                    );
-                }
-                if has_wall_right && has_wall_down && !has_wall_down_right {
-                    add_shadow_rect(
-                        &mut shadow_builder,
-                        shadow_offset,
-                        shadow_inner,
-                        shadow_outer,
-                        shadow_inner,
-                        shadow_outer,
-                    );
-                }
             }
         }
     }

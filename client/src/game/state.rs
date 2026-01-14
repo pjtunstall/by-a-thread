@@ -124,6 +124,8 @@ impl Game {
         }
     }
 
+    // We send the last four inputs for redundancy to mitigate possible loss of
+    // messages on the unreliable channel.
     pub fn send_input(
         &mut self,
         network: &mut dyn NetworkHandle,
