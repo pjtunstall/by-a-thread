@@ -27,9 +27,11 @@ pub fn receive_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
 
     for client_id in client_ids {
         if state.after_game_chat_clients.contains(&client_id) {
+            let mut ingress_bytes = 0usize;
             while let Some(data) = network.receive_message(client_id, AppChannel::Unreliable) {
-                state.note_ingress_bytes(data.len());
+                ingress_bytes = ingress_bytes.saturating_add(data.len());
             }
+            state.note_ingress_bytes(ingress_bytes);
             continue;
         }
 
@@ -39,68 +41,76 @@ pub fn receive_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
         };
 
         let mut messages_this_client = 0;
-        let player = &mut state.players[player_index];
+        let mut ingress_bytes = 0usize;
 
-        while let Some(data) = network.receive_message(client_id, AppChannel::Unreliable) {
-            state.note_ingress_bytes(data.len());
-            if total_messages_received % 10 == 0 && start_time.elapsed() > NETWORK_TIME_BUDGET {
-                if !is_shedding_load {
-                    println!("{}", TimeBudgetEvent::Exceeded.message());
-                    is_shedding_load = true;
-                }
-            }
+        {
+            let player = &mut state.players[player_index];
 
-            if is_shedding_load {
-                continue;
-            }
-
-            total_messages_received += 1;
-
-            let cap_outcome = apply_input_cap(player, &mut messages_this_client);
-
-            if let Some(event) = cap_outcome.event {
-                match event {
-                    InputCapEvent::OverLimit { .. } => {
-                        println!("{}", event.message(&player.name));
-                    }
-                    InputCapEvent::Disconnected => {
-                        eprintln!("{}", event.message(&player.name));
+            while let Some(data) = network.receive_message(client_id, AppChannel::Unreliable) {
+                ingress_bytes = ingress_bytes.saturating_add(data.len());
+                if total_messages_received % 10 == 0 && start_time.elapsed() > NETWORK_TIME_BUDGET {
+                    if !is_shedding_load {
+                        println!("{}", TimeBudgetEvent::Exceeded.message());
+                        is_shedding_load = true;
                     }
                 }
-            }
 
-            match cap_outcome.action {
-                InputCapAction::Process => {}
-                InputCapAction::Skip => {
+                if is_shedding_load {
                     continue;
                 }
-                InputCapAction::Disconnect => {
-                    network.disconnect(client_id);
-                    break;
-                }
-            }
 
-            let message = match decode_message(&data) {
-                Ok(message) => message,
-                Err(error) => {
+                total_messages_received += 1;
+
+                let cap_outcome = apply_input_cap(player, &mut messages_this_client);
+
+                if let Some(event) = cap_outcome.event {
+                    match event {
+                        InputCapEvent::OverLimit { .. } => {
+                            println!("{}", event.message(&player.name));
+                        }
+                        InputCapEvent::Disconnected => {
+                            eprintln!("{}", event.message(&player.name));
+                        }
+                    }
+                }
+
+                match cap_outcome.action {
+                    InputCapAction::Process => {}
+                    InputCapAction::Skip => {
+                        continue;
+                    }
+                    InputCapAction::Disconnect => {
+                        network.disconnect(client_id);
+                        break;
+                    }
+                }
+
+                let message = match decode_message(&data) {
+                    Ok(message) => message,
+                    Err(error) => {
+                        println!("{}", error.message(client_id, &player.name));
+                        network.disconnect(client_id);
+                        break;
+                    }
+                };
+
+                if let Err(error) = handle_message(player, message) {
                     println!("{}", error.message(client_id, &player.name));
                     network.disconnect(client_id);
                     break;
                 }
-            };
+            }
 
-            if let Err(error) = handle_message(player, message) {
-                println!("{}", error.message(client_id, &player.name));
-                network.disconnect(client_id);
-                break;
+            // We forgive one strike if the client stayed under the message limit
+            // this tick.
+            if messages_this_client < MAX_MESSAGES_PER_CLIENT_PER_TICK
+                && player.over_cap_strikes > 0
+            {
+                player.over_cap_strikes -= 1;
             }
         }
 
-        // We forgive one strike if the client stayed under the message limit
-        // this tick.
-        if messages_this_client < MAX_MESSAGES_PER_CLIENT_PER_TICK && player.over_cap_strikes > 0 {
-            player.over_cap_strikes -= 1;
-        }
+        state.note_ingress_bytes(ingress_bytes);
     }
 }
 

@@ -113,18 +113,23 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
             let payload =
                 encode_to_vec(&message, standard()).expect("failed to serialize bullet event");
             let payload_len = payload.len();
-            for &client_id in state.client_id_to_index.keys() {
-                if state.after_game_chat_clients.contains(&client_id) {
-                    continue;
-                }
-                state.note_egress_bytes(payload_len);
+            let recipients: Vec<u64> = state
+                .client_id_to_index
+                .keys()
+                .copied()
+                .filter(|client_id| !state.after_game_chat_clients.contains(client_id))
+                .collect();
+            let recipients_count = recipients.len();
+            for client_id in recipients {
                 network.send_message(client_id, AppChannel::ReliableOrdered, payload.clone());
             }
+            state.note_egress_bytes(payload_len.saturating_mul(recipients_count));
         }
     }
 
     // Only send snapshots every third tick.
     if state.current_tick % TICKS_PER_BROADCAST == 0 {
+        let mut egress_bytes = 0usize;
         for (&client_id, &player_index) in &state.client_id_to_index {
             if state.after_game_chat_clients.contains(&client_id) {
                 continue;
@@ -136,22 +141,23 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
             });
             let payload =
                 encode_to_vec(&message, standard()).expect("failed to serialize ServerTime");
-            state.note_egress_bytes(payload.len());
+            egress_bytes = egress_bytes.saturating_add(payload.len());
             network.send_message(client_id, AppChannel::Unreliable, payload);
         }
+        state.note_egress_bytes(egress_bytes);
     }
 
     state.current_tick += 1;
     state.log_network_stats_if_ready();
-    // println!("{}", state.current_tick);
 
     None
 }
 
 fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
     for client_id in network.clients_id() {
+        let mut ingress_bytes = 0usize;
         while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
-            state.note_ingress_bytes(data.len());
+            ingress_bytes = ingress_bytes.saturating_add(data.len());
             let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
                 eprintln!(
                     "client {} sent malformed data during game; disconnecting them",
@@ -197,18 +203,20 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                     let payload = encode_to_vec(&message, standard())
                         .expect("failed to serialize UserJoined");
                     let payload_len = payload.len();
+                    let mut egress_bytes = 0usize;
 
                     for other_id in &state.after_game_chat_clients {
                         if *other_id == client_id {
                             continue;
                         }
-                        state.note_egress_bytes(payload_len);
+                        egress_bytes = egress_bytes.saturating_add(payload_len);
                         network.send_message(
                             *other_id,
                             AppChannel::ReliableOrdered,
                             payload.clone(),
                         );
                     }
+                    state.note_egress_bytes(egress_bytes);
                 }
                 ClientMessage::SendChat(content) => {
                     if !state.after_game_chat_clients.contains(&client_id) {
@@ -244,18 +252,21 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                     };
                     let payload = encode_to_vec(&message, standard())
                         .expect("failed to serialize ChatMessage");
+                    let mut egress_bytes = 0usize;
                     for other_id in &state.after_game_chat_clients {
-                        state.note_egress_bytes(payload.len());
+                        egress_bytes = egress_bytes.saturating_add(payload.len());
                         network.send_message(
                             *other_id,
                             AppChannel::ReliableOrdered,
                             payload.clone(),
                         );
                     }
+                    state.note_egress_bytes(egress_bytes);
                 }
                 _ => {}
             }
         }
+        state.note_ingress_bytes(ingress_bytes);
     }
 }
 

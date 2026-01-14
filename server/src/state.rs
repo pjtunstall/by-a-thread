@@ -137,7 +137,7 @@ impl NetStats {
         let egress_rate = self.egress_bytes as f64 / seconds;
 
         println!(
-            "network average over {:.1}s: ingress {}, egress {}",
+            "Network average over {:.1}s: ingress {}, egress {}.",
             seconds,
             format_bytes_per_second(ingress_rate),
             format_bytes_per_second(egress_rate)
