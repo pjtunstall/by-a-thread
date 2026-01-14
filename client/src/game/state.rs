@@ -124,12 +124,6 @@ impl Game {
         }
     }
 
-    pub fn update(&mut self, sim_tick: u64) -> Option<ClientState> {
-        self.last_sim_tick = sim_tick;
-        self.update_bullets(sim_tick);
-        None
-    }
-
     pub fn update_with_network(
         &mut self,
         clock: &mut Clock,
@@ -149,25 +143,18 @@ impl Game {
         }
 
         self.receive_game_messages(network);
-
         if let Some(new_tail) = self.interpolate(clock.estimated_server_time) {
             self.snapshot_buffer.advance_tail(new_tail);
         }
-
         if !self.pending_bullet_events.is_empty() {
             self.apply_pending_bullet_events();
         }
+        self.advance_simulation(clock, network);
 
-        self.advance_simulation(clock, network)
+        None
     }
 
-    fn advance_simulation(
-        &mut self,
-        clock: &mut Clock,
-        network: &mut dyn NetworkHandle,
-    ) -> Option<ClientState> {
-        let mut transition = None;
-
+    fn advance_simulation(&mut self, clock: &mut Clock, network: &mut dyn NetworkHandle) {
         // A failsafe to prevent `accumulated_time` from growing ever greater
         // if we fall behind.
         const MAX_TICKS_PER_FRAME: u8 = 8;
@@ -196,8 +183,6 @@ impl Game {
 
             self.last_sim_tick = sim_tick;
             self.update_bullets(sim_tick);
-            transition = self.update(sim_tick);
-
             clock.accumulated_time -= TICK_SECS;
             clock.sim_tick += 1;
             ticks_processed += 1;
@@ -219,8 +204,6 @@ impl Game {
                 }
             }
         }
-
-        transition
     }
 
     // We send the last four inputs for redundancy to mitigate possible loss of
