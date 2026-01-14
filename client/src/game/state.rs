@@ -494,6 +494,7 @@ impl Game {
         });
 
         self.maze.draw(&self.maze_meshes);
+        self.draw_local_player_shadow();
         self.draw_remote_players(assets);
         self.draw_bullets();
         info::draw(self, assets, fps, info::INFO_SCALE);
@@ -520,35 +521,47 @@ impl Game {
     }
 
     fn draw_remote_players(&mut self, assets: &Assets) {
+        for index in 0..self.players.len() {
+            if index == self.local_player_index {
+                continue;
+            }
+            if !self.players[index].alive {
+                continue;
+            }
+
+            let position = self.players[index].state.position;
+            let yaw = self.players[index].state.yaw;
+            let pitch = self.players[index].state.pitch;
+            self.draw_player_shadow(position);
+
+            self.oriented_sphere_mesh.draw(
+                position,
+                player::RADIUS,
+                Some(&assets.ball_texture),
+                WHITE,
+                yaw,
+                pitch,
+            );
+        }
+    }
+
+    fn draw_local_player_shadow(&mut self) {
+        let local_player = &self.players[self.local_player_index];
+        if !local_player.alive {
+            return;
+        }
+
+        self.draw_player_shadow(local_player.state.position);
+    }
+
+    fn draw_player_shadow(&mut self, position: Vec3) {
         let shadow_color = Color::new(0.2, 0.2, 0.2, 0.35);
         let shadow_radius = player::RADIUS * 0.9;
         const SHADOW_HEIGHT: f32 = 0.12;
 
-        for (index, player) in self.players.iter().enumerate() {
-            if index == self.local_player_index {
-                continue;
-            }
-            if !player.alive {
-                continue;
-            }
-
-            let shadow_position = vec3(
-                player.state.position.x,
-                SHADOW_HEIGHT,
-                player.state.position.z,
-            );
-            self.remote_shadow_mesh
-                .draw(shadow_position, shadow_radius, shadow_color);
-
-            self.oriented_sphere_mesh.draw(
-                player.state.position,
-                player::RADIUS,
-                Some(&assets.ball_texture),
-                WHITE,
-                player.state.yaw,
-                player.state.pitch,
-            );
-        }
+        let shadow_position = vec3(position.x, SHADOW_HEIGHT, position.z);
+        self.remote_shadow_mesh
+            .draw(shadow_position, shadow_radius, shadow_color);
     }
 
     fn draw_bullets(&self) {
