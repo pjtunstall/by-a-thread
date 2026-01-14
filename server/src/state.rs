@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use bincode::{config::standard, serde::encode_to_vec};
@@ -27,6 +27,7 @@ pub struct Game {
     pub bullets: Vec<Bullet>,
     pub next_bullet_id: u32,
     pub after_game_chat_clients: HashSet<u64>,
+    net_stats: NetStats,
 }
 
 impl Game {
@@ -51,6 +52,7 @@ impl Game {
             bullets: Vec::new(),
             next_bullet_id: 0,
             after_game_chat_clients: HashSet::new(),
+            net_stats: NetStats::new(),
         }
     }
 
@@ -92,6 +94,71 @@ impl Game {
             .collect();
 
         Snapshot { local, remote }
+    }
+
+    pub fn note_ingress_bytes(&mut self, bytes: usize) {
+        self.net_stats.ingress_bytes = self.net_stats.ingress_bytes.saturating_add(bytes as u64);
+    }
+
+    pub fn note_egress_bytes(&mut self, bytes: usize) {
+        self.net_stats.egress_bytes = self.net_stats.egress_bytes.saturating_add(bytes as u64);
+    }
+
+    pub fn log_network_stats_if_ready(&mut self) {
+        self.net_stats.log_if_ready();
+    }
+}
+
+struct NetStats {
+    ingress_bytes: u64,
+    egress_bytes: u64,
+    window_start: Instant,
+}
+
+impl NetStats {
+    const WINDOW: Duration = Duration::from_secs(3);
+
+    fn new() -> Self {
+        Self {
+            ingress_bytes: 0,
+            egress_bytes: 0,
+            window_start: Instant::now(),
+        }
+    }
+
+    fn log_if_ready(&mut self) {
+        let elapsed = self.window_start.elapsed();
+        if elapsed < Self::WINDOW {
+            return;
+        }
+
+        let seconds = elapsed.as_secs_f64();
+        let ingress_rate = self.ingress_bytes as f64 / seconds;
+        let egress_rate = self.egress_bytes as f64 / seconds;
+
+        println!(
+            "network average over {:.1}s: ingress {}, egress {}",
+            seconds,
+            format_bytes_per_second(ingress_rate),
+            format_bytes_per_second(egress_rate)
+        );
+
+        self.ingress_bytes = 0;
+        self.egress_bytes = 0;
+        self.window_start = Instant::now();
+    }
+}
+
+fn format_bytes_per_second(bytes_per_second: f64) -> String {
+    const KIBIBYTE: f64 = 1024.0;
+    const MEBIBYTE: f64 = 1024.0 * 1024.0;
+
+    if bytes_per_second >= MEBIBYTE {
+        format!("{:.1} MB/s", bytes_per_second / MEBIBYTE)
+    } else if bytes_per_second >= KIBIBYTE {
+        format!("{:.1} kB/s", bytes_per_second / KIBIBYTE)
+    } else {
+        format!("{:.0} B/s", bytes_per_second)
     }
 }
 

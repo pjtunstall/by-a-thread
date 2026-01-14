@@ -112,10 +112,12 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
             let message = ServerMessage::BulletEvent(event);
             let payload =
                 encode_to_vec(&message, standard()).expect("failed to serialize bullet event");
+            let payload_len = payload.len();
             for &client_id in state.client_id_to_index.keys() {
                 if state.after_game_chat_clients.contains(&client_id) {
                     continue;
                 }
+                state.note_egress_bytes(payload_len);
                 network.send_message(client_id, AppChannel::ReliableOrdered, payload.clone());
             }
         }
@@ -134,11 +136,13 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
             });
             let payload =
                 encode_to_vec(&message, standard()).expect("failed to serialize ServerTime");
+            state.note_egress_bytes(payload.len());
             network.send_message(client_id, AppChannel::Unreliable, payload);
         }
     }
 
     state.current_tick += 1;
+    state.log_network_stats_if_ready();
     // println!("{}", state.current_tick);
 
     None
@@ -147,6 +151,7 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
 fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
     for client_id in network.clients_id() {
         while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
+            state.note_ingress_bytes(data.len());
             let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
                 eprintln!(
                     "client {} sent malformed data during game; disconnecting them",
@@ -183,6 +188,7 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                     };
                     let payload =
                         encode_to_vec(&message, standard()).expect("failed to serialize Roster");
+                    state.note_egress_bytes(payload.len());
                     network.send_message(client_id, AppChannel::ReliableOrdered, payload);
 
                     let message = ServerMessage::UserJoined {
@@ -190,11 +196,13 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                     };
                     let payload = encode_to_vec(&message, standard())
                         .expect("failed to serialize UserJoined");
+                    let payload_len = payload.len();
 
                     for other_id in &state.after_game_chat_clients {
                         if *other_id == client_id {
                             continue;
                         }
+                        state.note_egress_bytes(payload_len);
                         network.send_message(
                             *other_id,
                             AppChannel::ReliableOrdered,
@@ -237,6 +245,7 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                     let payload = encode_to_vec(&message, standard())
                         .expect("failed to serialize ChatMessage");
                     for other_id in &state.after_game_chat_clients {
+                        state.note_egress_bytes(payload.len());
                         network.send_message(
                             *other_id,
                             AppChannel::ReliableOrdered,

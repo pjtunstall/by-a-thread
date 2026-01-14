@@ -27,10 +27,9 @@ pub fn receive_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
 
     for client_id in client_ids {
         if state.after_game_chat_clients.contains(&client_id) {
-            while network
-                .receive_message(client_id, AppChannel::Unreliable)
-                .is_some()
-            {}
+            while let Some(data) = network.receive_message(client_id, AppChannel::Unreliable) {
+                state.note_ingress_bytes(data.len());
+            }
             continue;
         }
 
@@ -43,6 +42,7 @@ pub fn receive_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
         let player = &mut state.players[player_index];
 
         while let Some(data) = network.receive_message(client_id, AppChannel::Unreliable) {
+            state.note_ingress_bytes(data.len());
             if total_messages_received % 10 == 0 && start_time.elapsed() > NETWORK_TIME_BUDGET {
                 if !is_shedding_load {
                     println!("{}", TimeBudgetEvent::Exceeded.message());
