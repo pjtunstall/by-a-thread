@@ -4,10 +4,6 @@
 
 We're on the 2024 edition of Rust.
 
-# Courtesy
-
-Limit reports on completed work to a description of the task at hand. Only offer extras if they'd genuinely complement or complete the task, or fix a problem you noticed while doing it.
-
 ## Module file structure
 
 Always use the modern module file structure, i.e. no `mod.rs`.

@@ -28,6 +28,8 @@ The client simulates bounces, but the server sends authoritative notification of
 
 ## State Machines
 
+Both client and server use the state pattern to organize flow. Each has its own collection of states.
+
 ### Client State Machine
 
 ```txt
