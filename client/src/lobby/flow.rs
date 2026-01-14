@@ -67,7 +67,10 @@ fn transition(
     assets: Option<&Assets>,
 ) -> Option<ClientState> {
     match session.state {
-        ClientState::Lobby(Lobby::Startup { .. }) => handlers::startup::handle(session, ui),
+        ClientState::Lobby(Lobby::ServerAddress { .. }) => {
+            handlers::server_address::handle(session, ui)
+        }
+        ClientState::Lobby(Lobby::Passcode { .. }) => handlers::passcode::handle(session, ui),
         ClientState::Lobby(Lobby::Connecting { .. }) => {
             handlers::connecting::handle(session, ui, network_handle)
         }

@@ -152,7 +152,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "called chat::handle() when state was not Chat; current state: Lobby(Startup { prompt_printed: false })"
+            expected = "called chat::handle() when state was not Chat; current state: Lobby(ServerAddress { prompt_printed: false })"
         )]
         fn chat_panics_if_not_in_chat_state() {
             let mut session = ClientSession::new(0);

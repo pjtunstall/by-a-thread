@@ -84,6 +84,9 @@ pub fn handle(
 
     for input_string in input_to_process {
         let mut should_mark_waiting_for_server = false;
+        if input_string.trim().is_empty() {
+            continue;
+        }
         if let ClientState::Lobby(Lobby::Authenticating {
             waiting_for_input,
             guesses_left,

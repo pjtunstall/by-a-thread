@@ -1,5 +1,5 @@
 use std::{
-    net::{SocketAddr, UdpSocket},
+    net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -17,7 +17,7 @@ use crate::{
     },
     net::{self, DisconnectKind, RenetNetworkHandle},
     session::{ClientSession, Clock},
-    state::{ClientState, Lobby},
+    state::{ClientState, InputMode, Lobby},
 };
 use common::{self, constants::TICK_SECS, player::Player};
 
@@ -37,9 +37,9 @@ impl ClientRunner {
         server_addr: SocketAddr,
         private_key: [u8; 32],
         ui: Gui,
+        session: ClientSession,
+        assets: Assets,
     ) -> Result<Self, String> {
-        let assets = Assets::load().await;
-        let client_id = ::rand::random::<u64>();
         let protocol_id = common::protocol::version();
         let current_time_duration = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -50,7 +50,7 @@ impl ClientRunner {
         let connect_token = net::create_connect_token(
             current_time_duration,
             protocol_id,
-            client_id,
+            session.client_id,
             server_addr,
             &private_key,
         );
@@ -59,7 +59,6 @@ impl ClientRunner {
             .map_err(|e| format!("failed to create network transport: {}", e))?;
         let connection_config = common::net::connection_config();
         let client = RenetClient::new(connection_config);
-        let session = ClientSession::new(client_id);
 
         Ok(Self {
             session,
@@ -268,19 +267,33 @@ impl ClientRunner {
     }
 }
 
-pub async fn run_client_loop(
-    socket: UdpSocket,
-    server_addr: SocketAddr,
-    private_key: [u8; 32],
-    ui: Gui,
-) {
-    let mut runner = match ClientRunner::new(socket, server_addr, private_key, ui).await {
-        Ok(r) => r,
+pub async fn run_client_loop(private_key: [u8; 32], mut ui: Gui) {
+    let client_id = ::rand::random::<u64>();
+    let mut session = ClientSession::new(client_id);
+    let assets = Assets::load().await;
+    let Some(server_addr) =
+        prompt_for_server_address(&mut session, &mut ui, Some(&assets.font)).await
+    else {
+        return;
+    };
+
+    let socket_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
+    let socket = match UdpSocket::bind(socket_addr) {
+        Ok(socket) => socket,
         Err(e) => {
-            eprintln!("{}", e);
+            eprintln!("failed to bind client socket: {}", e);
             return;
         }
     };
+
+    let mut runner =
+        match ClientRunner::new(socket, server_addr, private_key, ui, session, assets).await {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("{}", e);
+                return;
+            }
+        };
 
     runner.ui.print_client_banner(
         common::protocol::version(),
@@ -297,6 +310,49 @@ pub async fn run_client_loop(
         // println!("{}", runner.session.clock.fps.rate);
         runner.pump_network();
         runner.update_client_state();
+
+        next_frame().await;
+    }
+}
+
+async fn prompt_for_server_address(
+    session: &mut ClientSession,
+    ui: &mut dyn LobbyUi,
+    font: Option<&Font>,
+) -> Option<SocketAddr> {
+    loop {
+        if is_quit_requested() || is_key_pressed(KeyCode::Escape) {
+            return None;
+        }
+
+        if matches!(session.input_mode(), InputMode::Enabled) {
+            match ui.poll_input(common::chat::MAX_CHAT_MESSAGE_BYTES, false) {
+                Ok(Some(input)) => session.add_input(input),
+                Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
+                    ui.show_sanitized_error(&format!("No connection: {}.", e));
+                    return None;
+                }
+                Ok(None) => {}
+            }
+        }
+
+        if let Some(next_state) = lobby::handlers::server_address::handle(session, ui) {
+            session.transition(next_state);
+        }
+
+        if let Some(server_addr) = session.server_addr {
+            ui.flush_input();
+            return Some(server_addr);
+        }
+
+        let ui_state = session.prepare_ui_state();
+        if ui_state.show_waiting_message {
+            ui.show_warning("Waiting for server...");
+        }
+
+        let should_show_input = matches!(ui_state.mode, InputMode::Enabled);
+        let show_cursor = should_show_input;
+        ui.draw(should_show_input, show_cursor, font);
 
         next_frame().await;
     }
@@ -334,7 +390,15 @@ fn disconnect_message(state: &ClientState, error: &str, kind: DisconnectKind) ->
             {
                 return common::protocol::GAME_ALREADY_STARTED_MESSAGE.to_string();
             }
-            Lobby::Startup { .. }
+            Lobby::Passcode { .. }
+                if matches!(
+                    kind,
+                    DisconnectKind::DisconnectedByServer | DisconnectKind::ConnectionDenied
+                ) =>
+            {
+                return common::protocol::GAME_ALREADY_STARTED_MESSAGE.to_string();
+            }
+            Lobby::ServerAddress { .. }
                 if matches!(
                     kind,
                     DisconnectKind::DisconnectedByServer | DisconnectKind::ConnectionDenied
@@ -391,8 +455,8 @@ mod tests {
     }
 
     #[test]
-    fn disconnect_message_for_startup_when_server_denies() {
-        let state = ClientState::Lobby(Lobby::Startup {
+    fn disconnect_message_for_passcode_when_server_denies() {
+        let state = ClientState::Lobby(Lobby::Passcode {
             prompt_printed: true,
         });
         let msg = disconnect_message(

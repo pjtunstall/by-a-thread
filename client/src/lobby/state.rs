@@ -3,7 +3,10 @@ use common::{auth::Passcode, snapshot::InitialData};
 
 #[derive(Debug)]
 pub enum Lobby {
-    Startup {
+    ServerAddress {
+        prompt_printed: bool,
+    },
+    Passcode {
         prompt_printed: bool,
     },
     Connecting {

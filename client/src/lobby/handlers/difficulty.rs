@@ -179,11 +179,11 @@ mod tests {
     use common::protocol::{ClientMessage, ServerMessage};
 
     #[test]
-    #[should_panic(
-        expected = "called difficulty::handle() when state was not ChoosingDifficulty; current state: Lobby(Startup { prompt_printed: false })"
-    )]
-    fn guards_panics_if_not_in_correct_state() {
-        let mut session = ClientSession::new(0);
+        #[should_panic(
+            expected = "called difficulty::handle() when state was not ChoosingDifficulty; current state: Lobby(ServerAddress { prompt_printed: false })"
+        )]
+        fn guards_panics_if_not_in_correct_state() {
+            let mut session = ClientSession::new(0);
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
         handle(&mut session, &mut ui, &mut network);

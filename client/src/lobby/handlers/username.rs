@@ -132,7 +132,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "called username::handle() when state was not ChoosingUsername; current state: Lobby(Startup { prompt_printed: false })"
+            expected = "called username::handle() when state was not ChoosingUsername; current state: Lobby(ServerAddress { prompt_printed: false })"
         )]
         fn choosing_username_panics_if_not_in_choosing_username_state() {
             let mut session = ClientSession::new(0);

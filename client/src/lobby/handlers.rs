@@ -3,7 +3,8 @@ pub mod chat;
 pub mod connecting;
 pub mod countdown;
 pub mod difficulty;
-pub mod startup;
+pub mod passcode;
+pub mod server_address;
 pub mod username;
 pub mod waiting;
 
@@ -20,8 +21,7 @@ pub fn update(runner: &mut ClientRunner) {
         &mut network_handle,
         Some(&runner.assets),
         is_host,
-    )
-    {
+    ) {
         LobbyStep::Continue => {}
         LobbyStep::StartGame => {
             // TODO: Decide whether to do anything with a returned error here.
@@ -45,7 +45,7 @@ mod tests {
     use common::{
         auth::MAX_ATTEMPTS,
         input::sanitize,
-        protocol::{ServerMessage, AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE},
+        protocol::{AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE, ServerMessage},
     };
 
     #[test]

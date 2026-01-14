@@ -50,7 +50,7 @@ use common::{self, player::Player};
 By default, error messages should follow the Rust convention: all lowercase, no trailing punctuation.
 
 ```rust
-panic!("everything right is wrong again: {}", e)
+panic!("panic now: {}", e)
 ```
 
 This is the rule for all error messages that might be propagated, for developer-facing error messages, and for messages delivered by the panic macro, assert, and except. The only exception is messages that we know are user-facing, such as the outermost error message that wraps all others to be shown in th eUI. User-facing messages should follow normal English punctuation rules.

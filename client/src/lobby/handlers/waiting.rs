@@ -84,11 +84,11 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "called awaiting_confirmation::handle() when state was not AwaitingUsernameConfirmation; current state: Lobby(Startup { prompt_printed: false })"
-    )]
-    fn guards_panics_if_not_in_awaiting_confirmation_state() {
-        let mut session = ClientSession::new(0);
+        #[should_panic(
+            expected = "called awaiting_confirmation::handle() when state was not AwaitingUsernameConfirmation; current state: Lobby(ServerAddress { prompt_printed: false })"
+        )]
+        fn guards_panics_if_not_in_awaiting_confirmation_state() {
+            let mut session = ClientSession::new(0);
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
         handle(&mut session, &mut ui, &mut network);

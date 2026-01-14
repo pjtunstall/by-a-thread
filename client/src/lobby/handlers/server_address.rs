@@ -1,0 +1,141 @@
+use std::net::{IpAddr, SocketAddr};
+
+use crate::{
+    lobby::ui::LobbyUi,
+    net::default_server_addr,
+    session::ClientSession,
+    state::{ClientState, Lobby},
+};
+
+pub fn handle(session: &mut ClientSession, ui: &mut dyn LobbyUi) -> Option<ClientState> {
+    if !matches!(
+        &session.state,
+        ClientState::Lobby(Lobby::ServerAddress { .. })
+    ) {
+        panic!(
+            "called server_address::handle() when state was not ServerAddress; current state: {:?}",
+            &session.state
+        );
+    }
+
+    let default_addr = default_server_addr();
+
+    if let Some(input_string) = session.take_input() {
+        match parse_server_address(&input_string, default_addr) {
+            Ok(server_addr) => {
+                session.input_queue.clear();
+                session.server_addr = Some(server_addr);
+                return Some(ClientState::Lobby(Lobby::Passcode {
+                    prompt_printed: false,
+                }));
+            }
+            Err(message) => {
+                ui.show_error(&message);
+                ui.show_prompt(&server_address_prompt(default_addr));
+
+                if let ClientState::Lobby(Lobby::ServerAddress { prompt_printed }) =
+                    &mut session.state
+                {
+                    *prompt_printed = true;
+                }
+                return None;
+            }
+        }
+    }
+
+    let needs_prompt = match &session.state {
+        ClientState::Lobby(Lobby::ServerAddress { prompt_printed }) => !prompt_printed,
+        _ => false,
+    };
+
+    if needs_prompt {
+        ui.show_prompt(&server_address_prompt(default_addr));
+
+        if let ClientState::Lobby(Lobby::ServerAddress { prompt_printed }) = &mut session.state {
+            *prompt_printed = true;
+        }
+        return None;
+    }
+
+    None
+}
+
+fn server_address_prompt(default_addr: SocketAddr) -> String {
+    format!(
+        "Enter server address (ip[:port]) or press Enter for {}: ",
+        default_addr
+    )
+}
+
+fn parse_server_address(input: &str, default_addr: SocketAddr) -> Result<SocketAddr, String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return Ok(default_addr);
+    }
+
+    if let Ok(addr) = trimmed.parse::<SocketAddr>() {
+        return Ok(addr);
+    }
+
+    if let Ok(ip) = trimmed.parse::<IpAddr>() {
+        return Ok(SocketAddr::new(ip, default_addr.port()));
+    }
+
+    Err(format!(
+        "Invalid address. Enter an IP like 192.168.0.10:5000, or press Enter to use {}.",
+        default_addr
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers::MockUi;
+
+    #[test]
+    fn returns_default_address_on_blank_input() {
+        let default_addr = default_server_addr();
+        let parsed = parse_server_address("   ", default_addr).expect("expected default address");
+        assert_eq!(parsed, default_addr);
+    }
+
+    #[test]
+    fn parses_ip_with_default_port() {
+        let default_addr = default_server_addr();
+        let parsed = parse_server_address("192.168.1.50", default_addr).expect("expected address");
+        assert_eq!(
+            parsed,
+            SocketAddr::new(IpAddr::from([192, 168, 1, 50]), default_addr.port())
+        );
+    }
+
+    #[test]
+    fn parses_ip_with_port() {
+        let default_addr = default_server_addr();
+        let parsed =
+            parse_server_address("192.168.1.50:6000", default_addr).expect("expected address");
+        assert_eq!(
+            parsed,
+            SocketAddr::new(IpAddr::from([192, 168, 1, 50]), 6000)
+        );
+    }
+
+    #[test]
+    fn invalid_input_reprompts() {
+        let mut session = ClientSession::new(0);
+        session.add_input("not-an-ip".to_string());
+        let mut ui = MockUi::default();
+
+        let next_state = handle(&mut session, &mut ui);
+
+        assert!(next_state.is_none());
+        assert_eq!(ui.errors.len(), 1);
+        assert_eq!(ui.prompts.len(), 1);
+        match session.state {
+            ClientState::Lobby(Lobby::ServerAddress { prompt_printed }) => {
+                assert!(prompt_printed);
+            }
+            _ => panic!("expected ServerAddress state"),
+        }
+    }
+}

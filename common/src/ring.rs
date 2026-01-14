@@ -66,7 +66,7 @@ where
 pub struct NetworkBuffer<T: Clone + Default, const N: usize> {
     ring: Ring<T, N>,
     pub head: u64, // The "write" cursor: most recent item inserted.
-    pub tail: u64, // The "read" cursor: last input processed or last snapshot interpolated.
+    pub tail: u64, // The "read" cursor: older items will be considered stale.
 }
 
 impl<T, const N: usize> NetworkBuffer<T, N>

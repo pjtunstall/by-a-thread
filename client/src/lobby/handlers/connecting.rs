@@ -96,7 +96,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "called connecting::handle() when state was not Connecting; current state: Lobby(Startup { prompt_printed: false })"
+            expected = "called connecting::handle() when state was not Connecting; current state: Lobby(ServerAddress { prompt_printed: false })"
         )]
         fn connecting_panics_if_not_in_connecting_state() {
             let mut session = ClientSession::new(0);

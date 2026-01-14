@@ -6,7 +6,19 @@ This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://
 
 ## Netcode
 
-The client maintains an `input_history` ring buffer and a `snapshot_buffer` for player state updates from the server. The server maintains an `input_buffer` ring buffer for each player to store their inputs till it's time to process them. Clients stamp their inputs with the tick number on which the server should process them: a few ticks in the future to account for latency, plus a small safety margin for network jitter. Inputs are sent on an `Unreliable` Renet channel. The client sends inputs for the last four ticks as redundancy, to reduce the chances that the server will be missing inputs due to lost packets.
+## Buffers and history
+
+TODO: What they're each used for in detail; how wire ticks are converted to ticks.
+
+The client maintains `input_history` and `snapshot_buffer` ring buffers for player state updates from the server. The server maintains an `input_buffer` ring buffer for each player to store their inputs till it's time to process them.
+
+The `input_history` is implemented as a `Ring` struct, and the others with the `NetworkBuffer` struct. A `Ring` stores items in an array, labeled with a 64-bit tick number. The index at which an item is inserted is its tick modulo the length of the array. This allows items to be inserted in a circular fashion. Since they're labeled with the tick number, the item corresponding to a given tick can be extracted; if the item at the corresponding index doesn't match the tick, the item for that tick is considered not found.
+
+A `NetworkBuffer` includes a `Ring` together with a `head` and `tail`. The `head` is a "write" cursor. It's the tick of most recent item inserted. The `tail` is a "read" cursor. It's the tick of the last input processed, and is kept a a safety margin of ticks (a minute's worth) behind the last snapshot used. (The reason for this generous safety margin is that the client's estimate of current server time is not monotonic: it can slip backwards slightly due to network conditions.)
+
+### Input
+
+Clients stamp their inputs with the tick number on which the server should process them: a few ticks in the future to account for latency, plus a small safety margin for network jitter. Inputs are sent on an `Unreliable` Renet channel. The client sends inputs for the last four ticks as redundancy, to reduce the chances that the server will be missing inputs due to lost packets.
 
 ### Local player: reconciliation, replay, and prediction
 
@@ -43,8 +55,10 @@ From the Lobby substate `Connecting` onwards, any state (or substate) can lead t
 #### Lobby
 
 ```
-Startup -> Connecting -> Authenticating -> ChoosingUsername <-> AwaitingUsernameConfirmation -> Chat
+ServerAddress -> Passcode -> Connecting -> Authenticating -> ChoosingUsername <-> AwaitingUsernameConfirmation -> Chat
 ```
+
+`ServerAddress` prompts for an IP address and port number; pressing Enter uses the local default.
 
 If the player is the host: `Chat -> ChoosingDifficulty`, otherwise `Chat -> Countdown`. In either case,
 

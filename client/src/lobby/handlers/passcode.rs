@@ -7,45 +7,47 @@ use crate::{
 use common::auth::MAX_ATTEMPTS;
 
 pub fn handle(session: &mut ClientSession, ui: &mut dyn LobbyUi) -> Option<ClientState> {
-    if !matches!(&session.state, ClientState::Lobby(Lobby::Startup { .. })) {
+    if !matches!(&session.state, ClientState::Lobby(Lobby::Passcode { .. })) {
         panic!(
-            "called startup::handle() when state was not Startup; current state: {:?}",
+            "called passcode::handle() when state was not Passcode; current state: {:?}",
             &session.state
         );
     }
 
     if let Some(input_string) = session.take_input() {
-        if let Some(passcode) = parse_passcode_input(&input_string) {
-            return Some(ClientState::Lobby(Lobby::Connecting {
-                pending_passcode: Some(passcode),
-            }));
-        } else {
-            ui.show_typed_error(
-                UiErrorKind::PasscodeFormat,
-                &format!(
-                    "Invalid format: \"{}\". Passcode must be a 6-digit number.",
-                    input_string.trim()
-                ),
-            );
+        if !input_string.trim().is_empty() {
+            if let Some(passcode) = parse_passcode_input(&input_string) {
+                return Some(ClientState::Lobby(Lobby::Connecting {
+                    pending_passcode: Some(passcode),
+                }));
+            } else {
+                ui.show_typed_error(
+                    UiErrorKind::PasscodeFormat,
+                    &format!(
+                        "Invalid format: \"{}\". Passcode must be a 6-digit number.",
+                        input_string.trim()
+                    ),
+                );
 
-            ui.show_sanitized_prompt(&passcode_prompt(MAX_ATTEMPTS));
+                ui.show_sanitized_prompt(&passcode_prompt(MAX_ATTEMPTS));
 
-            if let ClientState::Lobby(Lobby::Startup { prompt_printed }) = &mut session.state {
+            if let ClientState::Lobby(Lobby::Passcode { prompt_printed }) = &mut session.state {
                 *prompt_printed = true;
             }
             return None;
         }
     }
+    }
 
     let needs_prompt = match &session.state {
-        ClientState::Lobby(Lobby::Startup { prompt_printed }) => !prompt_printed,
+        ClientState::Lobby(Lobby::Passcode { prompt_printed }) => !prompt_printed,
         _ => false,
     };
 
     if needs_prompt {
         ui.show_prompt(&passcode_prompt(MAX_ATTEMPTS));
 
-        if let ClientState::Lobby(Lobby::Startup { prompt_printed }) = &mut session.state {
+        if let ClientState::Lobby(Lobby::Passcode { prompt_printed }) = &mut session.state {
             *prompt_printed = true;
         }
         return None;
@@ -64,9 +66,9 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "called startup::handle() when state was not Startup; current state: Lobby(Connecting { pending_passcode: None })"
+            expected = "called passcode::handle() when state was not Passcode; current state: Lobby(Connecting { pending_passcode: None })"
         )]
-        fn startup_panics_if_not_in_startup_state() {
+        fn passcode_panics_if_not_in_passcode_state() {
             let mut session = ClientSession::new(0);
             session.transition(ClientState::Lobby(Lobby::Connecting {
                 pending_passcode: None,
@@ -77,8 +79,11 @@ mod tests {
         }
 
         #[test]
-        fn startup_does_not_panic_in_startup_state() {
+        fn passcode_does_not_panic_in_passcode_state() {
             let mut session = ClientSession::new(0);
+            session.transition(ClientState::Lobby(Lobby::Passcode {
+                prompt_printed: false,
+            }));
             let mut ui = MockUi::default();
             assert!(
                 handle(&mut session, &mut ui).is_none(),
@@ -90,6 +95,9 @@ mod tests {
     #[test]
     fn transitions_to_connecting_after_first_prompt() {
         let mut session = ClientSession::new(0);
+        session.transition(ClientState::Lobby(Lobby::Passcode {
+            prompt_printed: false,
+        }));
         session.add_input("123456".to_string());
 
         let mut ui = MockUi::default();
@@ -108,6 +116,9 @@ mod tests {
     #[test]
     fn handles_invalid_input_and_reprompts() {
         let mut session = ClientSession::new(0);
+        session.transition(ClientState::Lobby(Lobby::Passcode {
+            prompt_printed: false,
+        }));
         session.add_input("abc".to_string());
 
         let mut ui = MockUi::default();
@@ -132,8 +143,8 @@ mod tests {
         assert!(ui.errors.is_empty());
 
         match &session.state {
-            ClientState::Lobby(Lobby::Startup { prompt_printed }) => assert!(*prompt_printed),
-            _ => panic!("expected Startup state"),
+            ClientState::Lobby(Lobby::Passcode { prompt_printed }) => assert!(*prompt_printed),
+            _ => panic!("expected Passcode state"),
         }
     }
 }

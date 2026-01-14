@@ -1,4 +1,8 @@
-use std::{collections::VecDeque, time::Instant};
+use std::{
+    collections::VecDeque,
+    net::SocketAddr,
+    time::Instant,
+};
 
 use crate::{
     frame::FrameRate,
@@ -24,6 +28,7 @@ pub struct ClientSession {
     pub local_player_index: Option<usize>,
     pub disconnected_notified: bool,
     pub pending_disconnect: Option<String>,
+    pub server_addr: Option<SocketAddr>,
     waiting_since: Option<Instant>,
     waiting_message_shown: bool,
 }
@@ -33,7 +38,7 @@ impl ClientSession {
         Self {
             client_id,
             is_host: false,
-            state: ClientState::Lobby(Lobby::Startup {
+            state: ClientState::Lobby(Lobby::ServerAddress {
                 prompt_printed: false,
             }),
             clock: Clock::new(),
@@ -41,6 +46,7 @@ impl ClientSession {
             local_player_index: None,
             disconnected_notified: false,
             pending_disconnect: None,
+            server_addr: None,
             waiting_since: None,
             waiting_message_shown: false,
         }
@@ -182,7 +188,8 @@ impl ClientSession {
 
     pub fn input_mode(&self) -> InputMode {
         match &self.state {
-            ClientState::Lobby(Lobby::Startup { .. }) => InputMode::Enabled,
+            ClientState::Lobby(Lobby::ServerAddress { .. }) => InputMode::Enabled,
+            ClientState::Lobby(Lobby::Passcode { .. }) => InputMode::Enabled,
             ClientState::Lobby(Lobby::Connecting { .. }) => InputMode::Hidden,
             ClientState::Lobby(Lobby::Authenticating {
                 waiting_for_input,
@@ -274,7 +281,7 @@ impl ClientSession {
 
 impl Default for ClientState {
     fn default() -> Self {
-        Self::Lobby(Lobby::Startup {
+        Self::Lobby(Lobby::ServerAddress {
             prompt_printed: false,
         })
     }
@@ -329,11 +336,11 @@ mod tests {
     use common::player::UsernameError;
 
     #[test]
-    fn new_session_starts_in_startup_state() {
+    fn new_session_starts_in_server_address_state() {
         let session = ClientSession::new(0);
         assert!(matches!(
             session.state,
-            ClientState::Lobby(Lobby::Startup {
+            ClientState::Lobby(Lobby::ServerAddress {
                 prompt_printed: false
             })
         ));
