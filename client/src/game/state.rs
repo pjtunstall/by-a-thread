@@ -124,6 +124,88 @@ impl Game {
         }
     }
 
+    pub fn update_with_network(
+        &mut self,
+        clock: &mut Clock,
+        network: &mut dyn NetworkHandle,
+    ) -> Option<ClientState> {
+        if self.fade_to_black_finished && !self.after_game_chat_sent {
+            self.after_game_chat_sent = true;
+            let message = ClientMessage::EnterAfterGameChat;
+            let payload =
+                encode_to_vec(&message, standard()).expect("failed to encode after-game chat");
+            network.send_message(AppChannel::ReliableOrdered, payload);
+
+            return Some(ClientState::AfterGameChat {
+                awaiting_initial_roster: true,
+                waiting_for_server: false,
+            });
+        }
+
+        self.receive_game_messages(network);
+        if let Some(new_tail) = self.interpolate(clock.estimated_server_time) {
+            self.snapshot_buffer.advance_tail(new_tail);
+        }
+        if !self.pending_bullet_events.is_empty() {
+            self.apply_pending_bullet_events();
+        }
+        self.advance_simulation(clock, network);
+
+        None
+    }
+
+    fn advance_simulation(&mut self, clock: &mut Clock, network: &mut dyn NetworkHandle) {
+        // A failsafe to prevent `accumulated_time` from growing ever greater
+        // if we fall behind.
+        const MAX_TICKS_PER_FRAME: u8 = 8;
+        let mut ticks_processed = 0;
+
+        let head = self.snapshot_buffer.head;
+        if self.reconcile(head) {
+            let start_replay = head + 1;
+            let end_replay = clock.sim_tick + 1;
+
+            if start_replay <= end_replay {
+                self.apply_input_range_inclusive(start_replay, end_replay);
+            }
+        }
+
+        while clock.accumulated_time >= TICK_SECS && ticks_processed < MAX_TICKS_PER_FRAME {
+            let sim_tick = clock.sim_tick;
+
+            if self.players[self.local_player_index].health > 0 {
+                let mut input = input::player_input_from_keys(sim_tick);
+                self.prepare_fire_input(sim_tick, &mut input);
+                self.send_input(network, input, sim_tick);
+                self.input_history.insert(sim_tick, input);
+                self.apply_input(sim_tick);
+            }
+
+            self.last_sim_tick = sim_tick;
+            self.update_bullets(sim_tick);
+            clock.accumulated_time -= TICK_SECS;
+            clock.sim_tick += 1;
+            ticks_processed += 1;
+
+            // If at the limit, discard the backlog to stop a spiral.
+            if ticks_processed >= MAX_TICKS_PER_FRAME {
+                let ticks_to_skip = (clock.accumulated_time / TICK_SECS).floor() as u64;
+
+                if ticks_to_skip > 0 {
+                    clock.sim_tick += ticks_to_skip;
+
+                    // Keep the fractional remainder for smoothness.
+                    clock.accumulated_time -= ticks_to_skip as f64 * TICK_SECS;
+
+                    println!(
+                        "Death spiral: skipped {} ticks to realign clock. Current `sim_tick`: {}",
+                        ticks_to_skip, clock.sim_tick
+                    );
+                }
+            }
+        }
+    }
+
     // We send the last four inputs for redundancy to mitigate possible loss of
     // messages on the unreliable channel.
     pub fn send_input(
@@ -239,37 +321,6 @@ impl Game {
                 }
             }
         }
-    }
-
-    pub fn update_with_network(
-        &mut self,
-        clock: &mut Clock,
-        network: &mut dyn NetworkHandle,
-    ) -> Option<ClientState> {
-        if self.fade_to_black_finished && !self.after_game_chat_sent {
-            self.after_game_chat_sent = true;
-            let message = ClientMessage::EnterAfterGameChat;
-            let payload =
-                encode_to_vec(&message, standard()).expect("failed to encode after-game chat");
-            network.send_message(AppChannel::ReliableOrdered, payload);
-
-            return Some(ClientState::AfterGameChat {
-                awaiting_initial_roster: true,
-                waiting_for_server: false,
-            });
-        }
-
-        self.receive_game_messages(network);
-
-        if let Some(new_tail) = self.interpolate(clock.estimated_server_time) {
-            self.snapshot_buffer.advance_tail(new_tail);
-        }
-
-        if !self.pending_bullet_events.is_empty() {
-            self.apply_pending_bullet_events();
-        }
-
-        self.advance_simulation(clock, network)
     }
 
     pub fn reconcile(&mut self, head: u64) -> bool {
@@ -392,76 +443,6 @@ impl Game {
         for event in events {
             self.apply_bullet_event(event);
         }
-    }
-
-    // TODO: Handle possible change of state to post-game. That would be due to
-    // collision with bullets, which will be sent on the reliable channel from
-    // the server. I'll see whether this function is needed when I
-    // implement that, or whether the state change is best placed elsewhere.
-    pub fn update(&mut self, sim_tick: u64) -> Option<ClientState> {
-        self.last_sim_tick = sim_tick;
-        self.update_bullets(sim_tick);
-        None
-    }
-
-    fn advance_simulation(
-        &mut self,
-        clock: &mut Clock,
-        network: &mut dyn NetworkHandle,
-    ) -> Option<ClientState> {
-        let mut transition = None;
-
-        // A failsafe to prevent `accumulated_time` from growing ever greater
-        // if we fall behind.
-        const MAX_TICKS_PER_FRAME: u8 = 8;
-        let mut ticks_processed = 0;
-
-        let head = self.snapshot_buffer.head;
-        if self.reconcile(head) {
-            let start_replay = head + 1;
-            let end_replay = clock.sim_tick + 1;
-
-            if start_replay <= end_replay {
-                self.apply_input_range_inclusive(start_replay, end_replay);
-            }
-        }
-
-        while clock.accumulated_time >= TICK_SECS && ticks_processed < MAX_TICKS_PER_FRAME {
-            let sim_tick = clock.sim_tick;
-
-            if self.players[self.local_player_index].health > 0 {
-                let mut input = input::player_input_from_keys(sim_tick);
-                self.prepare_fire_input(sim_tick, &mut input);
-                self.send_input(network, input, sim_tick);
-                self.input_history.insert(sim_tick, input);
-                self.apply_input(sim_tick);
-            }
-
-            transition = self.update(sim_tick);
-
-            clock.accumulated_time -= TICK_SECS;
-            clock.sim_tick += 1;
-            ticks_processed += 1;
-
-            // If at the limit, discard the backlog to stop a spiral.
-            if ticks_processed >= MAX_TICKS_PER_FRAME {
-                let ticks_to_skip = (clock.accumulated_time / TICK_SECS).floor() as u64;
-
-                if ticks_to_skip > 0 {
-                    clock.sim_tick += ticks_to_skip;
-
-                    // Keep the fractional remainder for smoothness.
-                    clock.accumulated_time -= ticks_to_skip as f64 * TICK_SECS;
-
-                    println!(
-                        "Death spiral: skipped {} ticks to realign clock. Current `sim_tick`: {}",
-                        ticks_to_skip, clock.sim_tick
-                    );
-                }
-            }
-        }
-
-        transition
     }
 
     // TODO: `prediction_alpha` would be for smoothing the local player between
