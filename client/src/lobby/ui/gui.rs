@@ -20,6 +20,7 @@ const PROMPT_COLOR: Color = LIGHTGRAY;
 const INPUT_COLOR: Color = LIGHTGRAY;
 const BANNER_COLOR: Color = YELLOW;
 const BACKGROUND_COLOR: Color = BLACK;
+const BANNER_COLUMN_GAP: f32 = 12.0;
 
 #[derive(Debug)]
 pub struct Gui {
@@ -184,7 +185,72 @@ impl Gui {
         max_width: f32,
         font: Option<&Font>,
     ) {
+        let mut banner_label_width: f32 = 0.0;
+        for (message, _) in &self.message_history {
+            if let Some((label, _)) = message.split_once('\t') {
+                banner_label_width = banner_label_width.max(self.measure_text_strict(label, font));
+            }
+        }
+
+        let banner_value_x = SIDE_PAD + banner_label_width + BANNER_COLUMN_GAP;
+        let banner_value_width = (max_width - banner_label_width - BANNER_COLUMN_GAP).max(0.0);
+
         for (message, color) in self.message_history.iter().rev() {
+            if let Some((label, value)) = message.split_once('\t') {
+                let lines = if banner_value_width > 0.0 {
+                    self.wrap_text(value, banner_value_width, font)
+                } else {
+                    self.wrap_text(value, max_width, font)
+                };
+
+                for (line_index, line) in lines.iter().enumerate().rev() {
+                    if current_baseline < line_height * 2.0 {
+                        break;
+                    }
+
+                    if line_index == 0 {
+                        if let Some(font) = font {
+                            draw_text_ex(
+                                label,
+                                SIDE_PAD,
+                                current_baseline,
+                                TextParams {
+                                    font: Some(font),
+                                    font_size: FONT_SIZE as u16,
+                                    color: *color,
+                                    ..Default::default()
+                                },
+                            );
+                        } else {
+                            draw_text(label, SIDE_PAD, current_baseline, FONT_SIZE, *color);
+                        }
+                    }
+
+                    let value_x = if banner_value_width > 0.0 {
+                        banner_value_x
+                    } else {
+                        SIDE_PAD
+                    };
+                    if let Some(font) = font {
+                        draw_text_ex(
+                            line,
+                            value_x,
+                            current_baseline,
+                            TextParams {
+                                font: Some(font),
+                                font_size: FONT_SIZE as u16,
+                                color: *color,
+                                ..Default::default()
+                            },
+                        );
+                    } else {
+                        draw_text(line, value_x, current_baseline, FONT_SIZE, *color);
+                    }
+                    current_baseline -= line_height;
+                }
+                continue;
+            }
+
             let lines = self.wrap_text(message, max_width, font);
             for line in lines.iter().rev() {
                 if current_baseline < line_height * 2.0 {
@@ -286,11 +352,11 @@ impl Gui {
                         let line_with_char_width = self.measure_text_strict(&line_with_char, font);
 
                         if line_with_char_width > max_width {
-                            // Current line is now full - push it and start fresh
+                            // Current line is now full, so push it and start fresh.
                             wrapped_lines.push(current_line);
                             current_line = character.to_string();
                         } else {
-                            // Character fits - keep building on current_line
+                            // Character fits, so keep building on `current_line`.
                             current_line = line_with_char;
                         }
                     }
@@ -344,12 +410,9 @@ impl LobbyUi for Gui {
     }
 
     fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr, client_id: u64) {
-        self.add_history(&format!("  Game version: {}", protocol_id), BANNER_COLOR);
-        self.add_history(&format!("  Connecting to: {}", server_addr), BANNER_COLOR);
-        self.add_history(
-            &format!("  Your ID:             {}", client_id),
-            BANNER_COLOR,
-        );
+        self.add_history(&format!("  Game version:\t{}", protocol_id), BANNER_COLOR);
+        self.add_history(&format!("  Connecting to:\t{}", server_addr), BANNER_COLOR);
+        self.add_history(&format!("  Your ID:\t{}", client_id), BANNER_COLOR);
     }
 
     fn show_banner_message(&mut self, message: &str) {
@@ -501,10 +564,20 @@ impl LobbyUi for Gui {
         let text_color = WHITE;
 
         let text_dimensions = measure_text(countdown_text, font, font_size as u16, 1.0);
+        let reference_dimensions = if countdown_text.len() == 1 && countdown_text.chars().all(|c| c.is_ascii_digit()) {
+            Some(measure_text("10", font, font_size as u16, 1.0))
+        } else {
+            None
+        };
         let screen_center_x = screen_width() / 2.0;
         let screen_center_y = screen_height() / 2.0;
 
-        let x_pos = screen_center_x - text_dimensions.width / 2.0;
+        let x_pos = if let Some(reference_dimensions) = reference_dimensions {
+            screen_center_x - reference_dimensions.width / 2.0
+                + (reference_dimensions.width - text_dimensions.width) / 2.0
+        } else {
+            screen_center_x - text_dimensions.width / 2.0
+        };
         let y_pos = screen_center_y + text_dimensions.height / 2.0;
 
         if let Some(font) = font {
