@@ -79,6 +79,7 @@ pub struct Game {
     after_game_chat_sent: bool,
     obe_effect: Option<ObeEffect>,
     oriented_sphere_mesh: OrientedSphereMesh,
+    remote_shadow_mesh: DiskMesh,
 }
 
 impl Game {
@@ -119,6 +120,7 @@ impl Game {
             after_game_chat_sent: false,
             obe_effect: None,
             oriented_sphere_mesh: OrientedSphereMesh::new(),
+            remote_shadow_mesh: DiskMesh::new(),
         }
     }
 
@@ -515,6 +517,10 @@ impl Game {
     }
 
     fn draw_remote_players(&mut self, assets: &Assets) {
+        let shadow_color = Color::new(0.2, 0.2, 0.2, 0.35);
+        let shadow_radius = player::RADIUS * 0.9;
+        const SHADOW_HEIGHT: f32 = 0.06;
+
         for (index, player) in self.players.iter().enumerate() {
             if index == self.local_player_index {
                 continue;
@@ -522,6 +528,14 @@ impl Game {
             if !player.alive {
                 continue;
             }
+
+            let shadow_position = vec3(
+                player.state.position.x,
+                SHADOW_HEIGHT,
+                player.state.position.z,
+            );
+            self.remote_shadow_mesh
+                .draw(shadow_position, shadow_radius, shadow_color);
 
             self.oriented_sphere_mesh.draw(
                 player.state.position,
@@ -749,6 +763,74 @@ impl ObeEffect {
 struct OrientedSphereMesh {
     base_vertices: Vec<(Vec3, Vec2)>,
     mesh: Mesh,
+}
+
+struct DiskMesh {
+    base_vertices: Vec<(Vec3, Vec2)>,
+    mesh: Mesh,
+}
+
+impl DiskMesh {
+    fn new() -> Self {
+        const SLICES: usize = 24;
+
+        let triangle_count = SLICES;
+        let mut base_vertices = Vec::with_capacity(triangle_count * 3);
+
+        use std::f32::consts::PI;
+        let two_pi = PI * 2.0;
+
+        for i in 0..SLICES {
+            let angle_a = (i as f32) * two_pi / (SLICES as f32);
+            let angle_b = ((i + 1) as f32) * two_pi / (SLICES as f32);
+
+            let v1 = vec3(angle_a.cos(), 0.0, angle_a.sin());
+            let v2 = vec3(angle_b.cos(), 0.0, angle_b.sin());
+
+            base_vertices.push((Vec3::ZERO, vec2(0.5, 0.5)));
+            base_vertices.push((
+                v1,
+                vec2(0.5 + 0.5 * angle_a.cos(), 0.5 + 0.5 * angle_a.sin()),
+            ));
+            base_vertices.push((
+                v2,
+                vec2(0.5 + 0.5 * angle_b.cos(), 0.5 + 0.5 * angle_b.sin()),
+            ));
+        }
+
+        let vertices = base_vertices
+            .iter()
+            .map(|(position, uv)| Vertex::new2(*position, *uv, WHITE))
+            .collect();
+        let indices = (0..base_vertices.len() as u16).collect();
+
+        let mesh = Mesh {
+            vertices,
+            indices,
+            texture: None,
+        };
+
+        Self {
+            base_vertices,
+            mesh,
+        }
+    }
+
+    fn draw(&mut self, center: Vec3, radius: f32, color: Color) {
+        let scale = vec3(radius, 1.0, radius);
+        let color_bytes: [u8; 4] = color.into();
+
+        for (vertex, (base_position, uv)) in
+            self.mesh.vertices.iter_mut().zip(self.base_vertices.iter())
+        {
+            vertex.position = *base_position * scale + center;
+            vertex.uv = *uv;
+            vertex.color = color_bytes;
+        }
+
+        self.mesh.texture = None;
+        draw_mesh(&self.mesh);
+    }
 }
 
 impl OrientedSphereMesh {
