@@ -112,11 +112,12 @@ pub fn build_maze_meshes(
     ];
 
     let s_rad = (CELL_SIZE / 2.0) + 2.0;
+    const SHADOW_HEIGHT: f32 = 0.12;
     let shadow_verts_local = [
-        vec3(-s_rad, 0.06, s_rad),
-        vec3(s_rad, 0.06, s_rad),
-        vec3(s_rad, 0.06, -s_rad),
-        vec3(-s_rad, 0.06, -s_rad),
+        vec3(-s_rad, SHADOW_HEIGHT, s_rad),
+        vec3(s_rad, SHADOW_HEIGHT, s_rad),
+        vec3(s_rad, SHADOW_HEIGHT, -s_rad),
+        vec3(-s_rad, SHADOW_HEIGHT, -s_rad),
     ];
     let shadow_color = Color::new(0.0, 0.0, 0.0, 0.3);
 

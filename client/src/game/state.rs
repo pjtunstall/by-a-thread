@@ -485,14 +485,14 @@ impl Game {
                     -yaw.cos() * pitch.cos(),
                 ),
             up: vec3(0.0, 1.0, 0.0),
+            z_near: 0.1,
+            z_far: 5000.0,
             ..Default::default()
         });
 
         self.maze.draw(&self.maze_meshes);
         self.draw_remote_players(assets);
         self.draw_bullets();
-        // self.draw_test_sphere(assets);
-
         info::draw(self, assets, fps, info::INFO_SCALE);
 
         // Handle fading to black when the local player dies. This block must
@@ -519,7 +519,7 @@ impl Game {
     fn draw_remote_players(&mut self, assets: &Assets) {
         let shadow_color = Color::new(0.2, 0.2, 0.2, 0.35);
         let shadow_radius = player::RADIUS * 0.9;
-        const SHADOW_HEIGHT: f32 = 0.06;
+        const SHADOW_HEIGHT: f32 = 0.12;
 
         for (index, player) in self.players.iter().enumerate() {
             if index == self.local_player_index {
