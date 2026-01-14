@@ -26,15 +26,15 @@ pub trait MazeExtension {
 
 impl MazeExtension for Maze {
     fn draw(&self, meshes: &MazeMeshes) {
-        // Draw Floor
+        // Floor.
         for mesh in &meshes.floor {
             draw_mesh(mesh);
         }
-        // Draw Shadows
+        // Shadows.
         for mesh in &meshes.shadows {
             draw_mesh(mesh);
         }
-        // Draw Walls
+        // Walls.
         for mesh in &meshes.walls {
             draw_mesh(mesh);
         }
@@ -59,7 +59,6 @@ pub fn generate_floor_texture() -> Texture2D {
     texture
 }
 
-// TODO: Investigate why the shadow is flickery with movement.
 pub fn build_maze_meshes(
     maze: &Maze,
     wall_texture: &Texture2D,
@@ -168,6 +167,9 @@ pub fn build_maze_meshes(
                     );
                 }
 
+                // We need to know what neighbors a wall has so that we can
+                // avoid drawing overlapping shadows, which result in a flickery
+                // effect.
                 let has_wall_left = x > 0 && maze.grid[z][x - 1] != 0;
                 let has_wall_right = x + 1 < width && maze.grid[z][x + 1] != 0;
                 let has_wall_up = z > 0 && maze.grid[z - 1][x] != 0;
