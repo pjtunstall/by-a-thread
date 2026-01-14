@@ -136,7 +136,7 @@ pub fn handle(
                                 .expect("failed to serialize Welcome");
                             network.send_message(client_id, AppChannel::ReliableOrdered, payload);
 
-                            let others = state.usernames_except(client_id);
+                            let others = state.roster_except(client_id);
                             let message = ServerMessage::Roster { online: others };
                             let payload = encode_to_vec(&message, standard())
                                 .expect("failed to serialize Roster");
@@ -192,8 +192,12 @@ pub fn handle(
                         }
 
                         println!("{}: {}", username, trimmed_content);
+                        let color = state
+                            .color(client_id)
+                            .expect("missing player color for chat");
                         let message = ServerMessage::ChatMessage {
                             username: username.to_string(),
+                            color,
                             content: trimmed_content.to_string(),
                         };
                         let payload = encode_to_vec(&message, standard())
@@ -265,7 +269,6 @@ mod tests {
     use bincode::serde::encode_to_vec;
     use common::{
         auth::{MAX_ATTEMPTS, Passcode},
-        player::Color,
         protocol::{
             auth_success_message, ClientMessage, ServerMessage,
             AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE,
@@ -368,9 +371,12 @@ mod tests {
         let msg1 = decode_from_slice::<ServerMessage, _>(&bob_msgs[0], standard())
             .unwrap()
             .0;
+        let bob_color = lobby_state
+            .color(2)
+            .expect("missing color for Bob");
         if let ServerMessage::Welcome { username, color } = msg1 {
             assert_eq!(username, "Bob");
-            assert_eq!(color, Color::LIME);
+            assert_eq!(color, bob_color);
         } else {
             panic!("expected Welcome message, got {:?}", msg1);
         }
@@ -378,8 +384,13 @@ mod tests {
         let msg2 = decode_from_slice::<ServerMessage, _>(&bob_msgs[1], standard())
             .unwrap()
             .0;
+        let alice_color = lobby_state
+            .color(1)
+            .expect("missing color for Alice");
         if let ServerMessage::Roster { online } = msg2 {
-            assert_eq!(online, vec!["Alice"]);
+            assert_eq!(online.len(), 1);
+            assert_eq!(online[0].username, "Alice");
+            assert_eq!(online[0].color, alice_color);
         } else {
             panic!("expected Roster message, got {:?}", msg2);
         }
@@ -426,8 +437,17 @@ mod tests {
         let msg = decode_from_slice::<ServerMessage, _>(&broadcasts[0], standard())
             .unwrap()
             .0;
-        if let ServerMessage::ChatMessage { username, content } = msg {
+        let alice_color = lobby_state
+            .color(1)
+            .expect("missing color for Alice");
+        if let ServerMessage::ChatMessage {
+            username,
+            color,
+            content,
+        } = msg
+        {
             assert_eq!(username, "Alice");
+            assert_eq!(color, alice_color);
             assert_eq!(content, "Hello Bob!");
         } else {
             panic!("expected ChatMessage, got {:?}", msg);
@@ -497,8 +517,17 @@ mod tests {
             .unwrap()
             .0;
 
-        if let ServerMessage::ChatMessage { username, content } = msg {
+        let alice_color = lobby_state
+            .color(1)
+            .expect("missing color for Alice");
+        if let ServerMessage::ChatMessage {
+            username,
+            color,
+            content,
+        } = msg
+        {
             assert_eq!(username, "Alice");
+            assert_eq!(color, alice_color);
             assert_eq!(
                 content, expected_content,
                 "chat content was not properly sanitized"

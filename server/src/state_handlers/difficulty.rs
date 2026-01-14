@@ -92,8 +92,13 @@ pub fn handle(
                         }
 
                         println!("{}: {}", username, trimmed_content);
+                        let color = state
+                            .lobby
+                            .color(client_id)
+                            .expect("missing player color for chat");
                         let message = ServerMessage::ChatMessage {
                             username: username.to_string(),
+                            color,
                             content: trimmed_content.to_string(),
                         };
                         let payload = encode_to_vec(&message, standard())
@@ -177,8 +182,18 @@ mod tests {
         assert_eq!(broadcasts.len(), 1);
         let (msg, _) = decode_from_slice::<ServerMessage, _>(&broadcasts[0], standard()).unwrap();
 
-        if let ServerMessage::ChatMessage { username, content } = msg {
+        let user_color = choosing_state
+            .lobby
+            .color(user_id)
+            .expect("missing color for user");
+        if let ServerMessage::ChatMessage {
+            username,
+            color,
+            content,
+        } = msg
+        {
             assert_eq!(username, "User");
+            assert_eq!(color, user_color);
             assert_eq!(
                 content, expected_content,
                 "chat content was not properly sanitized"

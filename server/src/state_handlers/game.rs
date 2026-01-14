@@ -191,7 +191,10 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                         .iter()
                         .filter(|player| player.client_id != client_id)
                         .filter(|player| state.after_game_chat_clients.contains(&player.client_id))
-                        .map(|player| player.name.clone())
+                        .map(|player| common::protocol::PlayerRosterEntry {
+                            username: player.name.clone(),
+                            color: player.color,
+                        })
                         .collect::<Vec<_>>();
 
                     let message = ServerMessage::AfterGameRoster {
@@ -255,6 +258,7 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                     println!("{}: {}", state.players[player_index].name, trimmed_content);
                     let message = ServerMessage::ChatMessage {
                         username: state.players[player_index].name.clone(),
+                        color: state.players[player_index].color,
                         content: trimmed_content.to_string(),
                     };
                     let payload = encode_to_vec(&message, standard())

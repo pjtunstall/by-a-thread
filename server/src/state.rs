@@ -16,7 +16,8 @@ use common::{
     net::AppChannel,
     player::{Color, WirePlayerLocal, WirePlayerRemote, COLORS},
     protocol::{
-        AfterGameExitReason, AfterGameLeaderboardEntry, GAME_ALREADY_STARTED_MESSAGE, ServerMessage,
+        AfterGameExitReason, AfterGameLeaderboardEntry, PlayerRosterEntry,
+        GAME_ALREADY_STARTED_MESSAGE, ServerMessage,
     },
     snapshot::{InitialData, Snapshot},
 };
@@ -205,6 +206,7 @@ impl Game {
                 };
                 AfterGameLeaderboardEntry {
                     username: player.name.clone(),
+                    color: player.color,
                     ticks_survived,
                     exit_reason,
                 }
@@ -469,6 +471,26 @@ impl Lobby {
 
     pub fn colors(&self) -> &HashMap<u64, Color> {
         &self.player_colors
+    }
+
+    pub fn roster_except(&self, client_id: u64) -> Vec<PlayerRosterEntry> {
+        self.usernames
+            .iter()
+            .filter_map(|(&id, name)| {
+                if id == client_id {
+                    return None;
+                }
+                let color = self
+                    .player_colors
+                    .get(&id)
+                    .copied()
+                    .unwrap_or(COLORS[0]);
+                Some(PlayerRosterEntry {
+                    username: name.clone(),
+                    color,
+                })
+            })
+            .collect()
     }
 
     fn assign_color(&mut self, client_id: u64) -> Color {

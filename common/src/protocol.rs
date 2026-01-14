@@ -30,8 +30,15 @@ pub enum AfterGameExitReason {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AfterGameLeaderboardEntry {
     pub username: String,
+    pub color: Color,
     pub ticks_survived: u64,
     pub exit_reason: AfterGameExitReason,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PlayerRosterEntry {
+    pub username: String,
+    pub color: Color,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -52,7 +59,7 @@ pub enum ServerMessage {
     },
     AppointHost,
     Roster {
-        online: Vec<String>,
+        online: Vec<PlayerRosterEntry>,
     },
     UserJoined {
         username: String,
@@ -62,10 +69,11 @@ pub enum ServerMessage {
     },
     ChatMessage {
         username: String,
+        color: Color,
         content: String,
     },
     AfterGameRoster {
-        hades_shades: Vec<String>,
+        hades_shades: Vec<PlayerRosterEntry>,
     },
     AfterGameLeaderboard {
         entries: Vec<AfterGameLeaderboardEntry>,

@@ -2,19 +2,25 @@
 
 ## Context
 
-This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://github.com/01-edu/public/tree/master/subjects/multiplayer-fps) (commit bb1e883).
+This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://github.com/01-edu/public/tree/master/subjects/multiplayer-fps) (commit bb1e883). I used Macroquad, a simple game library, to render scenes, the Renet crate for some networking abstractions over UDP.
 
 ## Netcode
 
+## Renet
+
+Renet defines three channel types: `ReliableOrdered`, `ReliableUnordered`, and `Unreliable`. I've used `ReliableOrdered` for system and chat messages and for bullet spawn and collision notifications from the server. I used `Unreliable` for input from the client, and for snapshots (player position updates) from the server.
+
 ## Buffers and history
 
-TODO: What they're each used for in detail; how wire ticks are converted to ticks.
+The client maintains ring buffers called `input_history` (for their own inputs) and `snapshot_buffer` (for player-state updates from the server: position and, in the case of the local player, also velocity). The server maintains an `input_buffer` ring buffer for each player to store their inputs till it's time to process them.
 
-The client maintains ring buffers called `input_history` (for their own inputs) and `snapshot_buffer` (for player-state updates from the server: position and, in the case of the local player, also velocity). The server maintains an `input_buffer` ring buffer for each player to store their inputs till it's time to process them. Inputs are forward-dated to a time when they're more than likely to have been received, hence the need for somewhere to store them; see [below](#input).
+The client forward-date its inputs to a time when we can fairly safely expect the server to have received them, hence the need for input buffers to store them serverside; see [Input](#input). Because they're sent on an unreliable channel (for speed), the client sends its last four inputs for redundancy, in case some fail to arrive, hence the need for an input history. The input history is also used to apply past inputs to snapshots; see [Local player](#local-player-reconciliation-replay-and-prediction).
 
 The `input_history` is implemented as a `Ring` struct, and the others with the `NetworkBuffer` struct. A `Ring` stores items in an array, labeled with a 64-bit tick number. The index at which an item is inserted is its tick modulo the length of the array. This allows items to be inserted in a circular fashion. Since they're labeled with the tick number, the item corresponding to a given tick can be extracted; if the item at the corresponding index doesn't match the tick, the item for that tick is considered not found.
 
 A `NetworkBuffer` includes a `Ring` together with a `head` and `tail`. The `head` is a "write" cursor. It's the tick of most recent item inserted. The `tail` is a "read" cursor. It's the tick of the last input processed, and is kept a a safety margin of ticks (a minute's worth) behind the last snapshot used. (The reason for this generous safety margin is that the client's estimate of current server time is not monotonic: it can slip backwards slightly due to network conditions.)
+
+To save on bandwidth, ticks are sent as 16-bit unsigned integers and expanded into 64-bit tick numbers, based on the assumption that they're close to `head`.
 
 ### Input
 
@@ -22,7 +28,7 @@ Clients stamp their inputs with the tick number on which the server should proce
 
 ### Local player: reconciliation, replay, and prediction
 
-Local player means the player as represented on their own machine. First we reconcile to the last snapshot. Then we run client‑side prediction. This consists of replaying inputs from `input_history` up to the last simulated tick. Finally, we run the simulation further for as many ticks as needed to account for the duration of the last frame. The simulation includes checking for new inputs and applying them to the local player's state. It also inlcudes bullet updates; see [below](#bullets-extrapolation).
+Local player means the player as represented on their own machine. First we reconcile to the last snapshot. Then we run client‑side prediction. This consists of replaying inputs from `input_history` up to the last simulated tick. Finally, we run the simulation further for as many ticks as needed to account for the duration of the last frame. The simulation includes checking for new inputs and applying them to the local player's state. It also inlcudes bullet updates; see [Bullets](#bullets-extrapolation).
 
 ### Remote players: interpolation
 

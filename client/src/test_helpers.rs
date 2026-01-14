@@ -19,6 +19,7 @@ pub struct MockUi {
     pub inputs: VecDeque<Result<Option<String>, UiInputError>>,
     pub keys: VecDeque<Result<Option<UiKey>, UiInputError>>,
     pub countdown_draws: Vec<String>,
+    pub local_player_color: Option<common::player::Color>,
 }
 
 impl MockUi {
@@ -44,6 +45,7 @@ impl MockUi {
             inputs: VecDeque::new(),
             keys: VecDeque::new(),
             countdown_draws: Vec::new(),
+            local_player_color: None,
         }
     }
 }
@@ -71,6 +73,10 @@ impl LobbyUi for MockUi {
 
     fn show_prompt(&mut self, prompt: &str) {
         self.prompts.push(prompt.to_string());
+    }
+
+    fn set_local_player_color(&mut self, color: common::player::Color) {
+        self.local_player_color = Some(color);
     }
 
     fn poll_input(&mut self, limit: usize, _is_host: bool) -> Result<Option<String>, UiInputError> {

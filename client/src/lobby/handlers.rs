@@ -81,6 +81,7 @@ mod tests {
 
         let malicious_chat = ServerMessage::ChatMessage {
             username: format!("User{}", bell),
+            color: common::player::Color::RED,
             content: format!("Hello{}World", esc),
         };
         network_chat.queue_server_message(malicious_chat);

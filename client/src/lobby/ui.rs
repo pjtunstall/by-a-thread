@@ -6,7 +6,7 @@ use macroquad::prelude::Font;
 
 use common::{
     input::{UiKey, sanitize},
-    player::UsernameError,
+    player::{Color, UsernameError},
 };
 pub use gui::Gui;
 
@@ -66,6 +66,16 @@ pub trait LobbyUi {
     fn show_sanitized_banner_message(&mut self, message: &str) {
         self.show_banner_message(&sanitize(message));
     }
+
+    fn show_message_with_color(&mut self, message: &str, _color: Color) {
+        self.show_message(message);
+    }
+
+    fn show_sanitized_message_with_color(&mut self, message: &str, color: Color) {
+        self.show_message_with_color(&sanitize(message), color);
+    }
+
+    fn set_local_player_color(&mut self, _color: Color) {}
 
     fn show_typed_error(&mut self, _kind: UiErrorKind, message: &str) {
         self.show_sanitized_error(message);

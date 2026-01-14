@@ -6,7 +6,7 @@ use std::{
 use macroquad::prelude::*;
 
 use crate::lobby::ui::{LobbyUi, UiInputError};
-use common::input::UiKey;
+use common::{input::UiKey, player::Color as PlayerColor};
 
 const PROMPT: &str = "> ";
 const FONT_SIZE: f32 = 24.0;
@@ -22,6 +22,21 @@ const BANNER_COLOR: Color = YELLOW;
 const BACKGROUND_COLOR: Color = BLACK;
 const BANNER_COLUMN_GAP: f32 = 12.0;
 
+fn player_color_to_text_color(color: PlayerColor) -> Color {
+    match color {
+        PlayerColor::RED => RED,
+        PlayerColor::LIME => LIME,
+        PlayerColor::PINK => PINK,
+        PlayerColor::YELLOW => YELLOW,
+        PlayerColor::GREEN => GREEN,
+        PlayerColor::BLUE => BLUE,
+        PlayerColor::MAROON => MAROON,
+        PlayerColor::ORANGE => ORANGE,
+        PlayerColor::PURPLE => PURPLE,
+        PlayerColor::SKYBLUE => SKYBLUE,
+    }
+}
+
 #[derive(Debug)]
 pub struct Gui {
     pub message_history: Vec<(String, Color)>,
@@ -31,6 +46,7 @@ pub struct Gui {
     right_arrow_last_pressed: Option<Instant>,
     left_arrow_last_pressed: Option<Instant>,
     backspace_last_pressed: Option<Instant>,
+    local_player_color: Option<PlayerColor>,
 }
 
 impl Gui {
@@ -43,6 +59,7 @@ impl Gui {
             right_arrow_last_pressed: None,
             left_arrow_last_pressed: None,
             backspace_last_pressed: None,
+            local_player_color: None,
         }
     }
 
@@ -88,6 +105,10 @@ impl Gui {
         show_cursor: bool,
         font: Option<&Font>,
     ) {
+        let input_color = self
+            .local_player_color
+            .map(player_color_to_text_color)
+            .unwrap_or(INPUT_COLOR);
         let full_input_text = format!("{}{}", PROMPT, self.input_buffer);
         let input_lines = self.wrap_text(&full_input_text, max_width, font);
 
@@ -105,19 +126,19 @@ impl Gui {
                     TextParams {
                         font: Some(font),
                         font_size: FONT_SIZE as u16,
-                        color: INPUT_COLOR,
+                        color: input_color,
                         ..Default::default()
                     },
                 );
             } else {
-                draw_text(line, SIDE_PAD, draw_y, FONT_SIZE, INPUT_COLOR);
+                draw_text(line, SIDE_PAD, draw_y, FONT_SIZE, input_color);
             }
 
             draw_y += line_height;
         }
 
         if show_cursor && (get_time() * 2.0) as i32 % 2 == 0 {
-            self.draw_cursor(input_start_y, &input_lines, line_height, font);
+            self.draw_cursor(input_start_y, &input_lines, line_height, font, input_color);
         }
 
         *current_baseline -= input_lines.len() as f32 * line_height;
@@ -129,6 +150,7 @@ impl Gui {
         input_lines: &Vec<String>,
         line_height: f32,
         font: Option<&Font>,
+        input_color: Color,
     ) {
         // Determine the logical index of the cursor within the FULL text (including the prompt). We use char indices because cursor_pos is a char count.
         let prompt_len = PROMPT.chars().count();
@@ -175,7 +197,13 @@ impl Gui {
             cursor_y = input_start_y;
         }
 
-        draw_rectangle(cursor_x, cursor_y - FONT_SIZE + 5.0, 2.0, FONT_SIZE, WHITE);
+        draw_rectangle(
+            cursor_x,
+            cursor_y - FONT_SIZE + 5.0,
+            2.0,
+            FONT_SIZE,
+            input_color,
+        );
     }
 
     fn draw_chat_history(
@@ -387,6 +415,16 @@ impl LobbyUi for Gui {
     fn show_message(&mut self, message: &str) {
         self.add_history(message, TEXT_COLOR);
     }
+
+    fn show_message_with_color(&mut self, message: &str, color: PlayerColor) {
+        let text_color = player_color_to_text_color(color);
+        self.add_history(message, text_color);
+    }
+
+    fn set_local_player_color(&mut self, color: PlayerColor) {
+        self.local_player_color = Some(color);
+    }
+
     fn show_error(&mut self, message: &str) {
         self.add_history(
             &format!("[ERROR] {}.", message.trim_end_matches('.')),

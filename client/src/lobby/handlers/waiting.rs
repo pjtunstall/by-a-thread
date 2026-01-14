@@ -29,10 +29,8 @@ pub fn handle(
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::Welcome { username, color }, _)) => {
-                ui.show_sanitized_message(&format!(
-                    "Server: Welcome, {}! Your player color is {}.",
-                    username, color
-                ));
+                ui.set_local_player_color(color);
+                ui.show_sanitized_message(&format!("Server: Welcome, {}!", username));
                 return Some(ClientState::Lobby(Lobby::Chat {
                     awaiting_initial_roster: true,
                     waiting_for_server: false,
@@ -120,10 +118,7 @@ mod tests {
             }))
         ));
         assert_eq!(ui.messages.len(), 1);
-        assert_eq!(
-            ui.messages[0],
-            "Server: Welcome, TestUser! Your player color is red."
-        );
+        assert_eq!(ui.messages[0], "Server: Welcome, TestUser!");
     }
 
     #[test]

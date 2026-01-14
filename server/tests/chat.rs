@@ -137,8 +137,20 @@ fn chat_messages_are_broadcast_to_other_clients() {
         .expect("failed to deserialize message")
         .0;
 
-    if let ServerMessage::ChatMessage { username, content } = message {
+    let alice_color = if let ServerState::Lobby(lobby) = &state {
+        lobby.color(alice_id).expect("missing color for Alice")
+    } else {
+        panic!("state should be Lobby");
+    };
+
+    if let ServerMessage::ChatMessage {
+        username,
+        color,
+        content,
+    } = message
+    {
         assert_eq!(username, "Alice");
+        assert_eq!(color, alice_color);
         assert_eq!(content, "Hello, Bob!");
     } else {
         panic!("expected ChatMessage, got {:?}", message);
@@ -322,9 +334,17 @@ fn test_handle_messages_username_success_and_broadcast() {
         "Bob did not receive a welcome message"
     );
 
+    let alice_color = if let ServerState::Lobby(lobby) = &state {
+        lobby.color(alice_id).expect("missing color for Alice")
+    } else {
+        panic!("state should be Lobby");
+    };
+
     assert!(
         bob_msgs.iter().any(|msg| {
-            matches!(msg, ServerMessage::Roster { online } if online == &vec!["Alice".to_string()])
+            matches!(msg, ServerMessage::Roster { online } if online.len() == 1
+                && online[0].username == "Alice"
+                && online[0].color == alice_color)
         }),
         "Bob did not receive a correct roster message"
     );

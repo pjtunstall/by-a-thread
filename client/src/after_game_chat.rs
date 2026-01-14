@@ -70,11 +70,18 @@ fn handle(
         session.set_chat_waiting_for_server(false);
 
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((ServerMessage::ChatMessage { username, content }, _)) => {
+            Ok((
+                ServerMessage::ChatMessage {
+                    username,
+                    color,
+                    content,
+                },
+                _,
+            )) => {
                 if session.awaiting_initial_roster() {
                     continue;
                 }
-                ui.show_sanitized_message(&format!("{}: {}", username, content));
+                ui.show_sanitized_message_with_color(&format!("{}: {}", username, content), color);
             }
             Ok((ServerMessage::UserJoined { username }, _)) => {
                 if session.awaiting_initial_roster() {
@@ -89,16 +96,21 @@ fn handle(
                 ui.show_sanitized_message(&format!("Server: {} left the chat.", username));
             }
             Ok((ServerMessage::AfterGameRoster { hades_shades }, _)) => {
-                let message = if hades_shades.is_empty() {
-                    "Server: You are the only shade in Hades.".to_string()
+                if hades_shades.is_empty() {
+                    ui.show_sanitized_message("Server: You are the only shade in Hades.");
                 } else {
-                    format!("Server: Shades in Hades: {}", hades_shades.join(", "))
-                };
-                ui.show_sanitized_message(&message);
+                    ui.show_sanitized_message("Server: Shades in Hades:");
+                    for entry in hades_shades {
+                        ui.show_sanitized_message_with_color(
+                            &format!(" - {}", entry.username),
+                            entry.color,
+                        );
+                    }
+                }
                 session.mark_initial_roster_received();
             }
             Ok((ServerMessage::AfterGameLeaderboard { entries }, _)) => {
-                ui.show_sanitized_banner_message("Leaderboard:");
+                ui.show_sanitized_message("Leaderboard:");
                 for (rank, entry) in entries.iter().enumerate() {
                     let seconds = entry.ticks_survived as f64 * TICK_SECS;
                     let reason = match entry.exit_reason {
@@ -106,13 +118,16 @@ fn handle(
                         AfterGameExitReason::Slain => "slain",
                         AfterGameExitReason::Winner => "winner",
                     };
-                    ui.show_sanitized_banner_message(&format!(
-                        "{}. {}  {:.1}s  ({})",
-                        rank + 1,
-                        entry.username,
-                        seconds,
-                        reason
-                    ));
+                    ui.show_sanitized_message_with_color(
+                        &format!(
+                            "  {}. {}  {:.1}s  ({})",
+                            rank + 1,
+                            entry.username,
+                            seconds,
+                            reason
+                        ),
+                        entry.color,
+                    );
                 }
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {

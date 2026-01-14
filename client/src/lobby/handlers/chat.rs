@@ -54,11 +54,18 @@ pub fn handle(
             Ok((ServerMessage::DenyDifficultySelection, _)) => {
                 session.set_chat_waiting_for_server(false);
             }
-            Ok((ServerMessage::ChatMessage { username, content }, _)) => {
+            Ok((
+                ServerMessage::ChatMessage {
+                    username,
+                    color,
+                    content,
+                },
+                _,
+            )) => {
                 if session.awaiting_initial_roster() {
                     continue;
                 }
-                ui.show_sanitized_message(&format!("{}: {}", username, content));
+                ui.show_sanitized_message_with_color(&format!("{}: {}", username, content), color);
             }
             Ok((ServerMessage::UserJoined { username }, _)) => {
                 if session.awaiting_initial_roster() {
@@ -73,12 +80,17 @@ pub fn handle(
                 ui.show_sanitized_message(&format!("Server: {} left the chat.", username));
             }
             Ok((ServerMessage::Roster { online }, _)) => {
-                let msg = if online.is_empty() {
-                    "Server: You are the only player online.".to_string()
+                if online.is_empty() {
+                    ui.show_sanitized_message("Server: You are the only player online.");
                 } else {
-                    format!("Server: Players online: {}.", online.join(", "))
-                };
-                ui.show_sanitized_message(&msg);
+                    ui.show_sanitized_message("Server: Players online:");
+                    for entry in online {
+                        ui.show_sanitized_message_with_color(
+                            &format!(" - {}", entry.username),
+                            entry.color,
+                        );
+                    }
+                }
                 session.mark_initial_roster_received();
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
@@ -231,6 +243,7 @@ mod tests {
 
         let malicious_chat = ServerMessage::ChatMessage {
             username: format!("Hacker{}", bell),
+            color: common::player::Color::RED,
             content: format!("This is {}Danger{}!", red, reset),
         };
 
