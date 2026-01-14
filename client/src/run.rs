@@ -76,6 +76,8 @@ impl ClientRunner {
             return;
         }
 
+        // Alternatively, Macroquad `get_frame_time` could be used, but I recall
+        // finding it less reliable, at least in an earlier version of this game.
         let now = Instant::now();
         let dt = now - self.last_updated;
         self.frame_dt = dt;

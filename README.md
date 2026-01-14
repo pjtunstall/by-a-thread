@@ -4,19 +4,37 @@
 
 This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://github.com/01-edu/public/tree/master/subjects/multiplayer-fps) (commit bb1e883). I used Macroquad, a simple game library, to render scenes, and the Renet crate for some networking abstractions over UDP.
 
-## Jargon
-
-Local player means the player as represented on their own machine. Remote players are the other players as represented on a given player's machine.
-
 ## Netcode
+
+Local player means the player as represented on their own machine. Remote players are the other players as represented on a given player's machine. Netcode means the techniques used to coordinate how these and other dynamic entities, such as projectiles, are displayed in a way that disguises latency. I found this introduction by Gabriel Gambetta helpful: [Fast Paced Multiplayer](https://gabrielgambetta.com/client-server-game-architecture.html).
 
 ## Renet
 
 Renet defines three channel types: `ReliableOrdered`, `ReliableUnordered`, and `Unreliable`. I've used `ReliableOrdered` for system and chat messages and for bullet spawn and collision notifications from the server. I used `Unreliable` for input from the client, and for snapshots (player position updates) from the server. `Unreliable` is faster because it doesn't have to order messages or resend ones that failed to arrive.
 
+## Tick and frame
+
+A frame is an iteration of the client's game loop. It includes the whole cycle of updating the game state and rendering it to the screen. There are ideally 60 frames per second. If all work is done, the program waits for one sixtieth of a second to have elapsed before continuing to the next iteratio. If we ask the computer to do too much work, a frame could last longer. It can also last longer if we put the window into the background, in which case Macroquad detects that there's no point rendering and keeps waiting till the window is visible again.
+
+A tick is an iteration of the server's game loop. But a tick is also a unit of game time. The server is authoritative. Clients just have to trust that it keeps time well, and that one tick lasts as long as it should and not longer. Luckily the server doesn't have to do any rendering, so it's less likely to be overwhelmed.
+
+There's no rule that ticks and frames should aim to run at the same frequency, but I've chosen 60Hz for both.
+
+Although the server runs its input processing and physics updates at 60Hz, it only broadcasts player positions at 20Hz. I've called this the broadcast rate. The client has various ways of filling in the gaps, as detailed below.
+
+Depending on varying latency and frame duration, the client may have a varying number of ticks to process each frame. Even if it hasn't heard from the server on a given tick, it must still check its own inputs and update its "simulation" of the server' sauthoritative reality. When data does arrive, it will correct the simulation, although it may do so in subtle ways, smoothing out abrupt changes.
+
+## Clock synchronization
+
+The client needs a good estimate of server time to drive interpolation, input scheduling, and countdowns, but it can't trust wall clocks: packets arrive late, late packets can arrive out of order, and RTT (return travel time) jitters with network conditions. So the client builds a moving estimate, `estimated_server_time`, from periodic server pings and smooths it to avoid visible stutter.
+
+The server broadcasts `ServerTime` messages at a fixed interval. The client records each message as a `ClockSample` with the server time, the local receive time (a monotonic clock), and the RTT from Renet. Each frame, the estimate is advanced by the local frame delta. When samples are available, the client chooses the best one by minimizing `rtt + age * AGE_PENALTY_FACTOR`, so it prefers a slightly higher RTT from a fresh packet over a perfect RTT from an old packet. It then computes a target time as `server_time + rtt / 2 + age_of_sample`.
+
+If this is the first estimate or the error exceeds one second, the clock snaps to the target. Otherwise, small errors inside a deadzone are ignored, and larger errors are nudged toward the target using a small smoothing factor (speeding up or slowing down symmetrically). RTT itself is smoothed with different alphas for spikes vs. improvements, and the smoothed RTT feeds later timing decisions like the simulation target time.
+
 ## Buffers and history
 
-The client maintains ring buffers called `input_history` (for their own inputs) and `snapshot_buffer` (for player position updates). The server maintains an `input_buffer` ring buffer for each player to store their inputs till it's time to process them.
+The client maintains ring buffers called `input_history` (for their own inputs, 256 ticks, ~4.3s at 60Hz) and `snapshot_buffer` (for player position updates, 16 broadcasts, ~0.8s at 20Hz). The server maintains an `input_buffer` ring buffer for each player to store their inputs till it's time to process them (128 ticks, ~2.1s at 60Hz).
 
 The `input_history` is implemented as a `Ring` struct, and the others with the `NetworkBuffer` struct. A `Ring` stores items in an array, labeled with a 64-bit tick number. The index at which an item is inserted is its tick modulo the length of the array. This allows items to be inserted in a circular fashion. Since they're labeled with the tick number, the item corresponding to a given tick can be extracted; if the item at the corresponding index doesn't match the tick, the item for that tick is considered not found.
 
@@ -36,7 +54,7 @@ Snapshots inlcude everyone's position. Also included is the recipient's velocity
 
 ### Remote players: interpolation
 
-Remote players are shown as they were 100ms in the past. Of course, we can only know where they were in the past, but we place them a little bit further in the past to ensure smoothness rather than letting rapidly changing data from snapshots battle with our latest estimation. To accomplish this trick, we find the closest snapshots on either side of this time (the latest snapshot from before it and the earliest snapshot after it), and interpolate the remote players between where they were at those ticks.
+Remote players are shown as they were 100ms in the past. Of course, we can only know where they were in the past, but we actually place them a little bit further in the past to ensure smoothness rather than letting rapidly changing data from snapshots battle with our latest estimation. To accomplish this trick, we find the closest snapshots on either side of this time (the latest snapshot from before it and the earliest snapshot after it), and interpolate the remote players between where they were at those ticks.
 
 ### Bullets: extrapolation, AKA dead reckoning
 
@@ -48,7 +66,7 @@ Similarly, when the client receives details of a bullet fired by a remote player
 
 The client simulates bounces, but the server sends authoritative notification of all collisions, and the client then snaps the bullet to its new position.
 
-Some games use an alternative technique known as lag compensation. In that more Orwellian approach, the shooter is favored. The server calculates where they saw the target at the time of shooting, and makes that its authoritative truth. Lag compensation is best suited to games with extremely fast projectiles. If the target has no time to dodge, they often can't be sure that they weren't in their enemies sights.
+Some games use an alternative technique known as lag compensation. In that more Orwellian approach, the shooter is favored. The server calculates where they saw the target at the time of shooting, and makes that its authoritative truth. Maybe you know a game like this... Lag compensation is best suited to games with extremely fast projectiles. If the target has no time to dodge, they often can't be sure that they weren't in their enemies sights.
 
 Conversely, in a game like mine, with projectiles that are slow enough that you can see them coming, you might feel cheated because you knew you dodged the bullet, while the shooter is likely to be less sure that they compensated correctly for a moving target.
 
