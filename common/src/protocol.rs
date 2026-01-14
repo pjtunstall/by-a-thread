@@ -2,7 +2,7 @@ use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    player::PlayerInput,
+    player::{Color, PlayerInput},
     ring::WireItem,
     snapshot::{InitialData, Snapshot},
 };
@@ -45,6 +45,7 @@ pub enum ServerMessage {
     },
     Welcome {
         username: String,
+        color: Color,
     },
     UsernameError {
         message: String,

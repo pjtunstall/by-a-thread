@@ -57,7 +57,11 @@ pub fn handle(
                     println!("Host selected difficulty {}.", level);
                     state.set_difficulty(level);
 
-                    let game_data = InitialData::new(&state.lobby.usernames, level);
+                    let game_data = InitialData::new(
+                        &state.lobby.usernames,
+                        state.lobby.colors(),
+                        level,
+                    );
 
                     println!("\n{}", game_data.maze);
                     println!();

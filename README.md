@@ -10,7 +10,7 @@ This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://
 
 TODO: What they're each used for in detail; how wire ticks are converted to ticks.
 
-The client maintains `input_history` and `snapshot_buffer` ring buffers for player state updates from the server. The server maintains an `input_buffer` ring buffer for each player to store their inputs till it's time to process them.
+The client maintains ring buffers called `input_history` (for their own inputs) and `snapshot_buffer` (for player-state updates from the server: position and, in the case of the local player, also velocity). The server maintains an `input_buffer` ring buffer for each player to store their inputs till it's time to process them. Inputs are forward-dated to a time when they're more than likely to have been received, hence the need for somewhere to store them; see [below](#input).
 
 The `input_history` is implemented as a `Ring` struct, and the others with the `NetworkBuffer` struct. A `Ring` stores items in an array, labeled with a 64-bit tick number. The index at which an item is inserted is its tick modulo the length of the array. This allows items to be inserted in a circular fashion. Since they're labeled with the tick number, the item corresponding to a given tick can be extracted; if the item at the corresponding index doesn't match the tick, the item for that tick is considered not found.
 

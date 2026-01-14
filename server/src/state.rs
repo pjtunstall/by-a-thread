@@ -14,7 +14,7 @@ use common::{
     constants::TICK_SECS,
     maze::Maze,
     net::AppChannel,
-    player::{WirePlayerLocal, WirePlayerRemote},
+    player::{Color, WirePlayerLocal, WirePlayerRemote, COLORS},
     protocol::{
         AfterGameExitReason, AfterGameLeaderboardEntry, GAME_ALREADY_STARTED_MESSAGE, ServerMessage,
     },
@@ -364,6 +364,7 @@ impl Countdown {
 #[derive(Clone)]
 pub struct Lobby {
     pub usernames: HashMap<u64, String>,
+    pub player_colors: HashMap<u64, Color>,
     auth_attempts: HashMap<u64, u8>,
     pending_usernames: HashSet<u64>,
     host_client_id: Option<u64>,
@@ -381,6 +382,7 @@ impl Lobby {
             auth_attempts: HashMap::new(),
             pending_usernames: HashSet::new(),
             usernames: HashMap::new(),
+            player_colors: HashMap::new(),
             host_client_id: None,
         }
     }
@@ -404,6 +406,7 @@ impl Lobby {
     pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
         self.auth_attempts.remove(&client_id);
         self.pending_usernames.remove(&client_id);
+        self.player_colors.remove(&client_id);
 
         let name_removed = self.usernames.remove(&client_id);
 
@@ -451,12 +454,35 @@ impl Lobby {
     pub fn register_username(&mut self, client_id: u64, username: &str) -> Option<&str> {
         if self.pending_usernames.remove(&client_id) {
             self.usernames.insert(client_id, username.to_string());
+            self.assign_color(client_id);
         }
         self.usernames.get(&client_id).map(|s| s.as_str())
     }
 
     pub fn username(&self, client_id: u64) -> Option<&str> {
         self.usernames.get(&client_id).map(|s| s.as_str())
+    }
+
+    pub fn color(&self, client_id: u64) -> Option<Color> {
+        self.player_colors.get(&client_id).copied()
+    }
+
+    pub fn colors(&self) -> &HashMap<u64, Color> {
+        &self.player_colors
+    }
+
+    fn assign_color(&mut self, client_id: u64) -> Color {
+        if let Some(color) = self.player_colors.get(&client_id).copied() {
+            return color;
+        }
+
+        let color = COLORS
+            .iter()
+            .copied()
+            .find(|candidate| !self.player_colors.values().any(|&used| used == *candidate))
+            .unwrap_or_else(|| COLORS[self.player_colors.len() % COLORS.len()]);
+        self.player_colors.insert(client_id, color);
+        color
     }
 
     pub fn is_username_taken(&self, username: &str) -> bool {
@@ -524,7 +550,8 @@ mod tests {
         network.add_client(7);
 
         let usernames = HashMap::new();
-        let game_data = InitialData::new(&usernames, 1);
+        let colors = HashMap::new();
+        let game_data = InitialData::new(&usernames, &colors, 1);
         let mut state = ServerState::Countdown(Countdown {
             usernames,
             host_id: None,
@@ -710,7 +737,8 @@ mod tests {
         network.add_client(2);
 
         let usernames = HashMap::from([(1, "Alice".to_string()), (2, "Bob".to_string())]);
-        let game_data = InitialData::new(&usernames, 1);
+        let colors = HashMap::new();
+        let game_data = InitialData::new(&usernames, &colors, 1);
 
         let mut countdown = Countdown {
             usernames,

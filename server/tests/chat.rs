@@ -316,9 +316,9 @@ fn test_handle_messages_username_success_and_broadcast() {
     }
 
     assert!(
-        bob_msgs
-            .iter()
-            .any(|msg| { matches!(msg, ServerMessage::Welcome { username } if username == "Bob") }),
+        bob_msgs.iter().any(|msg| {
+            matches!(msg, ServerMessage::Welcome { username, .. } if username == "Bob")
+        }),
         "Bob did not receive a welcome message"
     );
 

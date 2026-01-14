@@ -291,7 +291,7 @@ pub struct PlayerInput {
     pub fire_nonce: Option<u32>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, Display, IntoStaticStr)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Display, IntoStaticStr, PartialEq, Eq)]
 #[strum(serialize_all = "lowercase")]
 pub enum Color {
     RED,
@@ -308,16 +308,16 @@ pub enum Color {
 }
 
 pub const COLORS: [Color; 10] = [
-    Color::RED,
+    Color::ORANGE,
+    Color::BLUE,
     Color::LIME,
     Color::PINK,
-    Color::YELLOW,
-    Color::GREEN,
-    Color::BLUE,
-    Color::MAROON,
-    Color::ORANGE,
-    Color::PURPLE,
     Color::SKYBLUE,
+    Color::GREEN,
+    Color::MAROON,
+    Color::PURPLE,
+    Color::YELLOW,
+    Color::RED,
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]

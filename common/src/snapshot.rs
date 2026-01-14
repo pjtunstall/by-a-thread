@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     maze::{self, Maze, maker::Algorithm},
-    player::{self, Player, WirePlayerLocal, WirePlayerRemote},
+    player::{self, Color, Player, WirePlayerLocal, WirePlayerRemote},
 };
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
@@ -30,7 +30,11 @@ impl Default for InitialData {
 }
 
 impl InitialData {
-    pub fn new(usernames: &HashMap<u64, String>, level: u8) -> Self {
+    pub fn new(
+        usernames: &HashMap<u64, String>,
+        colors: &HashMap<u64, Color>,
+        level: u8,
+    ) -> Self {
         let generator = match level {
             1 => Algorithm::Backtrack,
             2 => Algorithm::Wilson,
@@ -49,13 +53,12 @@ impl InitialData {
                 let start_position = maze
                     .position_from_grid_coordinates(player::HEIGHT, z, x)
                     .expect("failed to get start position from maze");
-                let player = Player::new(
-                    player_count,
-                    client_id,
-                    username.clone(),
-                    start_position,
-                    player::COLORS[player_count % player::COLORS.len()],
-                );
+                let color = colors
+                    .get(&client_id)
+                    .copied()
+                    .unwrap_or(player::COLORS[player_count % player::COLORS.len()]);
+                let player =
+                    Player::new(player_count, client_id, username.clone(), start_position, color);
                 player_count += 1;
                 player
             })

@@ -64,19 +64,19 @@ pub fn handle(
                 if session.awaiting_initial_roster() {
                     continue;
                 }
-                ui.show_sanitized_message(&format!("{} joined the chat.", username));
+                ui.show_sanitized_message(&format!("Server: {} joined the chat.", username));
             }
             Ok((ServerMessage::UserLeft { username }, _)) => {
                 if session.awaiting_initial_roster() {
                     continue;
                 }
-                ui.show_sanitized_message(&format!("{} left the chat.", username));
+                ui.show_sanitized_message(&format!("Server: {} left the chat.", username));
             }
             Ok((ServerMessage::Roster { online }, _)) => {
                 let msg = if online.is_empty() {
                     "Server: You are the only player online.".to_string()
                 } else {
-                    format!("Players online: {}", online.join(", "))
+                    format!("Server: Players online: {}.", online.join(", "))
                 };
                 ui.show_sanitized_message(&msg);
                 session.mark_initial_roster_received();
@@ -86,7 +86,9 @@ pub fn handle(
             }
             Ok((ServerMessage::AppointHost, _)) => {
                 session.is_host = true;
-                ui.show_sanitized_message("You have been appointed host. Press TAB to begin.");
+                ui.show_sanitized_message(
+                    "Server: You have been appointed host. Press TAB to begin.",
+                );
             }
             Ok((_, _)) => {}
             Err(e) => ui.show_typed_error(

@@ -80,19 +80,19 @@ fn handle(
                 if session.awaiting_initial_roster() {
                     continue;
                 }
-                ui.show_sanitized_message(&format!("{} joined the chat.", username));
+                ui.show_sanitized_message(&format!("Server: {} joined the chat.", username));
             }
             Ok((ServerMessage::UserLeft { username }, _)) => {
                 if session.awaiting_initial_roster() {
                     continue;
                 }
-                ui.show_sanitized_message(&format!("{} left the chat.", username));
+                ui.show_sanitized_message(&format!("Server: {} left the chat.", username));
             }
             Ok((ServerMessage::AfterGameRoster { hades_shades }, _)) => {
                 let message = if hades_shades.is_empty() {
                     "Server: You are the only shade in Hades.".to_string()
                 } else {
-                    format!("Shades in Hades: {}", hades_shades.join(", "))
+                    format!("Server: Shades in Hades: {}", hades_shades.join(", "))
                 };
                 ui.show_sanitized_message(&message);
                 session.mark_initial_roster_received();

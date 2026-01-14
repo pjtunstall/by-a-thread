@@ -125,8 +125,12 @@ pub fn handle(
                             state.register_username(client_id, &username);
                             println!("Client {} set username to '{}'.", client_id, username);
 
+                            let color = state
+                                .color(client_id)
+                                .expect("missing player color for welcome");
                             let message = ServerMessage::Welcome {
                                 username: username.to_string(),
+                                color,
                             };
                             let payload = encode_to_vec(&message, standard())
                                 .expect("failed to serialize Welcome");
@@ -261,6 +265,7 @@ mod tests {
     use bincode::serde::encode_to_vec;
     use common::{
         auth::{MAX_ATTEMPTS, Passcode},
+        player::Color,
         protocol::{
             auth_success_message, ClientMessage, ServerMessage,
             AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE,
@@ -363,8 +368,9 @@ mod tests {
         let msg1 = decode_from_slice::<ServerMessage, _>(&bob_msgs[0], standard())
             .unwrap()
             .0;
-        if let ServerMessage::Welcome { username } = msg1 {
+        if let ServerMessage::Welcome { username, color } = msg1 {
             assert_eq!(username, "Bob");
+            assert_eq!(color, Color::LIME);
         } else {
             panic!("expected Welcome message, got {:?}", msg1);
         }

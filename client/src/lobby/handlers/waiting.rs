@@ -28,8 +28,11 @@ pub fn handle(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            Ok((ServerMessage::Welcome { username }, _)) => {
-                ui.show_sanitized_message(&format!("Server: Welcome, {}!", username));
+            Ok((ServerMessage::Welcome { username, color }, _)) => {
+                ui.show_sanitized_message(&format!(
+                    "Server: Welcome, {}! Your player color is {}.",
+                    username, color
+                ));
                 return Some(ClientState::Lobby(Lobby::Chat {
                     awaiting_initial_roster: true,
                     waiting_for_server: false,
@@ -77,6 +80,7 @@ pub fn handle(
 mod tests {
     use super::*;
     use crate::test_helpers::{MockNetwork, MockUi};
+    use common::player::Color;
     use common::protocol::{ServerMessage, GAME_ALREADY_STARTED_MESSAGE};
 
     fn set_awaiting_state(session: &mut ClientSession) {
@@ -103,6 +107,7 @@ mod tests {
         let mut network = MockNetwork::new();
         network.queue_server_message(ServerMessage::Welcome {
             username: "TestUser".to_string(),
+            color: Color::RED,
         });
 
         let next_state = handle(&mut session, &mut ui, &mut network);
@@ -115,7 +120,10 @@ mod tests {
             }))
         ));
         assert_eq!(ui.messages.len(), 1);
-        assert_eq!(ui.messages[0], "Server: Welcome, TestUser!");
+        assert_eq!(
+            ui.messages[0],
+            "Server: Welcome, TestUser! Your player color is red."
+        );
     }
 
     #[test]
