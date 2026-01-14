@@ -42,7 +42,6 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
         }
 
         let input = player.last_input;
-        // println!("{:?}", input);
 
         if matches!(player.status, crate::player::Status::Alive) {
             player
