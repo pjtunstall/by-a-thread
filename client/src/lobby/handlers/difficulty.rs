@@ -47,13 +47,13 @@ pub fn handle(
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
     let is_correct_state = matches!(
-        session.state(),
+        &session.state,
         ClientState::Lobby(Lobby::ChoosingDifficulty { .. })
     );
     if !is_correct_state {
         panic!(
             "called difficulty::handle() when state was not ChoosingDifficulty; current state: {:?}",
-            session.state()
+            &session.state
         );
     };
 
@@ -64,7 +64,7 @@ pub fn handle(
     if let ClientState::Lobby(Lobby::ChoosingDifficulty {
         prompt_printed,
         choice_sent,
-    }) = session.state_mut()
+    }) = &mut session.state
     {
         if !*prompt_printed && !*choice_sent {
             ui.show_message("Server: Choose a difficulty level:");
@@ -96,7 +96,7 @@ pub fn handle(
                 if let ClientState::Lobby(Lobby::ChoosingDifficulty {
                     prompt_printed,
                     choice_sent,
-                }) = session.state_mut()
+                }) = &mut session.state
                 {
                     *choice_sent = false;
                     *prompt_printed = false;
@@ -113,7 +113,7 @@ pub fn handle(
     let choice_already_sent = if let ClientState::Lobby(Lobby::ChoosingDifficulty {
         choice_sent,
         ..
-    }) = session.state()
+    }) = &session.state
     {
         *choice_sent
     } else {
@@ -143,7 +143,7 @@ pub fn handle(
                 network.send_message(AppChannel::ReliableOrdered, payload);
 
                 if let ClientState::Lobby(Lobby::ChoosingDifficulty { choice_sent, .. }) =
-                    session.state_mut()
+                    &mut session.state
                 {
                     *choice_sent = true;
                 }
@@ -224,7 +224,7 @@ mod tests {
 
         assert!(
             matches!(
-                session.state(),
+                &session.state,
                 ClientState::Lobby(Lobby::ChoosingDifficulty {
                     prompt_printed: false,
                     choice_sent: false
@@ -258,7 +258,7 @@ mod tests {
 
         assert!(
             matches!(
-                session.state(),
+                &session.state,
                 ClientState::Lobby(Lobby::ChoosingDifficulty {
                     choice_sent: true,
                     ..

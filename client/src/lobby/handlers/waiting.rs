@@ -17,12 +17,12 @@ pub fn handle(
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
     if !matches!(
-        session.state(),
+        &session.state,
         ClientState::Lobby(Lobby::AwaitingUsernameConfirmation)
     ) {
         panic!(
             "called awaiting_confirmation::handle() when state was not AwaitingUsernameConfirmation; current state: {:?}",
-            session.state()
+            &session.state
         );
     }
 

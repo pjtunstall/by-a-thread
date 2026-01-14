@@ -15,9 +15,8 @@ use common::{
     net::AppChannel,
     player::MAX_USERNAME_LENGTH,
     protocol::{
-        auth_success_message, ClientMessage, ServerMessage,
-        AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE,
-        AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE, GAME_ALREADY_STARTED_MESSAGE,
+        AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE, AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE,
+        ClientMessage, GAME_ALREADY_STARTED_MESSAGE, ServerMessage, auth_success_message,
     },
 };
 
@@ -27,12 +26,12 @@ pub fn handle(
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
     if !matches!(
-        session.state(),
+        &session.state,
         ClientState::Lobby(Lobby::Authenticating { .. })
     ) {
         panic!(
             "called auth::handle() when state was not Authenticating; current state: {:?}",
-            session.state()
+            &session.state
         );
     }
 
@@ -60,7 +59,7 @@ pub fn handle(
                         waiting_for_input,
                         guesses_left,
                         ..
-                    }) = session.state_mut()
+                    }) = &mut session.state
                     {
                         *guesses_left = guesses_left.saturating_sub(1);
                         ui.show_sanitized_prompt(&passcode_prompt(*guesses_left));
@@ -89,7 +88,7 @@ pub fn handle(
             waiting_for_input,
             guesses_left,
             waiting_for_server,
-        }) = session.state_mut()
+        }) = &mut session.state
         {
             if *waiting_for_input {
                 if let Some(passcode) = parse_passcode_input(&input_string) {
@@ -118,7 +117,7 @@ pub fn handle(
             }
         }
         if !matches!(
-            session.state(),
+            &session.state,
             ClientState::Lobby(Lobby::Authenticating { .. })
         ) {
             break;
@@ -132,7 +131,7 @@ pub fn handle(
     let waiting_for_server = session.auth_waiting_for_server();
     if let ClientState::Lobby(Lobby::Authenticating {
         waiting_for_input, ..
-    }) = session.state_mut()
+    }) = &mut session.state
     {
         if guess_sent_this_frame {
             *waiting_for_input = false;

@@ -7,10 +7,10 @@ use crate::{
 use common::auth::MAX_ATTEMPTS;
 
 pub fn handle(session: &mut ClientSession, ui: &mut dyn LobbyUi) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::Lobby(Lobby::Startup { .. })) {
+    if !matches!(&session.state, ClientState::Lobby(Lobby::Startup { .. })) {
         panic!(
             "called startup::handle() when state was not Startup; current state: {:?}",
-            session.state()
+            &session.state
         );
     }
 
@@ -30,14 +30,14 @@ pub fn handle(session: &mut ClientSession, ui: &mut dyn LobbyUi) -> Option<Clien
 
             ui.show_sanitized_prompt(&passcode_prompt(MAX_ATTEMPTS));
 
-            if let ClientState::Lobby(Lobby::Startup { prompt_printed }) = session.state_mut() {
+            if let ClientState::Lobby(Lobby::Startup { prompt_printed }) = &mut session.state {
                 *prompt_printed = true;
             }
             return None;
         }
     }
 
-    let needs_prompt = match session.state() {
+    let needs_prompt = match &session.state {
         ClientState::Lobby(Lobby::Startup { prompt_printed }) => !prompt_printed,
         _ => false,
     };
@@ -45,7 +45,7 @@ pub fn handle(session: &mut ClientSession, ui: &mut dyn LobbyUi) -> Option<Clien
     if needs_prompt {
         ui.show_prompt(&passcode_prompt(MAX_ATTEMPTS));
 
-        if let ClientState::Lobby(Lobby::Startup { prompt_printed }) = session.state_mut() {
+        if let ClientState::Lobby(Lobby::Startup { prompt_printed }) = &mut session.state {
             *prompt_printed = true;
         }
         return None;
@@ -131,7 +131,7 @@ mod tests {
         );
         assert!(ui.errors.is_empty());
 
-        match session.state() {
+        match &session.state {
             ClientState::Lobby(Lobby::Startup { prompt_printed }) => assert!(*prompt_printed),
             _ => panic!("expected Startup state"),
         }

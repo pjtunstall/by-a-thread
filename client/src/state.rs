@@ -8,8 +8,9 @@ pub enum ClientState {
         awaiting_initial_roster: bool,
         waiting_for_server: bool,
     },
-    Debrief,
-    Disconnected { message: String },
+    Disconnected {
+        message: String,
+    },
 }
 
 impl ClientState {

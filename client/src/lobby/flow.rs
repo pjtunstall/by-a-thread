@@ -19,7 +19,7 @@ pub fn update(
     assets: Option<&Assets>,
     is_host: bool,
 ) -> LobbyStep {
-    if session.state().is_disconnected() {
+    if session.state.is_disconnected() {
         return LobbyStep::Continue;
     }
 
@@ -66,7 +66,7 @@ fn transition(
     network_handle: &mut RenetNetworkHandle<'_>,
     assets: Option<&Assets>,
 ) -> Option<ClientState> {
-    match session.state() {
+    match session.state {
         ClientState::Lobby(Lobby::Startup { .. }) => handlers::startup::handle(session, ui),
         ClientState::Lobby(Lobby::Connecting { .. }) => {
             handlers::connecting::handle(session, ui, network_handle)
@@ -92,6 +92,5 @@ fn transition(
         ClientState::Disconnected { .. } => None,
         ClientState::Game(_) => None,
         ClientState::AfterGameChat { .. } => None,
-        ClientState::Debrief => None,
     }
 }

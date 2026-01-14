@@ -18,12 +18,12 @@ pub fn handle(
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
     if !matches!(
-        session.state(),
+        &session.state,
         ClientState::Lobby(Lobby::Connecting { .. })
     ) {
         panic!(
             "called connecting::handle() when state was not Connecting; current state: {:?}",
-            session.state()
+            &session.state
         );
     }
 
@@ -38,7 +38,7 @@ pub fn handle(
     }
 
     if network.is_connected() {
-        let passcode = match session.state_mut() {
+        let passcode = match &mut session.state {
             ClientState::Lobby(Lobby::Connecting { pending_passcode }) => pending_passcode.take(),
             _ => None,
         };

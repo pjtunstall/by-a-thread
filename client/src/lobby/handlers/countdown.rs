@@ -16,10 +16,10 @@ pub fn handle(
     network: &mut dyn NetworkHandle,
     assets: Option<&Assets>,
 ) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::Lobby(Lobby::Countdown { .. })) {
+    if !matches!(&session.state, ClientState::Lobby(Lobby::Countdown { .. })) {
         panic!(
             "called countdown::handle() when state was not Countdown; current state: {:?}",
-            session.state()
+            &session.state
         );
     }
 
@@ -30,7 +30,7 @@ pub fn handle(
             maze_meshes,
             ..
         }),
-    ) = (assets, session.state_mut())
+    ) = (assets, &mut session.state)
     {
         if game_data.maze.grid.is_empty()
             || game_data.maze.grid[0].is_empty()
@@ -86,7 +86,7 @@ pub fn handle(
         }
     }
 
-    let end_time = match session.state() {
+    let end_time = match &session.state {
         ClientState::Lobby(Lobby::Countdown { end_time, .. }) => *end_time,
         _ => return None,
     };
@@ -140,7 +140,7 @@ mod tests {
             "should remain in countdown while time remains"
         );
         assert!(matches!(
-            session.state(),
+            &session.state,
             ClientState::Lobby(Lobby::Countdown { .. })
         ));
 
@@ -162,7 +162,7 @@ mod tests {
 
         assert!(next_state.is_none());
         assert!(matches!(
-            session.state(),
+            &session.state,
             ClientState::Lobby(Lobby::Countdown { .. })
         ));
 

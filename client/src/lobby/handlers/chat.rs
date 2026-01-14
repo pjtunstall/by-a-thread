@@ -19,10 +19,10 @@ pub fn handle(
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::Lobby(Lobby::Chat { .. })) {
+    if !matches!(&session.state, ClientState::Lobby(Lobby::Chat { .. })) {
         panic!(
             "called chat::handle() when state was not Chat; current state: {:?}",
-            session.state()
+            &session.state
         );
     }
 

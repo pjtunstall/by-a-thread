@@ -23,10 +23,10 @@ pub fn update(
     network: &mut dyn NetworkHandle,
     assets: Option<&Assets>,
 ) -> Option<ClientState> {
-    if !matches!(session.state(), ClientState::AfterGameChat { .. }) {
+    if !matches!(session.state, ClientState::AfterGameChat { .. }) {
         panic!(
             "called after_game_chat::update() when state was not AfterGameChat; current state: {:?}",
-            session.state()
+            session.state
         );
     }
 

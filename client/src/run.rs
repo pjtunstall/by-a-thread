@@ -10,8 +10,7 @@ use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 use crate::{
     after_game_chat,
     assets::Assets,
-    game,
-    info,
+    game, info,
     lobby::{
         self,
         ui::{Gui, LobbyUi},
@@ -74,7 +73,7 @@ impl ClientRunner {
     }
 
     pub fn pump_network(&mut self) {
-        if self.session.state().is_disconnected() {
+        if self.session.state.is_disconnected() {
             return;
         }
 
@@ -104,7 +103,7 @@ impl ClientRunner {
             Ok(()) => {}
             Err(e) => {
                 let message = disconnect_message(
-                    self.session.state(),
+                    &self.session.state,
                     &e,
                     net::map_disconnect_kind(
                         self.client.disconnect_reason(),
@@ -139,8 +138,12 @@ impl ClientRunner {
     }
 
     fn update_client_state(&mut self) {
+        // We can't call `self.display_disconnect_message` in the `match` block
+        // below because both mutably borrow `self` (the `ClientRunner`). Hence
+        // we handle the `Disconnected` state here separately from the other
+        // states.
         if let Some(disconnect_message) = {
-            if let ClientState::Disconnected { message } = self.session.state() {
+            if let ClientState::Disconnected { message } = &self.session.state {
                 Some(message.clone())
             } else {
                 None
@@ -191,14 +194,10 @@ impl ClientRunner {
                     self.session.transition(next_state);
                 }
             }
-            // Other states will include Debrief (with map, leaderboard, and chat),
-            // and NearDeathExperience, unless the latter is included in Game.
-            _ => {
-                todo!();
-            }
+            ClientState::Disconnected { .. } => {}
         }
 
-        if !self.session.state().is_disconnected() {
+        if !self.session.state.is_disconnected() {
             if let Some(message) = self.session.take_pending_disconnect() {
                 self.session
                     .transition(ClientState::Disconnected { message });
@@ -212,7 +211,7 @@ impl ClientRunner {
         self.session.clock.sim_tick = sim_tick;
         self.last_updated = Instant::now();
 
-        let (initial_data, maze_meshes) = match self.session.state_mut() {
+        let (initial_data, maze_meshes) = match &mut self.session.state {
             ClientState::Lobby(Lobby::Countdown {
                 game_data,
                 maze_meshes,
@@ -266,12 +265,7 @@ impl ClientRunner {
 
         clock.accumulated_time += smoothed_dt;
         clock.continuous_sim_time += smoothed_dt;
-
-        // println!("{frame_dt_secs}");
-        // println!("{}", clock.sim_tick);
     }
-
-    // Simulation now lives on `Game`.
 }
 
 pub async fn run_client_loop(
@@ -442,16 +436,5 @@ mod tests {
             msg,
             "disconnected while awaiting username confirmation: timeout".to_string()
         );
-    }
-
-    #[test]
-    fn disconnect_message_defaults_when_no_special_case() {
-        let state = ClientState::Debrief;
-        let msg = disconnect_message(
-            &state,
-            "some error",
-            DisconnectKind::Other("some error".to_string()),
-        );
-        assert_eq!(msg, "no connection: some error".to_string());
     }
 }

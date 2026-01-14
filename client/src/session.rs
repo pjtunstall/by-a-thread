@@ -46,14 +46,6 @@ impl ClientSession {
         }
     }
 
-    pub fn state(&self) -> &ClientState {
-        &self.state
-    }
-
-    pub fn state_mut(&mut self) -> &mut ClientState {
-        &mut self.state
-    }
-
     pub fn transition(&mut self, new_state: ClientState) {
         if matches!(new_state, ClientState::Disconnected { .. }) {
             self.disconnected_notified = false;
@@ -90,22 +82,20 @@ impl ClientSession {
     }
 
     pub fn is_countdown_active(&self) -> bool {
-        matches!(self.state(), ClientState::Lobby(Lobby::Countdown { .. }))
+        matches!(&self.state, ClientState::Lobby(Lobby::Countdown { .. }))
     }
 
     pub fn is_countdown_finished(&self) -> bool {
-        matches!(self.state(), ClientState::Lobby(Lobby::Countdown { end_time, .. }) if self.clock.estimated_server_time >= *end_time)
+        matches!(&self.state, ClientState::Lobby(Lobby::Countdown { end_time, .. }) if self.clock.estimated_server_time >= *end_time)
     }
 
     pub fn set_chat_waiting_for_server(&mut self, waiting: bool) {
         match &mut self.state {
             ClientState::Lobby(Lobby::Chat {
-                waiting_for_server,
-                ..
+                waiting_for_server, ..
             })
             | ClientState::AfterGameChat {
-                waiting_for_server,
-                ..
+                waiting_for_server, ..
             } => {
                 *waiting_for_server = waiting;
             }
@@ -119,11 +109,10 @@ impl ClientSession {
             ClientState::Lobby(Lobby::Chat {
                 waiting_for_server: true,
                 ..
-            })
-                | ClientState::AfterGameChat {
-                    waiting_for_server: true,
-                    ..
-                }
+            }) | ClientState::AfterGameChat {
+                waiting_for_server: true,
+                ..
+            }
         )
     }
 
@@ -168,11 +157,10 @@ impl ClientSession {
             ClientState::Lobby(Lobby::Chat {
                 awaiting_initial_roster: true,
                 ..
-            })
-                | ClientState::AfterGameChat {
-                    awaiting_initial_roster: true,
-                    ..
-                }
+            }) | ClientState::AfterGameChat {
+                awaiting_initial_roster: true,
+                ..
+            }
         )
     }
 
@@ -193,7 +181,7 @@ impl ClientSession {
     }
 
     pub fn input_mode(&self) -> InputMode {
-        match self.state() {
+        match &self.state {
             ClientState::Lobby(Lobby::Startup { .. }) => InputMode::Enabled,
             ClientState::Lobby(Lobby::Connecting { .. }) => InputMode::Hidden,
             ClientState::Lobby(Lobby::Authenticating {
@@ -239,13 +227,12 @@ impl ClientSession {
             ClientState::Lobby(Lobby::Countdown { .. }) => InputMode::Hidden,
             ClientState::Disconnected { .. } => InputMode::Hidden,
             ClientState::Game(_) => InputMode::SingleKey,
-            ClientState::Debrief => InputMode::Hidden,
         }
     }
 
     pub fn prepare_ui_state(&mut self) -> InputUiState {
         let waiting_active = matches!(self.input_mode(), InputMode::DisabledWaiting)
-            || matches!(self.state(), ClientState::Lobby(Lobby::Connecting { .. }));
+            || matches!(&self.state, ClientState::Lobby(Lobby::Connecting { .. }));
 
         if waiting_active {
             if self.waiting_since.is_none() {
@@ -345,7 +332,7 @@ mod tests {
     fn new_session_starts_in_startup_state() {
         let session = ClientSession::new(0);
         assert!(matches!(
-            session.state(),
+            session.state,
             ClientState::Lobby(Lobby::Startup {
                 prompt_printed: false
             })
@@ -359,14 +346,14 @@ mod tests {
             pending_passcode: None,
         }));
         assert!(matches!(
-            session.state(),
+            session.state,
             ClientState::Lobby(Lobby::Connecting { .. })
         ));
         session.transition(ClientState::Disconnected {
             message: "done".to_string(),
         });
 
-        match session.state() {
+        match session.state {
             ClientState::Disconnected { message } => assert_eq!(message, "done"),
             _ => panic!("unexpected state after transition"),
         }

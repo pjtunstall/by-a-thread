@@ -20,12 +20,12 @@ pub fn handle(
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
     if !matches!(
-        session.state(),
+        &session.state,
         ClientState::Lobby(Lobby::ChoosingUsername { .. })
     ) {
         panic!(
             "called username::handle() when state was not ChoosingUsername; current state: {:?}",
-            session.state()
+            &session.state
         );
     }
 
@@ -38,7 +38,7 @@ pub fn handle(
     }
 
     if let Some(input) = session.take_input() {
-        if let ClientState::Lobby(Lobby::ChoosingUsername { prompt_printed }) = session.state_mut()
+        if let ClientState::Lobby(Lobby::ChoosingUsername { prompt_printed }) = &mut session.state
         {
             let trimmed_input = input.trim();
 
@@ -71,7 +71,7 @@ pub fn handle(
         }
     }
 
-    if let ClientState::Lobby(Lobby::ChoosingUsername { prompt_printed }) = session.state_mut() {
+    if let ClientState::Lobby(Lobby::ChoosingUsername { prompt_printed }) = &mut session.state {
         if !*prompt_printed {
             ui.show_sanitized_prompt(&username_prompt());
             *prompt_printed = true;
@@ -213,7 +213,7 @@ mod tests {
             vec![UiErrorKind::UsernameValidation(UsernameError::Empty)]
         );
 
-        match session.state() {
+        match &session.state {
             ClientState::Lobby(Lobby::ChoosingUsername { prompt_printed }) => {
                 assert!(
                     !*prompt_printed,
