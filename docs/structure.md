@@ -10,15 +10,21 @@ The client maintains an `input_history` ring buffer and a `snapshot_buffer` for 
 
 ### Local player: reconciliation, replay, and prediction
 
-First we reconcile to the last snapshot. Then we run client‑side prediction. This consists of replaying inputs from `input_history` up to the last simulated tick. Finally, we run the simulation further for as many ticks as needed to account for the duration of the last frame. The simulation includes checking for new inputs and applying them to the local player's state. It also inlcudes bullet updates; see [below](#bullets-extrapolation).
+Local player means the player as represented on their own machine. First we reconcile to the last snapshot. Then we run client‑side prediction. This consists of replaying inputs from `input_history` up to the last simulated tick. Finally, we run the simulation further for as many ticks as needed to account for the duration of the last frame. The simulation includes checking for new inputs and applying them to the local player's state. It also inlcudes bullet updates; see [below](#bullets-extrapolation).
 
 ### Remote players: interpolation
 
-### Bullets: extrapolation
+Remote players are the other players as represented on a given player's machine. Remote players are shown as they were 100ms in the past. To accomplish this, we find the latest snapshot from before this time and the earliest snapshot after it, and interpolate the remote players between where they were at those ticks.
+
+### Bullets: extrapolation, AKA dead reckoning
+
+These are actually glowing spheres that bounce off walls and floor, and players while their health lasts.
 
 When the local player fires, a provisional bullet is spawned. Details are sent to the server along with an id. When the server confirms that the bullet was fired, this id is used to "promote" the provisional bullet. The client extrapolates the position of the confirmed bullet at the last simulated tick. That position is advanced by the simulation each tick. Over the next few ticks, the bullet's displayed position is blended towards the actual position, as advanced from the extrapolation.
 
 Similarly, when the client receives details of a bullet fired by a remote player, the bullet's actual position is extrapolated to the last simulated tick and advanced from there each tick. The displayed bullet is first placed at the shooter's interpolated position, then blended (fast-forwarded), over the next few ticks, towards its actual position.
+
+The client simulates bounces, but the server sends authoritative notification of all collisions, and the client then snaps the bullet to its new position.
 
 ## State Machines
 

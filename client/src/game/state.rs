@@ -435,8 +435,10 @@ impl Game {
         self.interpolated_positions
             .extend(self.players.iter().map(|player| player.state.position));
 
-        // We subtract a big safety margin in case `estimated_server_time` goes
-        // momentarily backwards due to network instability.
+        // The returned value will become the new `tail` of the
+        // `snapshot_buffer`. We subtract a big safety margin in case
+        // `estimated_server_time` goes momentarily backwards due to network
+        // instability.
         Some(tick_a - 60)
     }
 
