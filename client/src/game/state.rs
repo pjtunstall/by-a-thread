@@ -130,16 +130,19 @@ impl Game {
         input: PlayerInput,
         sim_tick: u64,
     ) {
-        let wire_tick: u16 = sim_tick as u16;
-        let wire_input = WireItem {
-            id: wire_tick,
-            data: input,
-        };
-        let client_message = ClientMessage::Input(wire_input);
-        let payload =
-            encode_to_vec(&client_message, standard()).expect("failed to encode player input");
-        network.send_message(AppChannel::Unreliable, payload);
-        // println!("{:?}", client_message);
+        let mut tick = sim_tick;
+        for i in 0..4 {
+            tick = tick.saturating_sub(i);
+            let wire_tick: u16 = tick as u16;
+            let wire_input = WireItem {
+                id: wire_tick,
+                data: input,
+            };
+            let client_message = ClientMessage::Input(wire_input);
+            let payload =
+                encode_to_vec(&client_message, standard()).expect("failed to encode player input");
+            network.send_message(AppChannel::Unreliable, payload);
+        }
     }
 
     pub fn prepare_fire_input(&mut self, sim_tick: u64, input: &mut PlayerInput) {

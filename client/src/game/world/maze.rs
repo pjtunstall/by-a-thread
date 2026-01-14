@@ -111,15 +111,26 @@ pub fn build_maze_meshes(
         vec2(0.0, 0.0),
     ];
 
-    let s_rad = (CELL_SIZE / 2.0) + 2.0;
     const SHADOW_HEIGHT: f32 = 0.12;
-    let shadow_verts_local = [
-        vec3(-s_rad, SHADOW_HEIGHT, s_rad),
-        vec3(s_rad, SHADOW_HEIGHT, s_rad),
-        vec3(s_rad, SHADOW_HEIGHT, -s_rad),
-        vec3(-s_rad, SHADOW_HEIGHT, -s_rad),
-    ];
     let shadow_color = Color::new(0.0, 0.0, 0.0, 0.3);
+    let shadow_inner = CELL_SIZE / 2.0;
+    let shadow_outer = shadow_inner + 2.0;
+    let shadow_overhang = shadow_outer - shadow_inner;
+
+    let add_shadow_rect = |builder: &mut MeshBuilder,
+                           offset: Vec3,
+                           x_min: f32,
+                           x_max: f32,
+                           z_min: f32,
+                           z_max: f32| {
+        let shadow_verts_local = [
+            vec3(x_min, SHADOW_HEIGHT, z_max),
+            vec3(x_max, SHADOW_HEIGHT, z_max),
+            vec3(x_max, SHADOW_HEIGHT, z_min),
+            vec3(x_min, SHADOW_HEIGHT, z_min),
+        ];
+        builder.add_quad(&shadow_verts_local, &floor_uvs, offset, shadow_color);
+    };
 
     for z in 0..height {
         for x in 0..width {
@@ -157,13 +168,187 @@ pub fn build_maze_meshes(
                     );
                 }
 
+                let has_wall_left = x > 0 && maze.grid[z][x - 1] != 0;
+                let has_wall_right = x + 1 < width && maze.grid[z][x + 1] != 0;
+                let has_wall_up = z > 0 && maze.grid[z - 1][x] != 0;
+                let has_wall_down = z + 1 < height && maze.grid[z + 1][x] != 0;
+                let has_wall_up_left = z > 0 && x > 0 && maze.grid[z - 1][x - 1] != 0;
+                let has_wall_up_right = z > 0 && x + 1 < width && maze.grid[z - 1][x + 1] != 0;
+                let has_wall_down_left = z + 1 < height && x > 0 && maze.grid[z + 1][x - 1] != 0;
+                let has_wall_down_right =
+                    z + 1 < height && x + 1 < width && maze.grid[z + 1][x + 1] != 0;
+
                 let shadow_offset = vec3(cx, 0.0, cz);
-                shadow_builder.add_quad(
-                    &shadow_verts_local,
-                    &floor_uvs,
+                add_shadow_rect(
+                    &mut shadow_builder,
                     shadow_offset,
-                    shadow_color,
+                    -shadow_inner,
+                    shadow_inner,
+                    -shadow_inner,
+                    shadow_inner,
                 );
+
+                if !has_wall_left {
+                    let mut z_min = -shadow_inner;
+                    let mut z_max = shadow_inner;
+                    if has_wall_up_left {
+                        z_min += shadow_overhang;
+                    }
+                    if has_wall_down_left {
+                        z_max -= shadow_overhang;
+                    }
+                    if z_min < z_max {
+                        add_shadow_rect(
+                            &mut shadow_builder,
+                            shadow_offset,
+                            -shadow_outer,
+                            -shadow_inner,
+                            z_min,
+                            z_max,
+                        );
+                    }
+                }
+                if !has_wall_right {
+                    let mut z_min = -shadow_inner;
+                    let mut z_max = shadow_inner;
+                    if has_wall_up_right {
+                        z_min += shadow_overhang;
+                    }
+                    if has_wall_down_right {
+                        z_max -= shadow_overhang;
+                    }
+                    if z_min < z_max {
+                        add_shadow_rect(
+                            &mut shadow_builder,
+                            shadow_offset,
+                            shadow_inner,
+                            shadow_outer,
+                            z_min,
+                            z_max,
+                        );
+                    }
+                }
+                if !has_wall_up {
+                    let mut x_min = -shadow_inner;
+                    let mut x_max = shadow_inner;
+                    if has_wall_up_left {
+                        x_min += shadow_overhang;
+                    }
+                    if has_wall_up_right {
+                        x_max -= shadow_overhang;
+                    }
+                    if x_min < x_max {
+                        add_shadow_rect(
+                            &mut shadow_builder,
+                            shadow_offset,
+                            x_min,
+                            x_max,
+                            -shadow_outer,
+                            -shadow_inner,
+                        );
+                    }
+                }
+                if !has_wall_down {
+                    let mut x_min = -shadow_inner;
+                    let mut x_max = shadow_inner;
+                    if has_wall_down_left {
+                        x_min += shadow_overhang;
+                    }
+                    if has_wall_down_right {
+                        x_max -= shadow_overhang;
+                    }
+                    if x_min < x_max {
+                        add_shadow_rect(
+                            &mut shadow_builder,
+                            shadow_offset,
+                            x_min,
+                            x_max,
+                            shadow_inner,
+                            shadow_outer,
+                        );
+                    }
+                }
+
+                if !has_wall_left && !has_wall_up && !has_wall_up_left {
+                    add_shadow_rect(
+                        &mut shadow_builder,
+                        shadow_offset,
+                        -shadow_outer,
+                        -shadow_inner,
+                        -shadow_outer,
+                        -shadow_inner,
+                    );
+                }
+                if has_wall_left && has_wall_up && !has_wall_up_left {
+                    add_shadow_rect(
+                        &mut shadow_builder,
+                        shadow_offset,
+                        -shadow_outer,
+                        -shadow_inner,
+                        -shadow_outer,
+                        -shadow_inner,
+                    );
+                }
+                if !has_wall_right && !has_wall_up && !has_wall_up_right {
+                    add_shadow_rect(
+                        &mut shadow_builder,
+                        shadow_offset,
+                        shadow_inner,
+                        shadow_outer,
+                        -shadow_outer,
+                        -shadow_inner,
+                    );
+                }
+                if has_wall_right && has_wall_up && !has_wall_up_right {
+                    add_shadow_rect(
+                        &mut shadow_builder,
+                        shadow_offset,
+                        shadow_inner,
+                        shadow_outer,
+                        -shadow_outer,
+                        -shadow_inner,
+                    );
+                }
+                if !has_wall_left && !has_wall_down && !has_wall_down_left {
+                    add_shadow_rect(
+                        &mut shadow_builder,
+                        shadow_offset,
+                        -shadow_outer,
+                        -shadow_inner,
+                        shadow_inner,
+                        shadow_outer,
+                    );
+                }
+                if has_wall_left && has_wall_down && !has_wall_down_left {
+                    add_shadow_rect(
+                        &mut shadow_builder,
+                        shadow_offset,
+                        -shadow_outer,
+                        -shadow_inner,
+                        shadow_inner,
+                        shadow_outer,
+                    );
+                }
+                if !has_wall_right && !has_wall_down && !has_wall_down_right {
+                    add_shadow_rect(
+                        &mut shadow_builder,
+                        shadow_offset,
+                        shadow_inner,
+                        shadow_outer,
+                        shadow_inner,
+                        shadow_outer,
+                    );
+                }
+                if has_wall_right && has_wall_down && !has_wall_down_right {
+                    add_shadow_rect(
+                        &mut shadow_builder,
+                        shadow_offset,
+                        shadow_inner,
+                        shadow_outer,
+                        shadow_inner,
+                        shadow_outer,
+                    );
+                }
             }
         }
     }
