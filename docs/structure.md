@@ -6,7 +6,7 @@ This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://
 
 ## Netcode
 
-The client maintains an `input_history` ring buffer and a `snapshot_buffer` for player state updates from the server. The server maintains an `input_buffer` ring buffer for each player to store their inputs till it's time to process them.
+The client maintains an `input_history` ring buffer and a `snapshot_buffer` for player state updates from the server. The server maintains an `input_buffer` ring buffer for each player to store their inputs till it's time to process them. Clients stamp their inputs with the tick number on which the server should process them: a few ticks in the future to account for latency, plus a small safety margin for network jitter. Inputs are sent on an `Unreliable` Renet channel. The client sends inputs for the last four ticks as redundancy, to reduce the chances that the server will be missing inputs due to lost packets.
 
 ### Local player: reconciliation, replay, and prediction
 
