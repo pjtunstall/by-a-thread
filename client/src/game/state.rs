@@ -1076,48 +1076,14 @@ impl ClientBullet {
     }
 
     pub fn bounce_off_ground(&mut self) -> bool {
-        if self.position.y < 0.0 && self.velocity.y < 0.0 {
-            self.velocity.y *= -1.0;
-            self.bounces += 1;
-            true
-        } else {
-            false
-        }
+        bullets::bounce_off_ground(&mut self.position, &mut self.velocity, &mut self.bounces)
     }
 
     pub fn bounce_off_wall(&mut self, maze: &Maze) -> bullets::WallBounce {
-        let bullet_is_not_above_wall_height = self.position.y < CELL_SIZE;
-        let is_bullet_colliding_with_a_wall = bullet_is_not_above_wall_height
-            && !maze.is_sphere_clear(&self.position, bullets::BULLET_RADIUS);
-
-        if !is_bullet_colliding_with_a_wall {
-            return bullets::WallBounce::None;
-        }
-
-        let direction = self.velocity.normalize_or_zero();
-        if direction == Vec3::ZERO {
-            return bullets::WallBounce::Stuck;
-        }
-
-        let speed = self.velocity.length() * TICK_SECS_F32;
-        let normal = maze.get_wall_normal(self.position, direction, speed);
-        if normal == Vec3::ZERO {
-            bullets::WallBounce::Stuck
-        } else {
-            self.redirect(normal);
-            bullets::WallBounce::Bounce
-        }
-    }
-
-    fn redirect(&mut self, normal: Vec3) {
-        self.velocity = reflect(self.velocity, normal);
-        self.bounces += 1;
+        bullets::bounce_off_wall(&self.position, &mut self.velocity, &mut self.bounces, maze)
     }
 }
 
-fn reflect(direction: Vec3, normal: Vec3) -> Vec3 {
-    direction - 2.0 * direction.dot(normal) * normal
-}
 
 fn extrapolate_bullet_position(
     position: Vec3,

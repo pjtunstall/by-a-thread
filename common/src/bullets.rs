@@ -57,42 +57,16 @@ impl Bullet {
     }
 
     pub fn bounce_off_ground(&mut self) -> bool {
-        if self.position.y < 0.0 && self.velocity.y < 0.0 {
-            self.velocity.y *= -1.0;
-            self.bounces += 1;
-            true
-        } else {
-            false
-        }
+        bounce_off_ground(&mut self.position, &mut self.velocity, &mut self.bounces)
     }
 
     pub fn bounce_off_wall(&mut self, maze: &Maze) -> WallBounce {
-        let bullet_is_not_above_wall_height = self.position.y < CELL_SIZE;
-        let is_bullet_colliding_with_a_wall =
-            bullet_is_not_above_wall_height && !maze.is_sphere_clear(&self.position, BULLET_RADIUS);
-
-        if !is_bullet_colliding_with_a_wall {
-            return WallBounce::None;
-        }
-
-        let direction = self.velocity.normalize_or_zero();
-        if direction == Vec3::ZERO {
-            return WallBounce::Stuck;
-        }
-
-        let speed = self.velocity.length() * TICK_SECS_F32;
-        let normal = maze.get_wall_normal(self.position, direction, speed);
-        if normal == Vec3::ZERO {
-            WallBounce::Stuck
-        } else {
-            self.redirect(normal);
-            WallBounce::Bounce
-        }
+        let position = self.position;
+        bounce_off_wall(&position, &mut self.velocity, &mut self.bounces, maze)
     }
 
     pub fn redirect(&mut self, normal: Vec3) {
-        self.velocity = reflect(self.velocity, normal);
-        self.bounces += 1;
+        redirect(&mut self.velocity, &mut self.bounces, normal);
     }
 }
 
@@ -101,6 +75,48 @@ pub enum WallBounce {
     None,
     Bounce,
     Stuck,
+}
+
+pub fn bounce_off_ground(position: &mut Vec3, velocity: &mut Vec3, bounces: &mut u8) -> bool {
+    if position.y < BULLET_RADIUS {
+        position.y = BULLET_RADIUS;
+        if velocity.y < 0.0 {
+            velocity.y *= -1.0;
+            *bounces += 1;
+            return true;
+        }
+    }
+
+    false
+}
+
+pub fn bounce_off_wall(
+    position: &Vec3,
+    velocity: &mut Vec3,
+    bounces: &mut u8,
+    maze: &Maze,
+) -> WallBounce {
+    let bullet_is_not_above_wall_height = position.y < CELL_SIZE;
+    let is_bullet_colliding_with_a_wall =
+        bullet_is_not_above_wall_height && !maze.is_sphere_clear(position, BULLET_RADIUS);
+
+    if !is_bullet_colliding_with_a_wall {
+        return WallBounce::None;
+    }
+
+    let direction = velocity.normalize_or_zero();
+    if direction == Vec3::ZERO {
+        return WallBounce::Stuck;
+    }
+
+    let speed = velocity.length() * TICK_SECS_F32;
+    let normal = maze.get_wall_normal(*position, direction, speed);
+    if normal == Vec3::ZERO {
+        WallBounce::Stuck
+    } else {
+        redirect(velocity, bounces, normal);
+        WallBounce::Bounce
+    }
 }
 
 pub fn is_bullet_colliding_with_player(bullet_position: Vec3, player_position: Vec3) -> bool {
@@ -122,6 +138,11 @@ pub fn spawn_position(player_position: Vec3, direction: Vec3) -> Vec3 {
 
 pub fn cooldown_ticks() -> u64 {
     (FIRE_COOLDOWN_SECS / TICK_SECS).ceil() as u64
+}
+
+fn redirect(velocity: &mut Vec3, bounces: &mut u8, normal: Vec3) {
+    *velocity = reflect(*velocity, normal);
+    *bounces += 1;
 }
 
 fn reflect(direction: Vec3, normal: Vec3) -> Vec3 {
