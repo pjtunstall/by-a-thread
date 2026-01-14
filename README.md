@@ -2,7 +2,7 @@
 
 ## Context
 
-This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://github.com/01-edu/public/tree/master/subjects/multiplayer-fps) (commit bb1e883). I used Macroquad, a simple game library, to render scenes, and the Renet crate for some networking abstractions over UDP.
+This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://github.com/01-edu/public/tree/master/subjects/multiplayer-fps) (commit bb1e883). The aim is to remake [Maze](<https://en.wikipedia.org/wiki/Maze_(1973_video_game)>), a 3D multiplayer first-person shooter from 1973. I used Macroquad, a simple game library, to render scenes, and the Renet crate for some networking abstractions over UDP.
 
 ## Netcode
 
