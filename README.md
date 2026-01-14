@@ -2,11 +2,29 @@
 
 ## Context
 
-This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://github.com/01-edu/public/tree/master/subjects/multiplayer-fps) (commit bb1e883). The aim is to remake [Maze](<https://en.wikipedia.org/wiki/Maze_(1973_video_game)>), a 3D multiplayer first-person shooter from 1973. I used Macroquad, a simple game library, to render scenes, and the Renet crate for some networking abstractions over UDP.
+This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://github.com/01-edu/public/tree/master/subjects/multiplayer-fps) (commit bb1e883). The aim is to remake [Maze](<https://en.wikipedia.org/wiki/Maze_(1973_video_game)>), a 3D multiplayer first-person shooter from 1973. I used Macroquad, a simple game library, to render scenes, and the Renet crate for some networking abstractions over UDP. But I went to town rolling my own netcode, under the wise tutilage of Gemini, mainly.
+
+## My game
+
+### To run locally
+
+Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/install/) and run `cargo run --bin server` in one terminal. For each client, open another terminal and run `cargo run --bin client`. Then follow the prompts. The passcode will appear in the server terminal.
+
+### Controls
+
+- WASD to move.
+- Arrow keys to turn.
+- Space to fire.
+
+### Levels
+
+As instructed, I've implemented three difficulty levels. Hardness is defined as the tendency of a mazy to have dead ends. I chose three algorithms to do this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`.
 
 ## Netcode
 
-Local player means the player as represented on their own machine. Remote players are the other players as represented on a given player's machine. Netcode means the techniques used to coordinate how these and other dynamic entities, such as projectiles, are displayed in a way that disguises latency. I found this introduction by Gabriel Gambetta helpful: [Fast Paced Multiplayer](https://gabrielgambetta.com/client-server-game-architecture.html).
+Netcode means the techniques used to coordinate how these and other dynamic entities, such as projectiles, are displayed in a way that disguises latency. I found this introduction by Gabriel Gambetta helpful: [Fast Paced Multiplayer](https://gabrielgambetta.com/client-server-game-architecture.html).
+
+Local player means the player as represented on their own machine. Remote players are the other players as represented on a given player's machine.
 
 ## Renet
 
@@ -28,7 +46,7 @@ Depending on varying latency and frame duration, the client may have a varying n
 
 The client needs a good estimate of server time to drive interpolation, input scheduling, and countdowns, but it can't trust wall clocks: packets arrive late, late packets can arrive out of order, and RTT (return travel time) jitters with network conditions. So the client builds a moving estimate, `estimated_server_time`, from periodic server pings and smooths it to avoid visible stutter.
 
-The server broadcasts `ServerTime` messages at a fixed interval. The client records each message as a `ClockSample` with the server time, the local receive time (a monotonic clock), and the RTT from Renet. Each frame, the estimate is advanced by the local frame delta. When samples are available, the client chooses the best one by minimizing `rtt + age * AGE_PENALTY_FACTOR`, so it prefers a slightly higher RTT from a fresh packet over a perfect RTT from an old packet. It then computes a target time as `server_time + rtt / 2 + age_of_sample`.
+The server broadcasts `ServerTime` messages at a fixed interval. The client records each message as a `ClockSample` with the server time, the local receive time (a monotonic clock), and the RTT from Renet. Each frame, the estimate is advanced by the duration of the last frame. When samples are available, the client chooses the best one by minimizing `rtt + age * AGE_PENALTY_FACTOR`, so it prefers a slightly higher RTT from a fresh packet over a perfect RTT from an old packet. It then computes a target time as `server_time + rtt / 2 + age_of_sample`.
 
 If this is the first estimate or the error exceeds one second, the clock snaps to the target. Otherwise, small errors inside a deadzone are ignored, and larger errors are nudged toward the target using a small smoothing factor (speeding up or slowing down symmetrically). RTT itself is smoothed with different alphas for spikes vs. improvements, and the smoothed RTT feeds later timing decisions like the simulation target time.
 
@@ -105,3 +123,23 @@ Lobby -> ChoosingDifficulty -> Countdown -> Game
 ```
 
 The `Game` state also manages clients in `AfterGameChat` since they arrive at different times.
+
+## Workflow
+
+I used a variety of AI chatbots to straighten out my understanding of the netcode and develop a strategy, to help troubleshoot, and to review my attempts. Gemini (Pro) is the one that really shone this time, especially after the launch of Gemini 3. Towards the end, I enjoyed a trial of Codex. It was useful for discussing ideas, and a fantastic time-saver when it came to tidying up the loose ends.
+
+## Credits
+
+### Sound effects
+
+Sound effects from Yodguard and freesound_community via Pixabay.
+
+### Images
+
+[Griffin](https://en.wikipedia.org/wiki/Knossos#/media/File:%D0%A0%D0%BE%D1%81%D0%BF%D0%B8%D1%81%D1%8C*%D1%82%D1%80%D0%BE%D0%BD%D0%BD%D0%BE%D0%B3%D0%BE*%D0%B7%D0%B0%D0%BB%D0%B0.*%D0%9C%D0%B8%D0%BD%D0%BE%D0%B9%D1%81%D0%BA%D0%B8%D0%B9*%D0%B4%D0%B2%D0%BE%D1%80%D0%B5%D1%86._Knossos._Crete._Greece.*%D0%98%D1%8E%D0%BB%D1%8C*2013*-_panoramio.jpg) fresco adapted from a photo by Vadim Indeikin.
+
+[Dolphins](https://en.wikipedia.org/wiki/Knossos#/media/File:Heraklion_%E2%80%94_Dolphin_fresco.jpg) and [bull](https://commons.wikimedia.org/wiki/File:Knossos_bull_leaping_fresco.jpg) frescos, Gleb Simonov.
+
+The player avatar image is derived from a computer model of the cosmos display of the Antikythera mechanism, from [Wikicommons](https://commons.wikimedia.org/wiki/File:41598_2021_84310_Fig7_HTML.jpg), and ultimately Freeth, T., Higgon, D., Dacanalis, A. et al.: [A Model of the Cosmos in the ancient Greek Antikythera Mechanism](https://www.nature.com/articles/s41598-021-84310-w).[^1]
+
+[^1]: Freeth, T., Higgon, D., Dacanalis, A. et al. A Model of the Cosmos in the ancient Greek Antikythera Mechanism. Sci Rep 11, 5821 (2021). [https://doi.org/10.1038/s41598-021-84310-w](https://doi.org/10.1038/s41598-021-84310-w)

@@ -18,6 +18,7 @@ pub struct Snapshot {
 pub struct InitialData {
     pub maze: Maze,
     pub players: Vec<Player>,
+    pub difficulty: u8,
 }
 
 impl Default for InitialData {
@@ -25,6 +26,7 @@ impl Default for InitialData {
         Self {
             maze: Maze::new(Algorithm::Backtrack),
             players: Vec::new(),
+            difficulty: 1,
         }
     }
 }
@@ -64,6 +66,10 @@ impl InitialData {
             })
             .collect();
 
-        Self { maze, players }
+        Self {
+            maze,
+            players,
+            difficulty: level,
+        }
     }
 }

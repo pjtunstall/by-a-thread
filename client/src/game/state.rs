@@ -8,7 +8,10 @@ use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
 };
-use macroquad::prelude::*;
+use macroquad::{
+    audio::play_sound_once,
+    prelude::*,
+};
 
 use crate::{
     assets::Assets,
@@ -128,6 +131,7 @@ impl Game {
         &mut self,
         clock: &mut Clock,
         network: &mut dyn NetworkHandle,
+        assets: &Assets,
     ) -> Option<ClientState> {
         if self.fade_to_black_finished && !self.after_game_chat_sent {
             self.after_game_chat_sent = true;
@@ -147,14 +151,19 @@ impl Game {
             self.snapshot_buffer.advance_tail(new_tail);
         }
         if !self.pending_bullet_events.is_empty() {
-            self.apply_pending_bullet_events();
+            self.apply_pending_bullet_events(assets);
         }
-        self.advance_simulation(clock, network);
+        self.advance_simulation(clock, network, assets);
 
         None
     }
 
-    fn advance_simulation(&mut self, clock: &mut Clock, network: &mut dyn NetworkHandle) {
+    fn advance_simulation(
+        &mut self,
+        clock: &mut Clock,
+        network: &mut dyn NetworkHandle,
+        assets: &Assets,
+    ) {
         // A failsafe to prevent `accumulated_time` from growing ever greater
         // if we fall behind.
         const MAX_TICKS_PER_FRAME: u8 = 8;
@@ -175,7 +184,7 @@ impl Game {
 
             if self.players[self.local_player_index].health > 0 {
                 let mut input = input::player_input_from_keys(sim_tick);
-                self.prepare_fire_input(sim_tick, &mut input);
+                self.prepare_fire_input(sim_tick, &mut input, assets);
                 self.send_input(network, input, sim_tick);
                 self.input_history.insert(sim_tick, input);
                 self.apply_input(sim_tick);
@@ -229,7 +238,7 @@ impl Game {
         }
     }
 
-    pub fn prepare_fire_input(&mut self, sim_tick: u64, input: &mut PlayerInput) {
+    pub fn prepare_fire_input(&mut self, sim_tick: u64, input: &mut PlayerInput, assets: &Assets) {
         if !input.fire {
             return;
         }
@@ -261,6 +270,7 @@ impl Game {
         self.bullets.push(ClientBullet::new_provisional(
             fire_nonce, position, velocity, sim_tick,
         ));
+        play_sound_once(&assets.gun_sound);
     }
 
     // TODO: Consider disparity in naming between snapshot as data without id,
@@ -442,10 +452,10 @@ impl Game {
         Some(tick_a - 60)
     }
 
-    pub fn apply_pending_bullet_events(&mut self) {
+    pub fn apply_pending_bullet_events(&mut self, assets: &Assets) {
         let events = std::mem::take(&mut self.pending_bullet_events);
         for event in events {
-            self.apply_bullet_event(event);
+            self.apply_bullet_event(event, assets);
         }
     }
 
@@ -629,7 +639,7 @@ impl Game {
         });
     }
 
-    fn apply_bullet_event(&mut self, event: BulletEvent) {
+    fn apply_bullet_event(&mut self, event: BulletEvent, assets: &Assets) {
         match event {
             BulletEvent::Spawn {
                 bullet_id,
@@ -674,6 +684,7 @@ impl Game {
                 ));
 
                 if shooter_index != self.local_player_index {
+                    play_sound_once(&assets.gun_sound);
                     if let Some(owner_position) = self.interpolated_positions.get(shooter_index) {
                         if let Some(bullet) = self.bullets.last_mut() {
                             bullet.position = *owner_position;
@@ -705,6 +716,18 @@ impl Game {
                 if let Some(player) = self.players.get_mut(target_index) {
                     player.health = target_health;
                     player.alive = target_health > 0;
+                }
+
+                if target_health == 0 {
+                    if target_index == self.local_player_index {
+                        play_sound_once(&assets.bell_sound);
+                    } else {
+                        play_sound_once(&assets.shatter_sound);
+                    }
+                } else if target_index == self.local_player_index {
+                    play_sound_once(&assets.deep_clang);
+                } else {
+                    play_sound_once(&assets.clang);
                 }
 
                 if target_index == self.local_player_index {

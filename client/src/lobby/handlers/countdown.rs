@@ -42,11 +42,14 @@ pub fn handle(
         }
 
         if maze_meshes.is_none() {
-            let built_meshes = maze::build_maze_meshes(
-                &game_data.maze,
-                &assets.wall_texture,
-                &assets.floor_texture,
-            );
+            let wall_texture = match game_data.difficulty {
+                1 => &assets.griffin_texture,
+                2 => &assets.bull_texture,
+                3 => &assets.dolphins_texture,
+                _ => &assets.bull_texture,
+            };
+            let built_meshes =
+                maze::build_maze_meshes(&game_data.maze, wall_texture, &assets.floor_texture);
             *maze_meshes = Some(built_meshes);
         }
     }

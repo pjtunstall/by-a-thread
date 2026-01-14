@@ -160,7 +160,11 @@ impl ClientRunner {
 
                 let mut network = RenetNetworkHandle::new(&mut self.client, &mut self.transport);
 
-                match game_state.update_with_network(&mut self.session.clock, &mut network) {
+                match game_state.update_with_network(
+                    &mut self.session.clock,
+                    &mut network,
+                    &self.assets,
+                ) {
                     Some(next_state) => {
                         if matches!(next_state, ClientState::AfterGameChat { .. }) {
                             self.ui.flush_input();
