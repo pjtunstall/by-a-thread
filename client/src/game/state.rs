@@ -25,7 +25,7 @@ use crate::{
 use common::{
     bullets,
     constants::{INPUT_HISTORY_LENGTH, SNAPSHOT_BUFFER_LENGTH, TICK_SECS, TICK_SECS_F32},
-    maze::{CELL_SIZE, Maze},
+    maze::Maze,
     net::AppChannel,
     player::{self, Player, PlayerInput},
     protocol::{BulletEvent, ClientMessage, ServerMessage},
@@ -549,6 +549,7 @@ impl Game {
 
     fn draw_bullets(&self) {
         const BULLET_DRAW_RADIUS: f32 = 4.0;
+        let draw_offset = (BULLET_DRAW_RADIUS - bullets::BULLET_RADIUS).max(0.0);
 
         for bullet in &self.bullets {
             let color = if bullet.blend_ticks_left > 0 {
@@ -568,7 +569,9 @@ impl Game {
                     }
                 }
             };
-            draw_sphere(bullet.position, BULLET_DRAW_RADIUS, None, color);
+            // Keep the visual sphere aligned with the physics radius.
+            let draw_position = bullet.position + vec3(0.0, draw_offset, 0.0);
+            draw_sphere(draw_position, BULLET_DRAW_RADIUS, None, color);
         }
     }
 
@@ -581,7 +584,15 @@ impl Game {
             if sim_tick > bullet.last_update_tick {
                 let ticks = sim_tick - bullet.last_update_tick;
                 if bullet.confirmed {
-                    bullet.advance(ticks);
+                    for _ in 0..ticks {
+                        bullet.advance(1);
+                        bullet.bounce_off_ground();
+                        match bullet.bounce_off_wall(maze) {
+                            bullets::WallBounce::Stuck => {}
+                            bullets::WallBounce::Bounce => {}
+                            bullets::WallBounce::None => {}
+                        }
+                    }
                     bullet.apply_blend(ticks);
                 } else {
                     for _ in 0..ticks {
@@ -1083,7 +1094,6 @@ impl ClientBullet {
         bullets::bounce_off_wall(&self.position, &mut self.velocity, &mut self.bounces, maze)
     }
 }
-
 
 fn extrapolate_bullet_position(
     position: Vec3,
