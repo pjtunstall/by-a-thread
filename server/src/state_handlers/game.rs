@@ -181,6 +181,11 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                         continue;
                     }
 
+                    let player = &mut state.players[player_index];
+                    if player.exit_tick.is_none() {
+                        player.exit_tick = Some(state.current_tick);
+                    }
+
                     let online = state
                         .players
                         .iter()
@@ -217,6 +222,8 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                         );
                     }
                     state.note_egress_bytes(egress_bytes);
+
+                    state.send_leaderboard_if_ready(network);
                 }
                 ClientMessage::SendChat(content) => {
                     if !state.after_game_chat_clients.contains(&client_id) {
@@ -336,6 +343,9 @@ fn update_bullets(state: &mut Game, events: &mut Vec<BulletEvent>) {
                 player.health = new_health;
                 if new_health == 0 {
                     player.status = crate::player::Status::Dead;
+                    if player.exit_tick.is_none() {
+                        player.exit_tick = Some(state.current_tick);
+                    }
                 }
 
                 if new_health > 0 {

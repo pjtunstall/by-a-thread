@@ -12,8 +12,9 @@ use crate::{
 };
 use common::{
     chat::MAX_CHAT_MESSAGE_BYTES,
+    constants::TICK_SECS,
     net::AppChannel,
-    protocol::{ClientMessage, ServerMessage},
+    protocol::{AfterGameExitReason, ClientMessage, ServerMessage},
 };
 
 pub fn update(
@@ -95,6 +96,24 @@ fn handle(
                 };
                 ui.show_sanitized_message(&message);
                 session.mark_initial_roster_received();
+            }
+            Ok((ServerMessage::AfterGameLeaderboard { entries }, _)) => {
+                ui.show_sanitized_banner_message("Leaderboard:");
+                for (rank, entry) in entries.iter().enumerate() {
+                    let seconds = entry.ticks_survived as f64 * TICK_SECS;
+                    let reason = match entry.exit_reason {
+                        AfterGameExitReason::Disconnected => "disconnected",
+                        AfterGameExitReason::Slain => "slain",
+                        AfterGameExitReason::Winner => "winner",
+                    };
+                    ui.show_sanitized_banner_message(&format!(
+                        "{}. {}  {:.1}s  ({})",
+                        rank + 1,
+                        entry.username,
+                        seconds,
+                        reason
+                    ));
+                }
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));

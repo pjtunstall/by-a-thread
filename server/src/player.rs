@@ -21,6 +21,7 @@ pub struct ServerPlayer {
     pub health: u8,
     pub last_fire_tick: Option<u64>,
     pub bullets_in_air: usize,
+    pub exit_tick: Option<u64>,
 }
 
 impl ServerPlayer {
@@ -47,6 +48,7 @@ impl ServerPlayer {
             health: player.health,
             last_fire_tick: None,
             bullets_in_air: 0,
+            exit_tick: None,
         }
     }
 }

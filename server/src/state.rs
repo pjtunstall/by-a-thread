@@ -15,7 +15,10 @@ use common::{
     maze::Maze,
     net::AppChannel,
     player::{WirePlayerLocal, WirePlayerRemote},
-    protocol::{GAME_ALREADY_STARTED_MESSAGE, ServerMessage},
+    protocol::{
+        AfterGameExitReason, AfterGameLeaderboardEntry, GAME_ALREADY_STARTED_MESSAGE,
+        ServerMessage,
+    },
     snapshot::{InitialData, Snapshot},
 };
 
@@ -24,9 +27,11 @@ pub struct Game {
     pub players: Vec<ServerPlayer>,
     pub client_id_to_index: HashMap<u64, usize>,
     pub current_tick: u64,
+    pub game_start_tick: u64,
     pub bullets: Vec<Bullet>,
     pub next_bullet_id: u32,
     pub after_game_chat_clients: HashSet<u64>,
+    pub leaderboard_sent: bool,
     net_stats: NetStats,
 }
 
@@ -49,9 +54,11 @@ impl Game {
             players,
             client_id_to_index,
             current_tick,
+            game_start_tick: current_tick,
             bullets: Vec::new(),
             next_bullet_id: 0,
             after_game_chat_clients: HashSet::new(),
+            leaderboard_sent: false,
             net_stats: NetStats::new(),
         }
     }
@@ -65,6 +72,9 @@ impl Game {
                 client_id, player.name
             );
             self.players[index].status = Status::Disconnected;
+            if self.players[index].exit_tick.is_none() {
+                self.players[index].exit_tick = Some(self.current_tick);
+            }
             let message = ServerMessage::UserLeft { username: name };
             let payload =
                 encode_to_vec(&message, standard()).expect("failed to serialize UserLeft");
@@ -77,6 +87,8 @@ impl Game {
                 println!("All players have disconnected. Server exiting...");
                 std::process::exit(0);
             }
+
+            self.send_leaderboard_if_ready(network);
         } else {
             panic!("attempted to remove unknown client: {}", client_id);
         }
@@ -106,6 +118,57 @@ impl Game {
 
     pub fn log_network_stats_if_ready(&mut self) {
         self.net_stats.log_if_ready();
+    }
+
+    pub fn send_leaderboard_if_ready(&mut self, network: &mut dyn ServerNetworkHandle) {
+        if self.leaderboard_sent {
+            return;
+        }
+
+        if self.after_game_chat_clients.len() != self.client_id_to_index.len() {
+            return;
+        }
+
+        let entries = self.build_leaderboard_entries();
+        let message = ServerMessage::AfterGameLeaderboard { entries };
+        let payload =
+            encode_to_vec(&message, standard()).expect("failed to serialize AfterGameLeaderboard");
+        let payload_len = payload.len();
+        let mut egress_bytes = 0usize;
+
+        for client_id in &self.after_game_chat_clients {
+            egress_bytes = egress_bytes.saturating_add(payload_len);
+            network.send_message(*client_id, AppChannel::ReliableOrdered, payload.clone());
+        }
+
+        self.note_egress_bytes(egress_bytes);
+        self.leaderboard_sent = true;
+    }
+
+    fn build_leaderboard_entries(&self) -> Vec<AfterGameLeaderboardEntry> {
+        let mut entries = self
+            .players
+            .iter()
+            .map(|player| {
+                let end_tick = player.exit_tick.unwrap_or(self.current_tick);
+                let ticks_survived = end_tick.saturating_sub(self.game_start_tick);
+                let exit_reason = match player.status {
+                    Status::Disconnected => AfterGameExitReason::Disconnected,
+                    Status::Dead | Status::Alive => AfterGameExitReason::Slain,
+                };
+                AfterGameLeaderboardEntry {
+                    username: player.name.clone(),
+                    ticks_survived,
+                    exit_reason,
+                }
+            })
+            .collect::<Vec<_>>();
+
+        entries.sort_by(|a, b| b.ticks_survived.cmp(&a.ticks_survived));
+        if let Some(winner) = entries.first_mut() {
+            winner.exit_reason = AfterGameExitReason::Winner;
+        }
+        entries
     }
 }
 

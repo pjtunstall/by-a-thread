@@ -20,6 +20,20 @@ pub fn auth_success_message(max_username_length: usize) -> String {
     )
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AfterGameExitReason {
+    Disconnected,
+    Slain,
+    Winner,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AfterGameLeaderboardEntry {
+    pub username: String,
+    pub ticks_survived: u64,
+    pub exit_reason: AfterGameExitReason,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
     Snapshot(WireItem<Snapshot>),
@@ -52,6 +66,9 @@ pub enum ServerMessage {
     AfterGameRoster {
         hades_shades: Vec<String>,
     },
+    AfterGameLeaderboard {
+        entries: Vec<AfterGameLeaderboardEntry>,
+    },
     ServerInfo {
         message: String,
     },
@@ -74,6 +91,7 @@ impl ServerMessage {
             Self::UserLeft { .. } => "UserLeft",
             Self::ChatMessage { .. } => "ChatMessage",
             Self::AfterGameRoster { .. } => "AfterGameRoster",
+            Self::AfterGameLeaderboard { .. } => "AfterGameLeaderboard",
             Self::ServerInfo { .. } => "ServerInfo",
             Self::BeginDifficultySelection => "BeginDifficultySelection",
             Self::DenyDifficultySelection => "DenyDifficultySelection",

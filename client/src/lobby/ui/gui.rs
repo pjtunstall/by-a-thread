@@ -264,7 +264,8 @@ impl Gui {
                 let is_at_prompt_only = current_line.trim() == ">";
                 let word_fits_on_new_line = word_width <= max_width;
 
-                // Case 2: Standard wrap - word fits on a new line and is not the prompt, >, so add it to the current line.
+                // Case 2: Standard wrap - word fits on a new line and is not
+                // the prompt, >, so add it to the current line.
                 if word_fits_on_new_line && !is_at_prompt_only {
                     wrapped_lines.push(current_line);
                     current_line = word.to_string();
@@ -275,10 +276,11 @@ impl Gui {
                     // a) The word is wider than the entire screen width, OR
                     // b) current_line is just the prompt (">") and we want to keep
                     //    the next word attached to it rather than wrapping the word
-                    //    to a new line (which would leave ">" stranded alone)
+                    //    to a new line (which would leave ">" stranded alone).
 
-                    // Important: we append characters to whatever is already in
-                    // current_line (which might be ">"), so the prompt stays attached
+                    // We append characters to whatever is already in
+                    // current_line (which might be ">"), so the prompt stays
+                    // attached.
                     for character in word.chars() {
                         let line_with_char = format!("{}{}", current_line, character);
                         let line_with_char_width = self.measure_text_strict(&line_with_char, font);
@@ -345,6 +347,10 @@ impl LobbyUi for Gui {
         self.add_history(&format!("  Game version:  {}", protocol_id), BANNER_COLOR);
         self.add_history(&format!("  Connecting to: {}", server_addr), BANNER_COLOR);
         self.add_history(&format!("  Your ID:       {}", client_id), BANNER_COLOR);
+    }
+
+    fn show_banner_message(&mut self, message: &str) {
+        self.add_history(&format!("  {}", message), BANNER_COLOR);
     }
 
     fn draw(&self, should_show_input: bool, show_cursor: bool, font: Option<&Font>) {
