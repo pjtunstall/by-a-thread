@@ -635,14 +635,14 @@ impl Game {
                 position,
                 velocity,
                 fire_nonce,
-                owner_index,
+                shooter_index,
             } => {
                 let adjusted_position =
                     extrapolate_bullet_position(position, velocity, tick, self.last_sim_tick);
                 const PROMOTION_BLEND_TICKS: u8 = 4;
                 const REMOTE_SPAWN_BLEND_TICKS: u8 = 4;
 
-                if owner_index == self.local_player_index {
+                if shooter_index == self.local_player_index {
                     if let Some(fire_nonce) = fire_nonce {
                         if let Some(bullet) = self
                             .bullets
@@ -671,8 +671,8 @@ impl Game {
                     self.last_sim_tick,
                 ));
 
-                if owner_index != self.local_player_index {
-                    if let Some(owner_position) = self.interpolated_positions.get(owner_index) {
+                if shooter_index != self.local_player_index {
+                    if let Some(owner_position) = self.interpolated_positions.get(shooter_index) {
                         if let Some(bullet) = self.bullets.last_mut() {
                             bullet.position = *owner_position;
                             bullet.start_blend(adjusted_position, REMOTE_SPAWN_BLEND_TICKS);

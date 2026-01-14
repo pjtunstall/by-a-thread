@@ -101,7 +101,7 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
             position,
             velocity,
             fire_nonce,
-            owner_index: player_index,
+            shooter_index: player_index,
         });
     }
 
@@ -320,8 +320,8 @@ fn update_bullets(state: &mut Game, events: &mut Vec<BulletEvent>) {
 
         if remove {
             let bullet = state.bullets.swap_remove(index);
-            if let Some(owner) = state.players.get_mut(bullet.owner_index) {
-                owner.bullets_in_air = owner.bullets_in_air.saturating_sub(1);
+            if let Some(shooter) = state.players.get_mut(bullet.shooter_index) {
+                shooter.bullets_in_air = shooter.bullets_in_air.saturating_sub(1);
             }
             continue;
         }
@@ -386,8 +386,8 @@ fn update_bullets(state: &mut Game, events: &mut Vec<BulletEvent>) {
 
         if remove {
             let bullet = state.bullets.swap_remove(index);
-            if let Some(owner) = state.players.get_mut(bullet.owner_index) {
-                owner.bullets_in_air = owner.bullets_in_air.saturating_sub(1);
+            if let Some(shooter) = state.players.get_mut(bullet.shooter_index) {
+                shooter.bullets_in_air = shooter.bullets_in_air.saturating_sub(1);
             }
             continue;
         }

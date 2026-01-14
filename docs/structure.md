@@ -16,6 +16,8 @@ First we reconcile to the last snapshot. Then we run client‑side prediction. T
 
 ### Bullets: extrapolation
 
+Client extrapolation is only used when a bullet spawn arrives from the server to advance the server-provided position forward from event_tick to the client's last_sim_tick using so the bullet appears where it should be now. For bullets fired by the local player, a provisional bullet is spawned. The confirmed spawn blends from the provisional bullet to the extrapolated position. A bullets fired by a remote players is first placed at the shooter's interpolated position and then blended toward the extrapolated position over a few ticks.
+
 ## State Machines
 
 ### Client State Machine

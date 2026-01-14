@@ -17,7 +17,7 @@ pub const BULLET_SPAWN_OFFSET: f32 = player::RADIUS + BULLET_RADIUS + 0.1;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Bullet {
     pub id: u32,
-    pub owner_index: usize,
+    pub shooter_index: usize,
     pub position: Vec3,
     pub velocity: Vec3,
     pub spawn_tick: u64,
@@ -27,14 +27,14 @@ pub struct Bullet {
 impl Bullet {
     pub fn new(
         id: u32,
-        owner_index: usize,
+        shooter_index: usize,
         position: Vec3,
         velocity: Vec3,
         spawn_tick: u64,
     ) -> Self {
         Self {
             id,
-            owner_index,
+            shooter_index,
             position,
             velocity,
             spawn_tick,
