@@ -16,11 +16,58 @@ use common::{
     net::AppChannel,
     player::{WirePlayerLocal, WirePlayerRemote},
     protocol::{
-        AfterGameExitReason, AfterGameLeaderboardEntry, GAME_ALREADY_STARTED_MESSAGE,
-        ServerMessage,
+        AfterGameExitReason, AfterGameLeaderboardEntry, GAME_ALREADY_STARTED_MESSAGE, ServerMessage,
     },
     snapshot::{InitialData, Snapshot},
 };
+
+pub enum ServerState {
+    Lobby(Lobby),
+    ChoosingDifficulty(ChoosingDifficulty),
+    Countdown(Countdown),
+    Game(Game),
+}
+
+impl ServerState {
+    pub fn name(&self) -> &'static str {
+        match self {
+            ServerState::Lobby(_) => "Lobby",
+            ServerState::ChoosingDifficulty(_) => "ChoosingDifficulty",
+            ServerState::Countdown(_) => "Countdown",
+            ServerState::Game(_) => "Game",
+        }
+    }
+
+    pub fn register_connection(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
+        match self {
+            ServerState::Lobby(lobby) => lobby.register_connection(client_id),
+            _ => {
+                eprintln!(
+                    "client {} connected, but server is not in lobby state; informing, then disconnecting them",
+                    client_id
+                );
+
+                let message = ServerMessage::ServerInfo {
+                    message: GAME_ALREADY_STARTED_MESSAGE.to_string(),
+                };
+                let payload = encode_to_vec(&message, standard())
+                    .expect("failed to serialize ServerInfo message");
+
+                network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+                network.disconnect(client_id);
+            }
+        }
+    }
+
+    pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
+        match self {
+            ServerState::Lobby(lobby) => lobby.remove_client(client_id, network),
+            ServerState::ChoosingDifficulty(state) => state.lobby.remove_client(client_id, network),
+            ServerState::Countdown(countdown) => countdown.remove_client(client_id, network),
+            ServerState::Game(game) => game.remove_client(client_id, network),
+        }
+    }
+}
 
 pub struct Game {
     pub maze: Maze,
@@ -222,54 +269,6 @@ fn format_bytes_per_second(bytes_per_second: f64) -> String {
         format!("{:.1} kB/s", bytes_per_second / KIBIBYTE)
     } else {
         format!("{:.0} B/s", bytes_per_second)
-    }
-}
-
-pub enum ServerState {
-    Lobby(Lobby),
-    ChoosingDifficulty(ChoosingDifficulty),
-    Countdown(Countdown),
-    Game(Game),
-}
-
-impl ServerState {
-    pub fn name(&self) -> &'static str {
-        match self {
-            ServerState::Lobby(_) => "Lobby",
-            ServerState::ChoosingDifficulty(_) => "ChoosingDifficulty",
-            ServerState::Countdown(_) => "Countdown",
-            ServerState::Game(_) => "Game",
-        }
-    }
-
-    pub fn register_connection(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
-        match self {
-            ServerState::Lobby(lobby) => lobby.register_connection(client_id),
-            _ => {
-                eprintln!(
-                    "client {} connected, but server is not in lobby state; informing, then disconnecting them",
-                    client_id
-                );
-
-                let message = ServerMessage::ServerInfo {
-                    message: GAME_ALREADY_STARTED_MESSAGE.to_string(),
-                };
-                let payload = encode_to_vec(&message, standard())
-                    .expect("failed to serialize ServerInfo message");
-
-                network.send_message(client_id, AppChannel::ReliableOrdered, payload);
-                network.disconnect(client_id);
-            }
-        }
-    }
-
-    pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
-        match self {
-            ServerState::Lobby(lobby) => lobby.remove_client(client_id, network),
-            ServerState::ChoosingDifficulty(state) => state.lobby.remove_client(client_id, network),
-            ServerState::Countdown(countdown) => countdown.remove_client(client_id, network),
-            ServerState::Game(game) => game.remove_client(client_id, network),
-        }
     }
 }
 
