@@ -2,9 +2,13 @@
 
 ## Context
 
-This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://github.com/01-edu/public/tree/master/subjects/multiplayer-fps) (commit bb1e883). The aim is to remake [Maze](<https://en.wikipedia.org/wiki/Maze_(1973_video_game)>), a 3D multiplayer first-person shooter from 1973. I used Macroquad, a simple game library, to render scenes, and the Renet crate for some networking abstractions over UDP. But I went to town rolling my own netcode, under the wise tutilage of Gemini, mainly.
+This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://github.com/01-edu/public/tree/master/subjects/multiplayer-fps) (commit bb1e883). The aim is to remake [Maze](<https://en.wikipedia.org/wiki/Maze_(1973_video_game)>), a 3D multiplayer first-person shooter from 1973.
+
+Dependencies: I used Macroquad, a simple game library, to render scenes, and Renet for some networking abstractions over UDP. But I went to town rolling my own netcode, under the wise tutilage of Gemini, mainly.
 
 ## My game
+
+It's not yet hosted, so actually playing with other players is not yet practical, but you can at least run the server and one or more clients on a single machine.
 
 ### To run locally
 
@@ -18,29 +22,29 @@ Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/instal
 
 ### Levels
 
-As instructed, I've implemented three difficulty levels. Hardness is defined as the tendency of a mazy to have dead ends. I chose three algorithms to do this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`.
+As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`.
 
 ## Netcode
 
-Netcode means the techniques used to coordinate how these and other dynamic entities, such as projectiles, are displayed in a way that disguises latency. I found this introduction by Gabriel Gambetta helpful: [Fast Paced Multiplayer](https://gabrielgambetta.com/client-server-game-architecture.html).
+Netcode refers to the techniques used to coordinate how players and other dynamic entities, such as projectiles, are displayed in a way that disguises latency. I found Gabriel Gambetta's introduction helpful: [Fast Paced Multiplayer](https://gabrielgambetta.com/client-server-game-architecture.html).
 
-Local player means the player as represented on their own machine. Remote players are the other players as represented on a given player's machine.
+In what follows, "local player" will mean a player as represented on their own machine. Remote players are the other players as represented on a given player's machine.
 
 ## Renet
 
-Renet defines three channel types: `ReliableOrdered`, `ReliableUnordered`, and `Unreliable`. I've used `ReliableOrdered` for system and chat messages and for bullet spawn and collision notifications from the server. I used `Unreliable` for input from the client, and for snapshots (player position updates) from the server. `Unreliable` is faster because it doesn't have to order messages or resend ones that failed to arrive.
+Renet is a networking library for Rust, built on top of UDP. It defines three channel types: `ReliableOrdered`, `ReliableUnordered`, and `Unreliable`. You can send messages over these channels. Renet takes care of splitting them into packets and reassembling them. I've used `ReliableOrdered` for system and chat messages and for bullet spawn and collision notifications from the server. I used `Unreliable` for input from the client, and for snapshots (player position updates) from the server. `Unreliable` is faster because it doesn't have to order messages or resend ones that failed to arrive.
 
 ## Tick and frame
 
-A frame is an iteration of the client's game loop. It includes the whole cycle of updating the game state and rendering it to the screen. There are ideally 60 frames per second. If all work is done, the program waits for one sixtieth of a second to have elapsed before continuing to the next iteratio. If we ask the computer to do too much work, a frame could last longer. It can also last longer if we put the window into the background, in which case Macroquad detects that there's no point rendering and keeps waiting till the window is visible again.
+A frame is an iteration of the client's game loop. The frame rate is how often the latest game state is rendered on the screen. In my game, there are ideally 60 frames per second. If all work is done, the program waits for one sixtieth of a second to have elapsed before continuing to the next iteration. If we ask the computer to do too much work, a frame could last longer. It can also last longer if we put the window into the background, in which case Macroquad detects that there's no point rendering and keeps waiting till the window is visible again.
 
-A tick is an iteration of the server's game loop. But a tick is also a unit of game time. The server is authoritative. Clients just have to trust that it keeps time well, and that one tick lasts as long as it should and not longer. Luckily the server doesn't have to do any rendering, so it's less likely to be overwhelmed.
+A tick is an iteration of the server's game loop. But a tick is also a unit of game time: a game-logic update and, by extension, the sequence number that such an update is labeled by. The reason for this blurring of terminology is that the server is authoritative. Clients just have to trust that it keeps time well since they will try to synchronize their clocks with its, and that one tick lasts as long as it should and not longer. Luckily the server doesn't have to do any rendering, so it's less likely to be overwhelmed.
 
 There's no rule that ticks and frames should aim to run at the same frequency, but I've chosen 60Hz for both.
 
 Although the server runs its input processing and physics updates at 60Hz, it only broadcasts player positions at 20Hz. I've called this the broadcast rate. The client has various ways of filling in the gaps, as detailed below.
 
-Depending on varying latency and frame duration, the client may have a varying number of ticks to process each frame. Even if it hasn't heard from the server on a given tick, it must still check its own inputs and update its "simulation" of the server' sauthoritative reality. When data does arrive, it will correct the simulation, although it may do so in subtle ways, smoothing out abrupt changes.
+Depending on varying latency and frame duration, the client may have a varying number of ticks (in the sense of game-logic updates) to process each frame. Even if it hasn't heard from the server on a given tick, it must still check its own inputs and update its "simulation" of the server' sauthoritative reality. When data does arrive, it will correct the simulation, although it may do so in subtle ways, smoothing out abrupt changes.
 
 ## Clock synchronization
 
@@ -63,6 +67,10 @@ To save on bandwidth, ticks are sent as 16-bit unsigned integers and expanded in
 ### Input
 
 The client forward-dates its inputs to give them time to reach the server. They're actually forward-dated a little bit more than necessary as a safety margin, hence the need for input buffers to store them serverside. The client sends its last four inputs each tick, in case some fail to arrive on the `Unreliable` channel, hence the need for an input history. The input history is also used to apply past inputs to snapshots; see [Local player](#local-player-reconciliation-replay-and-prediction).
+
+Players send input data for every tick, even if it's just to say that no keys are pressed.
+
+As the server performs its game-state update (processes a tick), it checks each player's `input_buffer` to see if there's an input available for this tick. If so, it applies that input. If not, it re-applies the last input that it did receive.
 
 ### Local player: reconciliation and prediction
 
