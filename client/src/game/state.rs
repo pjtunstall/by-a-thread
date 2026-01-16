@@ -460,18 +460,21 @@ impl Game {
     // ticks in case of a faster frame rate.
     pub fn draw(&mut self, _prediction_alpha: f64, assets: &Assets, fps: &FrameRate) {
         clear_background(BEIGE);
-
         self.maze.draw(&self.maze_meshes);
         self.set_camera_and_draw_local_player_shadow();
         self.draw_remote_players(assets);
         self.draw_bullets();
         info::draw(self, assets, fps, info::INFO_SCALE);
 
-        // Handle fading to black when the local player dies. This block must
-        // be placed after drawing the scene so that the fade covers everything
-        // and not just the background. If this becomes a problem, consider
-        // decoupling the drawing of the fade (and likewise the flash) from
-        // checking whether it's still fading.
+        // This function must be called after drawing the scene so that the fade
+        // covers everything and not just the background. If this becomes a
+        // problem, consider decoupling the drawing of the fade (and likewise
+        // the flash) from checking whether it's still fading.
+        self.draw_flash_and_fade();
+    }
+
+    fn draw_flash_and_fade(&mut self) {
+        // Handle fading to black when the local player dies.
         if let Some(fade) = &self.fade_to_black {
             if !fade.is_still_fading_so_draw() {
                 clear_background(BLACK); // Avoids a brief flash after the fade completes.
@@ -485,7 +488,7 @@ impl Game {
             if !flash.is_still_fading_so_draw() {
                 self.flash = None;
             }
-        }
+        }       
     }
 
     fn set_camera_and_draw_local_player_shadow(&mut self) {
