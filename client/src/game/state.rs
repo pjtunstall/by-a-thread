@@ -364,7 +364,7 @@ impl Game {
     pub fn apply_input(&mut self, tick: u64) {
         let own_index = self.local_player_index;
 
-        // Needed to detect collisions with other players.
+        // This is needed to detect collisions with other players.
         let player_positions: Vec<(usize, Vec3)> = self
             .players
             .iter()
@@ -461,34 +461,8 @@ impl Game {
     pub fn draw(&mut self, _prediction_alpha: f64, assets: &Assets, fps: &FrameRate) {
         clear_background(BEIGE);
 
-        let i = self.local_player_index;
-        let mut position = self.players[i].state.position;
-        let mut yaw = self.players[i].state.yaw;
-        let mut pitch = self.players[i].state.pitch;
-
-        if let Some(obe_effect) = &mut self.obe_effect {
-            obe_effect.update();
-            position.y += obe_effect.height_offset;
-            yaw += obe_effect.yaw_offset;
-            pitch = obe_effect.pitch;
-        }
-
-        set_camera(&Camera3D {
-            position,
-            target: position
-                + vec3(
-                    -yaw.sin() * pitch.cos(),
-                    pitch.sin(),
-                    -yaw.cos() * pitch.cos(),
-                ),
-            up: vec3(0.0, 1.0, 0.0),
-            z_near: 0.1,
-            z_far: 5000.0,
-            ..Default::default()
-        });
-
         self.maze.draw(&self.maze_meshes);
-        self.draw_local_player_shadow();
+        self.set_camera_and_draw_local_player_shadow();
         self.draw_remote_players(assets);
         self.draw_bullets();
         info::draw(self, assets, fps, info::INFO_SCALE);
@@ -512,6 +486,38 @@ impl Game {
                 self.flash = None;
             }
         }
+    }
+
+    fn set_camera_and_draw_local_player_shadow(&mut self) {
+        let i = self.local_player_index;
+        let local_player = &self.players[i];
+        let mut position = local_player.state.position;
+        let mut yaw = local_player.state.yaw;
+        let mut pitch = local_player.state.pitch;
+        if local_player.alive {
+            self.draw_player_shadow(position);
+        }
+
+        if let Some(obe_effect) = &mut self.obe_effect {
+            obe_effect.update();
+            position.y += obe_effect.height_offset;
+            yaw += obe_effect.yaw_offset;
+            pitch = obe_effect.pitch;
+        }
+
+        set_camera(&Camera3D {
+            position,
+            target: position
+                + vec3(
+                    -yaw.sin() * pitch.cos(),
+                    pitch.sin(),
+                    -yaw.cos() * pitch.cos(),
+                ),
+            up: vec3(0.0, 1.0, 0.0),
+            z_near: 0.1,
+            z_far: 5000.0,
+            ..Default::default()
+        });
     }
 
     fn draw_remote_players(&mut self, assets: &Assets) {
@@ -539,21 +545,11 @@ impl Game {
         }
     }
 
-    fn draw_local_player_shadow(&mut self) {
-        let local_player = &self.players[self.local_player_index];
-        if !local_player.alive {
-            return;
-        }
-
-        self.draw_player_shadow(local_player.state.position);
-    }
-
     fn draw_player_shadow(&mut self, position: Vec3) {
         let shadow_color = Color::new(0.2, 0.2, 0.2, 0.35);
         let shadow_radius = player::RADIUS * 0.9;
-        const SHADOW_HEIGHT: f32 = 0.12;
-
-        let shadow_position = vec3(position.x, SHADOW_HEIGHT, position.z);
+        let shadow_height: f32 = 0.12;
+        let shadow_position = vec3(position.x, shadow_height, position.z);
         self.remote_shadow_mesh
             .draw(shadow_position, shadow_radius, shadow_color);
     }
