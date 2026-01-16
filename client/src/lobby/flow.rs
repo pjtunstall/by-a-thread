@@ -1,6 +1,6 @@
 use crate::{
     assets::Assets,
-    lobby::handlers,
+    lobby::state_handlers,
     net::RenetNetworkHandle,
     session::ClientSession,
     state::{ClientState, Lobby},
@@ -68,29 +68,29 @@ fn transition(
 ) -> Option<ClientState> {
     match session.state {
         ClientState::Lobby(Lobby::ServerAddress { .. }) => {
-            handlers::server_address::handle(session, ui)
+            state_handlers::server_address::handle(session, ui)
         }
-        ClientState::Lobby(Lobby::Passcode { .. }) => handlers::passcode::handle(session, ui),
+        ClientState::Lobby(Lobby::Passcode { .. }) => state_handlers::passcode::handle(session, ui),
         ClientState::Lobby(Lobby::Connecting { .. }) => {
-            handlers::connecting::handle(session, ui, network_handle)
+            state_handlers::connecting::handle(session, ui, network_handle)
         }
         ClientState::Lobby(Lobby::Authenticating { .. }) => {
-            handlers::auth::handle(session, ui, network_handle)
+            state_handlers::auth::handle(session, ui, network_handle)
         }
         ClientState::Lobby(Lobby::ChoosingUsername { .. }) => {
-            handlers::username::handle(session, ui, network_handle)
+            state_handlers::username::handle(session, ui, network_handle)
         }
         ClientState::Lobby(Lobby::AwaitingUsernameConfirmation) => {
-            handlers::waiting::handle(session, ui, network_handle)
+            state_handlers::waiting::handle(session, ui, network_handle)
         }
         ClientState::Lobby(Lobby::Chat { .. }) => {
-            handlers::chat::handle(session, ui, network_handle)
+            state_handlers::chat::handle(session, ui, network_handle)
         }
         ClientState::Lobby(Lobby::ChoosingDifficulty { .. }) => {
-            handlers::difficulty::handle(session, ui, network_handle)
+            state_handlers::difficulty::handle(session, ui, network_handle)
         }
         ClientState::Lobby(Lobby::Countdown { .. }) => {
-            handlers::countdown::handle(session, ui, network_handle, assets)
+            state_handlers::countdown::handle(session, ui, network_handle, assets)
         }
         ClientState::Disconnected { .. } => None,
         ClientState::Game(_) => None,

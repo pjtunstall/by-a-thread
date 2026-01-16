@@ -187,7 +187,7 @@ impl ClientRunner {
             // explicit guards at the start of each handler. This will mean
             // passing the inner state to the handler, rather than passing
             // `session`.`
-            ClientState::Lobby(_) => lobby::handlers::update(self),
+            ClientState::Lobby(_) => lobby::state_handlers::update(self),
             ClientState::AfterGameChat { .. } => {
                 let mut network = RenetNetworkHandle::new(&mut self.client, &mut self.transport);
                 if let Some(next_state) = after_game_chat::update(
@@ -342,7 +342,7 @@ async fn prompt_for_server_address(
             }
         }
 
-        if let Some(next_state) = lobby::handlers::server_address::handle(session, ui) {
+        if let Some(next_state) = lobby::state_handlers::server_address::handle(session, ui) {
             session.transition(next_state);
         }
 
