@@ -1,26 +1,49 @@
 use macroquad::prelude::*;
 
 // While Macroquad does provide a `get_fps` function, it fluctuates wildly for me and gives unrealistic values, hence this struct to track the frame rate. It takes an average of the last 60 frames.
-#[derive(Default, Debug)]
+use std::collections::VecDeque;
+
+#[derive(Debug)]
 pub struct FrameRate {
-    pub times: Vec<f32>,
+    times: VecDeque<f32>,
+    current_sum: f32,
+    sample_size: usize,
     pub rate: f32,
 }
 
+impl Default for FrameRate {
+    fn default() -> Self {
+        Self::new(60)
+    }
+}
+
 impl FrameRate {
-    pub fn new() -> Self {
+    pub fn new(sample_size: usize) -> Self {
         FrameRate {
-            times: Vec::new(),
+            times: VecDeque::with_capacity(sample_size),
+            current_sum: 0.0,
+            sample_size,
             rate: 60.0,
         }
     }
 
     pub fn update(&mut self) {
-        self.times.push(get_frame_time());
-        if self.times.len() > 60 {
-            let sum: f32 = self.times.iter().sum();
-            self.rate = 1.0 / (sum / self.times.len() as f32);
-            self.times.clear();
+        let dt = get_frame_time();
+
+        self.times.push_back(dt);
+        self.current_sum += dt;
+
+        if self.times.len() > self.sample_size {
+            if let Some(oldest) = self.times.pop_front() {
+                self.current_sum -= oldest;
+            }
+        }
+
+        if !self.times.is_empty() {
+            let average_dt = self.current_sum / self.times.len() as f32;
+            if average_dt > 0.0 {
+                self.rate = 1.0 / average_dt;
+            }
         }
     }
 }
