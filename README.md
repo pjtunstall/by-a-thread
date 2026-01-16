@@ -4,7 +4,7 @@
 
 This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://github.com/01-edu/public/tree/master/subjects/multiplayer-fps) (commit bb1e883). The aim is to remake [Maze](<https://en.wikipedia.org/wiki/Maze_(1973_video_game)>), a 3D multiplayer first-person shooter from 1973.
 
-Dependencies: I used Macroquad, a simple game framework, for window management, reading input, loading textures, rendering, and audio. I used the Renet library for some networking abstractions over UDP. On the other hand, I wrote the collision and movement physics, and went to town rolling my own netcode. (The latter, especially, under the wise tutilage of Gemini.)
+Dependencies: I used Macroquad, a simple game framework, for window management, reading input, loading textures, rendering, and audio. I used the Renet library for some networking abstractions over UDP. On the other hand, I wrote the collision and movement physics, and went to town rolling my own netcode.
 
 ## My game
 
@@ -26,7 +26,7 @@ As instructed, I've implemented three difficulty levels. The 01 instructions def
 
 ## Netcode
 
-Netcode refers to the techniques used to coordinate how players and other dynamic entities, such as projectiles, are displayed in a way that disguises latency. I found Gabriel Gambetta's introduction helpful: [Fast Paced Multiplayer](https://gabrielgambetta.com/client-server-game-architecture.html).
+Netcode refers to the techniques used to coordinate how players and other dynamic entities, such as projectiles, are displayed in a way that disguises latency. I found Gabriel Gambetta's introduction helpful: [Fast Paced Multiplayer](https://gabrielgambetta.com/client-server-game-architecture.html). Gemini was a great help too in developing a detailed plan.
 
 In what follows, "local player" will mean a player as represented on their own machine. Remote players are the other players as represented on a given player's machine.
 

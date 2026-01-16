@@ -8,10 +8,7 @@ use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
 };
-use macroquad::{
-    audio::play_sound_once,
-    prelude::*,
-};
+use macroquad::{audio::play_sound_once, prelude::*};
 
 use crate::{
     assets::Assets,
@@ -460,7 +457,7 @@ impl Game {
     }
 
     // TODO: `prediction_alpha` would be for smoothing the local player between
-    // ticks if I allow faster than 60Hz frame rate for devices that support it.
+    // ticks in case of a faster frame rate.
     pub fn draw(&mut self, _prediction_alpha: f64, assets: &Assets, fps: &FrameRate) {
         clear_background(BEIGE);
 
