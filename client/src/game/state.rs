@@ -488,7 +488,7 @@ impl Game {
             if !flash.is_still_fading_so_draw() {
                 self.flash = None;
             }
-        }       
+        }
     }
 
     fn set_camera_and_draw_local_player_shadow(&mut self) {
@@ -644,63 +644,21 @@ impl Game {
                 velocity,
                 fire_nonce,
                 shooter_index,
-            } => {
-                let adjusted_position =
-                    extrapolate_bullet_position(position, velocity, tick, self.last_sim_tick);
-                const PROMOTION_BLEND_TICKS: u8 = 4;
-                const REMOTE_SPAWN_BLEND_TICKS: u8 = 4;
-
-                if shooter_index == self.local_player_index {
-                    if let Some(fire_nonce) = fire_nonce {
-                        if let Some(bullet) = self
-                            .bullets
-                            .iter_mut()
-                            .find(|bullet| bullet.is_provisional_for(fire_nonce))
-                        {
-                            bullet.confirm(bullet_id, velocity, self.last_sim_tick);
-                            bullet.start_blend(adjusted_position, PROMOTION_BLEND_TICKS);
-                            return;
-                        }
-
-                        self.bullets.push(ClientBullet::new_confirmed_local(
-                            bullet_id,
-                            adjusted_position,
-                            velocity,
-                            self.last_sim_tick,
-                        ));
-                        return;
-                    }
-                }
-
-                self.bullets.push(ClientBullet::new_confirmed(
-                    bullet_id,
-                    adjusted_position,
-                    velocity,
-                    self.last_sim_tick,
-                ));
-
-                if shooter_index != self.local_player_index {
-                    play_sound_once(&assets.gun_sound);
-                    if let Some(owner_position) = self.interpolated_positions.get(shooter_index) {
-                        if let Some(bullet) = self.bullets.last_mut() {
-                            bullet.position = *owner_position;
-                            bullet.start_blend(adjusted_position, REMOTE_SPAWN_BLEND_TICKS);
-                        }
-                    }
-                }
-            }
+            } => self.handle_bullet_spawn_event(
+                bullet_id,
+                tick,
+                position,
+                velocity,
+                fire_nonce,
+                shooter_index,
+                assets,
+            ),
             BulletEvent::HitInanimate {
                 bullet_id,
                 tick,
                 position,
                 velocity,
-            } => {
-                if let Some(bullet) = self.bullets.iter_mut().find(|b| b.id == Some(bullet_id)) {
-                    bullet.position = position;
-                    bullet.velocity = velocity;
-                    bullet.last_update_tick = tick;
-                }
-            }
+            } => self.handle_bullet_hit_inanimate_event(bullet_id, tick, position, velocity),
             BulletEvent::HitPlayer {
                 bullet_id,
                 tick,
@@ -708,51 +666,140 @@ impl Game {
                 velocity,
                 target_index,
                 target_health,
-            } => {
-                if let Some(player) = self.players.get_mut(target_index) {
-                    player.health = target_health;
-                    player.alive = target_health > 0;
-                }
-
-                if target_health == 0 {
-                    if target_index == self.local_player_index {
-                        play_sound_once(&assets.bell_sound);
-                    } else {
-                        play_sound_once(&assets.shatter_sound);
-                    }
-                } else if target_index == self.local_player_index {
-                    play_sound_once(&assets.deep_clang);
-                } else {
-                    play_sound_once(&assets.clang);
-                }
-
-                if target_index == self.local_player_index {
-                    if target_health == 0 {
-                        self.fade_to_black = Some(fade::new_fade_to_black());
-                        self.fade_to_black_finished = false;
-                        if self.obe_effect.is_none() {
-                            self.obe_effect =
-                                Some(ObeEffect::new(self.players[target_index].state));
-                        }
-                    } else {
-                        self.flash = Some(fade::new_flash());
-                    }
-                }
-
-                if target_health == 0 {
-                    self.bullets.retain(|b| b.id != Some(bullet_id));
-                } else if let Some(bullet) =
-                    self.bullets.iter_mut().find(|b| b.id == Some(bullet_id))
-                {
-                    bullet.position = position;
-                    bullet.velocity = velocity;
-                    bullet.last_update_tick = tick;
-                }
-            }
+            } => self.handle_bullet_hit_player_event(
+                bullet_id,
+                tick,
+                position,
+                velocity,
+                target_index,
+                target_health,
+                assets,
+            ),
             BulletEvent::Expire { bullet_id, .. } => {
-                self.bullets.retain(|b| b.id != Some(bullet_id));
+                self.handle_bullet_expire_event(bullet_id);
             }
         }
+    }
+
+    fn handle_bullet_spawn_event(
+        &mut self,
+        bullet_id: u32,
+        tick: u64,
+        position: Vec3,
+        velocity: Vec3,
+        fire_nonce: Option<u32>,
+        shooter_index: usize,
+        assets: &Assets,
+    ) {
+        let adjusted_position =
+            extrapolate_bullet_position(position, velocity, tick, self.last_sim_tick);
+        const PROMOTION_BLEND_TICKS: u8 = 4;
+        const REMOTE_SPAWN_BLEND_TICKS: u8 = 4;
+
+        if shooter_index == self.local_player_index {
+            if let Some(fire_nonce) = fire_nonce {
+                if let Some(bullet) = self
+                    .bullets
+                    .iter_mut()
+                    .find(|bullet| bullet.is_provisional_for(fire_nonce))
+                {
+                    bullet.confirm(bullet_id, velocity, self.last_sim_tick);
+                    bullet.start_blend(adjusted_position, PROMOTION_BLEND_TICKS);
+                    return;
+                }
+
+                self.bullets.push(ClientBullet::new_confirmed_local(
+                    bullet_id,
+                    adjusted_position,
+                    velocity,
+                    self.last_sim_tick,
+                ));
+                return;
+            }
+        }
+
+        self.bullets.push(ClientBullet::new_confirmed(
+            bullet_id,
+            adjusted_position,
+            velocity,
+            self.last_sim_tick,
+        ));
+
+        if shooter_index != self.local_player_index {
+            play_sound_once(&assets.gun_sound);
+            if let Some(owner_position) = self.interpolated_positions.get(shooter_index) {
+                if let Some(bullet) = self.bullets.last_mut() {
+                    bullet.position = *owner_position;
+                    bullet.start_blend(adjusted_position, REMOTE_SPAWN_BLEND_TICKS);
+                }
+            }
+        }
+    }
+
+    fn handle_bullet_hit_inanimate_event(
+        &mut self,
+        bullet_id: u32,
+        tick: u64,
+        position: Vec3,
+        velocity: Vec3,
+    ) {
+        if let Some(bullet) = self.bullets.iter_mut().find(|b| b.id == Some(bullet_id)) {
+            bullet.position = position;
+            bullet.velocity = velocity;
+            bullet.last_update_tick = tick;
+        }
+    }
+
+    fn handle_bullet_hit_player_event(
+        &mut self,
+        bullet_id: u32,
+        tick: u64,
+        position: Vec3,
+        velocity: Vec3,
+        target_index: usize,
+        target_health: u8,
+        assets: &Assets,
+    ) {
+        if let Some(player) = self.players.get_mut(target_index) {
+            player.health = target_health;
+            player.alive = target_health > 0;
+        }
+
+        if target_health == 0 {
+            if target_index == self.local_player_index {
+                play_sound_once(&assets.bell_sound);
+            } else {
+                play_sound_once(&assets.shatter_sound);
+            }
+        } else if target_index == self.local_player_index {
+            play_sound_once(&assets.deep_clang);
+        } else {
+            play_sound_once(&assets.clang);
+        }
+
+        if target_index == self.local_player_index {
+            if target_health == 0 {
+                self.fade_to_black = Some(fade::new_fade_to_black());
+                self.fade_to_black_finished = false;
+                if self.obe_effect.is_none() {
+                    self.obe_effect = Some(ObeEffect::new(self.players[target_index].state));
+                }
+            } else {
+                self.flash = Some(fade::new_flash());
+            }
+        }
+
+        if target_health == 0 {
+            self.bullets.retain(|b| b.id != Some(bullet_id));
+        } else if let Some(bullet) = self.bullets.iter_mut().find(|b| b.id == Some(bullet_id)) {
+            bullet.position = position;
+            bullet.velocity = velocity;
+            bullet.last_update_tick = tick;
+        }
+    }
+
+    fn handle_bullet_expire_event(&mut self, bullet_id: u32) {
+        self.bullets.retain(|b| b.id != Some(bullet_id));
     }
 }
 
