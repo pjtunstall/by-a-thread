@@ -47,6 +47,25 @@ impl Maze {
         }
     }
 
+    pub fn grid_coordinates_from_position(&self, position: &Vec3) -> Option<(u8, u8)> {
+        let grid = &self.grid;
+        let col = (position.x / CELL_SIZE).floor() as isize;
+        let row = (position.z / CELL_SIZE).floor() as isize;
+
+        if col < 0 || row < 0 {
+            return None;
+        }
+
+        let col = col as usize;
+        let row = row as usize;
+
+        if row >= grid.len() || col >= grid[0].len() {
+            return None;
+        }
+
+        Some((col as u8, row as u8))
+    }
+
     pub fn log(&self) -> String {
         self.grid
             .iter()
@@ -244,11 +263,7 @@ mod tests {
 
     #[test]
     fn test_is_sphere_clear() {
-        let grid = vec![
-            vec![1, 1, 1],
-            vec![1, 0, 1],
-            vec![1, 1, 1],
-        ];
+        let grid = vec![vec![1, 1, 1], vec![1, 0, 1], vec![1, 1, 1]];
         let mut spaces = Vec::new();
         for (z, row) in grid.iter().enumerate() {
             for (x, cell) in row.iter().enumerate() {

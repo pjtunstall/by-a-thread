@@ -148,7 +148,8 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
     }
 
     state.current_tick += 1;
-    state.log_network_stats_if_ready();
+    // // Uncomment to log egress and ingress rates.
+    // state.net_stats.log_if_ready();
 
     None
 }

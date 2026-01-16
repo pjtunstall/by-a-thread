@@ -14,10 +14,10 @@ use common::{
     constants::TICK_SECS,
     maze::Maze,
     net::AppChannel,
-    player::{Color, WirePlayerLocal, WirePlayerRemote, COLORS},
+    player::{COLORS, Color, WirePlayerLocal, WirePlayerRemote},
     protocol::{
-        AfterGameExitReason, AfterGameLeaderboardEntry, PlayerRosterEntry,
-        GAME_ALREADY_STARTED_MESSAGE, ServerMessage,
+        AfterGameExitReason, AfterGameLeaderboardEntry, GAME_ALREADY_STARTED_MESSAGE,
+        PlayerRosterEntry, ServerMessage,
     },
     snapshot::{InitialData, Snapshot},
 };
@@ -80,7 +80,7 @@ pub struct Game {
     pub next_bullet_id: u32,
     pub after_game_chat_clients: HashSet<u64>,
     pub leaderboard_sent: bool,
-    net_stats: NetStats,
+    pub net_stats: NetStats,
 }
 
 impl Game {
@@ -164,10 +164,6 @@ impl Game {
         self.net_stats.egress_bytes = self.net_stats.egress_bytes.saturating_add(bytes as u64);
     }
 
-    pub fn log_network_stats_if_ready(&mut self) {
-        self.net_stats.log_if_ready();
-    }
-
     pub fn send_leaderboard_if_ready(&mut self, network: &mut dyn ServerNetworkHandle) {
         if self.leaderboard_sent {
             return;
@@ -221,7 +217,7 @@ impl Game {
     }
 }
 
-struct NetStats {
+pub struct NetStats {
     ingress_bytes: u64,
     egress_bytes: u64,
     window_start: Instant,
@@ -238,7 +234,7 @@ impl NetStats {
         }
     }
 
-    fn log_if_ready(&mut self) {
+    pub fn log_if_ready(&mut self) {
         let elapsed = self.window_start.elapsed();
         if elapsed < Self::WINDOW {
             return;
@@ -480,11 +476,7 @@ impl Lobby {
                 if id == client_id {
                     return None;
                 }
-                let color = self
-                    .player_colors
-                    .get(&id)
-                    .copied()
-                    .unwrap_or(COLORS[0]);
+                let color = self.player_colors.get(&id).copied().unwrap_or(COLORS[0]);
                 Some(PlayerRosterEntry {
                     username: name.clone(),
                     color,

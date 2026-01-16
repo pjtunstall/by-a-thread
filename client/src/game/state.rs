@@ -8,7 +8,10 @@ use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
 };
-use macroquad::{audio::play_sound_once, prelude::*};
+use macroquad::{
+    audio::{PlaySoundParams, play_sound, play_sound_once},
+    prelude::*,
+};
 
 use crate::{
     assets::Assets,
@@ -25,7 +28,7 @@ use crate::{
 use common::{
     bullets,
     constants::{INPUT_HISTORY_LENGTH, SNAPSHOT_BUFFER_LENGTH, TICK_SECS, TICK_SECS_F32},
-    maze::Maze,
+    maze::{self, CELL_SIZE, Maze},
     net::AppChannel,
     player::{self, Player, PlayerInput},
     protocol::{BulletEvent, ClientMessage, ServerMessage},
@@ -726,7 +729,21 @@ impl Game {
         ));
 
         if shooter_index != self.local_player_index {
-            play_sound_once(&assets.gun_sound);
+            // Only play sound if remote player is on same row or column or
+            // diagonally adjacent.
+            if self.line_of_sight(shooter_index) {
+                let distance = self.interpolated_positions[self.local_player_index]
+                    .distance(self.interpolated_positions[shooter_index]);
+                let volume = distance / maze::RADIUS as f32 * CELL_SIZE * 2.0;
+                play_sound(
+                    &assets.gun_sound,
+                    PlaySoundParams {
+                        looped: false,
+                        volume: volume,
+                        ..Default::default()
+                    },
+                );
+            }
             if let Some(owner_position) = self.interpolated_positions.get(shooter_index) {
                 if let Some(bullet) = self.bullets.last_mut() {
                     bullet.position = *owner_position;
@@ -734,6 +751,55 @@ impl Game {
                 }
             }
         }
+    }
+
+    fn line_of_sight(&self, remote_player_index: usize) -> bool {
+        let Some(local_pos) = self.interpolated_positions.get(self.local_player_index) else {
+            return false;
+        };
+        let Some(remote_pos) = self.interpolated_positions.get(remote_player_index) else {
+            return false;
+        };
+
+        let maze = &self.maze;
+        let (local_grid_x, local_grid_z) = maze
+            .grid_coordinates_from_position(local_pos)
+            .expect("local player should be in grid");
+        let (remote_grid_x, remote_grid_z) = maze
+            .grid_coordinates_from_position(remote_pos)
+            .expect("remote player should be in grid");
+
+        if (local_grid_x as i32 - remote_grid_x as i32).abs() == 1
+            && (local_grid_z as i32 - remote_grid_z as i32).abs() == 1
+        {
+            return false;
+        }
+
+        if local_grid_x != remote_grid_x && local_grid_z != remote_grid_z {
+            return false;
+        }
+
+        if local_grid_x == remote_grid_x {
+            let min_z = local_grid_z.min(remote_grid_z);
+            let max_z = local_grid_z.max(remote_grid_z);
+
+            for z in min_z..=max_z {
+                if maze.grid[z as usize][local_grid_x as usize] == 1 {
+                    return false;
+                }
+            }
+        } else {
+            let min_x = local_grid_x.min(remote_grid_x);
+            let max_x = local_grid_x.max(remote_grid_x);
+
+            for x in min_x..=max_x {
+                if maze.grid[local_grid_z as usize][x as usize] == 1 {
+                    return false;
+                }
+            }
+        }
+
+        true
     }
 
     fn handle_bullet_hit_inanimate_event(
