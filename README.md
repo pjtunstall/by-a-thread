@@ -30,6 +30,8 @@ Netcode refers to the techniques used to coordinate how players and other dynami
 
 In what follows, "local player" will mean a player as represented on their own machine. Remote players are the other players as represented on a given player's machine.
 
+TT;DR: I used reconciliation and prediction for the local player, interpolation for remote players, and dead reckoning for bullets.
+
 ## Renet
 
 Renet is a networking library for Rust, built on top of UDP. It defines three channel types: `ReliableOrdered`, `ReliableUnordered`, and `Unreliable`. You can send messages over these channels. Renet takes care of splitting them into packets and reassembling them. I've used `ReliableOrdered` for system and chat messages and for bullet spawn and collision notifications from the server. I used `Unreliable` for input from the client, and for snapshots (player position updates) from the server. `Unreliable` is faster because it doesn't have to order messages or resend ones that failed to arrive.
@@ -90,9 +92,9 @@ Similarly, when the client receives details of a bullet fired by a remote player
 
 The client simulates bounces, but the server sends authoritative notification of all collisions, and the client then snaps the bullet to its new position.
 
-Some games use an alternative technique known as lag compensation. In that more Orwellian approach, the shooter is favored. The server calculates where they saw the target at the time of shooting, and makes that its authoritative truth. Maybe you know a game like this... Lag compensation is best suited to games with extremely fast projectiles. If the target has no time to dodge, they often can't be sure that they weren't in their enemies sights.
+Some games use an alternative technique known as lag compensation. In that more Orwellian approach, the shooter is favored. The server calculates where they saw the target at the time of shooting, and makes that its authoritative truth. Maybe you know a game like this. Lag compensation is best suited to games with extremely fast projectiles. If the target has no time to dodge, they often can't be sure that they weren't in their enemies sights.
 
-Conversely, in a game like mine, with projectiles that are slow enough that you can see them coming, you might feel cheated because you knew you dodged the bullet, while the shooter is likely to be less sure that they compensated correctly for a moving target.
+Conversely, in games with projectiles that are slow enough that you can see them coming, you might feel cheated because you knew you dodged the bullet, while the shooter is likely to be less sure that they compensated correctly for a moving target. For this reason, I chose not to implement lag compensation here.
 
 ## State Machines
 
