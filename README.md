@@ -148,7 +148,9 @@ Sound effects from Yodguard and freesound_community via Pixabay.
 
 [Dolphins](https://en.wikipedia.org/wiki/Knossos#/media/File:Heraklion_%E2%80%94_Dolphin_fresco.jpg) and [bull](https://commons.wikimedia.org/wiki/File:Knossos_bull_leaping_fresco.jpg) frescos, Gleb Simonov.
 
-[Rusty texture](https://www.publicdomainpictures.net/en/view-image.php?image=149453&picture=rust-brown-texture-background) by Nona Lohr, via publicdomainpictures.net.
+[Brown rust texture background](https://www.publicdomainpictures.net/en/view-image.php?image=149453&picture=rust-brown-texture-background) by Nona Lohr, via publicdomainpictures.net.
+
+[Rust grunge texture](https://www.publicdomainpictures.net/en/free-download.php?image=rust-grunge-background-texture&id=716572) by Martina Stokow, via publicdomainpictures.net.
 
 The player avatar image is derived from a computer model of the cosmos display of the Antikythera mechanism, from [Wikicommons](https://commons.wikimedia.org/wiki/File:41598_2021_84310_Fig7_HTML.jpg), and ultimately Freeth, T., Higgon, D., Dacanalis, A. et al.: [A Model of the Cosmos in the ancient Greek Antikythera Mechanism](https://www.nature.com/articles/s41598-021-84310-w).[^1]
 

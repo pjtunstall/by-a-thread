@@ -3,10 +3,9 @@ use bincode::{
     serde::{decode_from_slice, encode_to_vec},
 };
 
+use super::start_countdown::handle_countdown_started;
 use crate::{
     assets::Assets,
-    game::world::maze,
-    game::world::sky,
     lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
     net::NetworkHandle,
     session::ClientSession,
@@ -89,51 +88,7 @@ pub fn handle(
                 },
                 _,
             )) => {
-                if let Some(assets) = assets {
-                    let wall_texture;
-                    let sky_texture;
-
-                    match game_data.difficulty {
-                        2 => {
-                            sky_texture = None;
-                            wall_texture = &assets.bull_texture;
-                        }
-                        3 => {
-                            sky_texture = Some(assets.rust_texture.clone());
-                            wall_texture = &assets.dolphins_texture;
-                        }
-                        _ => {
-                            sky_texture = None;
-                            wall_texture = &assets.griffin_texture;
-                        }
-                    };
-
-                    let sky_colors = sky::sky_colors(game_data.difficulty);
-                    let sky_mesh = sky::generate_sky(sky_texture, sky_colors);
-
-                    let maze_meshes = Some(maze::build_maze_meshes(
-                        &game_data.maze,
-                        wall_texture,
-                        &assets.floor_texture,
-                    ));
-
-                    return Some(ClientState::Lobby(Lobby::Countdown {
-                        end_time,
-                        game_data,
-                        maze_meshes,
-                        sky_mesh,
-                    }));
-                } else {
-                    let sky_colors = sky::sky_colors(game_data.difficulty);
-                    let sky_mesh = sky::generate_sky(None, sky_colors);
-
-                    return Some(ClientState::Lobby(Lobby::Countdown {
-                        end_time,
-                        game_data,
-                        maze_meshes: None,
-                        sky_mesh,
-                    }));
-                }
+                return Some(handle_countdown_started(end_time, game_data, assets));
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));

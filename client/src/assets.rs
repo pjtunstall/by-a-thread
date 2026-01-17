@@ -13,7 +13,8 @@ pub struct Assets {
     pub ball_texture: Texture2D,
     pub griffin_texture: Texture2D,
     pub dolphins_texture: Texture2D,
-    pub rust_texture: Texture2D,
+    pub brown_rust_texture: Texture2D,
+    pub blue_rust_texture: Texture2D,
     pub gun_sound: Sound,
     pub clang: Sound,
     pub deep_clang: Sound,
@@ -39,8 +40,11 @@ impl Assets {
         let dolphins_bytes = include_bytes!("../assets/images/dolphins.png");
         let dolphins_texture = Texture2D::from_file_with_format(dolphins_bytes, None);
 
-        let rust_bytes = include_bytes!("../assets/images/rust.png");
-        let rust_texture = Texture2D::from_file_with_format(rust_bytes, None);
+        let brown_rust_bytes = include_bytes!("../assets/images/rust-brown.png");
+        let brown_rust_texture = Texture2D::from_file_with_format(brown_rust_bytes, None);
+
+        let blue_rust_bytes = include_bytes!("../assets/images/rust-blue.png");
+        let blue_rust_texture = Texture2D::from_file_with_format(blue_rust_bytes, None);
 
         let floor_texture = generate_floor_texture();
 
@@ -67,7 +71,8 @@ impl Assets {
             ball_texture,
             griffin_texture,
             dolphins_texture,
-            rust_texture,
+            brown_rust_texture,
+            blue_rust_texture,
             gun_sound,
             clang,
             deep_clang,
