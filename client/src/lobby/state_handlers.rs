@@ -86,7 +86,7 @@ mod tests {
         };
         network_chat.queue_server_message(malicious_chat);
 
-        chat::handle(&mut session_chat, &mut ui_chat, &mut network_chat);
+        chat::handle(&mut session_chat, &mut ui_chat, &mut network_chat, None);
 
         assert_eq!(
             ui_chat.messages.len(),

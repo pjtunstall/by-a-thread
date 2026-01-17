@@ -19,7 +19,7 @@ use crate::{
     frame::FrameRate,
     game::input,
     game::world::maze::{MazeExtension, MazeMeshes},
-    game::world::sky::{Sky, sky_colors},
+    game::world::sky::Sky,
     info,
     net::NetworkHandle,
     session::Clock,
@@ -92,15 +92,14 @@ impl Game {
         local_player_index: usize,
         initial_data: InitialData,
         maze_meshes: MazeMeshes,
-        _sky_mesh: Mesh,
+        sky_mesh: Mesh,
         sim_tick: u64,
         info_map: info::map::MapOverlay,
     ) -> Self {
         let players = initial_data.players;
         let interpolated_positions = players.iter().map(|player| player.state.position).collect();
 
-        let sky_colors = sky_colors(initial_data.difficulty);
-        let sky = Sky::new(None, sky_colors);
+        let sky = Sky { mesh: sky_mesh };
 
         Self {
             // `snapshot_buffer.head` will be reset when the first snapshot is

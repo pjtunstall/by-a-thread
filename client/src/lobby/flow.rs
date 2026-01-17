@@ -84,10 +84,10 @@ fn transition(
             state_handlers::waiting::handle(session, ui, network_handle)
         }
         ClientState::Lobby(Lobby::Chat { .. }) => {
-            state_handlers::chat::handle(session, ui, network_handle)
+            state_handlers::chat::handle(session, ui, network_handle, assets)
         }
         ClientState::Lobby(Lobby::ChoosingDifficulty { .. }) => {
-            state_handlers::difficulty::handle(session, ui, network_handle)
+            state_handlers::difficulty::handle(session, ui, network_handle, assets)
         }
         ClientState::Lobby(Lobby::Countdown { .. }) => {
             state_handlers::countdown::handle(session, ui, network_handle, assets)

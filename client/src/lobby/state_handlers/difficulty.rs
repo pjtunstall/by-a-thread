@@ -4,6 +4,8 @@ use bincode::{
 };
 
 use crate::{
+    assets::Assets,
+    game::world::maze,
     game::world::sky,
     lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
     net::NetworkHandle,
@@ -46,6 +48,7 @@ pub fn handle(
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
+    assets: Option<&Assets>,
 ) -> Option<ClientState> {
     let is_correct_state = matches!(
         &session.state,
@@ -86,15 +89,51 @@ pub fn handle(
                 },
                 _,
             )) => {
-                let sky_colors = sky::sky_colors(game_data.difficulty);
-                let sky_mesh = sky::SkyMesh::new(sky_colors);
+                if let Some(assets) = assets {
+                    let wall_texture;
+                    let sky_texture;
 
-                return Some(ClientState::Lobby(Lobby::Countdown {
-                    end_time,
-                    game_data,
-                    maze_meshes: None,
-                    sky_mesh,
-                }));
+                    match game_data.difficulty {
+                        2 => {
+                            sky_texture = None;
+                            wall_texture = &assets.bull_texture;
+                        }
+                        3 => {
+                            sky_texture = Some(assets.rust_texture.clone());
+                            wall_texture = &assets.dolphins_texture;
+                        }
+                        _ => {
+                            sky_texture = None;
+                            wall_texture = &assets.griffin_texture;
+                        }
+                    };
+
+                    let sky_colors = sky::sky_colors(game_data.difficulty);
+                    let sky_mesh = sky::generate_sky(sky_texture, sky_colors);
+
+                    let maze_meshes = Some(maze::build_maze_meshes(
+                        &game_data.maze,
+                        wall_texture,
+                        &assets.floor_texture,
+                    ));
+
+                    return Some(ClientState::Lobby(Lobby::Countdown {
+                        end_time,
+                        game_data,
+                        maze_meshes,
+                        sky_mesh,
+                    }));
+                } else {
+                    let sky_colors = sky::sky_colors(game_data.difficulty);
+                    let sky_mesh = sky::generate_sky(None, sky_colors);
+
+                    return Some(ClientState::Lobby(Lobby::Countdown {
+                        end_time,
+                        game_data,
+                        maze_meshes: None,
+                        sky_mesh,
+                    }));
+                }
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));
@@ -188,7 +227,7 @@ mod tests {
         let mut session = ClientSession::new(0);
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
-        handle(&mut session, &mut ui, &mut network);
+        handle(&mut session, &mut ui, &mut network, None);
     }
 
     #[test]
@@ -201,7 +240,7 @@ mod tests {
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
         assert!(
-            handle(&mut session, &mut ui, &mut network).is_none(),
+            handle(&mut session, &mut ui, &mut network, None).is_none(),
             "should not panic and should return None"
         );
     }
@@ -220,7 +259,7 @@ mod tests {
             message: INVALID_CHOICE_MESSAGE.to_string(),
         });
 
-        let next = handle(&mut session, &mut ui, &mut network);
+        let next = handle(&mut session, &mut ui, &mut network, None);
 
         assert!(next.is_none());
 
@@ -254,7 +293,7 @@ mod tests {
         ui.keys.push_back(Ok(Some(UiKey::Char('2'))));
         let mut network = MockNetwork::new();
 
-        let next = handle(&mut session, &mut ui, &mut network);
+        let next = handle(&mut session, &mut ui, &mut network, None);
 
         assert!(next.is_none());
 
@@ -291,7 +330,7 @@ mod tests {
         ui.keys.push_back(Err(UiInputError::Disconnected));
         let mut network = MockNetwork::new();
 
-        let next = handle(&mut session, &mut ui, &mut network);
+        let next = handle(&mut session, &mut ui, &mut network, None);
 
         assert!(
             matches!(next, Some(ClientState::Disconnected { .. })),

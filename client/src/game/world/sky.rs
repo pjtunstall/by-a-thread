@@ -1,38 +1,9 @@
 use std::f32::consts::PI;
-use std::fmt;
 
 use macroquad::prelude::*;
 
-pub struct SkyMesh {
-    mesh: Mesh,
-}
-
-impl SkyMesh {
-    pub fn new(sky_colors: [[u8; 4]; 3]) -> Self {
-        let mesh = generate_sky(None, sky_colors);
-        Self { mesh }
-    }
-
-    pub fn draw(&self) {
-        draw_mesh(&self.mesh);
-    }
-
-    pub fn into_mesh(self) -> Mesh {
-        self.mesh
-    }
-}
-
-impl fmt::Debug for SkyMesh {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SkyMesh")
-            .field("vertex_count", &self.mesh.vertices.len())
-            .field("index_count", &self.mesh.indices.len())
-            .finish()
-    }
-}
-
 pub struct Sky {
-    mesh: Mesh,
+    pub mesh: Mesh,
 }
 
 impl Sky {

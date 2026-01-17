@@ -4,6 +4,8 @@ use bincode::{
 };
 
 use crate::{
+    assets::Assets,
+    game::world::maze,
     game::world::sky,
     lobby::ui::{LobbyUi, UiErrorKind},
     net::NetworkHandle,
@@ -19,6 +21,7 @@ pub fn handle(
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
+    assets: Option<&Assets>,
 ) -> Option<ClientState> {
     if !matches!(&session.state, ClientState::Lobby(Lobby::Chat { .. })) {
         panic!(
@@ -38,15 +41,54 @@ pub fn handle(
                 },
                 _,
             )) => {
-                let sky_colors = sky::sky_colors(game_data.difficulty);
-                let sky_mesh = sky::SkyMesh::new(sky_colors);
+                if let Some(assets) = assets {
+                    let sky_colors = sky::sky_colors(game_data.difficulty);
+                    let wall_texture;
+                    let sky_texture;
 
-                return Some(ClientState::Lobby(Lobby::Countdown {
-                    end_time,
-                    game_data,
-                    maze_meshes: None,
-                    sky_mesh,
-                }));
+                    match game_data.difficulty {
+                        1 => {
+                            sky_texture = None;
+                            wall_texture = &assets.griffin_texture;
+                        }
+                        2 => {
+                            sky_texture = None;
+                            wall_texture = &assets.bull_texture;
+                        }
+                        3 => {
+                            sky_texture = Some(assets.rust_texture.clone());
+                            wall_texture = &assets.rust_texture;
+                        }
+                        _ => {
+                            sky_texture = None;
+                            wall_texture = &assets.bull_texture;
+                        }
+                    };
+
+                    let sky_mesh = sky::generate_sky(sky_texture, sky_colors);
+                    let maze_meshes = Some(maze::build_maze_meshes(
+                        &game_data.maze,
+                        wall_texture,
+                        &assets.floor_texture,
+                    ));
+
+                    return Some(ClientState::Lobby(Lobby::Countdown {
+                        end_time,
+                        game_data,
+                        maze_meshes,
+                        sky_mesh,
+                    }));
+                } else {
+                    let sky_colors = sky::sky_colors(game_data.difficulty);
+                    let sky_mesh = sky::generate_sky(None, sky_colors);
+
+                    return Some(ClientState::Lobby(Lobby::Countdown {
+                        end_time,
+                        game_data,
+                        maze_meshes: None,
+                        sky_mesh,
+                    }));
+                }
             }
             Ok((ServerMessage::BeginDifficultySelection, _)) => {
                 return Some(ClientState::Lobby(Lobby::ChoosingDifficulty {
@@ -178,7 +220,7 @@ mod tests {
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
 
-            handle(&mut session, &mut ui, &mut network);
+            handle(&mut session, &mut ui, &mut network, None);
         }
 
         #[test]
@@ -191,7 +233,7 @@ mod tests {
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
             assert!(
-                handle(&mut session, &mut ui, &mut network).is_none(),
+                handle(&mut session, &mut ui, &mut network, None).is_none(),
                 "should not panic and should return None"
             );
         }
@@ -214,7 +256,7 @@ mod tests {
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
 
-        handle(&mut session, &mut ui, &mut network);
+        handle(&mut session, &mut ui, &mut network, None);
 
         assert_eq!(network.sent_messages.len(), 1);
 
@@ -254,7 +296,7 @@ mod tests {
 
         network.queue_server_message(malicious_chat);
 
-        handle(&mut session, &mut ui, &mut network);
+        handle(&mut session, &mut ui, &mut network, None);
 
         assert_eq!(ui.messages.len(), 1);
         assert_eq!(ui.messages[0], "Hacker: This is Danger!");
@@ -275,7 +317,7 @@ mod tests {
 
         session.add_input("\t".to_string());
 
-        let next_state = handle(&mut session, &mut ui, &mut network);
+        let next_state = handle(&mut session, &mut ui, &mut network, None);
 
         assert!(next_state.is_none());
         assert_eq!(network.sent_messages.len(), 1);

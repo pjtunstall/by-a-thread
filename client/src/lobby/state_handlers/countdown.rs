@@ -2,8 +2,6 @@ use bincode::{config::standard, serde::decode_from_slice};
 
 use crate::{
     assets::Assets,
-    game::world::maze,
-    game::world::sky,
     lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
     net::NetworkHandle,
     session::ClientSession,
@@ -24,14 +22,8 @@ pub fn handle(
         );
     }
 
-    if let (
-        Some(assets),
-        ClientState::Lobby(Lobby::Countdown {
-            game_data,
-            maze_meshes,
-            ..
-        }),
-    ) = (assets, &mut session.state)
+    if let (Some(_assets), ClientState::Lobby(Lobby::Countdown { game_data, .. })) =
+        (assets, &mut session.state)
     {
         if game_data.maze.grid.is_empty()
             || game_data.maze.grid[0].is_empty()
@@ -42,28 +34,8 @@ pub fn handle(
             });
         }
 
-        if maze_meshes.is_none() {
-            let wall_texture = match game_data.difficulty {
-                1 => &assets.griffin_texture,
-                2 => &assets.bull_texture,
-                3 => &assets.dolphins_texture,
-                _ => &assets.bull_texture,
-            };
-            let built_meshes =
-                maze::build_maze_meshes(&game_data.maze, wall_texture, &assets.floor_texture);
-            *maze_meshes = Some(built_meshes);
-
-            let sky_colors = sky::sky_colors(game_data.difficulty);
-            let sky_mesh = sky::SkyMesh::new(sky_colors);
-
-            if let ClientState::Lobby(Lobby::Countdown {
-                sky_mesh: session_sky_mesh,
-                ..
-            }) = &mut session.state
-            {
-                *session_sky_mesh = sky_mesh;
-            }
-        }
+        // Meshes are now created when transitioning to countdown state,
+        // so we don't need to recreate them here
     }
 
     if network.is_disconnected() {
@@ -127,16 +99,19 @@ pub fn handle(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::{MockNetwork, MockUi};
+    use crate::{
+        game::world::sky,
+        test_helpers::{MockNetwork, MockUi},
+    };
     use common::snapshot::InitialData;
 
     fn countdown_state_with(end_time: f64) -> ClientState {
-        let sky_colors = sky::sky_colors(1); // Default to level 1
+        let sky_colors = sky::sky_colors(1);
         ClientState::Lobby(Lobby::Countdown {
             end_time,
             game_data: InitialData::default(),
             maze_meshes: None,
-            sky_mesh: sky::SkyMesh::new(sky_colors),
+            sky_mesh: sky::generate_sky(None, sky_colors),
         })
     }
 
