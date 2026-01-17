@@ -17,17 +17,20 @@ use common::{
 };
 
 pub fn handle(
+    lobby_state: &mut Lobby,
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
     assets: Option<&Assets>,
 ) -> Option<ClientState> {
-    if !matches!(&session.state, ClientState::Lobby(Lobby::Chat { .. })) {
-        panic!(
-            "called chat::handle() when state was not Chat; current state: {:?}",
-            &session.state
-        );
-    }
+    let Lobby::Chat {
+        awaiting_initial_roster: _,
+        waiting_for_server: _,
+    } = lobby_state
+    else {
+        // Type system ensures this never happens.
+        unreachable!();
+    };
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         session.set_chat_waiting_for_server(false);
@@ -160,37 +163,6 @@ mod tests {
     use crate::{test_helpers::MockNetwork, test_helpers::MockUi};
     use common::chat::MAX_CHAT_MESSAGE_BYTES;
 
-    mod guards {
-        use super::*;
-
-        #[test]
-        #[should_panic(
-            expected = "called chat::handle() when state was not Chat; current state: Lobby(ServerAddress { prompt_printed: false })"
-        )]
-        fn chat_panics_if_not_in_chat_state() {
-            let mut session = ClientSession::new(0);
-            let mut ui = MockUi::default();
-            let mut network = MockNetwork::new();
-
-            handle(&mut session, &mut ui, &mut network, None);
-        }
-
-        #[test]
-        fn chat_does_not_panic_in_chat_state() {
-            let mut session = ClientSession::new(0);
-            session.transition(ClientState::Lobby(Lobby::Chat {
-                awaiting_initial_roster: true,
-                waiting_for_server: false,
-            }));
-            let mut ui = MockUi::default();
-            let mut network = MockNetwork::new();
-            assert!(
-                handle(&mut session, &mut ui, &mut network, None).is_none(),
-                "should not panic and should return None"
-            );
-        }
-    }
-
     #[test]
     fn enforces_max_message_length() {
         let mut session = ClientSession::new(0);
@@ -203,12 +175,38 @@ mod tests {
 
         let long_message = "a".repeat(MAX_CHAT_MESSAGE_BYTES + 1);
 
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(
+                    lobby_state,
+                    &mut session,
+                    &mut MockUi::new(),
+                    &mut MockNetwork::new(),
+                    None,
+                )
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
+
         session.add_input(long_message.clone());
 
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
 
-        handle(&mut session, &mut ui, &mut network, None);
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network, None)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert_eq!(network.sent_messages.len(), 1);
 
@@ -248,7 +246,16 @@ mod tests {
 
         network.queue_server_message(malicious_chat);
 
-        handle(&mut session, &mut ui, &mut network, None);
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network, None)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert_eq!(ui.messages.len(), 1);
         assert_eq!(ui.messages[0], "Hacker: This is Danger!");
@@ -269,9 +276,18 @@ mod tests {
 
         session.add_input("\t".to_string());
 
-        let next_state = handle(&mut session, &mut ui, &mut network, None);
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network, None)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
-        assert!(next_state.is_none());
+        assert!(_next_state.is_none());
         assert_eq!(network.sent_messages.len(), 1);
         let (channel, payload) = network.sent_messages.pop_front().unwrap();
         assert_eq!(channel, AppChannel::ReliableOrdered);

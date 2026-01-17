@@ -87,7 +87,22 @@ mod tests {
         };
         network_chat.queue_server_message(malicious_chat);
 
-        chat::handle(&mut session_chat, &mut ui_chat, &mut network_chat, None);
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session_chat.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                chat::handle(
+                    lobby_state,
+                    &mut session_chat,
+                    &mut ui_chat,
+                    &mut network_chat,
+                    None,
+                )
+            } else {
+                panic!("expected Lobby state");
+            };
+            session_chat.state = temp_state;
+            result
+        };
 
         assert_eq!(
             ui_chat.messages.len(),
@@ -114,7 +129,21 @@ mod tests {
         };
         network_auth.queue_server_message(malicious_info);
 
-        auth::handle(&mut session_auth, &mut ui_auth, &mut network_auth);
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session_auth.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                auth::handle(
+                    lobby_state,
+                    &mut session_auth,
+                    &mut ui_auth,
+                    &mut network_auth,
+                )
+            } else {
+                panic!("expected Lobby state");
+            };
+            session_auth.state = temp_state;
+            result
+        };
 
         assert_eq!(
             ui_auth.messages.len(),

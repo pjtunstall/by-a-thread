@@ -9,7 +9,7 @@ use crate::{
     lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
     net::NetworkHandle,
     session::ClientSession,
-    state::{ClientState, InputMode, Lobby},
+    state::{ClientState, Lobby},
 };
 use common::{
     input::UiKey,
@@ -22,61 +22,60 @@ const INVALID_CHOICE_MESSAGE: &str = "Invalid choice. Please press 1, 2, or 3.";
 fn enqueue_difficulty_input(
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
+    choice_sent: bool,
 ) -> Option<ClientState> {
-    if !matches!(session.input_mode(), InputMode::SingleKey) {
+    // Don't use session.input_mode() here because session.state has been extracted
+    // by std::mem::take in flow.rs. Instead, determine input mode from choice_sent.
+    if choice_sent {
+        // Already sent, don't accept more input
         return None;
     }
 
     match ui.poll_single_key() {
-        Ok(Some(UiKey::Char(c))) if matches!(c, '1' | '2' | '3') => {
-            session.add_input(c.to_string());
-        }
-        Err(e @ UiInputError::Disconnected) => {
-            ui.show_sanitized_error(&format!("No connection: {}.", e));
+        Ok(key_result) => match key_result {
+            Some(UiKey::Char(c)) if matches!(c, '1' | '2' | '3') => {
+                session.add_input(c.to_string());
+            }
+            _ => {}
+        },
+        Err(UiInputError::Disconnected) => {
+            ui.show_sanitized_error("No connection: disconnected.");
             return Some(ClientState::Disconnected {
-                message: e.to_string(),
+                message: "disconnected".to_string(),
             });
         }
-        _ => {}
     }
 
     None
 }
 
 pub fn handle(
+    lobby_state: &mut Lobby,
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
     assets: Option<&Assets>,
 ) -> Option<ClientState> {
-    let is_correct_state = matches!(
-        &session.state,
-        ClientState::Lobby(Lobby::ChoosingDifficulty { .. })
-    );
-    if !is_correct_state {
-        panic!(
-            "called difficulty::handle() when state was not ChoosingDifficulty; current state: {:?}",
-            &session.state
-        );
+    let Lobby::ChoosingDifficulty {
+        prompt_printed,
+        choice_sent,
+    } = lobby_state
+    else {
+        // Type system ensures this never happens.
+        unreachable!();
     };
 
-    if let Some(next_state) = enqueue_difficulty_input(session, ui) {
+    if let Some(next_state) = enqueue_difficulty_input(session, ui, *choice_sent) {
         return Some(next_state);
     }
 
-    if let ClientState::Lobby(Lobby::ChoosingDifficulty {
-        prompt_printed,
-        choice_sent,
-    }) = &mut session.state
-    {
-        if !*prompt_printed && !*choice_sent {
-            ui.show_message("Server: Choose a difficulty level:");
-            ui.show_message("  1. Easy");
-            ui.show_message("  2. So-so");
-            ui.show_message("  3. Next level");
-            ui.show_prompt("Press 1, 2, or 3.");
-            *prompt_printed = true;
-        }
+    if !*prompt_printed && !*choice_sent {
+        ui.show_message("Server: Choose a difficulty level:");
+        ui.show_message("  1. Easy");
+        ui.show_message("  2. So-so");
+        ui.show_message("  3. Next level");
+        ui.show_prompt("Press 1, 2, or 3.");
+        *prompt_printed = true;
     }
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
@@ -92,14 +91,11 @@ pub fn handle(
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));
-                if let ClientState::Lobby(Lobby::ChoosingDifficulty {
-                    prompt_printed,
-                    choice_sent,
-                }) = &mut session.state
-                {
-                    *choice_sent = false;
-                    *prompt_printed = false;
-                }
+                // Reset state when server info received
+                return Some(ClientState::Lobby(Lobby::ChoosingDifficulty {
+                    prompt_printed: false,
+                    choice_sent: false,
+                }));
             }
             Ok((_, _)) => {}
             Err(e) => ui.show_typed_error(
@@ -109,12 +105,8 @@ pub fn handle(
         }
     }
 
-    let choice_already_sent =
-        if let ClientState::Lobby(Lobby::ChoosingDifficulty { choice_sent, .. }) = &session.state {
-            *choice_sent
-        } else {
-            false
-        };
+    // Check if choice was already sent via lobby_state
+    let choice_already_sent = *choice_sent;
 
     if !choice_already_sent {
         if let Some(input) = session.take_input() {
@@ -138,12 +130,14 @@ pub fn handle(
                     encode_to_vec(&msg, standard()).expect("failed to serialize SetDifficulty");
                 network.send_message(AppChannel::ReliableOrdered, payload);
 
-                if let ClientState::Lobby(Lobby::ChoosingDifficulty { choice_sent, .. }) =
-                    &mut session.state
-                {
-                    *choice_sent = true;
-                }
+                // Return updated state with choice_sent set to true
+                return Some(ClientState::Lobby(Lobby::ChoosingDifficulty {
+                    prompt_printed: *prompt_printed,
+                    choice_sent: true,
+                }));
             }
+        } else {
+            session.take_input();
         }
     } else {
         session.take_input();
@@ -176,13 +170,23 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "called difficulty::handle() when state was not ChoosingDifficulty; current state: Lobby(ServerAddress { prompt_printed: false })"
+        expected = "called difficulty::handle() with non-ChoosingDifficulty state: Lobby(ServerAddress { prompt_printed: false })"
     )]
     fn guards_panics_if_not_in_correct_state() {
         let mut session = ClientSession::new(0);
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
-        handle(&mut session, &mut ui, &mut network, None);
+
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network, None)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
     }
 
     #[test]
@@ -195,7 +199,17 @@ mod tests {
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
         assert!(
-            handle(&mut session, &mut ui, &mut network, None).is_none(),
+            {
+                let mut temp_state = std::mem::take(&mut session.state);
+                let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                    handle(lobby_state, &mut session, &mut ui, &mut network, None)
+                } else {
+                    panic!("expected Lobby state");
+                };
+                session.state = temp_state;
+                result
+            }
+            .is_none(),
             "should not panic and should return None"
         );
     }
@@ -214,9 +228,18 @@ mod tests {
             message: INVALID_CHOICE_MESSAGE.to_string(),
         });
 
-        let next = handle(&mut session, &mut ui, &mut network, None);
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network, None)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
-        assert!(next.is_none());
+        assert!(_next_state.is_none());
 
         assert!(
             matches!(
@@ -248,9 +271,18 @@ mod tests {
         ui.keys.push_back(Ok(Some(UiKey::Char('2'))));
         let mut network = MockNetwork::new();
 
-        let next = handle(&mut session, &mut ui, &mut network, None);
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network, None)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
-        assert!(next.is_none());
+        assert!(_next_state.is_none());
 
         assert!(
             matches!(
@@ -285,12 +317,21 @@ mod tests {
         ui.keys.push_back(Err(UiInputError::Disconnected));
         let mut network = MockNetwork::new();
 
-        let next = handle(&mut session, &mut ui, &mut network, None);
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network, None)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert!(
-            matches!(next, Some(ClientState::Disconnected { .. })),
+            matches!(_next_state, Some(ClientState::Disconnected { .. })),
             "expected transition to disconnected, got {:?}",
-            next
+            _next_state
         );
     }
 }

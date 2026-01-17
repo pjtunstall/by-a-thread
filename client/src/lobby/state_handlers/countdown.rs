@@ -10,21 +10,24 @@ use crate::{
 use common::{net::AppChannel, protocol::ServerMessage};
 
 pub fn handle(
+    lobby_state: &mut Lobby,
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
     assets: Option<&Assets>,
 ) -> Option<ClientState> {
-    if !matches!(&session.state, ClientState::Lobby(Lobby::Countdown { .. })) {
-        panic!(
-            "called countdown::handle() when state was not Countdown; current state: {:?}",
-            &session.state
-        );
-    }
+    let Lobby::Countdown {
+        end_time,
+        game_data,
+        maze_meshes: _,
+        sky_mesh: _,
+    } = lobby_state
+    else {
+        // Type system ensures this never happens.
+        unreachable!();
+    };
 
-    if let (Some(_assets), ClientState::Lobby(Lobby::Countdown { game_data, .. })) =
-        (assets, &mut session.state)
-    {
+    if let Some(_assets) = assets {
         if game_data.maze.grid.is_empty()
             || game_data.maze.grid[0].is_empty()
             || game_data.maze.spaces.is_empty()
@@ -73,12 +76,7 @@ pub fn handle(
         }
     }
 
-    let end_time = match &session.state {
-        ClientState::Lobby(Lobby::Countdown { end_time, .. }) => *end_time,
-        _ => return None,
-    };
-
-    let time_remaining = end_time - session.clock.estimated_server_time;
+    let time_remaining = *end_time - session.clock.estimated_server_time;
 
     let countdown_value = if time_remaining < 0.0 {
         0
@@ -125,7 +123,16 @@ mod tests {
         session.clock.estimated_server_time = 0.1;
         session.transition(countdown_state_with(0.4));
 
-        let next_state = handle(&mut session, &mut ui, &mut network, None);
+        let next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network, None)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert!(
             next_state.is_none(),
@@ -150,7 +157,16 @@ mod tests {
         session.clock.estimated_server_time = 10.0;
         session.transition(countdown_state_with(15.0));
 
-        let next_state = handle(&mut session, &mut ui, &mut network, None);
+        let next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network, None)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert!(next_state.is_none());
         assert!(matches!(
@@ -172,7 +188,16 @@ mod tests {
         session.clock.estimated_server_time = 13.5;
         session.transition(countdown_state_with(15.0));
 
-        let next_state = handle(&mut session, &mut ui, &mut network, None);
+        let next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network, None)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert!(next_state.is_none());
         assert_eq!(ui.countdown_draws.len(), 1);
@@ -192,7 +217,16 @@ mod tests {
         session.clock.estimated_server_time = 10.0;
         session.transition(countdown_state_with(9.0));
 
-        let next_state = handle(&mut session, &mut ui, &mut network, None);
+        let next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network, None)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert!(next_state.is_none());
     }
@@ -207,7 +241,16 @@ mod tests {
         session.transition(countdown_state_with(15.0));
         network.set_disconnected(true, "Server hung up.");
 
-        let next_state = handle(&mut session, &mut ui, &mut network, None);
+        let next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network, None)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert!(next_state.is_some());
         if let Some(ClientState::Disconnected { message }) = next_state {

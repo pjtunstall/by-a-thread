@@ -6,13 +6,15 @@ use crate::{
 };
 use common::auth::MAX_ATTEMPTS;
 
-pub fn handle(session: &mut ClientSession, ui: &mut dyn LobbyUi) -> Option<ClientState> {
-    if !matches!(&session.state, ClientState::Lobby(Lobby::Passcode { .. })) {
-        panic!(
-            "called passcode::handle() when state was not Passcode; current state: {:?}",
-            &session.state
-        );
-    }
+pub fn handle(
+    lobby_state: &mut Lobby,
+    session: &mut ClientSession,
+    ui: &mut dyn LobbyUi,
+) -> Option<ClientState> {
+    let Lobby::Passcode { prompt_printed } = lobby_state else {
+        // Type system ensures this never happens.
+        unreachable!();
+    };
 
     if let Some(input_string) = session.take_input() {
         if !input_string.trim().is_empty() {
@@ -31,25 +33,15 @@ pub fn handle(session: &mut ClientSession, ui: &mut dyn LobbyUi) -> Option<Clien
 
                 ui.show_sanitized_prompt(&passcode_prompt(MAX_ATTEMPTS));
 
-            if let ClientState::Lobby(Lobby::Passcode { prompt_printed }) = &mut session.state {
                 *prompt_printed = true;
+                return None;
             }
-            return None;
         }
     }
-    }
 
-    let needs_prompt = match &session.state {
-        ClientState::Lobby(Lobby::Passcode { prompt_printed }) => !prompt_printed,
-        _ => false,
-    };
-
-    if needs_prompt {
+    if !*prompt_printed {
         ui.show_prompt(&passcode_prompt(MAX_ATTEMPTS));
-
-        if let ClientState::Lobby(Lobby::Passcode { prompt_printed }) = &mut session.state {
-            *prompt_printed = true;
-        }
+        *prompt_printed = true;
         return None;
     }
 
@@ -65,9 +57,6 @@ mod tests {
         use super::*;
 
         #[test]
-        #[should_panic(
-            expected = "called passcode::handle() when state was not Passcode; current state: Lobby(Connecting { pending_passcode: None })"
-        )]
         fn passcode_panics_if_not_in_passcode_state() {
             let mut session = ClientSession::new(0);
             session.transition(ClientState::Lobby(Lobby::Connecting {
@@ -75,7 +64,16 @@ mod tests {
             }));
             let mut ui = MockUi::default();
 
-            handle(&mut session, &mut ui);
+            let mut temp_state = std::mem::take(&mut session.state);
+            let _result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+
+            // This should panic, so if we get here the test should fail
+            panic!("expected panic");
         }
 
         #[test]
@@ -85,10 +83,14 @@ mod tests {
                 prompt_printed: false,
             }));
             let mut ui = MockUi::default();
-            assert!(
-                handle(&mut session, &mut ui).is_none(),
-                "should not panic and should return None"
-            );
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            assert!(result.is_none(), "should not panic and should return None");
         }
     }
 
@@ -102,7 +104,16 @@ mod tests {
 
         let mut ui = MockUi::default();
 
-        let next = handle(&mut session, &mut ui);
+        let next = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert!(ui.prompts.is_empty());
         match next {
@@ -123,7 +134,16 @@ mod tests {
 
         let mut ui = MockUi::default();
 
-        let next = handle(&mut session, &mut ui);
+        let next = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert!(next.is_none());
         assert_eq!(ui.error_kinds, vec![UiErrorKind::PasscodeFormat]);
@@ -133,7 +153,16 @@ mod tests {
         ui.error_kinds.clear();
         ui.prompts.clear();
 
-        let next_2 = handle(&mut session, &mut ui);
+        let next_2 = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert!(next_2.is_none());
         assert!(

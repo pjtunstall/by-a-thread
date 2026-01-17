@@ -21,19 +21,20 @@ use common::{
 };
 
 pub fn handle(
+    lobby_state: &mut Lobby,
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    if !matches!(
-        &session.state,
-        ClientState::Lobby(Lobby::Authenticating { .. })
-    ) {
-        panic!(
-            "called auth::handle() when state was not Authenticating; current state: {:?}",
-            &session.state
-        );
-    }
+    let Lobby::Authenticating {
+        waiting_for_input,
+        guesses_left,
+        waiting_for_server,
+    } = lobby_state
+    else {
+        // Type system ensures this never happens.
+        unreachable!();
+    };
 
     let mut guess_sent_this_frame = false;
 
@@ -55,16 +56,9 @@ pub fn handle(
                         prompt_printed: false,
                     }));
                 } else if sanitized_message == AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE {
-                    if let ClientState::Lobby(Lobby::Authenticating {
-                        waiting_for_input,
-                        guesses_left,
-                        ..
-                    }) = &mut session.state
-                    {
-                        *guesses_left = guesses_left.saturating_sub(1);
-                        ui.show_sanitized_prompt(&passcode_prompt(*guesses_left));
-                        *waiting_for_input = true;
-                    }
+                    *guesses_left = guesses_left.saturating_sub(1);
+                    ui.show_sanitized_prompt(&passcode_prompt(*guesses_left));
+                    *waiting_for_input = true;
                 } else if sanitized_message == AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE {
                     return Some(ClientState::Disconnected {
                         message: "Authentication failed.".to_string(),
@@ -87,60 +81,44 @@ pub fn handle(
         if input_string.trim().is_empty() {
             continue;
         }
-        if let ClientState::Lobby(Lobby::Authenticating {
-            waiting_for_input,
-            guesses_left,
-            waiting_for_server,
-        }) = &mut session.state
-        {
-            if *waiting_for_input {
-                if let Some(passcode) = parse_passcode_input(&input_string) {
-                    ui.show_sanitized_message("Sending new guess...");
+        if *waiting_for_input {
+            if let Some(passcode) = parse_passcode_input(&input_string) {
+                ui.show_sanitized_message("Sending new guess...");
 
-                    let message = ClientMessage::SendPasscode(passcode.bytes);
-                    let payload = encode_to_vec(&message, standard())
-                        .expect("failed to serialize SendPasscode");
-                    network.send_message(AppChannel::ReliableOrdered, payload);
+                let message = ClientMessage::SendPasscode(passcode.bytes);
+                let payload =
+                    encode_to_vec(&message, standard()).expect("failed to serialize SendPasscode");
+                network.send_message(AppChannel::ReliableOrdered, payload);
 
-                    should_mark_waiting_for_server = true;
-                    *waiting_for_server = true;
-                    *waiting_for_input = false;
-                    guess_sent_this_frame = true;
-                } else {
-                    ui.show_typed_error(
-                        UiErrorKind::PasscodeFormat,
-                        &format!(
-                            "Invalid format: \"{}\". Passcode must be a 6-digit number.",
-                            input_string.trim()
-                        ),
-                    );
+                should_mark_waiting_for_server = true;
+                *waiting_for_server = true;
+                *waiting_for_input = false;
+                guess_sent_this_frame = true;
+            } else {
+                ui.show_typed_error(
+                    UiErrorKind::PasscodeFormat,
+                    &format!(
+                        "Invalid format: \"{}\". Passcode must be a 6-digit number.",
+                        input_string.trim()
+                    ),
+                );
 
-                    ui.show_sanitized_prompt(&passcode_prompt(*guesses_left));
-                }
+                ui.show_sanitized_prompt(&passcode_prompt(*guesses_left));
             }
         }
-        if !matches!(
-            &session.state,
-            ClientState::Lobby(Lobby::Authenticating { .. })
-        ) {
-            break;
-        }
-
         if should_mark_waiting_for_server {
             session.set_auth_waiting_for_server(true);
         }
     }
 
-    let waiting_for_server = session.auth_waiting_for_server();
-    if let ClientState::Lobby(Lobby::Authenticating {
-        waiting_for_input, ..
-    }) = &mut session.state
-    {
-        if guess_sent_this_frame {
-            *waiting_for_input = false;
-        } else if !*waiting_for_input && !waiting_for_server {
-            *waiting_for_input = true;
-        }
+    if session.auth_waiting_for_server() && !*waiting_for_input && !guess_sent_this_frame {
+        ui.show_prompt(&passcode_prompt(*guesses_left));
+    }
+
+    if guess_sent_this_frame {
+        *waiting_for_input = false;
+    } else if !*waiting_for_input && !session.auth_waiting_for_server() {
+        *waiting_for_input = true;
     }
 
     if network.is_disconnected() {

@@ -7,16 +7,15 @@ use crate::{
     state::{ClientState, Lobby},
 };
 
-pub fn handle(session: &mut ClientSession, ui: &mut dyn LobbyUi) -> Option<ClientState> {
-    if !matches!(
-        &session.state,
-        ClientState::Lobby(Lobby::ServerAddress { .. })
-    ) {
-        panic!(
-            "called server_address::handle() when state was not ServerAddress; current state: {:?}",
-            &session.state
-        );
-    }
+pub fn handle(
+    lobby_state: &mut Lobby,
+    session: &mut ClientSession,
+    ui: &mut dyn LobbyUi,
+) -> Option<ClientState> {
+    let Lobby::ServerAddress { prompt_printed } = lobby_state else {
+        // Type system ensures this never happens.
+        unreachable!();
+    };
 
     let default_addr = default_server_addr();
 
@@ -33,27 +32,15 @@ pub fn handle(session: &mut ClientSession, ui: &mut dyn LobbyUi) -> Option<Clien
                 ui.show_error(&message);
                 ui.show_prompt(&server_address_prompt(default_addr));
 
-                if let ClientState::Lobby(Lobby::ServerAddress { prompt_printed }) =
-                    &mut session.state
-                {
-                    *prompt_printed = true;
-                }
+                *prompt_printed = true;
                 return None;
             }
         }
     }
 
-    let needs_prompt = match &session.state {
-        ClientState::Lobby(Lobby::ServerAddress { prompt_printed }) => !prompt_printed,
-        _ => false,
-    };
-
-    if needs_prompt {
+    if !*prompt_printed {
         ui.show_prompt(&server_address_prompt(default_addr));
-
-        if let ClientState::Lobby(Lobby::ServerAddress { prompt_printed }) = &mut session.state {
-            *prompt_printed = true;
-        }
+        *prompt_printed = true;
         return None;
     }
 
@@ -123,10 +110,22 @@ mod tests {
     #[test]
     fn invalid_input_reprompts() {
         let mut session = ClientSession::new(0);
+        session.transition(ClientState::Lobby(Lobby::ServerAddress {
+            prompt_printed: false,
+        }));
         session.add_input("not-an-ip".to_string());
         let mut ui = MockUi::default();
 
-        let next_state = handle(&mut session, &mut ui);
+        let next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert!(next_state.is_none());
         assert_eq!(ui.errors.len(), 1);

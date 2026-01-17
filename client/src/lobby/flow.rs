@@ -66,34 +66,72 @@ fn transition(
     network_handle: &mut RenetNetworkHandle<'_>,
     assets: Option<&Assets>,
 ) -> Option<ClientState> {
-    match session.state {
-        ClientState::Lobby(Lobby::ServerAddress { .. }) => {
-            state_handlers::server_address::handle(session, ui)
+    // Use a helper function to avoid borrow checker issues
+    call_handler(session, ui, network_handle, assets)
+}
+
+fn call_handler(
+    session: &mut ClientSession,
+    ui: &mut dyn crate::lobby::ui::LobbyUi,
+    network_handle: &mut RenetNetworkHandle<'_>,
+    assets: Option<&Assets>,
+) -> Option<ClientState> {
+    let state = std::mem::take(&mut session.state);
+
+    let result = match state {
+        ClientState::Lobby(mut lobby_state) => {
+            let result = match lobby_state {
+                Lobby::ServerAddress { .. } => {
+                    state_handlers::server_address::handle(&mut lobby_state, session, ui)
+                }
+                Lobby::Passcode { .. } => {
+                    state_handlers::passcode::handle(&mut lobby_state, session, ui)
+                }
+                Lobby::Connecting { .. } => state_handlers::connecting::handle(
+                    &mut lobby_state,
+                    session,
+                    ui,
+                    network_handle,
+                ),
+                Lobby::Authenticating { .. } => {
+                    state_handlers::auth::handle(&mut lobby_state, session, ui, network_handle)
+                }
+                Lobby::ChoosingUsername { .. } => {
+                    state_handlers::username::handle(&mut lobby_state, session, ui, network_handle)
+                }
+                Lobby::AwaitingUsernameConfirmation => {
+                    state_handlers::waiting::handle(&mut lobby_state, session, ui, network_handle)
+                }
+                Lobby::Chat { .. } => state_handlers::chat::handle(
+                    &mut lobby_state,
+                    session,
+                    ui,
+                    network_handle,
+                    assets,
+                ),
+                Lobby::ChoosingDifficulty { .. } => state_handlers::difficulty::handle(
+                    &mut lobby_state,
+                    session,
+                    ui,
+                    network_handle,
+                    assets,
+                ),
+                Lobby::Countdown { .. } => state_handlers::countdown::handle(
+                    &mut lobby_state,
+                    session,
+                    ui,
+                    network_handle,
+                    assets,
+                ),
+            };
+            session.state = ClientState::Lobby(lobby_state);
+            result
         }
-        ClientState::Lobby(Lobby::Passcode { .. }) => state_handlers::passcode::handle(session, ui),
-        ClientState::Lobby(Lobby::Connecting { .. }) => {
-            state_handlers::connecting::handle(session, ui, network_handle)
+        other_state => {
+            session.state = other_state;
+            None
         }
-        ClientState::Lobby(Lobby::Authenticating { .. }) => {
-            state_handlers::auth::handle(session, ui, network_handle)
-        }
-        ClientState::Lobby(Lobby::ChoosingUsername { .. }) => {
-            state_handlers::username::handle(session, ui, network_handle)
-        }
-        ClientState::Lobby(Lobby::AwaitingUsernameConfirmation) => {
-            state_handlers::waiting::handle(session, ui, network_handle)
-        }
-        ClientState::Lobby(Lobby::Chat { .. }) => {
-            state_handlers::chat::handle(session, ui, network_handle, assets)
-        }
-        ClientState::Lobby(Lobby::ChoosingDifficulty { .. }) => {
-            state_handlers::difficulty::handle(session, ui, network_handle, assets)
-        }
-        ClientState::Lobby(Lobby::Countdown { .. }) => {
-            state_handlers::countdown::handle(session, ui, network_handle, assets)
-        }
-        ClientState::Disconnected { .. } => None,
-        ClientState::Game(_) => None,
-        ClientState::AfterGameChat { .. } => None,
-    }
+    };
+
+    result
 }

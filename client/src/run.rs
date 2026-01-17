@@ -183,12 +183,6 @@ impl ClientRunner {
                     }
                 }
             }
-            // TODO: Following the pattern of the game handler, pass inner state
-            // to each of the lobby substate handlers so as to let the type
-            // system enforce that the correct type is sent, rather than having
-            // explicit guards at the start of each handler. This will mean
-            // passing the inner state to the handler, rather than passing
-            // `session`.`
             ClientState::Lobby(_) => lobby::state_handlers::update(self),
             ClientState::AfterGameChat { .. } => {
                 let mut network = RenetNetworkHandle::new(&mut self.client, &mut self.transport);
@@ -350,7 +344,16 @@ async fn prompt_for_server_address(
             }
         }
 
-        if let Some(next_state) = lobby::state_handlers::server_address::handle(session, ui) {
+        if let Some(next_state) = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                lobby::state_handlers::server_address::handle(lobby_state, session, ui)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        } {
             session.transition(next_state);
         }
 

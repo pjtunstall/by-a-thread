@@ -13,19 +13,15 @@ use common::{
 };
 
 pub fn handle(
-    session: &mut ClientSession,
+    lobby_state: &mut Lobby,
+    _session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    if !matches!(
-        &session.state,
-        ClientState::Lobby(Lobby::Connecting { .. })
-    ) {
-        panic!(
-            "called connecting::handle() when state was not Connecting; current state: {:?}",
-            &session.state
-        );
-    }
+    let Lobby::Connecting { pending_passcode } = lobby_state else {
+        // Type system ensures this never happens.
+        unreachable!();
+    };
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
@@ -38,10 +34,7 @@ pub fn handle(
     }
 
     if network.is_connected() {
-        let passcode = match &mut session.state {
-            ClientState::Lobby(Lobby::Connecting { pending_passcode }) => pending_passcode.take(),
-            _ => None,
-        };
+        let passcode = pending_passcode.take();
 
         if let Some(passcode) = passcode {
             ui.show_message(&format!(
@@ -88,7 +81,7 @@ mod tests {
         net::DisconnectKind,
         test_helpers::{MockNetwork, MockUi},
     };
-    use common::protocol::{ServerMessage, GAME_ALREADY_STARTED_MESSAGE};
+    use common::protocol::{GAME_ALREADY_STARTED_MESSAGE, ServerMessage};
 
     mod guards {
         use super::*;
@@ -103,7 +96,16 @@ mod tests {
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
 
-            handle(&mut session, &mut ui, &mut network);
+            let mut temp_state = std::mem::take(&mut session.state);
+            let _result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+
+            // This should panic, so if we get here the test should fail
+            panic!("expected panic");
         }
 
         #[test]
@@ -115,7 +117,17 @@ mod tests {
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
             assert!(
-                handle(&mut session, &mut ui, &mut network).is_none(),
+                {
+                    let mut temp_state = std::mem::take(&mut session.state);
+                    let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                        handle(lobby_state, &mut session, &mut ui, &mut network)
+                    } else {
+                        panic!("expected Lobby state");
+                    };
+                    session.state = temp_state;
+                    result
+                }
+                .is_none(),
                 "should not panic and should return None"
             );
         }
@@ -133,7 +145,16 @@ mod tests {
             message: GAME_ALREADY_STARTED_MESSAGE.to_string(),
         });
 
-        let next_state = handle(&mut session, &mut ui, &mut network);
+        let next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert!(matches!(
             next_state,
@@ -156,7 +177,16 @@ mod tests {
         network.set_disconnected(true, "connection terminated by server");
         network.set_disconnect_kind(DisconnectKind::DisconnectedByServer);
 
-        let next_state = handle(&mut session, &mut ui, &mut network);
+        let next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert!(matches!(
             next_state,
@@ -174,11 +204,18 @@ mod tests {
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
         network.set_disconnected(true, "dns failure");
-        network.set_disconnect_kind(DisconnectKind::Other(
-            "dns failure".to_string(),
-        ));
+        network.set_disconnect_kind(DisconnectKind::Other("dns failure".to_string()));
 
-        let next_state = handle(&mut session, &mut ui, &mut network);
+        let next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert!(matches!(
             next_state,

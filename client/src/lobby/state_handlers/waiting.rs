@@ -8,24 +8,15 @@ use crate::{
 };
 use common::{
     net::AppChannel,
-    protocol::{ServerMessage, GAME_ALREADY_STARTED_MESSAGE},
+    protocol::{GAME_ALREADY_STARTED_MESSAGE, ServerMessage},
 };
 
 pub fn handle(
-    session: &mut ClientSession,
+    _lobby_state: &mut Lobby,
+    _session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    if !matches!(
-        &session.state,
-        ClientState::Lobby(Lobby::AwaitingUsernameConfirmation)
-    ) {
-        panic!(
-            "called awaiting_confirmation::handle() when state was not AwaitingUsernameConfirmation; current state: {:?}",
-            &session.state
-        );
-    }
-
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::Welcome { username, color }, _)) => {
@@ -55,10 +46,12 @@ pub fn handle(
                 return Some(ClientState::Disconnected { message });
             }
             Ok((_, _)) => {}
-            Err(e) => ui.show_typed_error(
-                UiErrorKind::Deserialization,
-                &format!("[Deserialization error: {}]", e),
-            ),
+            Err(e) => {
+                ui.show_typed_error(
+                    UiErrorKind::Deserialization,
+                    &format!("[Deserialization error: {}]", e),
+                );
+            }
         }
     }
 
@@ -79,21 +72,31 @@ mod tests {
     use super::*;
     use crate::test_helpers::{MockNetwork, MockUi};
     use common::player::Color;
-    use common::protocol::{ServerMessage, GAME_ALREADY_STARTED_MESSAGE};
+    use common::protocol::{GAME_ALREADY_STARTED_MESSAGE, ServerMessage};
 
     fn set_awaiting_state(session: &mut ClientSession) {
         session.transition(ClientState::Lobby(Lobby::AwaitingUsernameConfirmation));
     }
 
     #[test]
-        #[should_panic(
-            expected = "called awaiting_confirmation::handle() when state was not AwaitingUsernameConfirmation; current state: Lobby(ServerAddress { prompt_printed: false })"
-        )]
-        fn guards_panics_if_not_in_awaiting_confirmation_state() {
-            let mut session = ClientSession::new(0);
+    #[should_panic(
+        expected = "called awaiting_confirmation::handle() with non-AwaitingUsernameConfirmation state: Lobby(ServerAddress { prompt_printed: false })"
+    )]
+    fn guards_panics_if_not_in_awaiting_confirmation_state() {
+        let mut session = ClientSession::new(0);
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
-        handle(&mut session, &mut ui, &mut network);
+
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
     }
 
     #[test]
@@ -108,10 +111,19 @@ mod tests {
             color: Color::RED,
         });
 
-        let next_state = handle(&mut session, &mut ui, &mut network);
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert!(matches!(
-            next_state,
+            _next_state,
             Some(ClientState::Lobby(Lobby::Chat {
                 awaiting_initial_roster: true,
                 waiting_for_server: false
@@ -132,10 +144,19 @@ mod tests {
             message: "Name Taken".to_string(),
         });
 
-        let next_state = handle(&mut session, &mut ui, &mut network);
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert!(matches!(
-            next_state,
+            _next_state,
             Some(ClientState::Lobby(Lobby::ChoosingUsername {
                 prompt_printed: false
             }))
@@ -157,9 +178,21 @@ mod tests {
             message: GAME_ALREADY_STARTED_MESSAGE.to_string(),
         });
 
-        let next_state = handle(&mut session, &mut ui, &mut network);
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
-        assert!(matches!(next_state, Some(ClientState::Disconnected { .. })));
+        assert!(matches!(
+            _next_state,
+            Some(ClientState::Disconnected { .. })
+        ));
         assert!(
             ui.messages.is_empty(),
             "disconnecting info should defer messaging to global handler"

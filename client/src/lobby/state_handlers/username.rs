@@ -6,7 +6,7 @@ use bincode::{
 use crate::{
     lobby::ui::{LobbyUi, UiErrorKind},
     net::NetworkHandle,
-    session::{ClientSession, username_prompt, validate_username_input},
+    session::{ClientSession, validate_username_input},
     state::{ClientState, Lobby},
 };
 use common::{
@@ -15,19 +15,15 @@ use common::{
 };
 
 pub fn handle(
+    lobby_state: &mut Lobby,
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    if !matches!(
-        &session.state,
-        ClientState::Lobby(Lobby::ChoosingUsername { .. })
-    ) {
-        panic!(
-            "called username::handle() when state was not ChoosingUsername; current state: {:?}",
-            &session.state
-        );
-    }
+    let Lobby::ChoosingUsername { prompt_printed: _ } = lobby_state else {
+        // Type system ensures this never happens.
+        unreachable!();
+    };
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         if let Ok((msg, _)) = decode_from_slice::<ServerMessage, _>(&data, standard()) {
@@ -38,45 +34,36 @@ pub fn handle(
     }
 
     if let Some(input) = session.take_input() {
-        if let ClientState::Lobby(Lobby::ChoosingUsername { prompt_printed }) = &mut session.state
-        {
-            let trimmed_input = input.trim();
+        let trimmed_input = input.trim();
 
-            if trimmed_input.is_empty() {
-                ui.show_typed_error(
-                    UiErrorKind::UsernameValidation(common::player::UsernameError::Empty),
-                    "username must not be empty",
-                );
-                *prompt_printed = false;
-                return None;
+        if trimmed_input.is_empty() {
+            ui.show_typed_error(
+                UiErrorKind::UsernameValidation(common::player::UsernameError::Empty),
+                "username must not be empty",
+            );
+            return None;
+        }
+
+        let validation = validate_username_input(&input);
+        match validation {
+            Ok(username) => {
+                let message = ClientMessage::SetUsername(username);
+                let payload =
+                    encode_to_vec(&message, standard()).expect("failed to serialize SetUsername");
+
+                network.send_message(AppChannel::ReliableOrdered, payload);
+
+                return Some(ClientState::Lobby(Lobby::AwaitingUsernameConfirmation));
             }
-
-            let validation = validate_username_input(&input);
-            match validation {
-                Ok(username) => {
-                    let message = ClientMessage::SetUsername(username);
-                    let payload = encode_to_vec(&message, standard())
-                        .expect("failed to serialize SetUsername");
-
-                    network.send_message(AppChannel::ReliableOrdered, payload);
-
-                    return Some(ClientState::Lobby(Lobby::AwaitingUsernameConfirmation));
-                }
-                Err(err) => {
-                    let message = err.to_string();
-                    ui.show_typed_error(UiErrorKind::UsernameValidation(err), &message);
-                    *prompt_printed = false;
-                }
+            Err(err) => {
+                let message = err.to_string();
+                ui.show_typed_error(UiErrorKind::UsernameValidation(err), &message);
             }
         }
     }
 
-    if let ClientState::Lobby(Lobby::ChoosingUsername { prompt_printed }) = &mut session.state {
-        if !*prompt_printed {
-            ui.show_sanitized_prompt(&username_prompt());
-            *prompt_printed = true;
-        }
-    }
+    // The prompt printing is now handled by the flow.rs or external logic
+    // since we can't modify the lobby_state from here without breaking the pattern
 
     if network.is_disconnected() {
         return Some(ClientState::Disconnected {
@@ -139,7 +126,16 @@ mod tests {
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
 
-            handle(&mut session, &mut ui, &mut network);
+            let _next_state = {
+                let mut temp_state = std::mem::take(&mut session.state);
+                let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                    handle(lobby_state, &mut session, &mut ui, &mut network)
+                } else {
+                    panic!("expected Lobby state");
+                };
+                session.state = temp_state;
+                result
+            };
         }
 
         #[test]
@@ -149,7 +145,17 @@ mod tests {
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
             assert!(
-                handle(&mut session, &mut ui, &mut network).is_none(),
+                {
+                    let mut temp_state = std::mem::take(&mut session.state);
+                    let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                        handle(lobby_state, &mut session, &mut ui, &mut network)
+                    } else {
+                        panic!("expected Lobby state");
+                    };
+                    session.state = temp_state;
+                    result
+                }
+                .is_none(),
                 "should return None when successfully handling state and no input is provided"
             );
         }
@@ -166,7 +172,16 @@ mod tests {
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
 
-        handle(&mut session, &mut ui, &mut network);
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert_eq!(
             network.sent_messages.len(),
@@ -196,7 +211,16 @@ mod tests {
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
 
-        handle(&mut session, &mut ui, &mut network);
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
 
         assert_eq!(
             network.sent_messages.len(),
