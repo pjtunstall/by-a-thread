@@ -87,7 +87,7 @@ pub struct Game {
     pub pending_bullet_events: Vec<BulletEvent>,
     after_game_chat_sent: bool,
     obe_effect: Option<ObeEffect>,
-    oriented_sphere_mesh: OrientedSphereMesh,
+    player_avatar_mesh: OrientedSphereMesh,
     player_shadow_mesh: DiskMesh,
 }
 
@@ -133,7 +133,7 @@ impl Game {
             pending_bullet_events: Vec::new(),
             after_game_chat_sent: false,
             obe_effect: None,
-            oriented_sphere_mesh: OrientedSphereMesh::new(),
+            player_avatar_mesh: OrientedSphereMesh::new(),
             player_shadow_mesh: DiskMesh::new(),
         }
     }
@@ -534,7 +534,7 @@ impl Game {
             let yaw = self.players[index].state.yaw;
             let pitch = self.players[index].state.pitch;
 
-            self.oriented_sphere_mesh.draw(
+            self.player_avatar_mesh.draw(
                 position,
                 player::RADIUS,
                 Some(&assets.ball_texture),
