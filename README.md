@@ -136,7 +136,7 @@ The `Game` state also manages clients in `AfterGameChat` since they arrive at di
 
 ## Workflow
 
-I used a variety of AI chatbots to straighten out my understanding of the netcode and develop a strategy, to help troubleshoot, and to review my attempts. Gemini (Pro) is the one that really shone this time, especially after the launch of Gemini 3. Towards the end, I enjoyed a trial of Codex. It was useful for discussing ideas, and a fantastic time-saver when it came to tidying up the loose ends.
+I used a variety of AI chatbots to straighten out my understanding of the netcode and develop a strategy, to help troubleshoot, and to review my attempts. Gemini (Pro) has been my mainstay this time. It's really impressed me, especially since the launch of Gemini 3. Towards the end, I tried out two coding agents: Codex and Cascade. They've been a fantastic time-saver for tidying up the loose ends.
 
 ## Credits
 
