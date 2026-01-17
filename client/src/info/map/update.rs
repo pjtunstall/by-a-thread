@@ -43,7 +43,7 @@ pub fn draw_players_on_map(
     }
 
     for (index, player) in game_state.players.iter().enumerate() {
-        if index == local_index || !player.alive {
+        if index == local_index || player.health == 0 {
             continue;
         }
 

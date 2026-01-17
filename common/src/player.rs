@@ -29,7 +29,6 @@ pub struct Player {
     pub state: PlayerState,
     pub color: Color,
     pub disconnected: bool,
-    pub alive: bool,
     pub current_tick: u64,
     pub health: u8,
 }
@@ -43,7 +42,6 @@ impl Player {
             state: PlayerState::new(position),
             color,
             disconnected: false,
-            alive: true,
             current_tick: 0,
             health: MAX_HEALTH,
         }

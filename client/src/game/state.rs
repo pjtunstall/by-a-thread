@@ -505,7 +505,7 @@ impl Game {
 
     fn draw_players(&mut self, assets: &Assets) {
         for index in 0..self.players.len() {
-            if !self.players[index].alive {
+            if self.players[index].health == 0 {
                 continue;
             }
 
@@ -825,7 +825,6 @@ impl Game {
     ) {
         if let Some(player) = self.players.get_mut(target_index) {
             player.health = target_health;
-            player.alive = target_health > 0;
         }
 
         if target_health == 0 {

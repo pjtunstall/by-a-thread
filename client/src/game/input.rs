@@ -2,9 +2,11 @@ use macroquad::prelude::*;
 
 use common::player::PlayerInput;
 
-// TODO: Check if I need to attend to this: "Macroquad usually handles loss of
-// focus, but you can explicitly check `miniquad::window::order_quit_event()` or
-// similar focus events to force-clear your local input state."
+// TODO: Stop inputs when the window loses focus. I'm told that "Macroquad
+// usually handles loss of focus, but you can explicitly check
+// `miniquad::window::order_quit_event()` or similar focus events to force-clear
+// your local input state." In practice, it seems not to automatically stop
+// inputs on loss of focus.
 pub fn player_input_from_keys(sim_tick: u64) -> PlayerInput {
     PlayerInput {
         sim_tick,

@@ -21,9 +21,6 @@ use common::{
 };
 
 // TODO: Consider if any of this logic belongs with the `Game` struct in `server/src/state.rs`.
-
-// TODO: If connection times out during game (and elsewhere), show a suitable
-// message in the UI; currently it just goes black.
 pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option<ServerState> {
     handle_reliable_messages(network, state);
     input::receive_inputs(network, state);
