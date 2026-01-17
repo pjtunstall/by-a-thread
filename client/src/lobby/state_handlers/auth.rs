@@ -32,7 +32,6 @@ pub fn handle(
         waiting_for_server,
     } = lobby_state
     else {
-        // Type system ensures this never happens.
         unreachable!();
     };
 

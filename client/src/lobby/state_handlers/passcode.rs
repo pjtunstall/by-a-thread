@@ -12,7 +12,6 @@ pub fn handle(
     ui: &mut dyn LobbyUi,
 ) -> Option<ClientState> {
     let Lobby::Passcode { prompt_printed } = lobby_state else {
-        // Type system ensures this never happens.
         unreachable!();
     };
 

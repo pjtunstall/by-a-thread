@@ -61,7 +61,6 @@ pub fn handle(
         choice_sent,
     } = lobby_state
     else {
-        // Type system ensures this never happens.
         unreachable!();
     };
 

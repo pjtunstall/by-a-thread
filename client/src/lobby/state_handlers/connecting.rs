@@ -19,7 +19,6 @@ pub fn handle(
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
     let Lobby::Connecting { pending_passcode } = lobby_state else {
-        // Type system ensures this never happens.
         unreachable!();
     };
 

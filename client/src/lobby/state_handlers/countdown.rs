@@ -23,7 +23,6 @@ pub fn handle(
         sky_mesh: _,
     } = lobby_state
     else {
-        // Type system ensures this never happens.
         unreachable!();
     };
 

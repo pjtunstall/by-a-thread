@@ -21,7 +21,6 @@ pub fn handle(
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
     let Lobby::ChoosingUsername { prompt_printed: _ } = lobby_state else {
-        // Type system ensures this never happens.
         unreachable!();
     };
 
@@ -61,9 +60,6 @@ pub fn handle(
             }
         }
     }
-
-    // The prompt printing is now handled by the flow.rs or external logic
-    // since we can't modify the lobby_state from here without breaking the pattern
 
     if network.is_disconnected() {
         return Some(ClientState::Disconnected {
