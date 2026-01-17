@@ -34,11 +34,11 @@ In what follows, "local player" will mean a player as represented on their own m
 
 TT;DR: I used reconciliation and prediction for the local player, interpolation for remote players, and dead reckoning for bullets.
 
-## Renet
+### Renet
 
 Renet is a networking library for Rust, built on top of UDP. It defines three channel types: `ReliableOrdered`, `ReliableUnordered`, and `Unreliable`. You can send messages over these channels. Renet takes care of splitting them into packets and reassembling them. I've used `ReliableOrdered` for system and chat messages and for bullet spawn and collision notifications from the server. I used `Unreliable` for input from the client, and for snapshots (player position updates) from the server. `Unreliable` is faster because it doesn't have to order messages or resend ones that failed to arrive.
 
-## Tick and frame
+### Tick and frame
 
 A frame is an iteration of the client's game loop. The frame rate is how often the latest game state is rendered on the screen, i.e. how fast the display is refreshed. On many computers this is ideally 60 frames per second; on some the ideal may be faster. If all work is done, the program waits for the rest of the ideal frame duration to have elapsed before continuing to the next iteration. If we ask the computer to do too much work, a frame could last longer. It can also last longer if we put the window into the background, in which case Macroquad detects that there's no point rendering and keeps waiting till the window is visible again.
 
@@ -48,7 +48,7 @@ Although the server runs its input processing and physics updates at 60Hz, it on
 
 Depending on varying latency and frame duration, the client may have a varying number of ticks (in the sense of game-logic updates) to process each frame. Even if it hasn't heard from the server on a given tick, it must still check its own inputs and update its "simulation" of the server' sauthoritative reality. When data does arrive, it will correct the simulation, although it may do so in subtle ways, smoothing out abrupt changes.
 
-## Clock synchronization
+### Clock synchronization
 
 The client needs a good estimate of server time to drive interpolation, input scheduling, and countdowns, but it can't trust wall clocks: packets arrive late, late packets can arrive out of order, and RTT (return travel time) jitters with network conditions. So the client builds a moving estimate, `estimated_server_time`, from periodic server pings and smooths it to avoid visible stutter.
 
@@ -56,7 +56,7 @@ The server broadcasts `ServerTime` messages at a fixed interval. The client reco
 
 If this is the first estimate or the error exceeds one second, the clock snaps to the target. Otherwise, small errors inside a deadzone are ignored, and larger errors are nudged toward the target using a small smoothing factor (speeding up or slowing down symmetrically). RTT itself is smoothed with different alphas for spikes vs. improvements, and the smoothed RTT feeds later timing decisions like the simulation target time.
 
-## Buffers and history
+### Buffers and history
 
 The client maintains ring buffers called `input_history` (for their own inputs, 256 ticks, ~4.3s at 60Hz) and `snapshot_buffer` (for player position updates, 16 broadcasts, ~0.8s at 20Hz). The server maintains an `input_buffer` ring buffer for each player to store their inputs till it's time to process them (128 ticks, ~2.1s at 60Hz).
 
