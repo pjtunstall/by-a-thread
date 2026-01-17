@@ -8,7 +8,7 @@ This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://
 
 Dependencies: I used Macroquad, a simple game framework, for window management, reading input, loading textures, rendering, and audio. I used the Renet library for some networking abstractions over UDP. On the other hand, I wrote the collision and movement physics, and went to town rolling my own netcode.
 
-## My game
+## How to play
 
 It's not yet hosted, so actually playing with other players is not yet practical, but you can at least run the server and one or more clients on a single machine.
 
@@ -22,7 +22,7 @@ Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/instal
 - Arrow keys to turn.
 - Space to fire.
 
-### Levels
+## Levels
 
 As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`.
 
@@ -30,7 +30,7 @@ As instructed, I've implemented three difficulty levels. The 01 instructions def
 
 Netcode refers to the techniques used to coordinate how players and other dynamic entities, such as projectiles, are displayed in a way that disguises latency. I found Gabriel Gambetta's introduction helpful: [Fast Paced Multiplayer](https://gabrielgambetta.com/client-server-game-architecture.html). Gemini was a great help too in developing a detailed plan.
 
-In what follows, "local player" will mean a player as represented on their own machine. Remote players are the other players as represented on a given player's machine.
+In what follows, "local player" will mean a player as represented on their own machine. "Remote players" are the other players as represented on a given player's machine.
 
 TT;DR: I used reconciliation and prediction for the local player, interpolation for remote players, and dead reckoning for bullets.
 
