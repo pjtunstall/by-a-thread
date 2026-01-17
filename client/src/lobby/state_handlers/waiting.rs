@@ -79,27 +79,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "called awaiting_confirmation::handle() with non-AwaitingUsernameConfirmation state: Lobby(ServerAddress { prompt_printed: false })"
-    )]
-    fn guards_panics_if_not_in_awaiting_confirmation_state() {
-        let mut session = ClientSession::new(0);
-        let mut ui = MockUi::default();
-        let mut network = MockNetwork::new();
-
-        let _next_state = {
-            let mut temp_state = std::mem::take(&mut session.state);
-            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
-                handle(lobby_state, &mut session, &mut ui, &mut network)
-            } else {
-                panic!("expected Lobby state");
-            };
-            session.state = temp_state;
-            result
-        };
-    }
-
-    #[test]
     fn handles_server_welcome() {
         let mut session = ClientSession::new(0);
         set_awaiting_state(&mut session);

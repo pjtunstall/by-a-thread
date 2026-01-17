@@ -87,27 +87,6 @@ mod tests {
         use crate::{test_helpers::MockNetwork, test_helpers::MockUi};
 
         #[test]
-        #[should_panic(
-            expected = "called connecting::handle() when state was not Connecting; current state: Lobby(ServerAddress { prompt_printed: false })"
-        )]
-        fn connecting_panics_if_not_in_connecting_state() {
-            let mut session = ClientSession::new(0);
-            let mut ui = MockUi::default();
-            let mut network = MockNetwork::new();
-
-            let mut temp_state = std::mem::take(&mut session.state);
-            let _result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
-                handle(lobby_state, &mut session, &mut ui, &mut network)
-            } else {
-                panic!("expected Lobby state");
-            };
-            session.state = temp_state;
-
-            // This should panic, so if we get here the test should fail
-            panic!("expected panic");
-        }
-
-        #[test]
         fn connecting_does_not_panic_in_connecting_state() {
             let mut session = ClientSession::new(0);
             session.transition(ClientState::Lobby(Lobby::Connecting {

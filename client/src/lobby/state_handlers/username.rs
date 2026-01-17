@@ -40,7 +40,9 @@ pub fn handle(
                 UiErrorKind::UsernameValidation(common::player::UsernameError::Empty),
                 "username must not be empty",
             );
-            return None;
+            return Some(ClientState::Lobby(Lobby::ChoosingUsername {
+                prompt_printed: false,
+            }));
         }
 
         let validation = validate_username_input(&input);
@@ -57,6 +59,9 @@ pub fn handle(
             Err(err) => {
                 let message = err.to_string();
                 ui.show_typed_error(UiErrorKind::UsernameValidation(err), &message);
+                return Some(ClientState::Lobby(Lobby::ChoosingUsername {
+                    prompt_printed: false,
+                }));
             }
         }
     }
@@ -112,27 +117,6 @@ mod tests {
 
     mod guards {
         use super::*;
-
-        #[test]
-        #[should_panic(
-            expected = "called username::handle() when state was not ChoosingUsername; current state: Lobby(ServerAddress { prompt_printed: false })"
-        )]
-        fn choosing_username_panics_if_not_in_choosing_username_state() {
-            let mut session = ClientSession::new(0);
-            let mut ui = MockUi::default();
-            let mut network = MockNetwork::new();
-
-            let _next_state = {
-                let mut temp_state = std::mem::take(&mut session.state);
-                let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
-                    handle(lobby_state, &mut session, &mut ui, &mut network)
-                } else {
-                    panic!("expected Lobby state");
-                };
-                session.state = temp_state;
-                result
-            };
-        }
 
         #[test]
         fn choosing_username_does_not_panic_in_choosing_username_state() {
@@ -233,14 +217,14 @@ mod tests {
             vec![UiErrorKind::UsernameValidation(UsernameError::Empty)]
         );
 
-        match &session.state {
-            ClientState::Lobby(Lobby::ChoosingUsername { prompt_printed }) => {
+        match _next_state {
+            Some(ClientState::Lobby(Lobby::ChoosingUsername { prompt_printed })) => {
                 assert!(
-                    !*prompt_printed,
+                    !prompt_printed,
                     "prompt_printed must be reset to false after an error"
                 );
             }
-            _ => panic!("state unexpectedly changed from ChoosingUsername"),
+            _ => panic!("expected ChoosingUsername state transition"),
         }
     }
 

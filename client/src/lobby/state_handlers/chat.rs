@@ -25,14 +25,14 @@ pub fn handle(
 ) -> Option<ClientState> {
     let Lobby::Chat {
         awaiting_initial_roster: _,
-        waiting_for_server: _,
+        waiting_for_server,
     } = lobby_state
     else {
         unreachable!();
     };
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
-        session.set_chat_waiting_for_server(false);
+        *waiting_for_server = false;
 
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((
@@ -50,10 +50,8 @@ pub fn handle(
                     choice_sent: false,
                 }));
             }
-            // Client asked to choose difficulty, but was not the host, so restore input prompt.
-            // This shouldn't happen, but we have this mechanism as an extra layer of protection.
             Ok((ServerMessage::DenyDifficultySelection, _)) => {
-                session.set_chat_waiting_for_server(false);
+                *waiting_for_server = false;
             }
             Ok((
                 ServerMessage::ChatMessage {
@@ -118,7 +116,7 @@ pub fn handle(
                 let payload =
                     encode_to_vec(&message, standard()).expect("failed to serialize command");
                 network.send_message(AppChannel::ReliableOrdered, payload);
-                session.set_chat_waiting_for_server(true);
+                *waiting_for_server = true;
             }
             continue;
         }
@@ -134,7 +132,7 @@ pub fn handle(
         let payload = encode_to_vec(&message, standard()).expect("failed to serialize chat");
         network.send_message(AppChannel::ReliableOrdered, payload);
 
-        session.set_chat_waiting_for_server(true);
+        *waiting_for_server = true;
     }
 
     if network.is_disconnected() {
@@ -293,6 +291,15 @@ mod tests {
 
         let (message, _) = decode_from_slice::<ClientMessage, _>(&payload, standard()).unwrap();
         assert!(matches!(message, ClientMessage::RequestStartGame));
-        assert!(session.chat_waiting_for_server());
+        assert!(
+            matches!(
+                &session.state,
+                ClientState::Lobby(Lobby::Chat {
+                    waiting_for_server: true,
+                    ..
+                })
+            ),
+            "waiting_for_server should be true after sending request"
+        );
     }
 }

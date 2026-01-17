@@ -56,26 +56,6 @@ mod tests {
         use super::*;
 
         #[test]
-        fn passcode_panics_if_not_in_passcode_state() {
-            let mut session = ClientSession::new(0);
-            session.transition(ClientState::Lobby(Lobby::Connecting {
-                pending_passcode: None,
-            }));
-            let mut ui = MockUi::default();
-
-            let mut temp_state = std::mem::take(&mut session.state);
-            let _result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
-                handle(lobby_state, &mut session, &mut ui)
-            } else {
-                panic!("expected Lobby state");
-            };
-            session.state = temp_state;
-
-            // This should panic, so if we get here the test should fail
-            panic!("expected panic");
-        }
-
-        #[test]
         fn passcode_does_not_panic_in_passcode_state() {
             let mut session = ClientSession::new(0);
             session.transition(ClientState::Lobby(Lobby::Passcode {

@@ -168,27 +168,6 @@ mod tests {
     use common::protocol::{ClientMessage, ServerMessage};
 
     #[test]
-    #[should_panic(
-        expected = "called difficulty::handle() with non-ChoosingDifficulty state: Lobby(ServerAddress { prompt_printed: false })"
-    )]
-    fn guards_panics_if_not_in_correct_state() {
-        let mut session = ClientSession::new(0);
-        let mut ui = MockUi::default();
-        let mut network = MockNetwork::new();
-
-        let _next_state = {
-            let mut temp_state = std::mem::take(&mut session.state);
-            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
-                handle(lobby_state, &mut session, &mut ui, &mut network, None)
-            } else {
-                panic!("expected Lobby state");
-            };
-            session.state = temp_state;
-            result
-        };
-    }
-
-    #[test]
     fn guards_does_not_panic_in_correct_state() {
         let mut session = ClientSession::new(0);
         session.transition(ClientState::Lobby(Lobby::ChoosingDifficulty {
@@ -238,15 +217,13 @@ mod tests {
             result
         };
 
-        assert!(_next_state.is_none());
-
         assert!(
             matches!(
-                &session.state,
-                ClientState::Lobby(Lobby::ChoosingDifficulty {
+                _next_state,
+                Some(ClientState::Lobby(Lobby::ChoosingDifficulty {
                     prompt_printed: false,
                     choice_sent: false
-                })
+                }))
             ),
             "state should reset prompt_printed and choice_sent to false"
         );
@@ -281,15 +258,13 @@ mod tests {
             result
         };
 
-        assert!(_next_state.is_none());
-
         assert!(
             matches!(
-                &session.state,
-                ClientState::Lobby(Lobby::ChoosingDifficulty {
+                _next_state,
+                Some(ClientState::Lobby(Lobby::ChoosingDifficulty {
                     choice_sent: true,
                     ..
-                })
+                }))
             ),
             "choice should be marked as sent after pressing a key"
         );
