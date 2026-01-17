@@ -62,6 +62,7 @@ enum BulletColorMode {
 }
 
 pub struct Game {
+    pub difficulty: u8,
     pub local_player_index: usize,
     pub maze: Maze,
     pub maze_meshes: MazeMeshes,
@@ -102,6 +103,7 @@ impl Game {
         let sky = Sky { mesh: sky_mesh };
 
         Self {
+            difficulty: initial_data.difficulty,
             // `snapshot_buffer.head` will be reset when the first snapshot is
             // inserted, but still we need an initial `head` that's within ±2^15
             // ticks of the tick on which the first snapshot was sent so that

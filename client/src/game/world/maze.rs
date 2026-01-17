@@ -101,15 +101,7 @@ fn add_wall_faces(
 
     for (v1, v2, v3, v4, norm) in faces.iter() {
         builder.add_face_from_indices(
-            wall_verts,
-            *v1,
-            *v2,
-            *v3,
-            *v4,
-            *norm,
-            wall_uvs,
-            offset,
-            WHITE,
+            wall_verts, *v1, *v2, *v3, *v4, *norm, wall_uvs, offset, WHITE,
         );
     }
 }
@@ -338,12 +330,13 @@ fn add_wall_shadow(
     }
 }
 
-pub fn generate_floor_texture() -> Texture2D {
+pub fn generate_floor_texture(difficulty: u8) -> Texture2D {
     let half_check_size = 8.0;
     let check_size = 2.0 * half_check_size;
     let checks_per_cell = (CELL_SIZE / check_size).round() as u16;
 
-    let mut image = Image::gen_image_color(checks_per_cell, checks_per_cell, BEIGE);
+    let base_color = if difficulty == 3 { WHITE } else { BEIGE };
+    let mut image = Image::gen_image_color(checks_per_cell, checks_per_cell, base_color);
     for y in 0..checks_per_cell {
         for x in 0..checks_per_cell {
             if (x + y) % 2 != 0 {
@@ -356,16 +349,13 @@ pub fn generate_floor_texture() -> Texture2D {
     texture
 }
 
-pub fn build_maze_meshes(
-    maze: &Maze,
-    wall_texture: &Texture2D,
-    floor_texture: &Texture2D,
-) -> MazeMeshes {
+pub fn build_maze_meshes(maze: &Maze, wall_texture: &Texture2D, difficulty: u8) -> MazeMeshes {
     let height = maze.grid.len();
     let width = if height > 0 { maze.grid[0].len() } else { 0 };
 
     const MAX_VERTICES: usize = 2_000;
 
+    let floor_texture = generate_floor_texture(difficulty);
     let mut wall_builder = MeshBuilder::new(wall_texture.clone(), MAX_VERTICES);
     let mut floor_builder = MeshBuilder::new(floor_texture.clone(), MAX_VERTICES);
     let mut shadow_builder = MeshBuilder::new(Texture2D::empty(), MAX_VERTICES);
