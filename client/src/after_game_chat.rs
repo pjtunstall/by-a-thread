@@ -17,35 +17,34 @@ use common::{
     protocol::{AfterGameExitReason, ClientMessage, ServerMessage},
 };
 
+#[derive(Debug)]
+pub struct AfterGameChat {
+    pub awaiting_initial_roster: bool,
+    pub waiting_for_server: bool,
+}
+
 pub fn update(
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
     assets: Option<&Assets>,
 ) -> Option<ClientState> {
-    if !matches!(session.state, ClientState::AfterGameChat { .. }) {
-        panic!(
-            "called after_game_chat::update() when state was not AfterGameChat; current state: {:?}",
-            session.state
-        );
-    }
+    let state = std::mem::take(&mut session.state);
 
-    if matches!(session.input_mode(), InputMode::Enabled) {
-        let ui_ref: &mut dyn LobbyUi = ui;
-        match ui_ref.poll_input(MAX_CHAT_MESSAGE_BYTES, session.is_host) {
-            Ok(Some(input)) => session.add_input(input),
-            Err(UiInputError::Disconnected) => {
-                ui.show_sanitized_error(&format!("No connection: {}.", UiInputError::Disconnected));
-                return Some(ClientState::Disconnected {
-                    message: UiInputError::Disconnected.to_string(),
-                });
-            }
-            Ok(None) => {}
+    let result = match state {
+        ClientState::AfterGameChat(mut chat_state) => {
+            let result = handle(&mut chat_state, session, ui, network);
+            session.state = ClientState::AfterGameChat(chat_state);
+            result
         }
-    }
+        other_state => {
+            session.state = other_state;
+            None
+        }
+    };
 
-    if let Some(next_state) = handle(session, ui, network) {
-        return Some(next_state);
+    if result.is_some() {
+        return result;
     }
 
     let ui_state = session.prepare_ui_state();
@@ -62,12 +61,31 @@ pub fn update(
 }
 
 fn handle(
+    chat_state: &mut AfterGameChat,
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
+    let AfterGameChat {
+        awaiting_initial_roster,
+        waiting_for_server,
+    } = chat_state;
+
+    if matches!(session.input_mode(), InputMode::Enabled) {
+        match ui.poll_input(MAX_CHAT_MESSAGE_BYTES, session.is_host) {
+            Ok(Some(input)) => session.add_input(input),
+            Err(UiInputError::Disconnected) => {
+                ui.show_sanitized_error(&format!("No connection: {}.", UiInputError::Disconnected));
+                return Some(ClientState::Disconnected {
+                    message: UiInputError::Disconnected.to_string(),
+                });
+            }
+            Ok(None) => {}
+        }
+    }
+
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
-        session.set_chat_waiting_for_server(false);
+        *waiting_for_server = false;
 
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((
@@ -78,19 +96,19 @@ fn handle(
                 },
                 _,
             )) => {
-                if session.awaiting_initial_roster() {
+                if *awaiting_initial_roster {
                     continue;
                 }
                 ui.show_sanitized_message_with_color(&format!("{}: {}", username, content), color);
             }
             Ok((ServerMessage::UserJoined { username }, _)) => {
-                if session.awaiting_initial_roster() {
+                if *awaiting_initial_roster {
                     continue;
                 }
                 ui.show_sanitized_message(&format!("Server: {} joined the chat.", username));
             }
             Ok((ServerMessage::UserLeft { username }, _)) => {
-                if session.awaiting_initial_roster() {
+                if *awaiting_initial_roster {
                     continue;
                 }
                 ui.show_sanitized_message(&format!("Server: {} left the chat.", username));
@@ -107,7 +125,7 @@ fn handle(
                         );
                     }
                 }
-                session.mark_initial_roster_received();
+                *awaiting_initial_roster = false;
             }
             Ok((ServerMessage::AfterGameLeaderboard { entries }, _)) => {
                 ui.show_sanitized_message("Leaderboard:");
@@ -153,7 +171,7 @@ fn handle(
         let payload = encode_to_vec(&message, standard()).expect("failed to serialize chat");
         network.send_message(AppChannel::ReliableOrdered, payload);
 
-        session.set_chat_waiting_for_server(true);
+        *waiting_for_server = true;
     }
 
     if network.is_disconnected() {

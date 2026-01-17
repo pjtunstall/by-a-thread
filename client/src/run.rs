@@ -344,16 +344,21 @@ async fn prompt_for_server_address(
             }
         }
 
-        if let Some(next_state) = {
-            let mut temp_state = std::mem::take(&mut session.state);
-            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
-                lobby::state_handlers::server_address::handle(lobby_state, session, ui)
-            } else {
-                panic!("expected Lobby state");
-            };
-            session.state = temp_state;
-            result
-        } {
+        let state = std::mem::take(&mut session.state);
+        let result = match state {
+            ClientState::Lobby(mut lobby_state) => {
+                let result =
+                    lobby::state_handlers::server_address::handle(&mut lobby_state, session, ui);
+                session.state = ClientState::Lobby(lobby_state);
+                result
+            }
+            other_state => {
+                session.state = other_state;
+                None
+            }
+        };
+
+        if let Some(next_state) = result {
             session.transition(next_state);
         }
 

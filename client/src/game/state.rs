@@ -13,6 +13,7 @@ use macroquad::{
 };
 
 use crate::{
+    after_game_chat::AfterGameChat,
     assets::Assets,
     fade::{self, Fade},
     frame::FrameRate,
@@ -135,10 +136,10 @@ impl Game {
                 encode_to_vec(&message, standard()).expect("failed to encode after-game chat");
             network.send_message(AppChannel::ReliableOrdered, payload);
 
-            return Some(ClientState::AfterGameChat {
+            return Some(ClientState::AfterGameChat(AfterGameChat {
                 awaiting_initial_roster: true,
                 waiting_for_server: false,
-            });
+            }));
         }
 
         self.receive_game_messages(network);

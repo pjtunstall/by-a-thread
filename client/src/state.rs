@@ -1,16 +1,11 @@
-pub use crate::{game::state::Game, lobby::state::Lobby};
+pub use crate::{after_game_chat::AfterGameChat, game::state::Game, lobby::state::Lobby};
 
 #[derive(Debug)]
 pub enum ClientState {
     Lobby(Lobby),
     Game(Game),
-    AfterGameChat {
-        awaiting_initial_roster: bool,
-        waiting_for_server: bool,
-    },
-    Disconnected {
-        message: String,
-    },
+    AfterGameChat(AfterGameChat),
+    Disconnected { message: String },
 }
 
 impl ClientState {
