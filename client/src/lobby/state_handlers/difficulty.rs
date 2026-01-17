@@ -4,6 +4,7 @@ use bincode::{
 };
 
 use crate::{
+    game::world::sky,
     lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
     net::NetworkHandle,
     session::ClientSession,
@@ -85,10 +86,14 @@ pub fn handle(
                 },
                 _,
             )) => {
+                let sky_colors = sky::sky_colors(game_data.difficulty);
+                let sky_mesh = sky::SkyMesh::new(sky_colors);
+
                 return Some(ClientState::Lobby(Lobby::Countdown {
                     end_time,
                     game_data,
                     maze_meshes: None,
+                    sky_mesh,
                 }));
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
@@ -110,15 +115,12 @@ pub fn handle(
         }
     }
 
-    let choice_already_sent = if let ClientState::Lobby(Lobby::ChoosingDifficulty {
-        choice_sent,
-        ..
-    }) = &session.state
-    {
-        *choice_sent
-    } else {
-        false
-    };
+    let choice_already_sent =
+        if let ClientState::Lobby(Lobby::ChoosingDifficulty { choice_sent, .. }) = &session.state {
+            *choice_sent
+        } else {
+            false
+        };
 
     if !choice_already_sent {
         if let Some(input) = session.take_input() {
@@ -179,11 +181,11 @@ mod tests {
     use common::protocol::{ClientMessage, ServerMessage};
 
     #[test]
-        #[should_panic(
-            expected = "called difficulty::handle() when state was not ChoosingDifficulty; current state: Lobby(ServerAddress { prompt_printed: false })"
-        )]
-        fn guards_panics_if_not_in_correct_state() {
-            let mut session = ClientSession::new(0);
+    #[should_panic(
+        expected = "called difficulty::handle() when state was not ChoosingDifficulty; current state: Lobby(ServerAddress { prompt_printed: false })"
+    )]
+    fn guards_panics_if_not_in_correct_state() {
+        let mut session = ClientSession::new(0);
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
         handle(&mut session, &mut ui, &mut network);

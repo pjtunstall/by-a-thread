@@ -4,6 +4,7 @@ use bincode::{
 };
 
 use crate::{
+    game::world::sky,
     lobby::ui::{LobbyUi, UiErrorKind},
     net::NetworkHandle,
     session::ClientSession,
@@ -37,10 +38,14 @@ pub fn handle(
                 },
                 _,
             )) => {
+                let sky_colors = sky::sky_colors(game_data.difficulty);
+                let sky_mesh = sky::SkyMesh::new(sky_colors);
+
                 return Some(ClientState::Lobby(Lobby::Countdown {
                     end_time,
                     game_data,
                     maze_meshes: None,
+                    sky_mesh,
                 }));
             }
             Ok((ServerMessage::BeginDifficultySelection, _)) => {

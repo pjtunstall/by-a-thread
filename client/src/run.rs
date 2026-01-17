@@ -10,7 +10,9 @@ use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 use crate::{
     after_game_chat,
     assets::Assets,
-    game, info,
+    game,
+    game::world::sky,
+    info,
     lobby::{
         self,
         ui::{Gui, LobbyUi},
@@ -216,12 +218,17 @@ impl ClientRunner {
         self.session.clock.sim_tick = sim_tick;
         self.last_updated = Instant::now();
 
-        let (initial_data, maze_meshes) = match &mut self.session.state {
+        let (initial_data, maze_meshes, sky_mesh) = match &mut self.session.state {
             ClientState::Lobby(Lobby::Countdown {
                 game_data,
                 maze_meshes,
+                sky_mesh,
                 ..
-            }) => (std::mem::take(game_data), maze_meshes.take()),
+            }) => (
+                std::mem::take(game_data),
+                maze_meshes.take(),
+                std::mem::replace(sky_mesh, sky::SkyMesh::new(sky::sky_colors(1))), // Default to level 1
+            ),
             other => {
                 self.ui.show_sanitized_error(&format!(
                     "Tried to start game from invalid state: {:#?}.",
@@ -251,6 +258,7 @@ impl ClientRunner {
                 local_player_index,
                 initial_data,
                 maze_meshes,
+                sky_mesh.into_mesh(),
                 sim_tick,
                 info_map,
             )));

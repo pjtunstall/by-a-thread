@@ -1,4 +1,7 @@
+use macroquad::prelude::*;
+
 use crate::game::world::maze::MazeMeshes;
+use crate::game::world::sky::SkyMesh;
 use common::{auth::Passcode, snapshot::InitialData};
 
 #[derive(Debug)]
@@ -29,6 +32,7 @@ pub enum Lobby {
         end_time: f64,
         game_data: InitialData,
         maze_meshes: Option<MazeMeshes>,
+        sky_mesh: SkyMesh,
     },
     ChoosingDifficulty {
         prompt_printed: bool,

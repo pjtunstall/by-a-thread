@@ -19,6 +19,7 @@ use crate::{
     frame::FrameRate,
     game::input,
     game::world::maze::{MazeExtension, MazeMeshes},
+    game::world::sky::{Sky, sky_colors},
     info,
     net::NetworkHandle,
     session::Clock,
@@ -64,6 +65,7 @@ pub struct Game {
     pub local_player_index: usize,
     pub maze: Maze,
     pub maze_meshes: MazeMeshes,
+    pub sky: Sky,
     pub players: Vec<Player>,
     pub info_map: info::map::MapOverlay,
     pub input_history: Ring<PlayerInput, INPUT_HISTORY_LENGTH>, // 256: ~4.3s at 60Hz.
@@ -90,11 +92,15 @@ impl Game {
         local_player_index: usize,
         initial_data: InitialData,
         maze_meshes: MazeMeshes,
+        _sky_mesh: Mesh,
         sim_tick: u64,
         info_map: info::map::MapOverlay,
     ) -> Self {
         let players = initial_data.players;
         let interpolated_positions = players.iter().map(|player| player.state.position).collect();
+
+        let sky_colors = sky_colors(initial_data.difficulty);
+        let sky = Sky::new(None, sky_colors);
 
         Self {
             // `snapshot_buffer.head` will be reset when the first snapshot is
@@ -106,6 +112,7 @@ impl Game {
             local_player_index,
             maze: initial_data.maze,
             maze_meshes,
+            sky,
             players,
             info_map,
             input_history: Ring::new(),
@@ -463,8 +470,11 @@ impl Game {
     // ticks in case of a faster frame rate.
     pub fn draw(&mut self, _prediction_alpha: f64, assets: &Assets, fps: &FrameRate) {
         clear_background(BEIGE);
+        self.set_camera();
+
+        self.sky.draw();
         self.maze.draw(&self.maze_meshes);
-        self.set_camera_and_draw_local_player_shadow();
+        self.draw_local_player_shadow();
         self.draw_remote_players(assets);
         self.draw_bullets();
         info::draw(self, assets, fps, info::INFO_SCALE);
@@ -474,6 +484,14 @@ impl Game {
         // problem, consider decoupling the drawing of the fade (and likewise
         // the flash) from checking whether it's still fading.
         self.draw_flash_and_fade();
+    }
+
+    fn draw_local_player_shadow(&mut self) {
+        let i = self.local_player_index;
+        let local_player = &self.players[i];
+        if local_player.alive {
+            self.draw_player_shadow(local_player.state.position);
+        }
     }
 
     fn draw_flash_and_fade(&mut self) {
@@ -494,15 +512,12 @@ impl Game {
         }
     }
 
-    fn set_camera_and_draw_local_player_shadow(&mut self) {
+    fn set_camera(&mut self) {
         let i = self.local_player_index;
         let local_player = &self.players[i];
         let mut position = local_player.state.position;
         let mut yaw = local_player.state.yaw;
         let mut pitch = local_player.state.pitch;
-        if local_player.alive {
-            self.draw_player_shadow(position);
-        }
 
         if let Some(obe_effect) = &mut self.obe_effect {
             obe_effect.update();
@@ -521,7 +536,7 @@ impl Game {
                 ),
             up: vec3(0.0, 1.0, 0.0),
             z_near: 0.1,
-            z_far: 5000.0,
+            z_far: 10000.0,
             ..Default::default()
         });
     }
