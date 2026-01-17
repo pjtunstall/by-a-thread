@@ -7,4 +7,4 @@ Check consistency of decode/unexpected error handling on client. Server is ok. B
 - countdown.rs ignores all decoded messages and shows a UI error on decode failures (with different capitalization/punctuation).
 - difficulty.rs ignores unexpected variants and shows a UI error on decode failure, but the message format is different ([DESERIALIZATION ERROR: ...]).
 
-Look at the variety of period, versus semicolon, versus colonin logs.
+Look at the variety of period, versus semicolon, versus colon in logs.
