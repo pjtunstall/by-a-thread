@@ -104,25 +104,25 @@ pub fn generate_sky(texture: Option<Texture2D>, sky_colors: [[u8; 4]; 3]) -> Mes
 }
 
 pub fn sky_colors(level: u8) -> [[u8; 4]; 3] {
-    let c1 = [255, 255, 0, 255];
-    let c2 = [0, 0, 0, 0];
-    let c3 = [0, 0, 255, 255];
-    let sky_colors_1 = [c1, c2, c3];
-
-    let c1 = [255, 0, 0, 255];
-    let c2 = [0, 255, 0, 255];
-    let c3 = [0, 0, 255, 255];
-    let sky_colors_2 = [c1, c2, c3];
-
-    let c1 = [255, 255, 255, 255];
-    let c2 = [0, 0, 0, 0];
-    let c3 = [0, 0, 0, 255];
-    let sky_colors_3 = [c1, c2, c3];
-
     match level {
-        2 => sky_colors_2,
-        3 => sky_colors_3,
-        _ => sky_colors_1,
+        2 => {
+            let c1 = [255, 165, 0, 255];
+            let c2 = [0, 255, 0, 255];
+            let c3 = [255, 255, 255, 255];
+            [c1, c2, c3]
+        }
+        3 => {
+            let c1 = [255, 255, 255, 255];
+            let c2 = [0, 0, 0, 0];
+            let c3 = [0, 0, 0, 255];
+            [c1, c2, c3]
+        }
+        _ => {
+            let c1 = [255, 255, 0, 255];
+            let c2 = [0, 0, 0, 0];
+            let c3 = [0, 0, 255, 255];
+            [c1, c2, c3]
+        }
     }
 }
 
