@@ -8,6 +8,7 @@
   - [Controls](#controls)
 - [Levels](#levels)
 - [Workflow](#workflow)
+- [Security](#security)
 - [Credits](#credits)
 
 ## Overview
@@ -32,7 +33,7 @@ Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/instal
 
 ## Levels
 
-As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`. In practice, my impression so far is that the algorithms that lead to more deadends might actually be easier to navigate, especially with the map available, and the fact that you can generally see that a path is blocked before you commit to it.
+As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`.
 
 ## Workflow
 
