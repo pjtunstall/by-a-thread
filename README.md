@@ -32,11 +32,17 @@ Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/instal
 
 ## Levels
 
-As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`.
+As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`. In practice, my impression so far is that the algorithms that lead to more deadends might actually be easier to navigate, especially with the map available, and the fact that you can generally see that a path is blocked before you commit to it.
 
 ## Workflow
 
 I used a variety of AI chatbots to straighten out my understanding of the netcode and develop a strategy, to help troubleshoot, and to review my attempts. Gemini (Pro) has been my mainstay this time. It's really impressed me, especially since the launch of Gemini 3. Towards the end, I tried out two coding agents: Codex and Cascade. They've been a fantastic time-saver for tidying up the loose ends.
+
+## Security
+
+Currently, as a shortcut during development, the client simply imports (what should be) a private key and uses it to create the token needed to establish a Renet connection with the server. The server logs a random passcode to the terminal, different each game. This can be shared with any players who want to join the game. The first to join is designated the host, which just means they get to choose the difficulty level, triggering the start of the game itself.
+
+In production, the private key should stay with a "matchmaker". The matchmaker, in this case, will just be a program responsible for processing requests to start a new game. (It won't attempt to match players with strangers for now.) If the number of games in progress is below the maximum, the matchmaker will launch a new instance of the game server and supply the host with a token, generated from a genuinely private key, along with a passcode and port number to join. The host can then share the passcode and port number with friends. (The host could perhaps be given a distinct passcode to ensure that the server recognizes them as the host; or it could go by order of arrival.) When the host chooses a difficulty level, the server will notify the matchmaker so that it can update its game count. Once the matchmaker has acknowledged that it received the message, the game proper can begin. The matchmaker will continuously sweep for expired games so that it can free up slots.
 
 ## Credits
 
