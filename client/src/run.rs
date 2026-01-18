@@ -49,6 +49,8 @@ impl ClientRunner {
         socket
             .set_nonblocking(true)
             .map_err(|e| format!("failed to set socket as non-blocking: {}", e))?;
+
+        // TODO: The client should receive this token from a matchmakers server via HTTPS, then use it to connect to the server. The client shouldn't have access to the private key used to create the token.
         let connect_token = net::create_connect_token(
             current_time_duration,
             protocol_id,
