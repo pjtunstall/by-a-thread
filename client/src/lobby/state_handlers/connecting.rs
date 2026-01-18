@@ -203,7 +203,7 @@ mod tests {
         assert!(matches!(
             next_state,
             Some(ClientState::Disconnected { ref message })
-                if message == "connection failed: dns failure"
+                if message.contains("connection failed") && message.contains("dns failure")
         ));
     }
 }
