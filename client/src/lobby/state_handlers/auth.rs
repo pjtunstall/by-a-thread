@@ -41,6 +41,7 @@ pub fn handle(
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 session.set_auth_waiting_for_server(false);
+                *waiting_for_server = false;
                 let sanitized_message = sanitize(&message);
                 if sanitized_message == GAME_ALREADY_STARTED_MESSAGE {
                     return Some(ClientState::Disconnected {
@@ -60,14 +61,14 @@ pub fn handle(
                     *waiting_for_input = true;
                 } else if sanitized_message == AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE {
                     return Some(ClientState::Disconnected {
-                        message: "Authentication failed.".to_string(),
+                        message: "authentication failed".to_string(),
                     });
                 }
             }
             Ok((_, _)) => {}
             Err(e) => ui.show_typed_error(
-                UiErrorKind::Other,
-                &format!("[Deserialization error: {}]", e),
+                UiErrorKind::Deserialization,
+                &format!("[DESERIALIZATION ERROR: {}]", e),
             ),
         }
     }
@@ -123,7 +124,7 @@ pub fn handle(
     if network.is_disconnected() {
         let reason = network.get_disconnect_reason();
         return Some(ClientState::Disconnected {
-            message: format!("Disconnected while authenticating: {}.", reason),
+            message: format!("disconnected while authenticating: {}", reason),
         });
     }
 

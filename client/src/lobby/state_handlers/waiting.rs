@@ -49,7 +49,7 @@ pub fn handle(
             Err(e) => {
                 ui.show_typed_error(
                     UiErrorKind::Deserialization,
-                    &format!("[Deserialization error: {}]", e),
+                    &format!("[DESERIALIZATION ERROR: {}]", e),
                 );
             }
         }
@@ -58,7 +58,7 @@ pub fn handle(
     if network.is_disconnected() {
         return Some(ClientState::Disconnected {
             message: format!(
-                "Disconnected while awaiting username confirmation: {}.",
+                "disconnected while awaiting username confirmation: {}",
                 network.get_disconnect_reason()
             ),
         });

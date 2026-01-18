@@ -1,7 +1,7 @@
 use bincode::{config::standard, serde::decode_from_slice, serde::encode_to_vec};
 
 use crate::{
-    lobby::ui::LobbyUi,
+    lobby::ui::{LobbyUi, UiErrorKind},
     net::{DisconnectKind, NetworkHandle},
     session::ClientSession,
     state::{ClientState, Lobby},
@@ -28,7 +28,12 @@ pub fn handle(
                 return Some(ClientState::Disconnected { message });
             }
             Ok((_, _)) => {}
-            Err(_) => {}
+            Err(e) => {
+                ui.show_typed_error(
+                    UiErrorKind::Deserialization,
+                    &format!("[DESERIALIZATION ERROR: {}]", e),
+                );
+            }
         }
     }
 
@@ -64,7 +69,7 @@ pub fn handle(
             DisconnectKind::DisconnectedByServer | DisconnectKind::ConnectionDenied => {
                 common::protocol::GAME_ALREADY_STARTED_MESSAGE.to_string()
             }
-            _ => format!("Connection failed: {}.", reason),
+            _ => format!("connection failed: {}", reason),
         };
 
         Some(ClientState::Disconnected { message })
@@ -198,7 +203,7 @@ mod tests {
         assert!(matches!(
             next_state,
             Some(ClientState::Disconnected { ref message })
-                if message == "Connection failed: dns failure."
+                if message == "connection failed: dns failure"
         ));
     }
 }

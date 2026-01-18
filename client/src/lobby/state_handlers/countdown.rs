@@ -59,7 +59,7 @@ pub fn handle(
     if let Err(UiInputError::Disconnected) = ui.poll_single_key() {
         ui.show_sanitized_error("No connection: input thread disconnected.");
         return Some(ClientState::Disconnected {
-            message: "input thread disconnected.".to_string(),
+            message: "input thread disconnected".to_string(),
         });
     }
 
@@ -70,7 +70,7 @@ pub fn handle(
             }
             Err(e) => ui.show_typed_error(
                 UiErrorKind::Deserialization,
-                &format!("Deserialization error: {}.", e),
+                &format!("[DESERIALIZATION ERROR: {}]", e),
             ),
         }
     }

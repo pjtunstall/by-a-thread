@@ -25,9 +25,17 @@ pub fn handle(
     };
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
-        if let Ok((msg, _)) = decode_from_slice::<ServerMessage, _>(&data, standard()) {
-            if let Some(next) = handle_server_message(session, ui, &msg) {
-                return Some(next);
+        match decode_from_slice::<ServerMessage, _>(&data, standard()) {
+            Ok((msg, _)) => {
+                if let Some(next) = handle_server_message(session, ui, &msg) {
+                    return Some(next);
+                }
+            }
+            Err(e) => {
+                ui.show_typed_error(
+                    UiErrorKind::Deserialization,
+                    &format!("[DESERIALIZATION ERROR: {}]", e),
+                );
             }
         }
     }

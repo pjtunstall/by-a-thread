@@ -104,7 +104,7 @@ pub fn handle(
             Ok((_, _)) => {}
             Err(e) => ui.show_typed_error(
                 UiErrorKind::Deserialization,
-                &format!("[Deserialization error: {}]", e),
+                &format!("[DESERIALIZATION ERROR: {}]", e),
             ),
         }
     }
