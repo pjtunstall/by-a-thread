@@ -80,11 +80,6 @@ impl ClientRunner {
             return;
         }
 
-        // TODO: Alternatively, Macroquad `get_frame_time` could be used, but I
-        // recall finding it less reliable, at least in an earlier version of
-        // this game. That said, I used it for the OBE effect in `obe.rs` and in
-        // `frame.rs` for the frame-rate monitor. Compare and consider what's
-        // best.
         let now = Instant::now();
         let dt = now - self.last_updated;
         self.frame_dt = dt;
