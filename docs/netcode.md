@@ -14,6 +14,7 @@
   - [Local player: reconciliation and prediction](#local-player-reconciliation-and-prediction)
   - [Remote players: interpolation](#remote-players-interpolation)
   - [Bullets: extrapolation](#bullets-extrapolation)
+  - [Tick fraction](#tick-fraction)
 - [Sources](#sources)
 
 ## Overview
@@ -105,6 +106,10 @@ The client simulates bounces, but the server sends authoritative notification of
 Some games use an alternative technique known as lag compensation. In that more Orwellian approach, the shooter is favored. The server calculates where they saw the target at the time of shooting, and makes that its authoritative truth. Maybe you know a game like this. Lag compensation is best suited to games with extremely fast projectiles. If the target has no time to dodge, they often can't be sure that they weren't in their enemies sights.
 
 Conversely, in games with projectiles that are slow enough that you can see them coming, you might feel cheated because you knew you dodged the bullet, while the shooter is likely to be less sure that they compensated correctly for a moving target. For this reason, I chose not to implement lag compensation here.
+
+### Tick fraction
+
+Finally, the game uses a tick fraction to smooth out movement for players whose refresh rate is greater than 60Hz. The tick fraction is calculated as the ratio of the accumulated time to the tick interval. The local player (i.e. the camera position and the player's own shadow) and the bullets are rendered at this fraction between their previous and current positions. No further smoothing is necessary for remote players since they're already interpolated.
 
 ### Sources
 

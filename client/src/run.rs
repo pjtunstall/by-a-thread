@@ -50,7 +50,7 @@ impl ClientRunner {
             .set_nonblocking(true)
             .map_err(|e| format!("failed to set socket as non-blocking: {}", e))?;
 
-        // TODO: The client should receive this token from a matchmakers server via HTTPS, then use it to connect to the server. The client shouldn't have access to the private key used to create the token.
+        // TODO: In production, the client should receive this token from a matchmaker.
         let connect_token = net::create_connect_token(
             current_time_duration,
             protocol_id,
@@ -80,8 +80,11 @@ impl ClientRunner {
             return;
         }
 
-        // Alternatively, Macroquad `get_frame_time` could be used, but I recall
-        // finding it less reliable, at least in an earlier version of this game.
+        // TODO: Alternatively, Macroquad `get_frame_time` could be used, but I
+        // recall finding it less reliable, at least in an earlier version of
+        // this game. That said, I used it for the OBE effect in `obe.rs` and in
+        // `frame.rs` for the frame-rate monitor. Compare and consider what's
+        // best.
         let now = Instant::now();
         let dt = now - self.last_updated;
         self.frame_dt = dt;
