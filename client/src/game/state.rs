@@ -691,34 +691,44 @@ impl Game {
 
         if shooter_index == self.local_player_index {
             if let Some(fire_nonce) = fire_nonce {
+                // Shooter: local.
+                // Some `fire_nonce` passed to the function.
                 if let Some(bullet) = self
                     .bullets
                     .iter_mut()
                     .find(|bullet| bullet.is_provisional_for(fire_nonce))
                 {
+                    // A matching (hence provisional) bullet was found.
+                    // Therefore we need to promote it and start blending.
                     bullet.confirm(bullet_id, velocity, self.last_sim_tick);
                     bullet.start_blend(adjusted_position, PROMOTION_BLEND_TICKS);
                     return;
+                } else {
+                    // Shooter: local.
+                    // Some `fire_nonce` passed to the function.
+                    // No matching active bullet found.
+                    // Therefore this is a provisional bullet.
+                    self.bullets.push(ClientBullet::new_confirmed_local(
+                        bullet_id,
+                        adjusted_position,
+                        velocity,
+                        self.last_sim_tick,
+                    ));
                 }
-
-                self.bullets.push(ClientBullet::new_confirmed_local(
-                    bullet_id,
-                    adjusted_position,
-                    velocity,
-                    self.last_sim_tick,
-                ));
-                return;
+            } else {
+                // The shooter is the local player, but no `fire_none` was passed to
+                // this function.
+                panic!("shooter local, but no `fire_event` passed to `handle_bullet_spawn_event`");
             }
-        }
+        } else {
+            // `shooter_index != self.local_player_index`
+            self.bullets.push(ClientBullet::new_confirmed(
+                bullet_id,
+                adjusted_position,
+                velocity,
+                self.last_sim_tick,
+            ));
 
-        self.bullets.push(ClientBullet::new_confirmed(
-            bullet_id,
-            adjusted_position,
-            velocity,
-            self.last_sim_tick,
-        ));
-
-        if shooter_index != self.local_player_index {
             // Only play sound if remote player is on same row or column or
             // diagonally adjacent.
             if self.line_of_sight(shooter_index) {
