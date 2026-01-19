@@ -38,7 +38,7 @@ As instructed, I've implemented three difficulty levels. The 01 instructions def
 
 ### Prediction alpha
 
-I still need to implement this technique for smoothing movement between ticks for displays with a higher frame rate than the game's tick rate.
+I still need to implement this technique for smoothing movement between ticks for displays with a higher frfresh rate than the game's tick rate.
 
 ## Workflow
 

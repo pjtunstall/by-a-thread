@@ -50,7 +50,6 @@ use common::{
 const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
 
 pub struct Game {
-    pub difficulty: u8,
     pub local_player_index: usize,
     pub maze: Maze,
     pub maze_meshes: MazeMeshes,
@@ -73,6 +72,7 @@ pub struct Game {
     obe_effect: Option<ObeEffect>,
     player_avatar_mesh: OrientedSphereMesh,
     player_shadow_mesh: DiskMesh,
+    previous_player_states: Vec<StaticState>,
 }
 
 impl Game {
@@ -84,12 +84,14 @@ impl Game {
         sim_tick: u64,
         info_map: info::map::MapOverlay,
     ) -> Self {
-        let players = initial_data.players;
-
         let sky = Sky { mesh: sky_mesh };
+        let players = initial_data.players;
+        let previous_player_states = players
+            .iter()
+            .map(|player| StaticState::new(player))
+            .collect();
 
         Self {
-            difficulty: initial_data.difficulty,
             // `snapshot_buffer.head` will be reset when the first snapshot is
             // inserted, but still we need an initial `head` that's within ±2^15
             // ticks of the tick on which the first snapshot was sent so that
@@ -117,6 +119,7 @@ impl Game {
             obe_effect: None,
             player_avatar_mesh: OrientedSphereMesh::new(),
             player_shadow_mesh: DiskMesh::new(),
+            previous_player_states,
         }
     }
 
@@ -347,7 +350,11 @@ impl Game {
             self.is_first_snapshot_received = true;
             self.last_reconciled_tick = Some(head);
 
-            let local_state = &mut self.players[self.local_player_index].state;
+            let local_player = &mut self.players[self.local_player_index];
+            self.previous_player_states[self.local_player_index] = StaticState::new(&local_player);
+
+            let local_state = &mut local_player.state;
+
             local_state.position = snapshot.local.position;
             local_state.velocity = snapshot.local.velocity;
             local_state.yaw = snapshot.local.yaw;
@@ -380,13 +387,13 @@ impl Game {
             .collect();
 
         if let Some(input) = self.input_history.get(tick) {
-            self.players[own_index].state.update(
-                &self.maze,
-                input,
-                own_index,
-                &player_positions,
-                0.5,
-            );
+            let local_player = &mut self.players[own_index];
+
+            self.previous_player_states[self.local_player_index] = StaticState::new(&local_player);
+
+            local_player
+                .state
+                .update(&self.maze, input, own_index, &player_positions, 0.5);
         }
     }
 
@@ -436,6 +443,8 @@ impl Game {
                 return None;
             };
 
+            self.previous_player_states[index] = StaticState::new(player);
+
             let state = &mut player.state;
             state.position = a.position + (b.position - a.position) * alpha;
             state.yaw = a.yaw + (b.yaw - a.yaw) * alpha;
@@ -458,11 +467,9 @@ impl Game {
         }
     }
 
-    // TODO: `prediction_alpha` would be for smoothing the local player between
-    // ticks in case of a faster frame rate.
-    pub fn draw(&mut self, _prediction_alpha: f64, assets: &Assets, fps: &FrameRate) {
+    pub fn draw(&mut self, tick_fraction: f64, assets: &Assets, fps: &FrameRate) {
         clear_background(BEIGE);
-        self.set_camera();
+        self.set_camera(tick_fraction);
 
         self.sky.draw();
         self.maze.draw(&self.maze_meshes);
@@ -477,18 +484,25 @@ impl Game {
         self.draw_flash_and_fade();
     }
 
-    fn set_camera(&mut self) {
+    fn set_camera(&mut self, tick_fraction: f64) {
         let i = self.local_player_index;
-        let local_player = &self.players[i];
-        let mut position = local_player.state.position;
-        let mut yaw = local_player.state.yaw;
-        let mut pitch = local_player.state.pitch;
+
+        let alpha = tick_fraction as f32;
+        let prev_state = &self.previous_player_states[i];
+        let curr_state = &self.players[i].state;
+
+        let mut position = prev_state.position.lerp(curr_state.position, alpha);
+        let mut yaw = prev_state.yaw + (curr_state.yaw - prev_state.yaw) * alpha;
+        let mut pitch = prev_state.pitch + (curr_state.pitch - prev_state.pitch) * alpha;
 
         if let Some(obe_effect) = &mut self.obe_effect {
             obe_effect.update();
-            position.y += obe_effect.height_offset;
-            yaw += obe_effect.yaw_offset;
-            pitch = obe_effect.pitch;
+
+            let [interp_height_offset, interp_yaw_offset, interp_pitch] = obe_effect.interpolate();
+
+            position.y += interp_height_offset;
+            yaw += interp_yaw_offset;
+            pitch = interp_pitch;
         }
 
         set_camera(&Camera3D {
@@ -912,5 +926,22 @@ impl fmt::Debug for Game {
             .field("players", &self.players)
             .field("input_history", &self.input_history)
             .finish()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct StaticState {
+    position: Vec3,
+    pitch: f32,
+    yaw: f32,
+}
+
+impl StaticState {
+    pub fn new(player: &Player) -> Self {
+        Self {
+            position: player.state.position,
+            pitch: player.state.pitch,
+            yaw: player.state.yaw,
+        }
     }
 }

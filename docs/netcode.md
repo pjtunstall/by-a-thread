@@ -22,9 +22,13 @@ In what follows, "local player" will mean a player as represented on their own m
 
 Renet is a networking library for Rust, built on top of UDP. It defines three channel types: `ReliableOrdered`, `ReliableUnordered`, and `Unreliable`. You can send messages over these channels. Renet takes care of splitting them into packets and reassembling them. I've used `ReliableOrdered` for system and chat messages and for bullet spawn and collision notifications from the server. I used `Unreliable` for input from the client, and for snapshots (player position updates) from the server. `Unreliable` is faster because it doesn't have to order messages or resend ones that failed to arrive.
 
-### Tick and frame
+### Tick, frame, and refresh rate
 
-A frame is an iteration of the client's game loop. The frame rate is how often the latest game state is rendered on the screen, i.e. how fast the display is refreshed. On many computers this is ideally 60 frames per second; on some the ideal may be faster. If all work is done, the program waits for the rest of the ideal frame duration to have elapsed before continuing to the next iteration. If we ask the computer to do too much work, a frame could last longer. It can also last longer if we put the window into the background, in which case Macroquad detects that there's no point rendering and keeps waiting till the window is visible again.
+A frame is an iteration of the client's game loop. The frame rate is how often the program calls its function to draw the latest game state on the screen.
+
+The refresh rate of a monitor is how fast it updates the display. On many computers this is 60 times a second; on some it may be faster.
+
+If all work is done, the program waits for the rest of the ideal frame duration to have elapsed before continuing to the next iteration; in that case the frame rate (FPS) is equal to the refresh rate. If we ask the computer to do too much work, a frame could last longer. It can also last longer if we put the window into the background, in which case Macroquad detects that there's no point rendering and keeps waiting till the window is visible again.
 
 A tick is an iteration of the server's game loop. But a tick is also a unit of game time: a game-logic update and, by extension, the sequence number that such an update is labeled by. The reason for this blurring of terminology is that the server is authoritative. Clients just have to trust that it keeps time well since they will try to synchronize their clocks with its, and that one tick lasts as long as it should and not longer. Luckily the server doesn't have to do any rendering, so it's less likely to be overwhelmed.
 
