@@ -3,6 +3,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+use rand::{Rng as _, rng};
+
 use bincode::{config::standard, serde::encode_to_vec};
 
 use crate::{
@@ -490,11 +492,18 @@ impl Lobby {
             return color;
         }
 
-        let color = COLORS
+        let available_colors: Vec<Color> = COLORS
             .iter()
             .copied()
-            .find(|candidate| !self.player_colors.values().any(|&used| used == *candidate))
-            .unwrap_or_else(|| COLORS[self.player_colors.len() % COLORS.len()]);
+            .filter(|&candidate| !self.player_colors.values().any(|&used| used == candidate))
+            .collect();
+
+        let color = if available_colors.is_empty() {
+            COLORS[self.player_colors.len() % COLORS.len()]
+        } else {
+            available_colors[rng().random_range(0..available_colors.len())]
+        };
+
         self.player_colors.insert(client_id, color);
         color
     }
