@@ -568,19 +568,7 @@ impl Game {
     }
 
     fn draw_bullets(&self, tick_fraction: f32) {
-        // The bullet's true radius, as far as the server/physics is concerned
-        // is small. It's drawn with a bigger radius to make it more visible.
-        // This is to let the target feel undue danger to make the game more
-        // exciting; and for the sake of the visual effect of large bouncing
-        // bullets. The bet here is that the target's relief at surviving being
-        // clipped by a large sphere will outweigh any potential feeling the
-        // shooter might have that its periphery should be doing more damage.
         const BULLET_DRAW_RADIUS: f32 = 4.0;
-
-        // The bullet is drawn a above its true position to stop it looking like
-        // it's sinking into the ground, given the deception described above. If
-        // aim seems unacceptably off, this can be removed.
-        let draw_offset = (BULLET_DRAW_RADIUS - bullets::BULLET_RADIUS).max(0.0);
 
         for bullet in &self.bullets {
             let color = if bullet.blend_ticks_left > 0 {
@@ -601,13 +589,11 @@ impl Game {
                 }
             };
 
-            let smoothed_pos = bullet
+            let smoothed_position = bullet
                 .previous_position
                 .lerp(bullet.position, tick_fraction);
 
-            let draw_position = smoothed_pos + vec3(0.0, draw_offset, 0.0);
-
-            draw_sphere(draw_position, BULLET_DRAW_RADIUS, None, color);
+            draw_sphere(smoothed_position, BULLET_DRAW_RADIUS, None, color);
         }
     }
 
