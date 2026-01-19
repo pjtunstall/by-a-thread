@@ -72,7 +72,7 @@ pub struct Game {
     obe_effect: Option<ObeEffect>,
     player_avatar_mesh: OrientedSphereMesh,
     player_shadow_mesh: DiskMesh,
-    previous_player_states: Vec<StaticState>,
+    previous_local_state: StaticState,
 }
 
 impl Game {
@@ -86,10 +86,7 @@ impl Game {
     ) -> Self {
         let sky = Sky { mesh: sky_mesh };
         let players = initial_data.players;
-        let previous_player_states = players
-            .iter()
-            .map(|player| StaticState::new(player))
-            .collect();
+        let previous_local_state = StaticState::new(&players[local_player_index]);
 
         Self {
             // `snapshot_buffer.head` will be reset when the first snapshot is
@@ -119,7 +116,7 @@ impl Game {
             obe_effect: None,
             player_avatar_mesh: OrientedSphereMesh::new(),
             player_shadow_mesh: DiskMesh::new(),
-            previous_player_states,
+            previous_local_state,
         }
     }
 
@@ -351,7 +348,7 @@ impl Game {
             self.last_reconciled_tick = Some(head);
 
             let local_player = &mut self.players[self.local_player_index];
-            self.previous_player_states[self.local_player_index] = StaticState::new(&local_player);
+            self.previous_local_state = StaticState::new(&local_player);
 
             let local_state = &mut local_player.state;
 
@@ -389,7 +386,7 @@ impl Game {
         if let Some(input) = self.input_history.get(tick) {
             let local_player = &mut self.players[own_index];
 
-            self.previous_player_states[self.local_player_index] = StaticState::new(&local_player);
+            self.previous_local_state = StaticState::new(&local_player);
 
             local_player
                 .state
@@ -443,7 +440,7 @@ impl Game {
                 return None;
             };
 
-            self.previous_player_states[index] = StaticState::new(player);
+            self.previous_local_state = StaticState::new(player);
 
             let state = &mut player.state;
             state.position = a.position + (b.position - a.position) * alpha;
@@ -485,10 +482,9 @@ impl Game {
     }
 
     fn set_camera(&mut self, tick_fraction: f64) {
-        let i = self.local_player_index;
-
         let alpha = tick_fraction as f32;
-        let prev_state = &self.previous_player_states[i];
+        let i = self.local_player_index;
+        let prev_state = &self.previous_local_state;
         let curr_state = &self.players[i].state;
 
         let mut position = prev_state.position.lerp(curr_state.position, alpha);
@@ -596,8 +592,10 @@ impl Game {
                     }
                 }
             };
+
             // Keep the visual sphere aligned with the physics radius.
             let draw_position = bullet.position + vec3(0.0, draw_offset, 0.0);
+
             draw_sphere(draw_position, BULLET_DRAW_RADIUS, None, color);
         }
     }
