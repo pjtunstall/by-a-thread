@@ -579,7 +579,8 @@ impl Game {
         const BULLET_DRAW_RADIUS: f32 = 4.0;
 
         // The bullet is drawn a above its true position to stop it looking like
-        // it's sinking into the ground, given the deception described above.
+        // it's sinking into the ground, given the deception described above. If
+        // aim seems unacceptably off, this can be removed.
         let draw_offset = (BULLET_DRAW_RADIUS - bullets::BULLET_RADIUS).max(0.0);
 
         for bullet in &self.bullets {
