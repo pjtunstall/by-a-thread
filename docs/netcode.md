@@ -2,9 +2,15 @@
 
 - [Overview](#overview)
 - [Preliminaries](#preliminaries)
+  - [Local and remote players](#local-and-remote-players)
   - [Renet](#renet)
-  - [Tick and frame](#tick-and-frame)
+  - [Frame and refresh rate](#frame-and-refresh-rate)
+  - [Tick and broadcast rate](#tick-and-broadcast-rate)
+- [Timing](#timing)
+  - [Clock synchronization](#clock-synchronization)
+  - [Accumulator](#accumulator)
 - [Netcode](#netcode)
+  - [Buffers and history](#buffers-and-history)
   - [Local player: reconciliation and prediction](#local-player-reconciliation-and-prediction)
   - [Remote players: interpolation](#remote-players-interpolation)
   - [Bullets: extrapolation](#bullets-extrapolation)
@@ -12,9 +18,11 @@
 
 ## Overview
 
-Netcode refers to the techniques used to coordinate how players and other dynamic entities, such as projectiles, are displayed in a way that disguises latency. This is a description of the strategies I used in this project. If you're familiar with the concepts already, you can skip to the [Netcode](#netcode) section.
+Netcode refers to the techniques used to coordinate how players and other dynamic entities, such as projectiles, are displayed in a way that disguises latency. This is a description of the strategies I used in this project.
 
 ## Preliminaries
+
+### Local and remote players
 
 In what follows, "local player" will mean a player as represented on their own machine. "Remote players" are the other players as represented on a given player's machine.
 
@@ -22,27 +30,39 @@ In what follows, "local player" will mean a player as represented on their own m
 
 Renet is a networking library for Rust, built on top of UDP. It defines three channel types: `ReliableOrdered`, `ReliableUnordered`, and `Unreliable`. You can send messages over these channels. Renet takes care of splitting them into packets and reassembling them. I've used `ReliableOrdered` for system and chat messages and for bullet spawn and collision notifications from the server. I used `Unreliable` for input from the client, and for snapshots (player position updates) from the server. `Unreliable` is faster because it doesn't have to order messages or resend ones that failed to arrive.
 
-### Tick, frame, and refresh rate
+### Frame and refresh rate
 
-A frame is an iteration of the client's game loop. The frame rate is how often the program calls its function to draw the latest game state on the screen.
+A frame is an iteration of the client's game loop. The frame rate is how often the program calls its function(s) to draw the latest game state on the screen.
 
-The refresh rate of a monitor is how fast it updates the display. On many computers this is 60 times a second; on some it may be faster.
+The refresh rate of a monitor is how fast it updates the display. On many computers this is 60 times a second; on some it's be faster.
 
-If all work is done, the program waits for the rest of the ideal frame duration to have elapsed before continuing to the next iteration; in that case the frame rate (FPS) is equal to the refresh rate. If we ask the computer to do too much work, a frame could last longer. It can also last longer if we put the window into the background, in which case Macroquad detects that there's no point rendering and keeps waiting till the window is visible again.
+In the case of this game, the ideal frame rate the same as the refresh rate. Calling `next_frame().await`, tells the Macroquad to suspend the game loop till the rest of the ideal frame duration has elapsed. Then we move on to the next iteration.
 
-A tick is an iteration of the server's game loop. But a tick is also a unit of game time: a game-logic update and, by extension, the sequence number that such an update is labeled by. The reason for this blurring of terminology is that the server is authoritative. Clients just have to trust that it keeps time well since they will try to synchronize their clocks with its, and that one tick lasts as long as it should and not longer. Luckily the server doesn't have to do any rendering, so it's less likely to be overwhelmed.
+A frame can last longer if it has too much work to do. It can also last longer if we put the window into the background, in which case Macroquad detects that there's no point rendering and keeps waiting till the window is visible again.
+
+### Tick and broadcast rate
+
+A tick is an iteration of the server's game loop. We also use the word to mean a unit of game time: one game-logic update and, by extension, the sequence number that such an update is labeled by. The reason for this blurring of terminology is that the server is authoritative. Luckily the server doesn't have to do any rendering, so it's less likely to be overwhelmed.
 
 Although the server runs its input processing and physics updates at 60Hz, it only broadcasts player positions at 20Hz. I've called this the broadcast rate. The client has various ways of filling in the gaps, as detailed below.
 
 Depending on varying latency and frame duration, the client may have a varying number of ticks (in the sense of game-logic updates) to process each frame. Even if it hasn't heard from the server on a given tick, it must still check its own inputs and update its "simulation" of the server' sauthoritative reality. When data does arrive, it will correct the simulation, although it may do so in subtle ways, smoothing out abrupt changes.
 
-### Clock synchronization
+## Clock synchronization
+
+To overcome discrepancies between local clocks, the sever clock is taken as the authoritative source of time.
 
 The client needs a good estimate of server time to drive interpolation, input scheduling, and countdowns, but it can't trust wall clocks: packets arrive late, late packets can arrive out of order, and RTT (return travel time) jitters with network conditions. So the client builds a moving estimate, `estimated_server_time`, from periodic server pings and smooths it to avoid visible stutter.
 
 The server broadcasts `ServerTime` messages at a fixed interval. The client records each message as a `ClockSample` with the server time, the local receive time (a monotonic clock), and the RTT from Renet. Each frame, the estimate is advanced by the duration of the last frame. When samples are available, the client chooses the best one by minimizing `rtt + age * AGE_PENALTY_FACTOR`, so it prefers a slightly higher RTT from a fresh packet over a perfect RTT from an old packet. It then computes a target time as `server_time + rtt / 2 + age_of_sample`.
 
 If this is the first estimate or the error exceeds one second, the clock snaps to the target. Otherwise, small errors inside a deadzone are ignored, and larger errors are nudged toward the target using a small smoothing factor (speeding up or slowing down symmetrically). RTT itself is smoothed with different alphas for spikes vs. improvements, and the smoothed RTT feeds later timing decisions like the simulation target time.
+
+### Accumulator
+
+The client maintains an accumulator: a value that's incremented by the duration of each frame and decremented by the tick interval for every tick that's processed. When the accumulator is greater than or equal to the tick interval, a tick is processed. This allows the game to run at a fixed rate, regardless of the frame rate.
+
+## Netcode
 
 ### Buffers and history
 
@@ -56,13 +76,11 @@ To save on bandwidth, ticks are sent as 16-bit unsigned integers and expanded in
 
 ### Input
 
-The client forward-dates its inputs to give them time to reach the server. They're actually forward-dated a little bit more than necessary as a safety margin, hence the need for input buffers to store them serverside. The client sends its last four inputs each tick, in case some fail to arrive on the `Unreliable` channel, hence the need for an input history. The input history is also used to apply past inputs to snapshots; see [Local player](#local-player-reconciliation-replay-and-prediction).
+The client forward-dates its inputs to give them time to reach the server. They're actually forward-dated a little bit more than necessary as a safety margin, hence the need for input buffers to store them serverside. The client sends its last four inputs each tick, in case some fail to arrive on the `Unreliable` channel, hence the need for an input history. The input history is also used to apply past inputs to snapshots; see [Local player](#local-player-reconciliation-and-prediction).
 
 Players send input data for every tick, even if it's just to say that no keys are pressed.
 
 As the server performs its game-state update (processes a tick), it checks each player's `input_buffer` to see if there's an input available for this tick. If so, it applies that input. If not, it re-applies the last input that it did receive.
-
-## Netcode
 
 ### Local player: reconciliation and prediction
 
