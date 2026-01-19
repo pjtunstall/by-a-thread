@@ -176,12 +176,8 @@ impl ClientRunner {
                         self.session.transition(next_state);
                     }
                     _ => {
-                        // TODO: `tick_fraction` would be for smoothing
-                        // movement between ticks on devices with a higher frame
-                        // rate than the server tick rate. As yet, it's unused
-                        // in `draw`.
-                        let tick_fraction =
-                            (self.session.clock.accumulated_time / TICK_SECS).clamp(0.0, 1.0);
+                        let tick_fraction = (self.session.clock.accumulated_time / TICK_SECS)
+                            .clamp(0.0, 1.0) as f32;
                         game_state.draw(tick_fraction, &self.assets, &self.session.clock.fps);
                     }
                 }

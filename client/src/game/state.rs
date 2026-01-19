@@ -462,14 +462,14 @@ impl Game {
         }
     }
 
-    pub fn draw(&mut self, tick_fraction: f64, assets: &Assets, fps: &FrameRate) {
+    pub fn draw(&mut self, tick_fraction: f32, assets: &Assets, fps: &FrameRate) {
         clear_background(BEIGE);
         self.set_camera(tick_fraction);
 
         self.sky.draw();
         self.maze.draw(&self.maze_meshes);
         self.draw_players(assets);
-        self.draw_bullets();
+        self.draw_bullets(tick_fraction);
         info::draw(self, assets, fps, info::INFO_SCALE);
 
         // This function must be called after drawing the scene so that the fade
@@ -479,15 +479,14 @@ impl Game {
         self.draw_flash_and_fade();
     }
 
-    fn set_camera(&mut self, tick_fraction: f64) {
-        let alpha = tick_fraction as f32;
+    fn set_camera(&mut self, tick_fraction: f32) {
         let i = self.local_player_index;
         let prev_state = &self.previous_local_state;
         let curr_state = &self.players[i].state;
 
-        let mut position = prev_state.position.lerp(curr_state.position, alpha);
-        let mut yaw = prev_state.yaw + (curr_state.yaw - prev_state.yaw) * alpha;
-        let mut pitch = prev_state.pitch + (curr_state.pitch - prev_state.pitch) * alpha;
+        let mut position = prev_state.position.lerp(curr_state.position, tick_fraction);
+        let mut yaw = prev_state.yaw + (curr_state.yaw - prev_state.yaw) * tick_fraction;
+        let mut pitch = prev_state.pitch + (curr_state.pitch - prev_state.pitch) * tick_fraction;
 
         if let Some(obe_effect) = &mut self.obe_effect {
             obe_effect.update();
@@ -568,7 +567,7 @@ impl Game {
         }
     }
 
-    fn draw_bullets(&self) {
+    fn draw_bullets(&self, tick_fraction: f32) {
         // The bullet's true radius, as far as the server/physics is concerned
         // is small. It's drawn with a bigger radius to make it more visible.
         // This is to let the target feel undue danger to make the game more
@@ -602,7 +601,11 @@ impl Game {
                 }
             };
 
-            let draw_position = bullet.position + vec3(0.0, draw_offset, 0.0);
+            let smoothed_pos = bullet
+                .previous_position
+                .lerp(bullet.position, tick_fraction);
+
+            let draw_position = smoothed_pos + vec3(0.0, draw_offset, 0.0);
 
             draw_sphere(draw_position, BULLET_DRAW_RADIUS, None, color);
         }
@@ -615,6 +618,7 @@ impl Game {
 
         self.bullets.retain_mut(|bullet| {
             if sim_tick > bullet.last_update_tick {
+                bullet.previous_position = bullet.position;
                 let ticks = sim_tick - bullet.last_update_tick;
                 if bullet.confirmed {
                     for _ in 0..ticks {
