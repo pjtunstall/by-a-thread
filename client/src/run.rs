@@ -176,10 +176,10 @@ impl ClientRunner {
                         self.session.transition(next_state);
                     }
                     _ => {
-                        // TODO: `prediction_alpha` would be for smoothing the
-                        // local player between ticks if I allow faster than
-                        // 60Hz frame rate for devices that support it. As yet,
-                        // it's unused in `draw`.
+                        // TODO: `prediction_alpha` would be for smoothing
+                        // movement between ticks on devices with a higher frame
+                        // rate than the server tick rate. As yet, it's unused
+                        // in `draw`.
                         let prediction_alpha = self.session.clock.accumulated_time / TICK_SECS;
                         game_state.draw(prediction_alpha, &self.assets, &self.session.clock.fps);
                     }
