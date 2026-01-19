@@ -51,23 +51,23 @@ const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
 
 pub struct Game {
     pub local_player_index: usize,
-    pub maze: Maze,
-    pub maze_meshes: MazeMeshes,
-    pub sky: Sky,
     pub players: Vec<Player>,
     pub info_map: info::map::MapOverlay,
-    pub input_history: Ring<PlayerInput, INPUT_HISTORY_LENGTH>, // 256: ~4.3s at 60Hz.
-    pub snapshot_buffer: NetworkBuffer<Snapshot, SNAPSHOT_BUFFER_LENGTH>, // 16 broadcasts, 0.8s at 20Hz.
-    pub is_first_snapshot_received: bool,
-    pub last_reconciled_tick: Option<u64>,
-    pub bullets: Vec<ClientBullet>,
-    pub flash: Option<Fade>,
-    pub fade_to_black: Option<Fade>,
-    pub fade_to_black_finished: bool,
-    pub fire_nonce_counter: u32,
-    pub last_fire_tick: Option<u64>,
-    pub last_sim_tick: u64,
-    pub pending_bullet_events: Vec<BulletEvent>,
+    pub maze: Maze,
+    maze_meshes: MazeMeshes,
+    sky: Sky,
+    input_history: Ring<PlayerInput, INPUT_HISTORY_LENGTH>, // 256: ~4.3s at 60Hz.
+    snapshot_buffer: NetworkBuffer<Snapshot, SNAPSHOT_BUFFER_LENGTH>, // 16 broadcasts, 0.8s at 20Hz.
+    is_first_snapshot_received: bool,
+    last_reconciled_tick: Option<u64>,
+    bullets: Vec<ClientBullet>,
+    flash: Option<Fade>,
+    fade_to_black: Option<Fade>,
+    fade_to_black_finished: bool,
+    fire_nonce_counter: u32,
+    last_fire_tick: Option<u64>,
+    last_sim_tick: u64,
+    pending_bullet_events: Vec<BulletEvent>,
     after_game_chat_sent: bool,
     obe_effect: Option<ObeEffect>,
     player_avatar_mesh: OrientedSphereMesh,
