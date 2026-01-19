@@ -7,7 +7,6 @@
   - [To run locally](#to-run-locally)
   - [Controls](#controls)
 - [Levels](#levels)
-- [Workflow](#workflow)
 - [Credits](#credits)
 
 ## Overview
@@ -33,16 +32,6 @@ Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/instal
 ## Levels
 
 As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`.
-
-## TODO
-
-### Prediction alpha
-
-I still need to implement this technique for smoothing movement between ticks for displays with a higher frfresh rate than the game's tick rate.
-
-## Workflow
-
-I used a variety of AI chatbots to straighten out my understanding of the netcode and develop a strategy, to help troubleshoot, and to review my attempts. Gemini (Pro) has been my mainstay this time. It's really impressed me, especially since the launch of Gemini 3. Towards the end, I tried out two coding agents: Codex and Cascade. They've been a fantastic time-saver for tidying up the loose ends.
 
 ## Credits
 
