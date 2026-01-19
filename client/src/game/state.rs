@@ -68,7 +68,6 @@ pub struct Game {
     pub fire_nonce_counter: u32,
     pub last_fire_tick: Option<u64>,
     pub last_sim_tick: u64,
-    pub interpolated_positions: Vec<Vec3>,
     pub pending_bullet_events: Vec<BulletEvent>,
     after_game_chat_sent: bool,
     obe_effect: Option<ObeEffect>,
@@ -86,7 +85,6 @@ impl Game {
         info_map: info::map::MapOverlay,
     ) -> Self {
         let players = initial_data.players;
-        let interpolated_positions = players.iter().map(|player| player.state.position).collect();
 
         let sky = Sky { mesh: sky_mesh };
 
@@ -114,7 +112,6 @@ impl Game {
             fire_nonce_counter: 0,
             last_fire_tick: None,
             last_sim_tick: sim_tick,
-            interpolated_positions,
             pending_bullet_events: Vec::new(),
             after_game_chat_sent: false,
             obe_effect: None,
@@ -437,10 +434,6 @@ impl Game {
             remote_index += 1;
         }
 
-        self.interpolated_positions.clear();
-        self.interpolated_positions
-            .extend(self.players.iter().map(|player| player.state.position));
-
         // The returned value will become the new `tail` of the
         // `snapshot_buffer`. We subtract a big safety margin in case
         // `estimated_server_time` goes momentarily backwards due to network
@@ -729,8 +722,10 @@ impl Game {
             // Only play sound if remote player is on same row or column or
             // diagonally adjacent.
             if self.line_of_sight(shooter_index) {
-                let distance = self.interpolated_positions[self.local_player_index]
-                    .distance(self.interpolated_positions[shooter_index]);
+                let distance = self.players[self.local_player_index]
+                    .state
+                    .position
+                    .distance(self.players[shooter_index].state.position);
                 let volume = distance / maze::RADIUS as f32 * CELL_SIZE * 2.0;
                 play_sound(
                     &assets.gun_sound,
@@ -741,29 +736,23 @@ impl Game {
                     },
                 );
             }
-            if let Some(owner_position) = self.interpolated_positions.get(shooter_index) {
-                if let Some(bullet) = self.bullets.last_mut() {
-                    bullet.position = *owner_position;
-                    bullet.start_blend(adjusted_position, REMOTE_SPAWN_BLEND_TICKS);
-                }
+            if let Some(bullet) = self.bullets.last_mut() {
+                bullet.position = self.players[shooter_index].state.position;
+                bullet.start_blend(adjusted_position, REMOTE_SPAWN_BLEND_TICKS);
             }
         }
     }
 
     fn line_of_sight(&self, remote_player_index: usize) -> bool {
-        let Some(local_pos) = self.interpolated_positions.get(self.local_player_index) else {
-            return false;
-        };
-        let Some(remote_pos) = self.interpolated_positions.get(remote_player_index) else {
-            return false;
-        };
+        let local_pos = self.players[self.local_player_index].state.position;
+        let remote_pos = self.players[remote_player_index].state.position;
 
         let maze = &self.maze;
         let (local_grid_x, local_grid_z) = maze
-            .grid_coordinates_from_position(local_pos)
+            .grid_coordinates_from_position(&local_pos)
             .expect("local player should be in grid");
         let (remote_grid_x, remote_grid_z) = maze
-            .grid_coordinates_from_position(remote_pos)
+            .grid_coordinates_from_position(&remote_pos)
             .expect("remote player should be in grid");
 
         if (local_grid_x as i32 - remote_grid_x as i32).abs() == 1
