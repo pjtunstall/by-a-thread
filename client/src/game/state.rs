@@ -693,27 +693,32 @@ impl Game {
             if let Some(fire_nonce) = fire_nonce {
                 // Shooter: local.
                 // Some `fire_nonce` passed to the function.
-                if let Some(bullet) = self
+                match self
                     .bullets
                     .iter_mut()
                     .find(|bullet| bullet.is_provisional_for(fire_nonce))
                 {
-                    // A matching (hence provisional) bullet was found.
-                    // Therefore we need to promote it and start blending.
-                    bullet.confirm(bullet_id, velocity, self.last_sim_tick);
-                    bullet.start_blend(adjusted_position, PROMOTION_BLEND_TICKS);
-                    return;
-                } else {
-                    // Shooter: local.
-                    // Some `fire_nonce` passed to the function.
-                    // No matching active bullet found.
-                    // Therefore this is a provisional bullet.
-                    self.bullets.push(ClientBullet::new_confirmed_local(
-                        bullet_id,
-                        adjusted_position,
-                        velocity,
-                        self.last_sim_tick,
-                    ));
+                    Some(bullet) => {
+                        // Shooter: local.
+                        // Some `fire_nonce` passed to the function.
+                        // A matching (hence provisional) bullet was found.
+                        // Therefore we need to promote it and start blending.
+                        bullet.confirm(bullet_id, velocity, self.last_sim_tick);
+                        bullet.start_blend(adjusted_position, PROMOTION_BLEND_TICKS);
+                        return;
+                    }
+                    None => {
+                        // Shooter: local.
+                        // Some `fire_nonce` passed to the function.
+                        // No matching active bullet found.
+                        // Therefore this is a provisional bullet.
+                        self.bullets.push(ClientBullet::new_confirmed_local(
+                            bullet_id,
+                            adjusted_position,
+                            velocity,
+                            self.last_sim_tick,
+                        ));
+                    }
                 }
             } else {
                 // The shooter is the local player, but no `fire_none` was passed to
