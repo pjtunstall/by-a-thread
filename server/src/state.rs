@@ -149,7 +149,7 @@ impl Game {
             .players
             .iter()
             .enumerate()
-            .filter(|&(j, _)| j != i)
+            .filter(|&(j, p)| j != i && matches!(p.status, crate::player::Status::Alive))
             .map(|(_, p)| WirePlayerRemote::from(p.state))
             .collect();
 

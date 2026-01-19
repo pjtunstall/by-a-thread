@@ -29,7 +29,7 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
         .players
         .iter()
         .enumerate()
-        .filter(|(_, p)| p.health > 0)
+        .filter(|(_, p)| matches!(p.status, crate::player::Status::Alive))
         .map(|(i, p)| (i, p.state.position))
         .collect();
 

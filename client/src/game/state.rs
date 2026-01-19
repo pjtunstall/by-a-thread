@@ -296,6 +296,11 @@ impl Game {
                 Ok((ServerMessage::BulletEvent(event), _)) => {
                     self.pending_bullet_events.push(event);
                 }
+                Ok((ServerMessage::UserLeft { username }, _)) => {
+                    if let Some(player) = self.players.iter_mut().find(|p| p.name == username) {
+                        player.disconnected = true;
+                    }
+                }
                 Ok((other, _)) => {
                     eprintln!(
                         "unexpected message type received from server: {}",
@@ -312,6 +317,11 @@ impl Game {
             match decode_from_slice::<ServerMessage, _>(&data, standard()) {
                 Ok((ServerMessage::BulletEvent(event), _)) => {
                     self.pending_bullet_events.push(event);
+                }
+                Ok((ServerMessage::UserLeft { username }, _)) => {
+                    if let Some(player) = self.players.iter_mut().find(|p| p.name == username) {
+                        player.disconnected = true;
+                    }
                 }
                 Ok((other, _)) => {
                     eprintln!(
@@ -365,7 +375,7 @@ impl Game {
             .players
             .iter()
             .enumerate()
-            .filter(|(_, p)| p.health > 0)
+            .filter(|(_, p)| p.is_alive())
             .map(|(i, p)| (i, p.state.position))
             .collect();
 
@@ -498,7 +508,7 @@ impl Game {
 
     fn draw_players(&mut self, assets: &Assets) {
         for index in 0..self.players.len() {
-            if self.players[index].health == 0 {
+            if !self.players[index].is_alive() {
                 continue;
             }
 

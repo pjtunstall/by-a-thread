@@ -46,6 +46,10 @@ impl Player {
             health: MAX_HEALTH,
         }
     }
+
+    pub fn is_alive(&self) -> bool {
+        self.health > 0 && !self.disconnected
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
