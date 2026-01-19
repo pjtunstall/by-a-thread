@@ -686,76 +686,100 @@ impl Game {
     ) {
         let adjusted_position =
             bullet::extrapolate_position(position, velocity, tick, self.last_sim_tick);
-        const PROMOTION_BLEND_TICKS: u8 = 4;
-        const REMOTE_SPAWN_BLEND_TICKS: u8 = 4;
 
         if shooter_index == self.local_player_index {
-            if let Some(fire_nonce) = fire_nonce {
-                // Shooter: local.
-                // Some `fire_nonce` passed to the function.
-                match self
-                    .bullets
-                    .iter_mut()
-                    .find(|bullet| bullet.is_provisional_for(fire_nonce))
-                {
-                    Some(bullet) => {
-                        // Shooter: local.
-                        // Some `fire_nonce` passed to the function.
-                        // A matching (hence provisional) bullet was found.
-                        // Therefore we need to promote it and start blending.
-                        bullet.confirm(bullet_id, velocity, self.last_sim_tick);
-                        bullet.start_blend(adjusted_position, PROMOTION_BLEND_TICKS);
-                        return;
-                    }
-                    None => {
-                        // Shooter: local.
-                        // Some `fire_nonce` passed to the function.
-                        // No matching active bullet found.
-                        // Therefore this is a provisional bullet.
-                        self.bullets.push(ClientBullet::new_confirmed_local(
-                            bullet_id,
-                            adjusted_position,
-                            velocity,
-                            self.last_sim_tick,
-                        ));
-                    }
-                }
-            } else {
-                // The shooter is the local player, but no `fire_none` was passed to
-                // this function.
-                panic!("shooter local, but no `fire_event` passed to `handle_bullet_spawn_event`");
-            }
+            self.handle_local_bullet_spawn(bullet_id, adjusted_position, velocity, fire_nonce);
         } else {
-            // `shooter_index != self.local_player_index`
-            self.bullets.push(ClientBullet::new_confirmed(
+            self.handle_remote_bullet_spawn(
                 bullet_id,
                 adjusted_position,
                 velocity,
-                self.last_sim_tick,
-            ));
-
-            // Only play sound if remote player is on same row or column or
-            // diagonally adjacent.
-            if self.line_of_sight(shooter_index) {
-                let distance = self.players[self.local_player_index]
-                    .state
-                    .position
-                    .distance(self.players[shooter_index].state.position);
-                let volume = distance / maze::RADIUS as f32 * CELL_SIZE * 2.0;
-                play_sound(
-                    &assets.gun_sound,
-                    PlaySoundParams {
-                        looped: false,
-                        volume: volume,
-                        ..Default::default()
-                    },
-                );
-            }
-            if let Some(bullet) = self.bullets.last_mut() {
-                bullet.position = self.players[shooter_index].state.position;
-                bullet.start_blend(adjusted_position, REMOTE_SPAWN_BLEND_TICKS);
-            }
+                shooter_index,
+                assets,
+            );
         }
+    }
+
+    fn handle_local_bullet_spawn(
+        &mut self,
+        bullet_id: u32,
+        adjusted_position: Vec3,
+        velocity: Vec3,
+        fire_nonce: Option<u32>,
+    ) {
+        const PROMOTION_BLEND_TICKS: u8 = 4;
+
+        let fire_nonce = fire_nonce.expect(
+            "local player bullet spawn event must include fire_nonce; \
+             this indicates a protocol violation or server bug",
+        );
+
+        // If we can find a provisional bullet with matching nonce, start
+        // blending from its position, otherwise just spawn the new bullet at
+        // the position indicated by the server.
+        if let Some(provisional) = self
+            .bullets
+            .iter_mut()
+            .find(|bullet| bullet.is_provisional_for(fire_nonce))
+        {
+            provisional.confirm(bullet_id, velocity, self.last_sim_tick);
+            provisional.start_blend(adjusted_position, PROMOTION_BLEND_TICKS);
+        } else {
+            self.spawn_confirmed_local_bullet(bullet_id, adjusted_position, velocity);
+        }
+    }
+
+    fn spawn_confirmed_local_bullet(&mut self, bullet_id: u32, position: Vec3, velocity: Vec3) {
+        self.bullets.push(ClientBullet::new_confirmed_local(
+            bullet_id,
+            position,
+            velocity,
+            self.last_sim_tick,
+        ));
+    }
+
+    fn handle_remote_bullet_spawn(
+        &mut self,
+        bullet_id: u32,
+        adjusted_position: Vec3,
+        velocity: Vec3,
+        shooter_index: usize,
+        assets: &Assets,
+    ) {
+        const REMOTE_SPAWN_BLEND_TICKS: u8 = 4;
+
+        let shooter_position = self.players[shooter_index].state.position;
+
+        self.bullets.push(ClientBullet::new_confirmed(
+            bullet_id,
+            shooter_position,
+            velocity,
+            self.last_sim_tick,
+        ));
+
+        if self.line_of_sight(shooter_index) {
+            self.play_remote_gunshot_sound(shooter_index, assets);
+        }
+
+        if let Some(bullet) = self.bullets.last_mut() {
+            bullet.start_blend(adjusted_position, REMOTE_SPAWN_BLEND_TICKS);
+        }
+    }
+
+    fn play_remote_gunshot_sound(&self, shooter_index: usize, assets: &Assets) {
+        let distance = self.players[self.local_player_index]
+            .state
+            .position
+            .distance(self.players[shooter_index].state.position);
+        let volume = distance / maze::RADIUS as f32 * CELL_SIZE * 2.0;
+        play_sound(
+            &assets.gun_sound,
+            PlaySoundParams {
+                looped: false,
+                volume,
+                ..Default::default()
+            },
+        );
     }
 
     fn line_of_sight(&self, remote_player_index: usize) -> bool {
