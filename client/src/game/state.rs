@@ -635,8 +635,17 @@ impl Game {
                 if bullet.confirmed {
                     for _ in 0..ticks {
                         bullet.advance(1);
-                        bullet.bounce_off_ground();
-                        match bullet.bounce_off_wall(maze) {
+                        bullets::bounce_off_ground(
+                            &mut bullet.position,
+                            &mut bullet.velocity,
+                            &mut bullet.bounces,
+                        );
+                        match bullets::bounce_off_wall(
+                            &bullet.position,
+                            &mut bullet.velocity,
+                            &mut bullet.bounces,
+                            maze,
+                        ) {
                             bullets::WallBounce::Stuck => {}
                             bullets::WallBounce::Bounce => {}
                             bullets::WallBounce::None => {}
@@ -646,8 +655,17 @@ impl Game {
                 } else {
                     for _ in 0..ticks {
                         bullet.advance(1);
-                        bullet.bounce_off_ground();
-                        match bullet.bounce_off_wall(maze) {
+                        bullets::bounce_off_ground(
+                            &mut bullet.position,
+                            &mut bullet.velocity,
+                            &mut bullet.bounces,
+                        );
+                        match bullets::bounce_off_wall(
+                            &bullet.position,
+                            &mut bullet.velocity,
+                            &mut bullet.bounces,
+                            maze,
+                        ) {
                             bullets::WallBounce::Stuck => return false,
                             bullets::WallBounce::Bounce => {}
                             bullets::WallBounce::None => {}

@@ -1,6 +1,5 @@
 use macroquad::prelude::*;
 
-use crate::game::world::maze::Maze;
 use common::{
     bullets,
     constants::{TICK_SECS, TICK_SECS_F32},
@@ -154,15 +153,7 @@ impl ClientBullet {
     }
 
     pub fn has_bounced_enough(&self) -> bool {
-        self.bounces > bullets::MAX_BOUNCES
-    }
-
-    pub fn bounce_off_ground(&mut self) -> bool {
-        bullets::bounce_off_ground(&mut self.position, &mut self.velocity, &mut self.bounces)
-    }
-
-    pub fn bounce_off_wall(&mut self, maze: &Maze) -> bullets::WallBounce {
-        bullets::bounce_off_wall(&self.position, &mut self.velocity, &mut self.bounces, maze)
+        self.bounces >= bullets::MAX_BOUNCES
     }
 }
 

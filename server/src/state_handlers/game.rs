@@ -10,7 +10,7 @@ use crate::{
     state::{Game, ServerState},
 };
 use common::{
-    bullets::{self, Bullet, WallBounce},
+    bullets::{self, Bullet, check_player_collision, update_bullet_position},
     chat::MAX_CHAT_MESSAGE_BYTES,
     constants::TICKS_PER_BROADCAST,
     input::sanitize,
@@ -286,12 +286,14 @@ fn update_bullets(state: &mut Game, events: &mut Vec<BulletEvent>) {
     while index < state.bullets.len() {
         let mut remove = false;
         let mut hit_inanimate = false;
+        let mut hit_player_event = None;
 
         {
             let bullet = &mut state.bullets[index];
-            bullet.advance(1);
 
-            if bullet.is_expired(state.current_tick) || bullet.has_bounced_enough() {
+            let update_result = update_bullet_position(bullet, &state.maze, state.current_tick);
+
+            if update_result.should_remove {
                 events.push(BulletEvent::Expire {
                     bullet_id: bullet.id,
                     tick: state.current_tick,
@@ -300,79 +302,40 @@ fn update_bullets(state: &mut Game, events: &mut Vec<BulletEvent>) {
                 });
                 remove = true;
             } else {
-                if bullet.bounce_off_ground() {
-                    hit_inanimate = true;
-                }
+                hit_inanimate = update_result.hit_inanimate;
 
-                match bullet.bounce_off_wall(&state.maze) {
-                    WallBounce::Bounce => {
-                        hit_inanimate = true;
+                for (player_index, player) in state.players.iter_mut().enumerate() {
+                    if !matches!(player.status, crate::player::Status::Alive) {
+                        continue;
                     }
-                    WallBounce::Stuck => {
-                        events.push(BulletEvent::Expire {
+
+                    let collision_result =
+                        check_player_collision(bullet, player.state.position, player.health);
+
+                    if collision_result.hit_player {
+                        player.health = collision_result.new_health;
+                        if collision_result.new_health == 0 {
+                            player.status = crate::player::Status::Dead;
+                            if player.exit_tick.is_none() {
+                                player.exit_tick = Some(state.current_tick);
+                            }
+                        }
+
+                        if collision_result.should_remove_bullet {
+                            remove = true;
+                        }
+
+                        hit_player_event = Some(BulletEvent::HitPlayer {
                             bullet_id: bullet.id,
                             tick: state.current_tick,
                             position: bullet.position,
                             velocity: bullet.velocity,
+                            target_index: player_index,
+                            target_health: collision_result.new_health,
                         });
-                        remove = true;
-                    }
-                    WallBounce::None => {}
-                }
-            }
-        }
-
-        if remove {
-            let bullet = state.bullets.swap_remove(index);
-            if let Some(shooter) = state.players.get_mut(bullet.shooter_index) {
-                shooter.bullets_in_air = shooter.bullets_in_air.saturating_sub(1);
-            }
-            continue;
-        }
-
-        let mut hit_player_event = None;
-        {
-            let bullet = &mut state.bullets[index];
-            for (player_index, player) in state.players.iter_mut().enumerate() {
-                if !matches!(player.status, crate::player::Status::Alive) {
-                    continue;
-                }
-
-                if !bullets::is_bullet_colliding_with_player(bullet.position, player.state.position)
-                {
-                    continue;
-                }
-
-                let new_health = player.health.saturating_sub(1);
-                player.health = new_health;
-                if new_health == 0 {
-                    player.status = crate::player::Status::Dead;
-                    if player.exit_tick.is_none() {
-                        player.exit_tick = Some(state.current_tick);
+                        break;
                     }
                 }
-
-                if new_health > 0 {
-                    let delta = player.state.position - bullet.position;
-                    let normal = if delta.length_squared() > 0.001 {
-                        delta.normalize()
-                    } else {
-                        -bullet.velocity.normalize_or_zero()
-                    };
-                    bullet.redirect(normal);
-                } else {
-                    remove = true;
-                }
-
-                hit_player_event = Some(BulletEvent::HitPlayer {
-                    bullet_id: bullet.id,
-                    tick: state.current_tick,
-                    position: bullet.position,
-                    velocity: bullet.velocity,
-                    target_index: player_index,
-                    target_health: new_health,
-                });
-                break;
             }
         }
 

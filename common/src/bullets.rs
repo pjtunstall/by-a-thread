@@ -56,15 +56,6 @@ impl Bullet {
         self.bounces > MAX_BOUNCES
     }
 
-    pub fn bounce_off_ground(&mut self) -> bool {
-        bounce_off_ground(&mut self.position, &mut self.velocity, &mut self.bounces)
-    }
-
-    pub fn bounce_off_wall(&mut self, maze: &Maze) -> WallBounce {
-        let position = self.position;
-        bounce_off_wall(&position, &mut self.velocity, &mut self.bounces, maze)
-    }
-
     pub fn redirect(&mut self, normal: Vec3) {
         redirect(&mut self.velocity, &mut self.bounces, normal);
     }
@@ -138,6 +129,109 @@ pub fn spawn_position(player_position: Vec3, direction: Vec3) -> Vec3 {
 
 pub fn cooldown_ticks() -> u64 {
     (FIRE_COOLDOWN_SECS / TICK_SECS).ceil() as u64
+}
+
+pub fn update_bullet_position(
+    bullet: &mut Bullet,
+    maze: &Maze,
+    current_tick: u64,
+) -> BulletUpdateResult {
+    let mut result = BulletUpdateResult::default();
+
+    bullet.advance(1);
+
+    if bullet.is_expired(current_tick) || bullet.has_bounced_enough() {
+        result.should_remove = true;
+        result.event_type = BulletEventType::Expire;
+    } else {
+        if bounce_off_ground(
+            &mut bullet.position,
+            &mut bullet.velocity,
+            &mut bullet.bounces,
+        ) {
+            result.hit_inanimate = true;
+        }
+
+        match bounce_off_wall(
+            &bullet.position,
+            &mut bullet.velocity,
+            &mut bullet.bounces,
+            maze,
+        ) {
+            WallBounce::Bounce => {
+                result.hit_inanimate = true;
+            }
+            WallBounce::Stuck => {
+                result.should_remove = true;
+                result.event_type = BulletEventType::Expire;
+            }
+            WallBounce::None => {}
+        }
+    }
+
+    result
+}
+
+#[derive(Debug, Default)]
+pub struct BulletUpdateResult {
+    pub should_remove: bool,
+    pub hit_inanimate: bool,
+    pub event_type: BulletEventType,
+}
+
+#[derive(Debug, Default, PartialEq)]
+pub enum BulletEventType {
+    #[default]
+    None,
+    Expire,
+}
+
+pub fn check_player_collision(
+    bullet: &mut Bullet,
+    player_position: Vec3,
+    player_health: u8,
+) -> PlayerCollisionResult {
+    if !is_bullet_colliding_with_player(bullet.position, player_position) {
+        return PlayerCollisionResult::default();
+    }
+
+    let new_health = player_health.saturating_sub(1);
+
+    if new_health > 0 {
+        let delta = bullet.position - player_position;
+        let distance = delta.length();
+
+        if distance > 0.001 {
+            let normal = delta.normalize();
+            let surface_distance = player::RADIUS + BULLET_RADIUS;
+            bullet.position = player_position + normal * surface_distance;
+            bullet.redirect(normal);
+        } else {
+            let normal = bullet.velocity.normalize_or_zero();
+            let surface_distance = player::RADIUS + BULLET_RADIUS;
+            bullet.position = player_position + normal * surface_distance;
+            bullet.redirect(normal);
+        }
+
+        PlayerCollisionResult {
+            hit_player: true,
+            new_health,
+            should_remove_bullet: false,
+        }
+    } else {
+        PlayerCollisionResult {
+            hit_player: true,
+            new_health,
+            should_remove_bullet: true,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct PlayerCollisionResult {
+    pub hit_player: bool,
+    pub new_health: u8,
+    pub should_remove_bullet: bool,
 }
 
 fn redirect(velocity: &mut Vec3, bounces: &mut u8, normal: Vec3) {
