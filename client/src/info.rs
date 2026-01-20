@@ -14,6 +14,7 @@ const BASE_CIRCLE_GAP: f32 = 48.0;
 const BASE_CIRCLE_RADIUS: f32 = 18.0;
 const BASE_STAT_FONT_SIZE: u16 = 16;
 const BASE_MAP_TO_STATS_GAP: f32 = 40.0;
+pub const INFO_SCALE: f32 = 1.3;
 pub const FONT_SIZE: f32 = 6.0;
 pub const BG_COLOR: Color = Color::new(1.0, 1.0, 1.0, 0.8);
 
@@ -24,8 +25,7 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate) {
     push_camera_state();
     set_default_camera();
 
-    let scale = 0.1;
-    let font_size = (FONT_SIZE * scale).round().max(1.0) as u16;
+    let font_size = (FONT_SIZE * INFO_SCALE).round().max(1.0) as u16;
     let map_scale = font_size as f32 / FONT_SIZE;
     let padding = BASE_PADDING * map_scale;
     let x_indentation = BASE_INDENTATION;

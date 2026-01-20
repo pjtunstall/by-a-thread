@@ -28,6 +28,7 @@ Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/instal
 - WASD to move.
 - Arrow keys to turn.
 - Space to fire.
+- Left shift for sniper mode.
 
 ## Levels
 
