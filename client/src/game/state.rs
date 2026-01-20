@@ -48,6 +48,9 @@ use common::{
 // A guard against getting stuck in loop receiving snapshots from server if
 // messages are coming faster than we can drain the queue.
 const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
+const REPULSION_STRENGTH: f32 = 0.5; // For collisions.
+const NORMAL_FOV: f32 = 45.0_f32.to_radians();
+const ZOOMED_FOV: f32 = 10.0_f32.to_radians();
 
 pub struct Game {
     pub local_player_index: usize,
@@ -73,6 +76,7 @@ pub struct Game {
     player_avatar_mesh: OrientedSphereMesh,
     player_shadow_mesh: DiskMesh,
     previous_local_state: StaticState,
+    fov: f32,
 }
 
 impl Game {
@@ -117,6 +121,7 @@ impl Game {
             player_avatar_mesh: OrientedSphereMesh::new(),
             player_shadow_mesh: DiskMesh::new(),
             previous_local_state,
+            fov: NORMAL_FOV,
         }
     }
 
@@ -358,6 +363,7 @@ impl Game {
             local_state.pitch = snapshot.local.pitch;
             local_state.yaw_velocity = snapshot.local.yaw_velocity;
             local_state.pitch_velocity = snapshot.local.pitch_velocity;
+            local_state.is_zoomed = snapshot.local.is_zoomed;
 
             true
         } else {
@@ -388,9 +394,13 @@ impl Game {
 
             self.previous_local_state = StaticState::new(&local_player);
 
-            local_player
-                .state
-                .update(&self.maze, input, own_index, &player_positions, 0.5);
+            local_player.state.update(
+                &self.maze,
+                input,
+                own_index,
+                &player_positions,
+                REPULSION_STRENGTH,
+            );
         }
     }
 
@@ -481,8 +491,9 @@ impl Game {
 
     fn set_camera(&mut self, tick_fraction: f32) {
         let i = self.local_player_index;
+        let local_player_state = self.players[i].state;
         let prev_state = &self.previous_local_state;
-        let curr_state = &self.players[i].state;
+        let curr_state = &local_player_state;
 
         let mut position = prev_state.position.lerp(curr_state.position, tick_fraction);
         let mut yaw = prev_state.yaw + (curr_state.yaw - prev_state.yaw) * tick_fraction;
@@ -498,6 +509,13 @@ impl Game {
             pitch = interp_pitch;
         }
 
+        let target_fov = if local_player_state.is_zoomed {
+            ZOOMED_FOV
+        } else {
+            NORMAL_FOV
+        };
+        self.fov += (target_fov - self.fov) * 0.1;
+
         set_camera(&Camera3D {
             position,
             target: position
@@ -509,6 +527,7 @@ impl Game {
             up: vec3(0.0, 1.0, 0.0),
             z_near: 0.1,
             z_far: 10000.0,
+            fovy: self.fov,
             ..Default::default()
         });
     }

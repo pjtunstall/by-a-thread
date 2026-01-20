@@ -20,5 +20,6 @@ pub fn player_input_from_keys(sim_tick: u64) -> PlayerInput {
         pitch_down: is_key_down(KeyCode::Down),
         fire: is_key_down(KeyCode::Space),
         fire_nonce: None,
+        is_zoomed: is_key_down(KeyCode::LeftShift),
     }
 }

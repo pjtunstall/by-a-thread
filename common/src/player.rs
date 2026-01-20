@@ -62,6 +62,8 @@ pub struct PlayerState {
 
     pub yaw_velocity: f32,
     pub pitch_velocity: f32,
+
+    pub is_zoomed: bool,
 }
 
 impl PlayerState {
@@ -73,6 +75,7 @@ impl PlayerState {
             yaw: 0.0,
             pitch_velocity: 0.0,
             yaw_velocity: 0.0,
+            is_zoomed: false,
         }
     }
 
@@ -88,6 +91,7 @@ impl PlayerState {
         self.apply_translation(input, forward);
         self.resolve_collision_with_walls(maze);
         self.resolve_collision_with_other_players(own_index, player_positions, repulsion_strength);
+        self.is_zoomed = input.is_zoomed;
     }
 
     fn apply_rotation(&mut self, input: &PlayerInput) -> Vec3 {
@@ -107,8 +111,18 @@ impl PlayerState {
             pitch_wish -= 1.0;
         }
 
-        Self::apply_axis_rotation(&mut self.yaw, &mut self.yaw_velocity, yaw_wish);
-        Self::apply_axis_rotation(&mut self.pitch, &mut self.pitch_velocity, pitch_wish);
+        Self::apply_axis_rotation(
+            &mut self.yaw,
+            &mut self.yaw_velocity,
+            yaw_wish,
+            self.is_zoomed,
+        );
+        Self::apply_axis_rotation(
+            &mut self.pitch,
+            &mut self.pitch_velocity,
+            pitch_wish,
+            self.is_zoomed,
+        );
 
         self.pitch = self.pitch.clamp(
             -std::f32::consts::FRAC_PI_2 + 0.1,
@@ -214,7 +228,7 @@ impl PlayerState {
         }
     }
 
-    fn apply_axis_rotation(angle: &mut f32, velocity: &mut f32, wish: f32) {
+    fn apply_axis_rotation(angle: &mut f32, velocity: &mut f32, wish: f32, is_zoomed: bool) {
         let is_driving =
             wish.abs() > 0.0 && (velocity.abs() < 0.001 || wish.signum() == velocity.signum());
 
@@ -225,7 +239,11 @@ impl PlayerState {
                 // "Initial responsiveness" (proportion of maximum acceleration
                 // available initially) + "the rest of the acceleration" * "the
                 // ratio of current speed to maximum speed".
-                let ramp_multiplier = 0.2 + (0.8 * current_ratio);
+                let ramp_multiplier = if is_zoomed {
+                    0.05 + (0.95 * current_ratio)
+                } else {
+                    0.2 + (0.8 * current_ratio)
+                };
 
                 *velocity += wish * (ROTATION_ACCELERATION * ramp_multiplier) * TICK_SECS_F32;
 
@@ -280,6 +298,8 @@ pub struct WirePlayerLocal {
 
     pub yaw_velocity: f32,
     pub pitch_velocity: f32,
+
+    pub is_zoomed: bool,
 }
 
 impl From<PlayerState> for WirePlayerLocal {
@@ -293,6 +313,8 @@ impl From<PlayerState> for WirePlayerLocal {
 
             yaw_velocity: player_state.yaw_velocity,
             pitch_velocity: player_state.pitch_velocity,
+
+            is_zoomed: player_state.is_zoomed,
         }
     }
 }
@@ -310,6 +332,7 @@ pub struct PlayerInput {
     pub pitch_down: bool,
     pub fire: bool,
     pub fire_nonce: Option<u32>,
+    pub is_zoomed: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, Display, IntoStaticStr, PartialEq, Eq)]

@@ -20,6 +20,7 @@ pub struct ServerPlayer {
     pub last_fire_tick: Option<u64>,
     pub bullets_in_air: usize,
     pub exit_tick: Option<u64>,
+    pub is_zoomed: bool,
 }
 
 impl ServerPlayer {
@@ -47,6 +48,7 @@ impl ServerPlayer {
             last_fire_tick: None,
             bullets_in_air: 0,
             exit_tick: None,
+            is_zoomed: false,
         }
     }
 }
