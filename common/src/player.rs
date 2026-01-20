@@ -17,7 +17,7 @@ pub const MAX_SPEED: f32 = 240.0; // Units per second.
 pub const ACCELERATION: f32 = 1200.0; // Reaches max in 0.2 seconds.
 pub const FRICTION: f32 = 5.0;
 pub const MAX_ROTATION_SPEED: f32 = 4.0 * PI; // 2 turns per second.
-pub const ROTATION_ACCELERATION: f32 = (MAX_ROTATION_SPEED / 0.4) * PI; // Max in 0.2 seconds.
+pub const ROTATION_ACCELERATION: f32 = (MAX_ROTATION_SPEED / 0.4) * PI; // Max in 0.4 seconds.
 pub const ROTATION_FRICTION: f32 = 10.0; // Stop in ~0.2 seconds when key is released.
 pub const MAX_HEALTH: u8 = 9;
 
@@ -215,19 +215,38 @@ impl PlayerState {
     }
 
     fn apply_axis_rotation(angle: &mut f32, velocity: &mut f32, wish: f32) {
-        *velocity += wish * ROTATION_ACCELERATION * TICK_SECS_F32;
+        let is_driving =
+            wish.abs() > 0.0 && (velocity.abs() < 0.001 || wish.signum() == velocity.signum());
 
-        let speed = (*velocity).abs();
-        if speed > 0.001 {
-            if speed > MAX_ROTATION_SPEED {
-                *velocity = velocity.signum() * MAX_ROTATION_SPEED;
-            } else {
-                let drop = speed * ROTATION_FRICTION * TICK_SECS_F32;
-                let new_speed = (speed - drop).max(0.0);
-                *velocity *= new_speed / speed;
+        match is_driving {
+            true => {
+                let current_ratio = velocity.abs() / MAX_ROTATION_SPEED;
+
+                // "Initial responsiveness" (proportion of maximum acceleration
+                // available initially) + "the rest of the acceleration" * "the
+                // ratio of current speed to maximum speed".
+                let ramp_multiplier = 0.2 + (0.8 * current_ratio);
+
+                *velocity += wish * (ROTATION_ACCELERATION * ramp_multiplier) * TICK_SECS_F32;
+
+                if velocity.abs() > MAX_ROTATION_SPEED {
+                    *velocity = velocity.signum() * MAX_ROTATION_SPEED;
+                }
             }
-        } else {
-            *velocity = 0.0;
+            false => {
+                let speed = velocity.abs();
+                if speed > 0.001 {
+                    let drop = speed * ROTATION_FRICTION * TICK_SECS_F32;
+                    let new_speed = (speed - drop).max(0.0);
+                    *velocity = velocity.signum() * new_speed;
+                } else {
+                    *velocity = 0.0;
+                }
+
+                if wish != 0.0 {
+                    *velocity += wish * ROTATION_ACCELERATION * TICK_SECS_F32;
+                }
+            }
         }
 
         *angle += *velocity * TICK_SECS_F32;
