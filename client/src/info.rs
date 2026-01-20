@@ -1,4 +1,5 @@
 mod circles;
+mod crosshairs;
 pub mod map;
 
 use macroquad::prelude::*;
@@ -13,49 +14,17 @@ const BASE_CIRCLE_GAP: f32 = 48.0;
 const BASE_CIRCLE_RADIUS: f32 = 18.0;
 const BASE_STAT_FONT_SIZE: u16 = 16;
 const BASE_MAP_TO_STATS_GAP: f32 = 40.0;
-pub const INFO_SCALE: f32 = 1.3;
 pub const FONT_SIZE: f32 = 6.0;
 pub const BG_COLOR: Color = Color::new(1.0, 1.0, 1.0, 0.8);
 
-const CROSSHAIR_SIZE: f32 = 20.0;
-const CROSSHAIR_THICKNESS: f32 = 2.0;
-const CROSSHAIR_COLOR: Color = BLACK;
-
-fn draw_crosshair(_game_state: &Game, _tick_fraction: f32) {
-    // Draw crosshair at screen center - this is the standard approach for FPS games
-    let screen_center = vec2(screen_width() / 2.0, screen_height() / 2.0);
-
-    // Draw crosshair lines
-    let half_size = CROSSHAIR_SIZE / 2.0;
-    let thickness = CROSSHAIR_THICKNESS;
-
-    // Horizontal line
-    draw_rectangle(
-        screen_center.x - half_size,
-        screen_center.y - thickness / 2.0,
-        CROSSHAIR_SIZE,
-        thickness,
-        CROSSHAIR_COLOR,
-    );
-
-    // Vertical line
-    draw_rectangle(
-        screen_center.x - thickness / 2.0,
-        screen_center.y - half_size,
-        thickness,
-        CROSSHAIR_SIZE,
-        CROSSHAIR_COLOR,
-    );
-}
-
-pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate, scale: f32, tick_fraction: f32) {
+pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate) {
     let local_player = &game_state.players[game_state.local_player_index];
     let local_state = &local_player.state;
 
     push_camera_state();
     set_default_camera();
 
-    let scale = scale.max(0.1);
+    let scale = 0.1;
     let font_size = (FONT_SIZE * scale).round().max(1.0) as u16;
     let map_scale = font_size as f32 / FONT_SIZE;
     let padding = BASE_PADDING * map_scale;
@@ -64,12 +33,9 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate, scale: f32, tic
     let line_height = font_size as f32;
     let stat_font_size = (BASE_STAT_FONT_SIZE as f32 * map_scale).round().max(1.0) as u16;
 
-    // Draw crosshair at camera target
-    draw_crosshair(game_state, tick_fraction);
+    crosshairs::draw_crosshairs();
 
-    // Draw map.
     let map_overlay = &game_state.info_map;
-
     draw_texture_ex(
         &map_overlay.texture,
         x_indentation,

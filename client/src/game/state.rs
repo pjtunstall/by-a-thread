@@ -470,7 +470,7 @@ impl Game {
         self.maze.draw(&self.maze_meshes);
         self.draw_players(assets);
         self.draw_bullets(tick_fraction);
-        info::draw(self, assets, fps, info::INFO_SCALE, tick_fraction);
+        info::draw(self, assets, fps);
 
         // This function must be called after drawing the scene so that the fade
         // covers everything and not just the background. If this becomes a
