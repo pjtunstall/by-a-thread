@@ -84,13 +84,13 @@ impl PlayerState {
         player_positions: &Vec<(usize, Vec3)>,
         repulsion_strength: f32,
     ) {
-        let forward = self.apply_rotations(input);
+        let forward = self.apply_rotation(input);
         self.apply_translation(input, forward);
         self.resolve_collision_with_walls(maze);
         self.resolve_collision_with_other_players(own_index, player_positions, repulsion_strength);
     }
 
-    fn apply_rotations(&mut self, input: &PlayerInput) -> Vec3 {
+    fn apply_rotation(&mut self, input: &PlayerInput) -> Vec3 {
         let mut yaw_wish = 0.0;
         if input.yaw_left {
             yaw_wish += 1.0;
