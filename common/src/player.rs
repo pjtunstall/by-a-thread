@@ -1,4 +1,7 @@
-use std::{f32::consts::PI, fmt};
+use std::{
+    f32::consts::{FRAC_PI_2, PI},
+    fmt,
+};
 
 use glam::{Vec3, vec3};
 use serde::{Deserialize, Serialize};
@@ -124,10 +127,7 @@ impl PlayerState {
             self.is_zoomed,
         );
 
-        self.pitch = self.pitch.clamp(
-            -std::f32::consts::FRAC_PI_2 + 0.1,
-            std::f32::consts::FRAC_PI_2 - 0.1,
-        );
+        self.pitch = self.pitch.clamp(-FRAC_PI_2 + 0.1, FRAC_PI_2 - 0.1);
 
         let forward = vec3(-self.yaw.sin(), 0.0, -self.yaw.cos());
 
@@ -240,7 +240,7 @@ impl PlayerState {
                 // available initially) + "the rest of the acceleration" * "the
                 // ratio of current speed to maximum speed".
                 let ramp_multiplier = if is_zoomed {
-                    0.05 + (0.95 * current_ratio)
+                    0.01 + (0.99 * current_ratio)
                 } else {
                     0.2 + (0.8 * current_ratio)
                 };
