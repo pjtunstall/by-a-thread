@@ -915,6 +915,12 @@ impl Game {
         target_health: u8,
         assets: &Assets,
     ) {
+        if let Some(bullet) = self.bullets.iter_mut().find(|b| b.id == Some(bullet_id)) {
+            bullet.position = position;
+            bullet.velocity = velocity;
+            bullet.last_update_tick = tick;
+        }
+
         if let Some(player) = self.players.get_mut(target_index) {
             player.health = target_health;
         }

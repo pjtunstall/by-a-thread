@@ -202,14 +202,39 @@ pub fn check_player_collision(
         let distance = delta.length();
 
         if distance > 0.001 {
-            let normal = delta.normalize();
-            let surface_distance = player::RADIUS + BULLET_RADIUS;
-            bullet.position = player_position + normal * surface_distance;
-            bullet.redirect(normal);
+            let bullet_direction = bullet.velocity.normalize_or_zero();
+            let collision_radius = player::RADIUS + BULLET_RADIUS;
+
+            // Calculate intersection between the ray and the `collision_sphere`
+            // intersection to find entry point
+            let a = bullet_direction.dot(bullet_direction);
+            let b = 2.0 * bullet_direction.dot(player_position - bullet.position);
+            let c = (player_position - bullet.position).length_squared()
+                - collision_radius * collision_radius;
+
+            let discriminant = b * b - 4.0 * a * c;
+
+            if discriminant >= 0.0 {
+                let t1 = (-b - discriminant.sqrt()) / (2.0 * a);
+                let t2 = (-b + discriminant.sqrt()) / (2.0 * a);
+
+                // Use the entry point (most negative t).
+                let entry_t = t1.min(t2);
+
+                let entry_point = bullet.position + bullet_direction * entry_t;
+                let normal = (entry_point - player_position).normalize();
+
+                // Move the bullet to the entry point and apply bounce.
+                bullet.position = entry_point;
+                bullet.redirect(normal);
+            } else {
+                // Fallback: intesection calculation failed.
+                let normal = delta.normalize();
+                bullet.redirect(normal);
+            }
         } else {
             let normal = bullet.velocity.normalize_or_zero();
-            let surface_distance = player::RADIUS + BULLET_RADIUS;
-            bullet.position = player_position + normal * surface_distance;
+            bullet.position = player_position + normal * (player::RADIUS + BULLET_RADIUS);
             bullet.redirect(normal);
         }
 
