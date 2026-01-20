@@ -206,7 +206,7 @@ pub fn check_player_collision(
             let collision_radius = player::RADIUS + BULLET_RADIUS;
 
             // Calculate intersection between the ray and the `collision_sphere`
-            // intersection to find entry point
+            // intersection to find entry point.
             let a = bullet_direction.dot(bullet_direction);
             let b = 2.0 * bullet_direction.dot(player_position - bullet.position);
             let c = (player_position - bullet.position).length_squared()
