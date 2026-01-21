@@ -100,6 +100,8 @@ pub fn bounce_off_ground(position: &mut Vec3, velocity: &mut Vec3, bounces: &mut
     return true;
 }
 
+// See Shirley et al.: Ray Tracing: The Next Weekend, Section 3.3 (axis alignd
+// bounding boxes).
 fn find_intersection_with_box(
     ray_origin: Vec3,
     ray_direction: Vec3,
@@ -111,11 +113,13 @@ fn find_intersection_with_box(
 
     // Check each axis.
     for i in 0..3 {
+        // If the ray is parallel to an axis but outside its range, it doesn't
+        // intersect the box.
         if ray_direction[i].abs() < 1e-6 {
-            // Ray is parallel to this axis.
             if ray_origin[i] < box_min[i] || ray_origin[i] > box_max[i] {
                 return None;
             }
+            // The ray is parallel and inside this axis range, so we continue.
         } else {
             let t1 = (box_min[i] - ray_origin[i]) / ray_direction[i];
             let t2 = (box_max[i] - ray_origin[i]) / ray_direction[i];
