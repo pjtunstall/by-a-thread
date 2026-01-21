@@ -106,11 +106,8 @@ pub fn bounce_off_wall(
     bounces: &mut u8,
     maze: &Maze,
 ) -> WallBounce {
-    let bullet_is_not_above_wall_height = position.y < CELL_SIZE;
-    let is_bullet_colliding_with_a_wall =
-        bullet_is_not_above_wall_height && !maze.is_sphere_clear(position, BULLET_SHELL_RADIUS);
-
-    if !is_bullet_colliding_with_a_wall {
+    let bullet_is_not_above_wall_height = position.y - BULLET_SHELL_RADIUS < CELL_SIZE;
+    if !bullet_is_not_above_wall_height {
         return WallBounce::None;
     }
 
@@ -119,14 +116,65 @@ pub fn bounce_off_wall(
         return WallBounce::Stuck;
     }
 
-    let speed = velocity.length() * TICK_SECS_F32;
-    let normal = maze.get_wall_normal(*position, direction, speed);
-    if normal == Vec3::ZERO {
-        WallBounce::Stuck
-    } else {
-        redirect(velocity, bounces, normal);
-        WallBounce::Bounce
+    // Trace back along bullet path to find wall intersection.
+    let trace_distance = velocity.length() * TICK_SECS_F32;
+    let trace_direction = -direction;
+    let grid = &maze.grid;
+    let grid_width = grid[0].len() as isize;
+    let grid_height = grid.len() as isize;
+
+    // Adjust start position to account for shell radius.
+    let start_pos = *position - direction * BULLET_SHELL_RADIUS;
+
+    const TRACE_STEP_SIZE: f32 = 2.0;
+    let num_steps = (trace_distance / TRACE_STEP_SIZE).ceil() as usize;
+
+    let mut previous_cell_type: Option<u8> = None;
+
+    for step in 0..=num_steps {
+        let trace_pos = start_pos + trace_direction * (step as f32 * TRACE_STEP_SIZE);
+        let grid_x = (trace_pos.x / CELL_SIZE).floor() as isize;
+        let grid_z = (trace_pos.z / CELL_SIZE).floor() as isize;
+
+        // Check if we're outside the maze bounds.
+        if grid_x < 0 || grid_z < 0 || grid_x >= grid_width || grid_z >= grid_height {
+            continue;
+        }
+
+        let current_cell_type = grid[grid_z as usize][grid_x as usize] as u8;
+
+        if let Some(prev_type) = previous_cell_type {
+            // Found transition between cell types.
+            if prev_type != current_cell_type {
+                // Determine which face was crossed based on position.
+                let cell_min_x = grid_x as f32 * CELL_SIZE;
+                let cell_max_x = cell_min_x + CELL_SIZE;
+                let cell_min_z = grid_z as f32 * CELL_SIZE;
+                let cell_max_z = cell_min_z + CELL_SIZE;
+
+                let normal = if trace_pos.x < cell_min_x + 0.1 {
+                    Vec3::new(-1.0, 0.0, 0.0)
+                } else if trace_pos.x > cell_max_x - 0.1 {
+                    Vec3::new(1.0, 0.0, 0.0)
+                } else if trace_pos.z < cell_min_z + 0.1 {
+                    Vec3::new(0.0, 0.0, -1.0)
+                } else if trace_pos.z > cell_max_z - 0.1 {
+                    Vec3::new(0.0, 0.0, 1.0)
+                } else {
+                    // Fallback: use opposite of direction.
+                    -trace_direction
+                };
+
+                // Move bullet to intersection point (accounting for shell radius) and bounce.
+                redirect(velocity, bounces, normal);
+                return WallBounce::Bounce;
+            }
+        }
+
+        previous_cell_type = Some(current_cell_type);
     }
+
+    WallBounce::None
 }
 
 pub fn is_bullet_colliding_with_player(bullet_position: Vec3, player_position: Vec3) -> bool {
