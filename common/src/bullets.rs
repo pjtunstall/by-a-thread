@@ -198,7 +198,7 @@ pub fn bounce_off_wall(
                         -direction // Fallback.
                     };
 
-                    // Keep the closest hit (first wall encountered) since we're tracing forward
+                    // Keep the closest hit.
                     match closest_hit {
                         Some((closest_t, _)) => {
                             if t < closest_t {
@@ -217,7 +217,7 @@ pub fn bounce_off_wall(
     if let Some((t, normal)) = closest_hit {
         // Move bullet to hit point and bounce.
         let hit_point = ray_origin + direction * t;
-        *position = hit_point + direction * BULLET_SHELL_RADIUS;
+        *position = hit_point - direction * BULLET_SHELL_RADIUS;
         redirect(velocity, bounces, normal);
         return WallBounce::Bounce;
     }
