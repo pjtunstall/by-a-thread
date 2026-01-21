@@ -902,6 +902,8 @@ impl Game {
             bullet.position = position;
             bullet.velocity = velocity;
             bullet.last_update_tick = tick;
+            bullet.blend_ticks_left = 0;
+            bullet.blend_step = Vec3::ZERO;
         }
     }
 
@@ -919,6 +921,8 @@ impl Game {
             bullet.position = position;
             bullet.velocity = velocity;
             bullet.last_update_tick = tick;
+            bullet.blend_ticks_left = 0;
+            bullet.blend_step = Vec3::ZERO;
         }
 
         if let Some(player) = self.players.get_mut(target_index) {

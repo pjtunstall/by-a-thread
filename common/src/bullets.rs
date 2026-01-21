@@ -68,17 +68,40 @@ pub enum WallBounce {
     Stuck,
 }
 
+// pub fn bounce_off_ground(position: &mut Vec3, velocity: &mut Vec3, bounces: &mut u8) -> bool {
+//     if position.y < BULLET_RADIUS {
+//         position.y = BULLET_RADIUS;
+//         if velocity.y < 0.0 {
+//             velocity.y *= -1.0;
+//             *bounces += 1;
+//             return true;
+//         }
+//     }
+
+//     false
+// }
+
 pub fn bounce_off_ground(position: &mut Vec3, velocity: &mut Vec3, bounces: &mut u8) -> bool {
-    if position.y < BULLET_RADIUS {
-        position.y = BULLET_RADIUS;
-        if velocity.y < 0.0 {
-            velocity.y *= -1.0;
-            *bounces += 1;
-            return true;
-        }
+    if position.y > BULLET_RADIUS || velocity.y >= 0.0 {
+        return false;
     }
 
-    false
+    // Time to impact: negative value, represents time in the past. Due to the
+    // early returns, we can be sure that `t` <= 0.0.
+    let t = (BULLET_RADIUS - position.y) / velocity.y;
+
+    // Rewind to impact point.
+    *position += *velocity * t;
+
+    // Reflect velocity.
+    velocity.y *= -1.0;
+    *bounces += 1;
+
+    // Move the bullet further along its trajectory by the distance it traveled
+    // underground.
+    *position -= *velocity * t;
+
+    return true;
 }
 
 pub fn bounce_off_wall(
