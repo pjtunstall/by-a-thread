@@ -100,7 +100,7 @@ pub fn bounce_off_ground(position: &mut Vec3, velocity: &mut Vec3, bounces: &mut
     return true;
 }
 
-fn find_intersection(
+fn find_intersection_with_box(
     ray_origin: Vec3,
     ray_direction: Vec3,
     box_min: Vec3,
@@ -123,9 +123,10 @@ fn find_intersection(
             let t_enter = t1.min(t2);
             let t_exit = t1.max(t2);
 
-            t_min = t_min.max(t_enter);
-            t_max = t_max.min(t_exit);
+            t_min = t_min.max(t_enter); // Latest entry time so far.
+            t_max = t_max.min(t_exit); // Earliest exit time so far.
 
+            // If entry time is after exit time, there's no intersection.
             if t_min > t_max {
                 return None;
             }
@@ -157,6 +158,8 @@ pub fn bounce_off_wall(
     let mut closest_hit: Option<(f32, Vec3)> = None;
 
     let end_pos = *position;
+
+    // Get the min and max grid coordinates that the ray spans.
     let min_x = ray_origin.x.min(end_pos.x) / CELL_SIZE;
     let max_x = ray_origin.x.max(end_pos.x) / CELL_SIZE;
     let min_z = ray_origin.z.min(end_pos.z) / CELL_SIZE;
@@ -177,11 +180,11 @@ pub fn bounce_off_wall(
                 continue; // Empty cell.
             }
 
-            // This is a wall cell: check ray intersection.
+            // Diagonal corners of this wall cell with minimum and maximum world coordinates.
             let box_min = vec3(check_x as f32 * CELL_SIZE, 0.0, check_z as f32 * CELL_SIZE);
             let box_max = box_min + vec3(CELL_SIZE, CELL_SIZE, CELL_SIZE);
 
-            if let Some(t) = find_intersection(ray_origin, direction, box_min, box_max) {
+            if let Some(t) = find_intersection_with_box(ray_origin, direction, box_min, box_max) {
                 if t > 0.0 && t < trace_distance {
                     let hit_point = ray_origin + direction * t;
 
@@ -198,16 +201,9 @@ pub fn bounce_off_wall(
                         -direction // Fallback.
                     };
 
-                    // Keep the closest hit.
-                    match closest_hit {
-                        Some((closest_t, _)) => {
-                            if t < closest_t {
-                                closest_hit = Some((t, normal));
-                            }
-                        }
-                        None => {
-                            closest_hit = Some((t, normal));
-                        }
+                    // Update if we have a new closest hit.
+                    if closest_hit.is_none() || t < closest_hit.unwrap().0 {
+                        closest_hit = Some((t, normal));
                     }
                 }
             }
