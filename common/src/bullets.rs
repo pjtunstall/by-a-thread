@@ -68,19 +68,6 @@ pub enum WallBounce {
     Stuck,
 }
 
-// pub fn bounce_off_ground(position: &mut Vec3, velocity: &mut Vec3, bounces: &mut u8) -> bool {
-//     if position.y < BULLET_RADIUS {
-//         position.y = BULLET_RADIUS;
-//         if velocity.y < 0.0 {
-//             velocity.y *= -1.0;
-//             *bounces += 1;
-//             return true;
-//         }
-//     }
-
-//     false
-// }
-
 pub fn bounce_off_ground(position: &mut Vec3, velocity: &mut Vec3, bounces: &mut u8) -> bool {
     if position.y > BULLET_RADIUS || velocity.y >= 0.0 {
         return false;
