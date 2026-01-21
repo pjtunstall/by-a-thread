@@ -100,14 +100,49 @@ pub fn bounce_off_ground(position: &mut Vec3, velocity: &mut Vec3, bounces: &mut
     return true;
 }
 
+fn find_intersection(
+    ray_origin: Vec3,
+    ray_direction: Vec3,
+    box_min: Vec3,
+    box_max: Vec3,
+) -> Option<f32> {
+    let mut t_min: f32 = 0.0;
+    let mut t_max: f32 = f32::MAX;
+
+    // Check each axis.
+    for i in 0..3 {
+        if ray_direction[i].abs() < 1e-6 {
+            // Ray is parallel to this axis.
+            if ray_origin[i] < box_min[i] || ray_origin[i] > box_max[i] {
+                return None;
+            }
+        } else {
+            let t1 = (box_min[i] - ray_origin[i]) / ray_direction[i];
+            let t2 = (box_max[i] - ray_origin[i]) / ray_direction[i];
+
+            let t_enter = t1.min(t2);
+            let t_exit = t1.max(t2);
+
+            t_min = t_min.max(t_enter);
+            t_max = t_max.min(t_exit);
+
+            if t_min > t_max {
+                return None;
+            }
+        }
+    }
+
+    Some(t_min)
+}
+
 pub fn bounce_off_wall(
-    position: &Vec3,
+    position: &mut Vec3,
     velocity: &mut Vec3,
     bounces: &mut u8,
     maze: &Maze,
 ) -> WallBounce {
-    let bullet_is_not_above_wall_height = position.y - BULLET_SHELL_RADIUS < CELL_SIZE;
-    if !bullet_is_not_above_wall_height {
+    let is_bullet_above_wall_height = position.y - BULLET_SHELL_RADIUS > CELL_SIZE;
+    if is_bullet_above_wall_height {
         return WallBounce::None;
     }
 
@@ -116,62 +151,75 @@ pub fn bounce_off_wall(
         return WallBounce::Stuck;
     }
 
-    // Trace back along bullet path to find wall intersection.
     let trace_distance = velocity.length() * TICK_SECS_F32;
-    let trace_direction = -direction;
-    let grid = &maze.grid;
-    let grid_width = grid[0].len() as isize;
-    let grid_height = grid.len() as isize;
+    let ray_origin = *position - direction * trace_distance;
 
-    // Adjust start position to account for shell radius.
-    let start_pos = *position - direction * BULLET_SHELL_RADIUS;
+    let mut closest_hit: Option<(f32, Vec3)> = None;
 
-    const TRACE_STEP_SIZE: f32 = 2.0;
-    let num_steps = (trace_distance / TRACE_STEP_SIZE).ceil() as usize;
+    let end_pos = *position;
+    let min_x = ray_origin.x.min(end_pos.x) / CELL_SIZE;
+    let max_x = ray_origin.x.max(end_pos.x) / CELL_SIZE;
+    let min_z = ray_origin.z.min(end_pos.z) / CELL_SIZE;
+    let max_z = ray_origin.z.max(end_pos.z) / CELL_SIZE;
 
-    let mut previous_cell_type: Option<u8> = None;
+    // Check all grid cells along the path.
+    for check_z in (min_z.floor() as isize - 1)..=(max_z.ceil() as isize + 1) {
+        for check_x in (min_x.floor() as isize - 1)..=(max_x.ceil() as isize + 1) {
+            if check_x < 0
+                || check_z < 0
+                || check_x >= maze.grid[0].len() as isize
+                || check_z >= maze.grid.len() as isize
+            {
+                continue;
+            }
 
-    for step in 0..=num_steps {
-        let trace_pos = start_pos + trace_direction * (step as f32 * TRACE_STEP_SIZE);
-        let grid_x = (trace_pos.x / CELL_SIZE).floor() as isize;
-        let grid_z = (trace_pos.z / CELL_SIZE).floor() as isize;
+            if maze.grid[check_z as usize][check_x as usize] == 0 {
+                continue; // Empty cell.
+            }
 
-        // Check if we're outside the maze bounds.
-        if grid_x < 0 || grid_z < 0 || grid_x >= grid_width || grid_z >= grid_height {
-            continue;
-        }
+            // This is a wall cell: check ray intersection.
+            let box_min = vec3(check_x as f32 * CELL_SIZE, 0.0, check_z as f32 * CELL_SIZE);
+            let box_max = box_min + vec3(CELL_SIZE, CELL_SIZE, CELL_SIZE);
 
-        let current_cell_type = grid[grid_z as usize][grid_x as usize] as u8;
+            if let Some(t) = find_intersection(ray_origin, direction, box_min, box_max) {
+                if t > 0.0 && t < trace_distance {
+                    let hit_point = ray_origin + direction * t;
 
-        if let Some(prev_type) = previous_cell_type {
-            // Found transition between cell types.
-            if prev_type != current_cell_type {
-                // Determine which face was crossed based on position.
-                let cell_min_x = grid_x as f32 * CELL_SIZE;
-                let cell_max_x = cell_min_x + CELL_SIZE;
-                let cell_min_z = grid_z as f32 * CELL_SIZE;
-                let cell_max_z = cell_min_z + CELL_SIZE;
+                    // Calculate normal based on which face was hit.
+                    let normal = if (hit_point.x - box_min.x).abs() < 0.1 {
+                        Vec3::new(-1.0, 0.0, 0.0)
+                    } else if (hit_point.x - box_max.x).abs() < 0.1 {
+                        Vec3::new(1.0, 0.0, 0.0)
+                    } else if (hit_point.z - box_min.z).abs() < 0.1 {
+                        Vec3::new(0.0, 0.0, -1.0)
+                    } else if (hit_point.z - box_max.z).abs() < 0.1 {
+                        Vec3::new(0.0, 0.0, 1.0)
+                    } else {
+                        -direction // Fallback.
+                    };
 
-                let normal = if trace_pos.x < cell_min_x + 0.1 {
-                    Vec3::new(-1.0, 0.0, 0.0)
-                } else if trace_pos.x > cell_max_x - 0.1 {
-                    Vec3::new(1.0, 0.0, 0.0)
-                } else if trace_pos.z < cell_min_z + 0.1 {
-                    Vec3::new(0.0, 0.0, -1.0)
-                } else if trace_pos.z > cell_max_z - 0.1 {
-                    Vec3::new(0.0, 0.0, 1.0)
-                } else {
-                    // Fallback: use opposite of direction.
-                    -trace_direction
-                };
-
-                // Move bullet to intersection point (accounting for shell radius) and bounce.
-                redirect(velocity, bounces, normal);
-                return WallBounce::Bounce;
+                    // Keep the closest hit (first wall encountered) since we're tracing forward
+                    match closest_hit {
+                        Some((closest_t, _)) => {
+                            if t < closest_t {
+                                closest_hit = Some((t, normal));
+                            }
+                        }
+                        None => {
+                            closest_hit = Some((t, normal));
+                        }
+                    }
+                }
             }
         }
+    }
 
-        previous_cell_type = Some(current_cell_type);
+    if let Some((t, normal)) = closest_hit {
+        // Move bullet to hit point and bounce.
+        let hit_point = ray_origin + direction * t;
+        *position = hit_point + direction * BULLET_SHELL_RADIUS;
+        redirect(velocity, bounces, normal);
+        return WallBounce::Bounce;
     }
 
     WallBounce::None
@@ -220,7 +268,7 @@ pub fn update_bullet_position(
         }
 
         match bounce_off_wall(
-            &bullet.position,
+            &mut bullet.position,
             &mut bullet.velocity,
             &mut bullet.bounces,
             maze,

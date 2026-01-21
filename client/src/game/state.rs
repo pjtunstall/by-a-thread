@@ -632,7 +632,7 @@ impl Game {
                             &mut bullet.bounces,
                         );
                         match bullets::bounce_off_wall(
-                            &bullet.position,
+                            &mut bullet.position,
                             &mut bullet.velocity,
                             &mut bullet.bounces,
                             maze,
@@ -652,7 +652,7 @@ impl Game {
                             &mut bullet.bounces,
                         );
                         match bullets::bounce_off_wall(
-                            &bullet.position,
+                            &mut bullet.position,
                             &mut bullet.velocity,
                             &mut bullet.bounces,
                             maze,
