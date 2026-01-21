@@ -1,0 +1,17 @@
+# --- Build Artifacts ---
+**/target/
+**/*.rs.bk
+
+# --- Source Exclusion ---
+client/
+
+# --- Version Control ---
+.git
+.gitignore
+
+# --- Docker Meta ---
+Dockerfile
+.dockerignore
+
+# --- Secrets ---
+.env*
