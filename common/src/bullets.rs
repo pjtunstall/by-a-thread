@@ -7,12 +7,21 @@ use crate::{
 };
 
 pub const MAX_BULLETS_PER_PLAYER: usize = 24;
-pub const BULLET_RADIUS: f32 = 0.1;
 pub const FIRE_COOLDOWN_SECS: f64 = 0.1;
 pub const SPEED: f32 = 720.0;
 pub const LIFESPAN_SECS: f64 = 2.5;
 pub const MAX_BOUNCES: u8 = 5;
-pub const BULLET_SPAWN_OFFSET: f32 = player::RADIUS + BULLET_RADIUS + 0.1;
+pub const BULLET_SPAWN_OFFSET: f32 = player::RADIUS + BULLET_CORE_RADIUS + 0.1;
+
+// The bullet's shell radius is used for display and for collisions with walls
+// and floor. It's core radius is for collisions with players. This is to let
+// the target feel undue danger to make the game more exciting; and for the sake
+// of the visual effect of large bouncing bullets. The bet here is that the
+// target's relief at surviving being clipped by a large sphere will outweigh
+// any potential feeling the shooter might have that its periphery should be
+// doing more damage.
+pub const BULLET_SHELL_RADIUS: f32 = 4.0;
+const BULLET_CORE_RADIUS: f32 = 0.1;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Bullet {
@@ -69,13 +78,13 @@ pub enum WallBounce {
 }
 
 pub fn bounce_off_ground(position: &mut Vec3, velocity: &mut Vec3, bounces: &mut u8) -> bool {
-    if position.y > BULLET_RADIUS || velocity.y >= 0.0 {
+    if position.y > BULLET_SHELL_RADIUS || velocity.y >= 0.0 {
         return false;
     }
 
     // Time to impact: negative value, represents time in the past. Due to the
     // early returns, we can be sure that `t` <= 0.0.
-    let t = (BULLET_RADIUS - position.y) / velocity.y;
+    let t = (BULLET_SHELL_RADIUS - position.y) / velocity.y;
 
     // Rewind to impact point.
     *position += *velocity * t;
@@ -99,7 +108,7 @@ pub fn bounce_off_wall(
 ) -> WallBounce {
     let bullet_is_not_above_wall_height = position.y < CELL_SIZE;
     let is_bullet_colliding_with_a_wall =
-        bullet_is_not_above_wall_height && !maze.is_sphere_clear(position, BULLET_RADIUS);
+        bullet_is_not_above_wall_height && !maze.is_sphere_clear(position, BULLET_SHELL_RADIUS);
 
     if !is_bullet_colliding_with_a_wall {
         return WallBounce::None;
@@ -121,7 +130,7 @@ pub fn bounce_off_wall(
 }
 
 pub fn is_bullet_colliding_with_player(bullet_position: Vec3, player_position: Vec3) -> bool {
-    bullet_position.distance(player_position) < BULLET_RADIUS + player::RADIUS
+    bullet_position.distance(player_position) < BULLET_CORE_RADIUS + player::RADIUS
 }
 
 pub fn direction_from_yaw_pitch(yaw: f32, pitch: f32) -> Vec3 {
@@ -213,7 +222,7 @@ pub fn check_player_collision(
 
         if distance > 0.001 {
             let bullet_direction = bullet.velocity.normalize_or_zero();
-            let collision_radius = player::RADIUS + BULLET_RADIUS;
+            let collision_radius = player::RADIUS + BULLET_CORE_RADIUS;
 
             // Calculate intersection between the ray and the `collision_sphere`
             // intersection to find entry point.
@@ -244,7 +253,7 @@ pub fn check_player_collision(
             }
         } else {
             let normal = bullet.velocity.normalize_or_zero();
-            bullet.position = player_position + normal * (player::RADIUS + BULLET_RADIUS);
+            bullet.position = player_position + normal * (player::RADIUS + BULLET_CORE_RADIUS);
             bullet.redirect(normal);
         }
 

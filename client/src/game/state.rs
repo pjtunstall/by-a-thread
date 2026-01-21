@@ -34,7 +34,7 @@ use crate::{
     time::INTERPOLATION_DELAY_SECS,
 };
 use common::{
-    bullets,
+    bullets::{self, BULLET_SHELL_RADIUS},
     constants::{INPUT_HISTORY_LENGTH, SNAPSHOT_BUFFER_LENGTH, TICK_SECS},
     maze::{self, CELL_SIZE, Maze},
     net::AppChannel,
@@ -587,15 +587,6 @@ impl Game {
     }
 
     fn draw_bullets(&self, tick_fraction: f32) {
-        // The bullet's true radius, as far as the server/physics is concerned
-        // is small. It's drawn with a bigger radius to make it more visible.
-        // This is to let the target feel undue danger to make the game more
-        // exciting; and for the sake of the visual effect of large bouncing
-        // bullets. The bet here is that the target's relief at surviving being
-        // clipped by a large sphere will outweigh any potential feeling the
-        // shooter might have that its periphery should be doing more damage.
-        const BULLET_DRAW_RADIUS: f32 = 4.0;
-
         for bullet in &self.bullets {
             let color = if bullet.blend_ticks_left > 0 {
                 WHITE
@@ -619,7 +610,7 @@ impl Game {
                 .previous_position
                 .lerp(bullet.position, tick_fraction);
 
-            draw_sphere(smoothed_position, BULLET_DRAW_RADIUS, None, color);
+            draw_sphere(smoothed_position, BULLET_SHELL_RADIUS, None, color);
         }
     }
 
