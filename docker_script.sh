@@ -4,7 +4,10 @@
 
 VERSION=$(cargo pkgid -p server | cut -d# -f2 | cut -d: -f2)
 
-docker build -t server-image:$VERSION .
+docker build \
+  -t server-image:$VERSION \
+  -t server-image:latest \
+  .
 docker run -d \
   --name server-container \
   --rm \

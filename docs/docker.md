@@ -7,7 +7,7 @@
 
 Assuming you've installed [Docker](https://www.docker.com/) and started it with `sudo systemctl start docker` if need be, you can run the server on Docker and the client directly on your host machine.
 
-The following commands build a docker image of the server, run the corresponding container in the background, and print log initial output, including, most importantly, the ephemeral passcode that clients must enter to be admitted to a game:
+The following commands build a docker image of the server, run the corresponding container in the background, and print log initial output, including, most importantly, the ephemeral passcode that clients must enter to be admitted to a game. They should be run from the root directory of the project.
 
 ```sh
 docker build -t server-image .
@@ -19,7 +19,7 @@ docker run -d \
 docker logs server-container # To see the server banner with the passcode.
 ```
 
-Alternatively, you can run the same commands as `./docker_script.sh` after first making it executable: `chmod +x docker_script.sh`. You can then launch clients in the usual way: `cargo run --release --bin client` (except that one of them can be in the same terminal as the server now). To stop the container:
+Alternatively, you can run the same commands as `./docker_script.sh` after first making it executable: `chmod +x docker_script.sh`.[^1] You can then launch clients in the usual way: `cargo run --release --bin client` (except that one of them can be in the same terminal as the server now). To stop the container:
 
 ```sh
 docker stop server-container
@@ -38,3 +38,5 @@ RUN mkdir -p client/src && \
 ```
 
 In this way, I could omit/ignore the real client.
+
+[^1]: Essentially the same commands; I modified `build` to tag the image with version number and "latest" status.
