@@ -7,6 +7,7 @@
   - [To run locally](#to-run-locally)
   - [Controls](#controls)
 - [Levels](#levels)
+- [Curiosities](#curiosities)
 - [Credits](#credits)
 
 ## Overview
