@@ -1,6 +1,6 @@
 # Network Debugging Lesson
 
-## Table of Contents
+## Table of contents
 
 - [Overview](#overview)
 - [Network Address Concepts](#network-address-concepts)
@@ -23,11 +23,11 @@
 
 This document exists because of a networking bug that occurred when moving the server to Docker. The exact details of what caused the bug are sadly lost--what I initially thought was the problem turned out not to be the case, and the true cause remains unknown.[^1] However, the debugging process was valuable, so this document can remain as a record of what I learnt about networking concepts, Docker port mapping, and debugging tools.
 
-## IP Addresses and Ports in By a Thread
+## IP addresses and ports in By a Thread
 
-### Network Address Concepts
+### Network address concepts
 
-### Binding Address vs Connectable Address
+### Binding address vs connectable address
 
 **Binding Address:**
 - **Role**: Where a server listens for incoming connections.
@@ -46,7 +46,7 @@ This document exists because of a networking bug that occurred when moving the s
 - The connectable address determines *where clients connect*.
 - These can be different addresses, especially in more complex networked environments.
 
-### Unspecified Address (`0.0.0.0`)
+### Unspecified address (`0.0.0.0`)
 
 **For Binding Addresses:**
 - `0.0.0.0` means "bind to all available network interfaces."
@@ -57,14 +57,14 @@ This document exists because of a networking bug that occurred when moving the s
 **For Connectable Addresses:**
 - `0.0.0.0` is invalid as a connectable address.
 
-### Client Addresses
+### Client addresses
 
 Clients also have binding addresses (where they bind locally), but:
 - Clients typically bind to `0.0.0.0:0` (any interface, random port).
 - The client's binding address is usually handled automatically by the OS.
 - Clients only need to know the server's connectable address.
 
-### How This Applies to the Current Project
+### How this applies to the current project
 
 **Server Side:**
 - Uses `BINDING_ADDRESS` (`0.0.0.0:5000`) to listen on all interfaces.
@@ -75,7 +75,7 @@ Clients also have binding addresses (where they bind locally), but:
 - Uses `CONNECTABLE_ADDRESS` as the default connection target.
 - Client binding is handled automatically.
 
-## Current Network Setup
+## Current network setup
 
 **Server Configuration:**
 ```rust
@@ -92,7 +92,7 @@ pub const CONNECTABLE_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr:
 let default_server_connectable_addr = common::net::CONNECTABLE_ADDRESS;
 ```
 
-### How It Works Locally
+### How it works locally
 
 **Local Connection Flow:**
 1. Server binds to `BINDING_ADDRESS` (`0.0.0.0:5000`), listening on all interfaces.
@@ -100,7 +100,7 @@ let default_server_connectable_addr = common::net::CONNECTABLE_ADDRESS;
 3. Server's connect token contains `CONNECTABLE_ADDRESS` (`127.0.0.1:5000`).
 4. Connection succeeds because client address matches token address exactly.
 
-### How It Works with Docker
+### How it works with Docker
 
 **Docker Setup:**
 ```bash
@@ -125,9 +125,9 @@ The same code works in both environments because:
 **Note on Non-Unspecified Binding Addresses:**
 If the server binds to a specific IP (e.g., `192.168.1.100:5000`), that same address typically becomes the connectable address. This is because when you bind to a specific interface, that's the address clients must use to reach you. However, this depends on network configuration and routing--in complex networks, even a specific binding address might not be the address clients use (e.g., behind NAT, load balancers, etc.).
 
-## Debugging Tools and Commands
+## Debugging tools and commands
 
-### Docker Commands
+### Docker commands
 
 **Check running containers:**
 ```bash
@@ -156,7 +156,7 @@ docker stop server-container
 docker rm server-container
 ```
 
-### Network Testing Commands
+### Network testing commands
 
 **netcat (nc) - Test UDP connectivity:**
 ```bash
@@ -185,7 +185,7 @@ netstat -ulnp | grep 5000
 netstat -ulnp
 ```
 
-### Application-Level Debugging
+### Application-level debugging
 
 **Check server logs for connection attempts:**
 - Look for "Client X connected" messages
@@ -195,7 +195,7 @@ netstat -ulnp
 - Look for disconnect reasons in the client output
 - Common errors: "Connection timed out", "Connection denied"
 
-### Common Issues and Solutions
+### Common issues and solutions
 
 **Port not accessible:**
 1. Check if Docker container is running: `docker ps`
@@ -212,7 +212,7 @@ netstat -ulnp
 2. Verify the passcode is correct
 3. Check if connect token is valid (not expired)
 
-### Docker Port Mapping
+### Docker port mapping
 
 **Basic port mapping:**
 ```bash
@@ -226,7 +226,7 @@ docker run -p 5000:5000/udp server-image
 - `-p 8080:5000/udp` - Map host UDP port 8080 to container UDP port 5000
 - `-p 5000:5000/tcp` - Map host TCP port 5000 to container TCP port 5000
 
-### Network Architecture Summary
+### Network architecture summary
 
 ```
 Host Machine                    Docker Container
