@@ -28,6 +28,8 @@ Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/instal
 
 ### To run with the server on Docker
 
+The following commands build a docker image of the server, run the corresponding container in the background, and print log initial output, including, most importantly, the ephemeral passcode that clients must enter to be admitted to a game:
+
 ```sh
 docker build -t server-image .
 docker run -d \
@@ -38,13 +40,13 @@ docker run -d \
 docker logs server-container # To see the server banner with the passcode.
 ```
 
-You can then launch the client in the same terminal in the usual way: `cargo run --release --bin client`. When finished, stop the container:
+Alternatively, you can run the same commands as `./docker_script.sh` after first making it executable: `chmod +x docker_script.sh`. You can then launch the client in the same terminal in the usual way: `cargo run --release --bin client`. To stop the container:
 
 ```sh
 docker stop server-container
 ```
 
-If you wait a few seconds after the last client disconnected, the server will exit and then the container will stop of its own accord. The `--rm` flag with the `run` command ensures that the container will be deleted when it stops.
+Or, if you wait a few seconds after the last client disconnected, the server will exit and then the container will stop of its own accord. The `--rm` flag with the `run` command ensures that the container will be deleted when it stops.
 
 ### Controls
 
