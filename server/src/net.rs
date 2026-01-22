@@ -80,9 +80,9 @@ pub fn build_server_config(
     private_key: [u8; 32],
 ) -> ServerConfig {
     // 0.0.0.0 is a binding address, not a connectable address.
-    // Use 127.0.0.1 as the public address when the server is bound to 0.0.0.0.
-    let public_server_addr = if server_binding_addr.ip().is_unspecified() {
-        common::net::SERVER_CONNECTABLE_ADDRESS
+    // Use 127.0.0.1 as the connectable address when the server is bound to 0.0.0.0.
+    let server_connectable_addr = if server_binding_addr.ip().is_unspecified() {
+        common::net::CONNECTABLE_ADDRESS
     } else {
         server_binding_addr
     };
@@ -91,7 +91,7 @@ pub fn build_server_config(
         current_time,
         max_clients: MAX_PLAYERS,
         protocol_id,
-        public_addresses: vec![public_server_addr],
+        public_addresses: vec![server_connectable_addr],
         authentication: ServerAuthentication::Secure { private_key },
     }
 }

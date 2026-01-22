@@ -15,7 +15,7 @@ pub fn handle(
         unreachable!();
     };
 
-    let default_server_connectable_addr = common::net::SERVER_CONNECTABLE_ADDRESS;
+    let default_server_connectable_addr = common::net::CONNECTABLE_ADDRESS;
 
     if let Some(input_string) = session.take_input() {
         match parse_server_address(&input_string, default_server_connectable_addr) {
@@ -82,7 +82,7 @@ mod tests {
 
     #[test]
     fn returns_default_address_on_blank_input() {
-        let default_server_connectable_addr = common::net::SERVER_CONNECTABLE_ADDRESS;
+        let default_server_connectable_addr = common::net::CONNECTABLE_ADDRESS;
         let parsed = parse_server_address("   ", default_server_connectable_addr)
             .expect("expected default address");
         assert_eq!(parsed, default_server_connectable_addr);
@@ -90,7 +90,7 @@ mod tests {
 
     #[test]
     fn parses_ip_with_default_port() {
-        let default_server_connectable_addr = common::net::SERVER_CONNECTABLE_ADDRESS;
+        let default_server_connectable_addr = common::net::CONNECTABLE_ADDRESS;
         let parsed = parse_server_address("192.168.1.50", default_server_connectable_addr)
             .expect("expected address");
         assert_eq!(
@@ -104,7 +104,7 @@ mod tests {
 
     #[test]
     fn parses_ip_with_port() {
-        let default_server_connectable_addr = common::net::SERVER_CONNECTABLE_ADDRESS;
+        let default_server_connectable_addr = common::net::CONNECTABLE_ADDRESS;
         let parsed = parse_server_address("192.168.1.50:6000", default_server_connectable_addr)
             .expect("expected address");
         assert_eq!(

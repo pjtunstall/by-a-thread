@@ -1,10 +1,16 @@
-# Networking Debugging Lesson
+# Network Debugging Lesson
 
-- [IP Addresses and Ports in By a Thread](#ip-addresses-and-ports-in-by-a-thread)
-  - [Basic Concepts](#basic-concepts)
+## Table of Contents
+
+- [Overview](#overview)
+- [Network Address Concepts](#network-address-concepts)
+  - [Binding Address vs Connectable Address](#binding-address-vs-connectable-address)
   - [Unspecified Address (`0.0.0.0`)](#unspecified-address-0000)
-  - [Before Docker (Local Development)](#before-docker-local-development)
-  - [With Docker](#with-docker)
+  - [Client Addresses](#client-addresses)
+  - [How This Applies to the Current Project](#how-this-applies-to-the-current-project)
+- [Current Network Setup](#current-network-setup)
+  - [How It Works Locally](#how-it-works-locally)
+  - [How It Works with Docker](#how-it-works-with-docker)
 - [Debugging Tools and Commands](#debugging-tools-and-commands)
   - [Docker Commands](#docker-commands)
   - [Network Testing Commands](#network-testing-commands)
@@ -12,6 +18,10 @@
   - [Common Issues and Solutions](#common-issues-and-solutions)
   - [Docker Port Mapping](#docker-port-mapping)
 - [Network Architecture Summary](#network-architecture-summary)
+
+## Overview
+
+This document exists because of a networking bug that occurred when moving the server to Docker. The exact details of what caused the bug are sadly lost--what I initially thought was the problem turned out not to be the case, and the true cause remains unknown.[^1] However, the debugging process was valuable, so this document can remain as a record of what I learnt about networking concepts, Docker port mapping, and debugging tools.
 
 ## IP Addresses and Ports in By a Thread
 
@@ -58,88 +68,59 @@ Clients also have binding addresses (where they bind locally), but:
 
 **Server Side:**
 - Uses `BINDING_ADDRESS` (`0.0.0.0:5000`) to listen on all interfaces.
-- Uses `SERVER_CONNECTABLE_ADDRESS` (`127.0.0.1:5000`) in connect tokens.
+- Uses `CONNECTABLE_ADDRESS` (`127.0.0.1:5000`) in connect tokens.
 - Renet's connect tokens contain the connectable address for clients.
 
 **Client Side:**
-- Uses `SERVER_CONNECTABLE_ADDRESS` as the default connection target.
+- Uses `CONNECTABLE_ADDRESS` as the default connection target.
 - Client binding is handled automatically.
 
-## Before Docker (Local Development)
+## Current Network Setup
 
-**Server Setup:**
+**Server Configuration:**
 ```rust
 // server/src/net.rs
 pub const BINDING_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 5000);
 
 // common/src/net.rs  
-pub const SERVER_CONNECTABLE_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000);
+pub const CONNECTABLE_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000);
 ```
 
-**Client Setup:**
+**Client Configuration:**
 ```rust
 // client/src/lobby/state_handlers/server_address.rs
-let default_server_connectable_addr = common::net::SERVER_CONNECTABLE_ADDRESS;
+let default_server_connectable_addr = common::net::CONNECTABLE_ADDRESS;
 ```
 
-**How it worked:**
-1. Server binds to `BINDING_ADDRESS` (`0.0.0.0:5000`) (all interfaces).
-2. Client connects to `SERVER_CONNECTABLE_ADDRESS` (`127.0.0.1:5000`) (localhost).
-3. **Server's public address in connect token: `BINDING_ADDRESS` (`0.0.0.0:5000`)**
-4. Connection succeeded despite the address mismatch; I don't know why.
+### How It Works Locally
 
-**Theories:**
-- **Renet special handling**: Renet might have special logic for local connections that tolerates `0.0.0.0` in connect tokens when client and server are on the same machine.
-- **OS-level routing**: The operating system might be translating `0.0.0.0` to `127.0.0.1` for local connections.
-- **Network stack behavior**: The local network stack might be more permissive about address resolution for loopback connections.
+**Local Connection Flow:**
+1. Server binds to `BINDING_ADDRESS` (`0.0.0.0:5000`), listening on all interfaces.
+2. Client connects to `CONNECTABLE_ADDRESS` (`127.0.0.1:5000`), localhost.
+3. Server's connect token contains `CONNECTABLE_ADDRESS` (`127.0.0.1:5000`).
+4. Connection succeeds because client address matches token address exactly.
 
-## With Docker
+### How It Works with Docker
 
-**The Problem:**
+**Docker Setup:**
+```bash
+docker build -t server-image .
+docker run -d --name server-container --rm -p 5000:5000/udp server-image
+```
+
+**Docker Connection Flow:**
 1. Server container binds to `BINDING_ADDRESS` (`0.0.0.0:5000`) inside container.
 2. Docker maps container port 5000 to host port 5000.
-3. Client on host tries to connect to `SERVER_CONNECTABLE_ADDRESS` (`127.0.0.1:5000`).
-4. **Using the binding address in connect tokens**, clients got `0.0.0.0:5000`.
-5. **Connection failed** because, apparently in this environment, clients can't connect to `0.0.0.0`.
+3. Client on host connects to `CONNECTABLE_ADDRESS` (`127.0.0.1:5000`).
+4. Server's connect token contains `CONNECTABLE_ADDRESS` (`127.0.0.1:5000`).
+5. Connection succeeds because Docker forwards the connection correctly.
 
-**The Fix:**
-```rust
-// server/src/net.rs
-pub fn build_server_config(
-    current_time: Duration,
-    protocol_id: u64,
-    server_binding_addr: SocketAddr,
-    private_key: [u8; 32],
-) -> ServerConfig {
-    // Always use the connectable address in tokens, never the binding address.
-    let public_server_addr = if server_binding_addr.ip().is_unspecified() {
-        common::net::SERVER_CONNECTABLE_ADDRESS
-    } else {
-        server_binding_addr  // If binding to specific IP, use that as connectable.
-    };
-
-    ServerConfig {
-        current_time,
-        max_clients: MAX_PLAYERS,
-        protocol_id,
-        public_addresses: vec![public_server_addr],
-        authentication: ServerAuthentication::Secure { private_key },
-    }
-}
-```
-
-**How it works now:**
-1. Server binds to `BINDING_ADDRESS` (`0.0.0.0:5000`) inside container.
-2. Docker maps container port 5000 to host port 5000.
-3. Client on host connects to `SERVER_CONNECTABLE_ADDRESS` (`127.0.0.1:5000`).
-4. Server's public address in connect token: `SERVER_CONNECTABLE_ADDRESS`.
-5. **Connection succeeds** because client address matches token address exactly.
-
-**In a Nutshell:**
-- Binding addresses are where servers listen (`0.0.0.0` = all interfaces).
-- Connectable addresses are where clients connect (must be specific).
-- Connect tokens should contain connectable addresses, never binding addresses.
-- Using `SERVER_CONNECTABLE_ADDRESS` in tokens works in both local and Docker environments.
+**Key Principle:**
+The same code works in both environments because:
+- Binding address (`0.0.0.0:5000`) determines where the server listens.
+- Connectable address (`127.0.0.1:5000`) determines where clients connect.
+- Connect tokens always contain the connectable address, never the binding address.
+- Docker's port mapping handles the translation between host and container networking.
 
 **Note on Non-Unspecified Binding Addresses:**
 If the server binds to a specific IP (e.g., `192.168.1.100:5000`), that same address typically becomes the connectable address. This is because when you bind to a specific interface, that's the address clients must use to reach you. However, this depends on network configuration and routing--in complex networks, even a specific binding address might not be the address clients use (e.g., behind NAT, load balancers, etc.).
@@ -259,3 +240,5 @@ to localhost              interfaces inside
 ```
 
 The key insight is that Docker creates a network bridge between the host and container, and the port mapping makes the container's service appear as if it's running on the host machine.
+
+[^1]: I thought it was that the server was using the unspecified binding address 0.0.0.0, and that that had been working when running locally without Docker. But later, I tried it, and found that it doesn't work now, so the issue must have been due to something else and fixed accidentally along the way.

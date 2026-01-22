@@ -7,7 +7,7 @@ use std::{
 use renet::{ChannelConfig, ConnectionConfig, SendType};
 use socket2::{Domain, Socket, Type};
 
-pub const SERVER_CONNECTABLE_ADDRESS: SocketAddr =
+pub const CONNECTABLE_ADDRESS: SocketAddr =
     SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -49,10 +49,7 @@ pub fn run_server(socket: UdpSocket, server_binding_addr: SocketAddr, private_ke
 
 fn print_server_banner(protocol_id: u64, passcode: &Passcode) {
     println!("  Game version:   {}", protocol_id);
-    println!(
-        "  Server address: {}",
-        common::net::SERVER_CONNECTABLE_ADDRESS
-    );
+    println!("  Server address: {}", common::net::CONNECTABLE_ADDRESS);
     println!("  Passcode:       {}", passcode.string);
 }
 
