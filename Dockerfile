@@ -1,9 +1,7 @@
-FROM rust:1.90.0 as builder
+FROM rust:1.90.0 AS builder
 
 WORKDIR /usr/src/app
-COPY Cargo.toml Cargo.lock ./
-COPY common ./common
-COPY server ./server
+COPY . .
 
 RUN cargo install --path ./server
 

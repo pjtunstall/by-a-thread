@@ -2,7 +2,6 @@ use std::net::{IpAddr, SocketAddr};
 
 use crate::{
     lobby::ui::LobbyUi,
-    net::default_server_addr,
     session::ClientSession,
     state::{ClientState, Lobby},
 };
@@ -16,7 +15,7 @@ pub fn handle(
         unreachable!();
     };
 
-    let default_addr = default_server_addr();
+    let default_addr = crate::net::default_server_addr();
 
     if let Some(input_string) = session.take_input() {
         match parse_server_address(&input_string, default_addr) {
@@ -80,14 +79,14 @@ mod tests {
 
     #[test]
     fn returns_default_address_on_blank_input() {
-        let default_addr = default_server_addr();
+        let default_addr = crate::net::default_server_addr();
         let parsed = parse_server_address("   ", default_addr).expect("expected default address");
         assert_eq!(parsed, default_addr);
     }
 
     #[test]
     fn parses_ip_with_default_port() {
-        let default_addr = default_server_addr();
+        let default_addr = crate::net::default_server_addr();
         let parsed = parse_server_address("192.168.1.50", default_addr).expect("expected address");
         assert_eq!(
             parsed,
@@ -97,7 +96,7 @@ mod tests {
 
     #[test]
     fn parses_ip_with_port() {
-        let default_addr = default_server_addr();
+        let default_addr = crate::net::default_server_addr();
         let parsed =
             parse_server_address("192.168.1.50:6000", default_addr).expect("expected address");
         assert_eq!(

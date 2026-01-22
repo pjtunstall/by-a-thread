@@ -68,5 +68,5 @@ pub fn bind_socket(addr: SocketAddr) -> io::Result<UdpSocket> {
 }
 
 pub fn server_address() -> SocketAddr {
-    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000)
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 5000)
 }

@@ -73,11 +73,22 @@ pub fn build_server_config(
     server_addr: SocketAddr,
     private_key: [u8; 32],
 ) -> ServerConfig {
+    // When running in Docker, the server binds to 0.0.0.0 but clients connect to 127.0.0.1
+    // Use 127.0.0.1 as the public address if the server is bound to 0.0.0.0.
+    let public_addr = if server_addr.ip().is_unspecified() {
+        SocketAddr::new(
+            std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
+            server_addr.port(),
+        )
+    } else {
+        server_addr
+    };
+
     ServerConfig {
         current_time,
         max_clients: MAX_PLAYERS,
         protocol_id,
-        public_addresses: vec![server_addr],
+        public_addresses: vec![public_addr],
         authentication: ServerAuthentication::Secure { private_key },
     }
 }

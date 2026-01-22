@@ -113,8 +113,12 @@ pub fn map_disconnect_kind(
 ) -> DisconnectKind {
     if let Some(reason) = renet_reason {
         match reason {
-            renet::DisconnectReason::DisconnectedByServer => return DisconnectKind::DisconnectedByServer,
-            renet::DisconnectReason::DisconnectedByClient => return DisconnectKind::DisconnectedByClient,
+            renet::DisconnectReason::DisconnectedByServer => {
+                return DisconnectKind::DisconnectedByServer;
+            }
+            renet::DisconnectReason::DisconnectedByClient => {
+                return DisconnectKind::DisconnectedByClient;
+            }
             renet::DisconnectReason::Transport => {
                 if let Some(kind) = map_transport_reason(&transport_reason) {
                     return kind;
@@ -141,9 +145,8 @@ pub fn map_disconnect_kind(
 fn map_transport_reason(reason: &Option<NetcodeDisconnectReason>) -> Option<DisconnectKind> {
     let Some(reason) = reason else { return None };
     Some(match reason {
-        NetcodeDisconnectReason::ConnectionDenied | NetcodeDisconnectReason::DisconnectedByServer => {
-            DisconnectKind::DisconnectedByServer
-        }
+        NetcodeDisconnectReason::ConnectionDenied
+        | NetcodeDisconnectReason::DisconnectedByServer => DisconnectKind::DisconnectedByServer,
         NetcodeDisconnectReason::DisconnectedByClient => DisconnectKind::DisconnectedByClient,
         NetcodeDisconnectReason::ConnectionTimedOut
         | NetcodeDisconnectReason::ConnectionResponseTimedOut

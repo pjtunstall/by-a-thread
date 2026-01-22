@@ -47,9 +47,10 @@ pub fn run_server(socket: UdpSocket, server_addr: SocketAddr, private_key: [u8; 
     println!("Server shutting down.");
 }
 
-fn print_server_banner(protocol_id: u64, server_addr: SocketAddr, passcode: &Passcode) {
+fn print_server_banner(protocol_id: u64, _server_addr: SocketAddr, passcode: &Passcode) {
     println!("  Game version:   {}", protocol_id);
-    println!("  Server address: {}", server_addr);
+    // println!("  Server address: {}", server_addr);
+    println!("  Server address: 127.0.0.1");
     println!("  Passcode:       {}", passcode.string);
 }
 
