@@ -51,7 +51,7 @@ fn print_server_banner(protocol_id: u64, passcode: &Passcode) {
     println!("  Game version:   {}", protocol_id);
     println!(
         "  Server address: {}",
-        common::net::SERVER_CONNECTABLE_ADDRESS.ip()
+        common::net::SERVER_CONNECTABLE_ADDRESS
     );
     println!("  Passcode:       {}", passcode.string);
 }
