@@ -3,13 +3,12 @@
 ![screenshot](screenshot.jpg)
 
 - [Overview](#overview)
+- [To run locally](#to-run-locally)
 - [How to play](#how-to-play)
-  - [To run locally](#to-run-locally)
   - [Controls](#controls)
+  - [Objective](#objective)
 - [Levels](#levels)
-- [Curiosities](#curiosities)
-  - [Docker: dummy client trick](#docker-dummy-client-trick)
-  - [Network debugging](#network-debugging)
+- [Network debugging](#network-debugging)
 - [Credits](#credits)
 
 ## Overview
@@ -18,35 +17,15 @@ This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://
 
 I used Macroquad, a simple game framework, for window management, reading input, loading textures, rendering, and audio. I used the Renet library for some networking abstractions over UDP. On the other hand, I wrote the collision and movement physics, and went to town rolling my own netcode. For more details on that, see the [Netcode](docs/netcode.md) document. For more on the structure of my code, see [Architecture](docs/architecture.md).
 
+The game is not yet online, so real matches aren't possible. For now, you can at least get a sense of it by running the server and one or more clients on a single machine. My plan is to play test it first with friends, then host it publicly according the the plan outlined in [Security](docs/security.md).
+
+## To run locally
+
+Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/install/) and run `cargo run --release --bin server` in one terminal. For each player, open another terminal and run `cargo run --release --bin client`. Then follow the prompts. The passcode will appear in the server terminal.
+
+Alternatively, see [Docker](docs/docker.md) for how to run the server on Docker.
+
 ## How to play
-
-The game is not yet online, so real matches aren't possible. For now, you can, at least, get a sense of it by running the server and one or more clients on a single machine. My plan is to play test it first with friends, then host it publicly according the the plan outlined in [Security](docs/security.md).
-
-### To run locally
-
-Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/install/) and run `cargo run --release --bin server` in one terminal. For each client, open another terminal and run `cargo run --release --bin client`. Then follow the prompts. The passcode will appear in the server terminal.
-
-### To run with the server on Docker
-
-The following commands build a docker image of the server, run the corresponding container in the background, and print log initial output, including, most importantly, the ephemeral passcode that clients must enter to be admitted to a game:
-
-```sh
-docker build -t server-image .
-docker run -d \
-  --name server-container \
-  --rm \
-  -p 5000:5000/udp \
-  server-image
-docker logs server-container # To see the server banner with the passcode.
-```
-
-Alternatively, you can run the same commands as `./docker_script.sh` after first making it executable: `chmod +x docker_script.sh`. You can then launch the client in the same terminal in the usual way: `cargo run --release --bin client`. To stop the container:
-
-```sh
-docker stop server-container
-```
-
-Or, if you wait a few seconds after the last client disconnected, the server will exit and then the container will stop of its own accord. The `--rm` flag with the `run` command ensures that the container will be deleted when it stops.
 
 ### Controls
 
@@ -55,27 +34,17 @@ Or, if you wait a few seconds after the last client disconnected, the server wil
 - Space to fire.
 - Left shift for sniper mode.
 
+### Objective
+
+Be the last one standing.
+
 ## Levels
 
 As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`.
 
-## Curiosities
+## Network debugging
 
-### Docker: dummy client trick
-
-As I containerized the server using Docker, I came across a useful trick. The server consists of one package: `server`. It depends on another package, called `common`. Both belong to the same workspace, and that workspace contains a third package: `client`. I wanted to keep this structure without polluting the Docker build context with the client source code and assets. The solution I found was to include, in my [Dockerfile](Dockerfile), commands to create a dummy client, i.e. the minimal file structure required to satisfy `cargo install`.
-
-```sh
-RUN mkdir -p client/src && \
-    echo '[package]\nname = "client"\nversion = "0.0.0"\n[dependencies]' > client/Cargo.toml && \
-    echo 'fn main() {}' > client/src/main.rs
-```
-
-In this way, I could omit/ignore the real client.
-
-### Network debugging
-
-In [Network Debugging Lesson](docs/network-debugging-lesson.md), I've included notes on a bug I had when I first tried to run the server on Docker. The bug was fixed, but the true cause has been lost among the various changes I made at the time. Still, I wanted to keep a record of what I learnt about networking and how to debug connectivity issues.
+The [Network Debugging](docs/network-debugging.md) document consists of notes on a bug I had when I first tried to run the server on Docker. The bug was fixed. I thought I'd found the reason and kept working, only to discover that I was wrong. I still haven't found it, but had to press on. Still, I wanted to keep a record of what I learnt about networking and how to debug connectivity issues.
 
 ## Credits
 
