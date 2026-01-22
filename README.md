@@ -8,6 +8,8 @@
   - [Controls](#controls)
 - [Levels](#levels)
 - [Curiosities](#curiosities)
+  - [Docker: dummy client trick](#docker-dummy-client-trick)
+  - [Network debugging](#network-debugging)
 - [Credits](#credits)
 
 ## Overview
@@ -56,6 +58,20 @@ The `--rm` flag with the `run` command ensures that it will be deleted automatic
 As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`.
 
 ## Curiosities
+
+### Docker: dummy client trick
+
+As I containerized the server using Docker, I came across a useful trick. The server consists of one package: `server`. It depends on another package, called `common`. Both belong to the same workspace, and that workspace contains a third package: `client`. I wanted to keep this structure without polluting the Docker build context with the client source code and assets. The solution I found was to include, in my [Dockerfile](Dockerfile), commands to create a dummy client, i.e. the minimal file structure required to satisfy `cargo install`.
+
+```sh
+RUN mkdir -p client/src && \
+    echo '[package]\nname = "client"\nversion = "0.0.0"\n[dependencies]' > client/Cargo.toml && \
+    echo 'fn main() {}' > client/src/main.rs
+```
+
+In this way, I could omit/ignore the real client.
+
+### Network debugging
 
 In [Network Debugging Lesson](docs/network-debugging-lesson.md), I've included notes on a bug I had when I first tried to run the server on Docker. The bug was fixed, but the true cause has been lost among the various changes I made at the time. Still, I wanted to keep a record of what I learnt about networking and how to debug connectivity issues.
 
