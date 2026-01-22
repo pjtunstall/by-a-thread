@@ -54,6 +54,10 @@ The `--rm` flag with the `run` command ensures that it will be deleted automatic
 
 As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`.
 
+## Curiosities
+
+In [Network Debugging Lesson](docs/network-debugging-lesson.md), I've included notes on a bug I had when I first tried to run the server on Docker. The bug was fixed, but the true cause has been lost among the various changes I made at the time. Still, I wanted to keep a record of what I learnt about networking and how to debug connectivity issues.
+
 ## Credits
 
 ### Sound effects

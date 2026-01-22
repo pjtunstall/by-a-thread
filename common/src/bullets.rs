@@ -131,7 +131,7 @@ fn find_intersection_with_box(
             let t1 = (box_min[i] - ray_origin[i]) / ray_direction[i];
             let t2 = (box_max[i] - ray_origin[i]) / ray_direction[i];
 
-            // Where the ray intersects with the closest and farthest planes for the
+            // Where the ray intersects with the closest and furthest planes for the
             // current axis respectively.
             let t_enter = t1.min(t2);
             let t_exit = t1.max(t2);
