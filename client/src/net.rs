@@ -1,7 +1,4 @@
-use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    time::Duration,
-};
+use std::{net::SocketAddr, time::Duration};
 
 use renet::RenetClient;
 use renet_netcode::{ConnectToken, NetcodeClientTransport, NetcodeDisconnectReason};
@@ -17,10 +14,6 @@ pub enum DisconnectKind {
     ConnectionTimedOut,
     ConnectionDenied,
     Other(String),
-}
-
-pub fn default_server_addr() -> SocketAddr {
-    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000)
 }
 
 pub fn create_connect_token(

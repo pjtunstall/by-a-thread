@@ -21,7 +21,27 @@ The game is not yet online, so real matches aren't possible. For now, you can, a
 
 ### To run locally
 
-Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/install/) and run `cargo run --bin server` in one terminal. For each client, open another terminal and run `cargo run --bin client`. Then follow the prompts. The passcode will appear in the server terminal.
+Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/install/) and run `cargo run --release --bin server` in one terminal. For each client, open another terminal and run `cargo run --release --bin client`. Then follow the prompts. The passcode will appear in the server terminal.
+
+### To run with the server on Docker
+
+```sh
+docker build -t server-image .
+docker run -d \
+  --name server-container \
+  --rm \
+  -p 5000:5000/udp \
+  server-image
+docker logs server-container # To see the server banner with the passcode.
+```
+
+You can then launch the client in the same terminal in the usual way: `cargo run --release --bin client`. When finished, stop the container:
+
+```sh
+docker stop server-container
+```
+
+The `--rm` flag with the `run` command ensures that it will be deleted automatically.
 
 ### Controls
 

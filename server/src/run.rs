@@ -29,12 +29,12 @@ use common::{
     time,
 };
 
-pub fn run_server(socket: UdpSocket, server_addr: SocketAddr, private_key: [u8; 32]) {
+pub fn run_server(socket: UdpSocket, server_binding_addr: SocketAddr, private_key: [u8; 32]) {
     let current_time = common::time::now();
     let protocol_id = common::protocol::version();
 
     let server_config =
-        net::build_server_config(current_time, protocol_id, server_addr, private_key);
+        net::build_server_config(current_time, protocol_id, server_binding_addr, private_key);
     let mut transport =
         NetcodeServerTransport::new(server_config, socket).expect("failed to create transport");
     let connection_config = common::net::connection_config();
@@ -42,15 +42,17 @@ pub fn run_server(socket: UdpSocket, server_addr: SocketAddr, private_key: [u8; 
     let passcode = Passcode::generate(6);
     let mut state = ServerState::Lobby(Lobby::new());
 
-    print_server_banner(protocol_id, server_addr, &passcode);
+    print_server_banner(protocol_id, &passcode);
     server_loop(&mut server, &mut transport, &mut state, &passcode);
     println!("Server shutting down.");
 }
 
-fn print_server_banner(protocol_id: u64, _server_addr: SocketAddr, passcode: &Passcode) {
+fn print_server_banner(protocol_id: u64, passcode: &Passcode) {
     println!("  Game version:   {}", protocol_id);
-    // println!("  Server address: {}", server_addr);
-    println!("  Server address: 127.0.0.1");
+    println!(
+        "  Server address: {}",
+        common::net::SERVER_CONNECTABLE_ADDRESS.ip()
+    );
     println!("  Passcode:       {}", passcode.string);
 }
 

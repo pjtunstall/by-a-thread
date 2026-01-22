@@ -15,20 +15,20 @@ pub fn handle(
         unreachable!();
     };
 
-    let default_addr = crate::net::default_server_addr();
+    let default_server_connectable_addr = common::net::SERVER_CONNECTABLE_ADDRESS;
 
     if let Some(input_string) = session.take_input() {
-        match parse_server_address(&input_string, default_addr) {
-            Ok(server_addr) => {
+        match parse_server_address(&input_string, default_server_connectable_addr) {
+            Ok(parsed_server_addr) => {
                 session.input_queue.clear();
-                session.server_addr = Some(server_addr);
+                session.server_addr = Some(parsed_server_addr);
                 return Some(ClientState::Lobby(Lobby::Passcode {
                     prompt_printed: false,
                 }));
             }
             Err(message) => {
                 ui.show_error(&message);
-                ui.show_prompt(&server_address_prompt(default_addr));
+                ui.show_prompt(&server_address_prompt(default_server_connectable_addr));
 
                 *prompt_printed = true;
                 return None;
@@ -37,7 +37,7 @@ pub fn handle(
     }
 
     if !*prompt_printed {
-        ui.show_prompt(&server_address_prompt(default_addr));
+        ui.show_prompt(&server_address_prompt(default_server_connectable_addr));
         *prompt_printed = true;
         return None;
     }
@@ -45,17 +45,20 @@ pub fn handle(
     None
 }
 
-fn server_address_prompt(default_addr: SocketAddr) -> String {
+fn server_address_prompt(default_server_connectable_addr: SocketAddr) -> String {
     format!(
         "Enter server address (ip[:port]) or press Enter for {}: ",
-        default_addr
+        default_server_connectable_addr
     )
 }
 
-fn parse_server_address(input: &str, default_addr: SocketAddr) -> Result<SocketAddr, String> {
+fn parse_server_address(
+    input: &str,
+    default_server_connectable_addr: SocketAddr,
+) -> Result<SocketAddr, String> {
     let trimmed = input.trim();
     if trimmed.is_empty() {
-        return Ok(default_addr);
+        return Ok(default_server_connectable_addr);
     }
 
     if let Ok(addr) = trimmed.parse::<SocketAddr>() {
@@ -63,12 +66,12 @@ fn parse_server_address(input: &str, default_addr: SocketAddr) -> Result<SocketA
     }
 
     if let Ok(ip) = trimmed.parse::<IpAddr>() {
-        return Ok(SocketAddr::new(ip, default_addr.port()));
+        return Ok(SocketAddr::new(ip, default_server_connectable_addr.port()));
     }
 
     Err(format!(
         "Invalid address. Enter an IP like 192.168.0.10:5000, or press Enter to use {}.",
-        default_addr
+        default_server_connectable_addr
     ))
 }
 
@@ -79,26 +82,31 @@ mod tests {
 
     #[test]
     fn returns_default_address_on_blank_input() {
-        let default_addr = crate::net::default_server_addr();
-        let parsed = parse_server_address("   ", default_addr).expect("expected default address");
-        assert_eq!(parsed, default_addr);
+        let default_server_connectable_addr = common::net::SERVER_CONNECTABLE_ADDRESS;
+        let parsed = parse_server_address("   ", default_server_connectable_addr)
+            .expect("expected default address");
+        assert_eq!(parsed, default_server_connectable_addr);
     }
 
     #[test]
     fn parses_ip_with_default_port() {
-        let default_addr = crate::net::default_server_addr();
-        let parsed = parse_server_address("192.168.1.50", default_addr).expect("expected address");
+        let default_server_connectable_addr = common::net::SERVER_CONNECTABLE_ADDRESS;
+        let parsed = parse_server_address("192.168.1.50", default_server_connectable_addr)
+            .expect("expected address");
         assert_eq!(
             parsed,
-            SocketAddr::new(IpAddr::from([192, 168, 1, 50]), default_addr.port())
+            SocketAddr::new(
+                IpAddr::from([192, 168, 1, 50]),
+                default_server_connectable_addr.port()
+            )
         );
     }
 
     #[test]
     fn parses_ip_with_port() {
-        let default_addr = crate::net::default_server_addr();
-        let parsed =
-            parse_server_address("192.168.1.50:6000", default_addr).expect("expected address");
+        let default_server_connectable_addr = common::net::SERVER_CONNECTABLE_ADDRESS;
+        let parsed = parse_server_address("192.168.1.50:6000", default_server_connectable_addr)
+            .expect("expected address");
         assert_eq!(
             parsed,
             SocketAddr::new(IpAddr::from([192, 168, 1, 50]), 6000)

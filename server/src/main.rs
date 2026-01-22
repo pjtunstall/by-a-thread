@@ -10,8 +10,8 @@ use crossterm::{
     terminal::{Clear, ClearType},
 };
 
-use server;
 use common;
+use server;
 
 pub struct Defer;
 
@@ -50,11 +50,11 @@ fn main() {
     .ok();
 
     let private_key = common::auth::private_key();
-    let server_addr = common::net::server_address();
+    let server_binding_addr = server::net::BINDING_ADDRESS;
 
-    let socket = match common::net::bind_socket(server_addr) {
+    let socket = match common::net::bind_socket(server_binding_addr) {
         Ok(socket) => {
-            println!("Server listening on {}.", server_addr);
+            println!("Server listening on {}.", server_binding_addr);
             socket
         }
         Err(e) => {
@@ -67,5 +67,5 @@ fn main() {
         }
     };
 
-    server::run::run_server(socket, server_addr, private_key);
+    server::run::run_server(socket, server_binding_addr, private_key);
 }

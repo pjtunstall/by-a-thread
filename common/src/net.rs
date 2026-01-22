@@ -7,6 +7,9 @@ use std::{
 use renet::{ChannelConfig, ConnectionConfig, SendType};
 use socket2::{Domain, Socket, Type};
 
+pub const SERVER_CONNECTABLE_ADDRESS: SocketAddr =
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppChannel {
     ReliableOrdered,
@@ -65,8 +68,4 @@ pub fn bind_socket(addr: SocketAddr) -> io::Result<UdpSocket> {
     socket.set_reuse_address(true)?;
     socket.bind(&addr.into())?;
     Ok(socket.into())
-}
-
-pub fn server_address() -> SocketAddr {
-    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 5000)
 }

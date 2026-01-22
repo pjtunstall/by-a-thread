@@ -53,11 +53,13 @@ mod tests {
     fn client_banner_is_printed_correctly() {
         let mut ui = MockUi::default();
         let protocol_id = 12345;
-        let server_addr: std::net::SocketAddr = "127.0.0.1:5000".parse().unwrap();
+        let server_addr = common::net::SERVER_CONNECTABLE_ADDRESS;
         let client_id = 99;
 
-        let expected_banner =
-            "Client Banner: Protocol=12345, Server=127.0.0.1:5000, ClientID=99".to_string();
+        let expected_banner = format!(
+            "Client Banner: Protocol={}, Server={}, ClientID={}",
+            protocol_id, server_addr, client_id
+        );
 
         ui.print_client_banner(protocol_id, server_addr, client_id);
 

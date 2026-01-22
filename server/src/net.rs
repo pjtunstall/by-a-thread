@@ -1,9 +1,15 @@
-use std::{net::SocketAddr, time::Duration};
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    time::Duration,
+};
 
 use renet::{RenetServer, ServerEvent};
 use renet_netcode::{ServerAuthentication, ServerConfig};
 
 use common::{self, constants::MAX_PLAYERS, net::AppChannel};
+
+pub const BINDING_ADDRESS: SocketAddr =
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 5000);
 
 pub enum ServerNetworkEvent {
     ClientConnected { client_id: u64 },
@@ -70,25 +76,22 @@ impl ServerNetworkHandle for RenetServerNetworkHandle<'_> {
 pub fn build_server_config(
     current_time: Duration,
     protocol_id: u64,
-    server_addr: SocketAddr,
+    server_binding_addr: SocketAddr,
     private_key: [u8; 32],
 ) -> ServerConfig {
-    // When running in Docker, the server binds to 0.0.0.0 but clients connect to 127.0.0.1
-    // Use 127.0.0.1 as the public address if the server is bound to 0.0.0.0.
-    let public_addr = if server_addr.ip().is_unspecified() {
-        SocketAddr::new(
-            std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
-            server_addr.port(),
-        )
+    // 0.0.0.0 is a binding address, not a connectable address.
+    // Use 127.0.0.1 as the public address when the server is bound to 0.0.0.0.
+    let public_server_addr = if server_binding_addr.ip().is_unspecified() {
+        common::net::SERVER_CONNECTABLE_ADDRESS
     } else {
-        server_addr
+        server_binding_addr
     };
 
     ServerConfig {
         current_time,
         max_clients: MAX_PLAYERS,
         protocol_id,
-        public_addresses: vec![public_addr],
+        public_addresses: vec![public_server_addr],
         authentication: ServerAuthentication::Secure { private_key },
     }
 }
