@@ -1,4 +1,4 @@
-# Networking and Debugging Guide
+# Networking Debugging Lesson
 
 - [IP Addresses and Ports in By a Thread](#ip-addresses-and-ports-in-by-a-thread)
   - [Basic Concepts](#basic-concepts)
@@ -68,7 +68,7 @@ pub fn default_server_addr() -> SocketAddr {
 5. **Docker's port mapping breaks Renet's special handling** for `0.0.0.0` tokens
 6. **Connection fails** because `127.0.0.1:5000` ≠ `0.0.0.0:5000` in literal address comparison
 
-**The Issue:**
+**In a Nutshell:**
 - `0.0.0.0` is a binding address, not a connectable address
 - Connect tokens should contain the actual address clients will use
 - Renet was permissive about this for local connections, but Docker's port mapping exposes the problem
