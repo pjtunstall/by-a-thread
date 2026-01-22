@@ -44,7 +44,7 @@ You can then launch the client in the same terminal in the usual way: `cargo run
 docker stop server-container
 ```
 
-The `--rm` flag with the `run` command ensures that it will be deleted automatically.
+If you wait a few seconds after the last client disconnected, the server will exit and then the container will stop of its own accord. The `--rm` flag with the `run` command ensures that the container will be deleted when it stops.
 
 ### Controls
 
