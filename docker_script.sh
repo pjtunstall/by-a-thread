@@ -2,7 +2,9 @@
 
 # Make this script executable by running: `chmod +x docker_script.sh`.
 
-docker build -t server-image .
+VERSION=$(cargo pkgid -p server | cut -d# -f2 | cut -d: -f2)
+
+docker build -t server-image:$VERSION .
 docker run -d \
   --name server-container \
   --rm \
