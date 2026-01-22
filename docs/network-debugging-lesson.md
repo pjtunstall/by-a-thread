@@ -241,4 +241,4 @@ to localhost              interfaces inside
 
 The key insight is that Docker creates a network bridge between the host and container, and the port mapping makes the container's service appear as if it's running on the host machine.
 
-[^1]: I thought it was that the server was using the unspecified binding address 0.0.0.0, and that that had been working when running locally without Docker. But later, I tried it, and found that it doesn't work now, so the issue must have been due to something else and fixed accidentally along the way.
+[^1]: I thought it was that the server was using the unspecified binding address 0.0.0.0 for the connect token (rather than the connectable address), and that that had been working when running locally without Docker. But later, I tried it with the binding address locally, and found that it doesn't work that way now, so the issue must have been due to something else and fixed accidentally along the way.
