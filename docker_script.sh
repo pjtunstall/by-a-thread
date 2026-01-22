@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Make this script executable by running: `chmod +x docker_script.sh`.
 
