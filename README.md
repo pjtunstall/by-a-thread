@@ -44,7 +44,7 @@ As instructed, I've implemented three difficulty levels. The 01 instructions def
 
 ## Network debugging
 
-The [Network Debugging](docs/network-debugging.md) document consists of notes on a bug I had when I first tried to run the server on Docker. The bug was fixed. I thought I'd found the reason and kept working, only to discover that I was wrong. I still haven't found it, but had to press on. Still, I wanted to keep a record of what I learnt about networking and how to debug connectivity issues.
+[Network Debugging](docs/network-debugging.md) documents some lessons learnt while fixing a bug I had when I first tried to run the server on Docker.
 
 ## Credits
 

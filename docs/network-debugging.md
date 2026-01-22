@@ -21,7 +21,7 @@
 
 ## Overview
 
-This document exists because of a networking bug that occurred when moving the server to Docker. The exact details of what caused the bug are sadly lost--what I initially thought was the problem turned out not to be the case, and the true cause remains unknown.[^1] Still, the debugging process taught me a thing or two. This document is a record of what I learnt about IP addresses, Docker port mapping and debugging tools.
+This document exists because of a networking bug that occurred when moving the server to Docker. The exact details of what caused the bug are not completely clear; see [How it works locally](#how-it-works-locally). Still, the debugging process taught me a thing or two. This document is a record of what I learnt about IP addresses, Docker port mapping and debugging tools.
 
 ## IP addresses and ports in By a Thread
 
@@ -110,6 +110,10 @@ let default_server_connectable_addr = common::net::CONNECTABLE_ADDRESS;
 2. Client connects to `CONNECTABLE_ADDRESS` (`127.0.0.1:5000`), localhost.
 3. Server's connect token contains `CONNECTABLE_ADDRESS` (`127.0.0.1:5000`).
 4. Connection succeeds because client address matches token address exactly.
+
+**Theory on the bug**
+
+Item 3 is where I think the issue lay. In my original code, I was using the binding address (i.e. 0.0.0.0, i.e. unspecified) for the connect token, and, apparently, that had been working locally before I introduced Docker. At a later time, after it was working locally and on Docker the "correct" way (with the connectable address), I tried switching back to the binding address just to see if it would work locally--and it didn't. So, there's a bit of a mystery here. Probably I changed something else that affects it.
 
 ### How it works with Docker
 
@@ -267,5 +271,3 @@ to localhost              interfaces inside
 ```
 
 The key insight is that Docker creates a network bridge between the host and container, and the port mapping makes the container's service appear as if it's running on the host machine.
-
-[^1]: I thought it was that the server was using the unspecified binding address 0.0.0.0 for the connect token (rather than the connectable address), and that that had been working when running locally without Docker. But later, I tried it with the binding address locally, and found that it doesn't work that way now, so the issue must have been due to something else and fixed accidentally along the way.
