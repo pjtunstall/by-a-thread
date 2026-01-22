@@ -1,14 +1,12 @@
-# --- Build Artifacts ---
 **/target/
 **/*.rs.bk
 
-# --- Version Control ---
+*.md
+
 .git
 .gitignore
 
-# --- Docker Meta ---
 Dockerfile
 .dockerignore
 
-# --- Secrets ---
 .env*
