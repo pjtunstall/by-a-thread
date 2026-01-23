@@ -282,6 +282,8 @@ pub async fn run_client_loop(private_key: [u8; 32], mut ui: Gui) {
         return;
     };
 
+    println!("Connecting to server: {}", server_addr);
+
     let socket_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
     let socket = match UdpSocket::bind(socket_addr) {
         Ok(socket) => socket,

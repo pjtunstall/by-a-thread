@@ -4,11 +4,14 @@
 
 - [Overview](#overview)
 - [To run locally](#to-run-locally)
+- [To run on docker](#to-run-on-docker)
 - [How to play](#how-to-play)
   - [Controls](#controls)
   - [Objective](#objective)
 - [Levels](#levels)
-- [Network debugging](#network-debugging)
+- [Curiosities](#curiosities)
+  - [Network debugging](#network-debugging)
+  - [Docker: the dummy client trick](#docker-the-dummy-client-trick)
 - [Credits](#credits)
 
 ## Overview
@@ -23,7 +26,9 @@ The game is not yet online, so real matches aren't possible. For now, you can at
 
 Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/install/) and run `cargo run --release --bin server` in one terminal. For each player, open another terminal and run `cargo run --release --bin client`. Then follow the prompts. The passcode will appear in the server terminal.
 
-Alternatively, see [Docker](docs/docker.md) for how to run the server on Docker.
+## To run on Docker
+
+Assuming you've installed [Docker](https://www.docker.com/)--and started it with `sudo systemctl start docker` if need be--you can run the server on Docker and the client directly on your host machine. See [docker_script.sh](./docker_script.sh) for an annotated list of commands to build a Docker image and run the container. Or make the script executable with `chmod +x docker_script.sh`, and type `./docker_script.sh` to run it.
 
 ## How to play
 
@@ -42,9 +47,23 @@ Be the last one standing.
 
 As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`.
 
-## Network debugging
+## Curiosities
+
+### Network debugging
 
 [Network Debugging](docs/network-debugging.md) documents some lessons learnt while fixing a bug I had when I first tried to run the server on Docker.
+
+### The dummy client trick
+
+As I containerized the server using Docker, I came across a useful trick. The server consists of one package: `server`. It depends on another package, called `common`. Both belong to the same workspace, and that workspace contains a third package: `client`. I wanted to keep this structure without polluting the Docker build context with the client source code and assets. The solution I found was to include, in my [Dockerfile](Dockerfile), commands to create a dummy client, i.e. the minimal file structure required to satisfy `cargo install`.
+
+```sh
+RUN mkdir -p client/src && \
+    echo '[package]\nname = "client"\nversion = "0.0.0"\n[dependencies]' > client/Cargo.toml && \
+    echo 'fn main() {}' > client/src/main.rs
+```
+
+In this way, I could omit/ignore the real client.
 
 ## Credits
 

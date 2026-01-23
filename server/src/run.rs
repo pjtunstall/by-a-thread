@@ -35,6 +35,10 @@ pub fn run_server(socket: UdpSocket, server_binding_addr: SocketAddr, private_ke
 
     let server_config =
         net::build_server_config(current_time, protocol_id, server_binding_addr, private_key);
+
+    // Get the server connectable address from the config for the banner
+    let server_connectable_addr = server_config.public_addresses[0];
+
     let mut transport =
         NetcodeServerTransport::new(server_config, socket).expect("failed to create transport");
     let connection_config = common::net::connection_config();
@@ -42,14 +46,14 @@ pub fn run_server(socket: UdpSocket, server_binding_addr: SocketAddr, private_ke
     let passcode = Passcode::generate(6);
     let mut state = ServerState::Lobby(Lobby::new());
 
-    print_server_banner(protocol_id, &passcode);
+    print_server_banner(protocol_id, &passcode, server_connectable_addr);
     server_loop(&mut server, &mut transport, &mut state, &passcode);
     println!("Server shutting down.");
 }
 
-fn print_server_banner(protocol_id: u64, passcode: &Passcode) {
+fn print_server_banner(protocol_id: u64, passcode: &Passcode, server_connectable_addr: SocketAddr) {
     println!("  Game version:   {}", protocol_id);
-    println!("  Server address: {}", common::net::CONNECTABLE_ADDRESS);
+    println!("  Server address: {}", server_connectable_addr);
     println!("  Passcode:       {}", passcode.string);
 }
 

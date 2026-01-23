@@ -79,10 +79,8 @@ pub fn build_server_config(
     server_binding_addr: SocketAddr,
     private_key: [u8; 32],
 ) -> ServerConfig {
-    // 0.0.0.0 is a binding address, not a connectable address.
-    // Use 127.0.0.1 as the connectable address when the server is bound to 0.0.0.0.
     let server_connectable_addr = if server_binding_addr.ip().is_unspecified() {
-        common::net::CONNECTABLE_ADDRESS
+        SocketAddr::new("127.0.0.1".parse().unwrap(), server_binding_addr.port())
     } else {
         server_binding_addr
     };

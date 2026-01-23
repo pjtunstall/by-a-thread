@@ -1,14 +1,23 @@
 use std::{
-    io,
-    net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket},
+    env, io,
+    net::{SocketAddr, UdpSocket},
     time::Duration,
 };
+
+use dotenvy;
 
 use renet::{ChannelConfig, ConnectionConfig, SendType};
 use socket2::{Domain, Socket, Type};
 
-pub const CONNECTABLE_ADDRESS: SocketAddr =
-    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000);
+pub fn get_connectable_address() -> SocketAddr {
+    dotenvy::dotenv().ok();
+
+    let ip = env::var("IP").expect("IP must be set");
+    let port = env::var("PORT").expect("PORT must be set");
+
+    let address_string = format!("{}:{}", ip, port);
+    address_string.parse().expect("Invalid IP or Port format")
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppChannel {

@@ -15,7 +15,19 @@ pub fn handle(
         unreachable!();
     };
 
-    let default_server_connectable_addr = common::net::CONNECTABLE_ADDRESS;
+    let default_server_connectable_addr = common::net::get_connectable_address();
+
+    if let Ok(Some(common::input::UiKey::Tab)) = ui.poll_single_key() {
+        let localhost_addr = SocketAddr::new(
+            "127.0.0.1".parse().expect("failed to parse localhost"),
+            default_server_connectable_addr.port(),
+        );
+        session.input_queue.clear();
+        session.server_addr = Some(localhost_addr);
+        return Some(ClientState::Lobby(Lobby::Passcode {
+            prompt_printed: false,
+        }));
+    }
 
     if let Some(input_string) = session.take_input() {
         match parse_server_address(&input_string, default_server_connectable_addr) {
@@ -47,7 +59,7 @@ pub fn handle(
 
 fn server_address_prompt(default_server_connectable_addr: SocketAddr) -> String {
     format!(
-        "Enter server address (ip[:port]) or press Enter for {}: ",
+        "Press Enter to connect to the remote server ({}), Tab to for localhost, or choose another server address (ip[:port]): ",
         default_server_connectable_addr
     )
 }
@@ -70,8 +82,7 @@ fn parse_server_address(
     }
 
     Err(format!(
-        "Invalid address. Enter an IP like 192.168.0.10:5000, or press Enter to use {}.",
-        default_server_connectable_addr
+        "Invalid address. Press Enter, or Tab, or enter an IP like 192.168.0.10:5000.",
     ))
 }
 
@@ -82,7 +93,7 @@ mod tests {
 
     #[test]
     fn returns_default_address_on_blank_input() {
-        let default_server_connectable_addr = common::net::CONNECTABLE_ADDRESS;
+        let default_server_connectable_addr = common::net::get_connectable_address();
         let parsed = parse_server_address("   ", default_server_connectable_addr)
             .expect("expected default address");
         assert_eq!(parsed, default_server_connectable_addr);
@@ -90,7 +101,7 @@ mod tests {
 
     #[test]
     fn parses_ip_with_default_port() {
-        let default_server_connectable_addr = common::net::CONNECTABLE_ADDRESS;
+        let default_server_connectable_addr = common::net::get_connectable_address();
         let parsed = parse_server_address("192.168.1.50", default_server_connectable_addr)
             .expect("expected address");
         assert_eq!(
@@ -104,7 +115,7 @@ mod tests {
 
     #[test]
     fn parses_ip_with_port() {
-        let default_server_connectable_addr = common::net::CONNECTABLE_ADDRESS;
+        let default_server_connectable_addr = common::net::get_connectable_address();
         let parsed = parse_server_address("192.168.1.50:6000", default_server_connectable_addr)
             .expect("expected address");
         assert_eq!(

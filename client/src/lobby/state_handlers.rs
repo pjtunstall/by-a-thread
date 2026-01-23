@@ -53,7 +53,7 @@ mod tests {
     fn client_banner_is_printed_correctly() {
         let mut ui = MockUi::default();
         let protocol_id = 12345;
-        let server_addr = common::net::CONNECTABLE_ADDRESS;
+        let server_addr = common::net::get_connectable_address();
         let client_id = 99;
 
         let expected_banner = format!(
