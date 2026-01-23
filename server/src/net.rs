@@ -76,7 +76,6 @@ impl ServerNetworkHandle for RenetServerNetworkHandle<'_> {
 pub fn build_server_config(
     current_time: Duration,
     protocol_id: u64,
-    _server_binding_addr: SocketAddr,
     connectable_addr: SocketAddr,
     private_key: [u8; 32],
 ) -> ServerConfig {

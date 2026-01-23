@@ -1,4 +1,5 @@
 use std::{
+    env,
     io::{self, stdout},
     net::SocketAddr,
     process,
@@ -12,7 +13,7 @@ use crossterm::{
 };
 
 use common;
-use server;
+use server::{self, net::BINDING_ADDRESS};
 
 pub struct Defer;
 
@@ -51,46 +52,27 @@ fn main() {
     .ok();
 
     let private_key = common::auth::private_key();
-    let server_binding_addr = server::net::BINDING_ADDRESS;
+    let public_host = env::var("TARGET_HOST")
+        .expect("`TARGET_HOST` environment variable not set (e.g., `-e TARGET_HOST=127.0.0.1`)");
+    let public_ip: std::net::IpAddr = public_host
+        .parse()
+        .expect("`TARGET_HOST` is not a valid IP address.");
+    let connectable_addr = SocketAddr::new(public_ip, 5000);
 
-    let connectable_addr = match std::env::args().nth(1) {
-        None => common::net::get_connectable_address(),
-        Some(arg) if arg == "localhost" || arg == "local" => {
-            SocketAddr::new("127.0.0.1".parse().unwrap(), 5000)
-        }
-        Some(arg) => parse_connectable_address(&arg),
-    };
-
-    let socket = match common::net::bind_socket(server_binding_addr) {
+    let socket = match common::net::bind_socket(BINDING_ADDRESS) {
         Ok(socket) => {
-            println!("Server listening on {}.", server_binding_addr);
+            println!("Server listening on {}.", BINDING_ADDRESS);
             socket
         }
         Err(e) => {
             eprintln!("error: failed to bind socket");
             eprintln!("details: {}", e);
             if e.kind() == io::ErrorKind::AddrInUse {
-                eprintln!("is another instance of the server already running");
+                eprintln!("Is another instance of the server already running?");
             }
             process::exit(1);
         }
     };
 
-    server::run::run_server(socket, server_binding_addr, connectable_addr, private_key);
-}
-
-fn parse_connectable_address(arg: &str) -> SocketAddr {
-    if let Ok(addr) = arg.parse::<SocketAddr>() {
-        return addr;
-    }
-
-    if let Ok(ip) = arg.parse::<std::net::IpAddr>() {
-        return SocketAddr::new(ip, 5000);
-    }
-
-    eprintln!(
-        "error: invalid address format '{}'. Use IP like 192.168.1.100 or IP:PORT like 192.168.1.100:6000",
-        arg
-    );
-    std::process::exit(1);
+    server::run::run_server(socket, connectable_addr, private_key);
 }

@@ -40,7 +40,7 @@ pub fn handle(
             }
             Err(message) => {
                 ui.show_error(&message);
-                ui.show_prompt(&server_address_prompt(default_server_connectable_addr));
+                ui.show_prompt(&server_address_prompt());
 
                 *prompt_printed = true;
                 return None;
@@ -49,7 +49,7 @@ pub fn handle(
     }
 
     if !*prompt_printed {
-        ui.show_prompt(&server_address_prompt(default_server_connectable_addr));
+        ui.show_prompt(&server_address_prompt());
         *prompt_printed = true;
         return None;
     }
@@ -57,10 +57,9 @@ pub fn handle(
     None
 }
 
-fn server_address_prompt(default_server_connectable_addr: SocketAddr) -> String {
+fn server_address_prompt() -> String {
     format!(
-        "Press Enter to connect to the default server ({}),\n  Tab for localhost,\n  or choose another server (ip[:port]): ",
-        default_server_connectable_addr
+        "Press Enter to connect to the default server,\n  Tab for localhost,\n  or choose another server (ip[:port]): ",
     )
 }
 
