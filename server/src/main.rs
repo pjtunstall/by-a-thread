@@ -1,5 +1,6 @@
 use std::{
     io::{self, stdout},
+    net::SocketAddr,
     process,
 };
 
@@ -52,6 +53,14 @@ fn main() {
     let private_key = common::auth::private_key();
     let server_binding_addr = server::net::BINDING_ADDRESS;
 
+    let connectable_addr = match std::env::args().nth(1) {
+        None => common::net::get_connectable_address(),
+        Some(arg) if arg == "localhost" || arg == "local" => {
+            SocketAddr::new("127.0.0.1".parse().unwrap(), 5000)
+        }
+        Some(arg) => parse_connectable_address(&arg),
+    };
+
     let socket = match common::net::bind_socket(server_binding_addr) {
         Ok(socket) => {
             println!("Server listening on {}.", server_binding_addr);
@@ -67,5 +76,21 @@ fn main() {
         }
     };
 
-    server::run::run_server(socket, server_binding_addr, private_key);
+    server::run::run_server(socket, server_binding_addr, connectable_addr, private_key);
+}
+
+fn parse_connectable_address(arg: &str) -> SocketAddr {
+    if let Ok(addr) = arg.parse::<SocketAddr>() {
+        return addr;
+    }
+
+    if let Ok(ip) = arg.parse::<std::net::IpAddr>() {
+        return SocketAddr::new(ip, 5000);
+    }
+
+    eprintln!(
+        "error: invalid address format '{}'. Use IP like 192.168.1.100 or IP:PORT like 192.168.1.100:6000",
+        arg
+    );
+    std::process::exit(1);
 }

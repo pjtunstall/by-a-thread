@@ -76,20 +76,15 @@ impl ServerNetworkHandle for RenetServerNetworkHandle<'_> {
 pub fn build_server_config(
     current_time: Duration,
     protocol_id: u64,
-    server_binding_addr: SocketAddr,
+    _server_binding_addr: SocketAddr,
+    connectable_addr: SocketAddr,
     private_key: [u8; 32],
 ) -> ServerConfig {
-    let server_connectable_addr = if server_binding_addr.ip().is_unspecified() {
-        SocketAddr::new("127.0.0.1".parse().unwrap(), server_binding_addr.port())
-    } else {
-        server_binding_addr
-    };
-
     ServerConfig {
         current_time,
         max_clients: MAX_PLAYERS,
         protocol_id,
-        public_addresses: vec![server_connectable_addr],
+        public_addresses: vec![connectable_addr],
         authentication: ServerAuthentication::Secure { private_key },
     }
 }

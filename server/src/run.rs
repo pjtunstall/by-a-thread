@@ -29,14 +29,23 @@ use common::{
     time,
 };
 
-pub fn run_server(socket: UdpSocket, server_binding_addr: SocketAddr, private_key: [u8; 32]) {
+pub fn run_server(
+    socket: UdpSocket,
+    server_binding_addr: SocketAddr,
+    connectable_addr: SocketAddr,
+    private_key: [u8; 32],
+) {
     let current_time = common::time::now();
     let protocol_id = common::protocol::version();
 
-    let server_config =
-        net::build_server_config(current_time, protocol_id, server_binding_addr, private_key);
+    let server_config = net::build_server_config(
+        current_time,
+        protocol_id,
+        server_binding_addr,
+        connectable_addr,
+        private_key,
+    );
 
-    // Get the server connectable address from the config for the banner
     let server_connectable_addr = server_config.public_addresses[0];
 
     let mut transport =

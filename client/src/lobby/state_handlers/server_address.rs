@@ -59,7 +59,7 @@ pub fn handle(
 
 fn server_address_prompt(default_server_connectable_addr: SocketAddr) -> String {
     format!(
-        "Press Enter to connect to the remote server ({}), Tab to for localhost, or choose another server address (ip[:port]): ",
+        "Press Enter to connect to the default server ({}),\n  Tab for localhost,\n  or choose another server (ip[:port]): ",
         default_server_connectable_addr
     )
 }
