@@ -52,11 +52,11 @@ fn main() {
     .ok();
 
     let private_key = common::auth::private_key();
-    let public_host = env::var("TARGET_HOST")
-        .expect("`TARGET_HOST` environment variable not set (e.g., `-e TARGET_HOST=127.0.0.1`)");
+    let public_host =
+        env::var("IP").expect("`IP` environment variable not set (e.g., `-e IP=127.0.0.1`)");
     let public_ip: std::net::IpAddr = public_host
         .parse()
-        .expect("`TARGET_HOST` is not a valid IP address.");
+        .expect("`IP` is not a valid IP address.");
     let connectable_addr = SocketAddr::new(public_ip, 5000);
 
     let socket = match common::net::bind_socket(BINDING_ADDRESS) {

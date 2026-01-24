@@ -41,7 +41,9 @@ As instructed, I've implemented three difficulty levels. The 01 instructions def
 
 ## To run locally
 
-Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/install/) and run `TARGET_HOST=127.0.0.1 cargo run --release --bin server` in one terminal. For each player, open another terminal and run `cargo run --release --bin client`. Then follow the prompts. The passcode will appear in the server terminal.
+Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/install/) and run `IP=127.0.0.1 cargo run --release --bin server` in one terminal. For each player, open another terminal and run `cargo run --release --bin client`. Then follow the prompts. The passcode will appear in the server terminal.
+
+(In production, the client will get IP and PORT as environment variables from a `.env` file.)
 
 ## Curiosities
 

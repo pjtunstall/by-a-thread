@@ -24,7 +24,7 @@ Then run the server:
 docker run -d \
   --name server-container \
   --rm \
-  -e TARGET_HOST=127.0.0.1 \
+  -e IP=127.0.0.1 \
   -p 5000:5000/udp \
   server-image
 ```
@@ -35,7 +35,7 @@ Tell Docker to log output so far, so that we can the server banner with the pass
 docker logs server-container
 ```
 
-Then run the client as usual
+Then run the client as usual.
 
 (A container stops when its main process exits. In this case, the main process is the server. The server will exit shortly after the last client leaves. In case you want to stop it immediately, `stop server-container`.)
 
@@ -50,11 +50,11 @@ docker save server-image | gzip | ssh hetzner 'gunzip | docker load'
 Then, in SSH, run the server container:
 
 ```sh
-# Set TARGET_HOST to the IP address of the VPS.
+# Set IP to the IP address of the VPS.
 docker run -d \
  --name server-container \
  --rm \
- -e TARGET_HOST=$(curl -s http://169.254.169.254/hetzner/v1/metadata/public-ipv4) \
+ -e IP=$(curl -s http://169.254.169.254/hetzner/v1/metadata/public-ipv4) \
  -p 5000:5000/udp \
  server-image
 ```

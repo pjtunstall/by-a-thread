@@ -12,8 +12,8 @@ use socket2::{Domain, Socket, Type};
 pub fn get_connectable_address() -> SocketAddr {
     dotenvy::dotenv().ok();
 
-    let ip = env::var("IP").expect("IP must be set");
-    let port = env::var("PORT").expect("PORT must be set");
+    let ip = env::var("IP").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let port = env::var("PORT").unwrap_or_else(|_| "5000".to_string());
 
     let address_string = format!("{}:{}", ip, port);
     address_string.parse().expect("Invalid IP or Port format")
