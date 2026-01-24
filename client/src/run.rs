@@ -60,7 +60,20 @@ impl ClientRunner {
         );
         let authentication = ClientAuthentication::Secure { connect_token };
         let transport = NetcodeClientTransport::new(current_time_duration, authentication, socket)
-            .map_err(|e| format!("failed to create network transport: {}", e))?;
+            .map_err(|e| {
+                let error_msg = e.to_string();
+                if error_msg.contains("invalid protocol id")
+                    || error_msg.contains("invalid version info")
+                {
+                    "version mismatch: client and server versions do not match".to_string()
+                } else if error_msg.contains("connection denied") {
+                    "connection denied: server full or access restricted".to_string()
+                } else if error_msg.contains("connection timed out") {
+                    "connection timed out: server not responding".to_string()
+                } else {
+                    format!("failed to create network transport: {}", e)
+                }
+            })?;
         let connection_config = common::net::connection_config();
         let client = RenetClient::new(connection_config);
 
