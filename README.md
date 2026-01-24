@@ -8,8 +8,6 @@
   - [Objective](#objective)
 - [Setup](#setup)
   - [To run locally](#to-run-locally)
-  - [To run on docker](#to-run-on-docker)
-  - [To run on Hetzner](#hetzner)
 - [Levels](#levels)
 - [Curiosities](#curiosities)
   - [Network debugging](#network-debugging)
@@ -22,7 +20,7 @@ This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://
 
 I used Macroquad, a simple game framework, for window management, reading input, loading textures, rendering, and audio. I used the Renet library for some networking abstractions over UDP. On the other hand, I wrote the collision and movement physics, and went to town rolling my own netcode. For more details on that, see the [Netcode](docs/netcode.md) document. For more on the structure of my code, see [Architecture](docs/architecture.md).
 
-The game is not yet online, so real matches aren't possible. For now, you can at least get a sense of it by running the server and one or more clients on a single machine. My plan is to play test it first with friends, then host it publicly according the the plan outlined in [Security](docs/security.md).
+The game is not yet publicly online, so real matches aren't possible. My plan is to play test it first with friends on a Hetzner VPS, then make it public according the the plan outlined in [Security](docs/security.md). For now, you can get a taste of it by running server and client [locally](#to-run-locally) (on one machine). See also [Docker](#docs/docker.md) for an idea of how the server is being deployed for initial testing.
 
 ## How to play
 
@@ -39,69 +37,11 @@ Be the last one standing.
 
 ## Levels
 
-As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`.
+As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`. Ironically, the "harder" levels can be easier to navigate, in a way, especially with the help of a map, as their algorithms tend to produce more direct paths between distant cells. You can often see to the end of a deadend and so discount it. But how will maze style affect actual gameplay?
 
 ## To run locally
 
 Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/install/) and run `TARGET_HOST=127.0.0.1 cargo run --release --bin server` in one terminal. For each player, open another terminal and run `cargo run --release --bin client`. Then follow the prompts. The passcode will appear in the server terminal.
-
-## To run locally on Docker
-
-Assuming you've installed [Docker](https://www.docker.com/)--and started it with `sudo systemctl start docker` if need be--you can run the server on Docker and the client directly on your host machine. Build the server image:
-
-```sh
-# Extract the version number to tag the image with.
-VERSION=$(cargo pkgid -p server | cut -d# -f2 | cut -d: -f2)
-
-# Tag the image with the version number and as "latest".
-docker build \
-  -t server-image:$VERSION \
-  -t server-image:latest \
-  .
-```
-
-Then run the server:
-
-```sh
-docker run -d \
-  --name server-container \
-  --rm \
-  -e TARGET_HOST=127.0.0.1 \
-  -p 5000:5000/udp \
-  server-image
-```
-
-Tell Docker to log output so far, so that we can the server banner with the passcode:
-
-```sh
-docker logs server-container
-```
-
-Then run the client as usual
-
-(A container stops when its main process exits. In this case, the main process is the server. The server will exit shortly after the last client leaves. In case you want to stop it immediately, `stop server-container`.)
-
-## To run on Hetzner
-
-SSH into a Hetzner VPS. Transfer the latest image of the server:
-
-```sh
-docker save server-image | gzip | ssh hetzner 'gunzip | docker load'
-```
-
-Then, in SSH, run the server container:
-
-```sh
-# Set TARGET_HOST to the IP address of the VPS.
-docker run -d \
- --name server-container \
- --rm \
- -e TARGET_HOST=$(curl -s http://169.254.169.254/hetzner/v1/metadata/public-ipv4) \
- -p 5000:5000/udp \
- server-image
-```
-
-And run the client locally, as usual with `cargo run --release --bin client`.
 
 ## Curiosities
 
