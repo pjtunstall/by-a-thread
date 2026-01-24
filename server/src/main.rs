@@ -52,8 +52,7 @@ fn main() {
     .ok();
 
     let private_key = common::auth::private_key();
-    let public_host =
-        env::var("IP").expect("`IP` environment variable not set (e.g., `-e IP=127.0.0.1`)");
+    let public_host = env::var("IP").unwrap_or_else(|_| "127.0.0.1".to_string());
     let public_ip: std::net::IpAddr = public_host
         .parse()
         .expect("`IP` is not a valid IP address.");

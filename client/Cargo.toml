@@ -18,6 +18,10 @@ renet_netcode = { workspace = true }
 bincode = { workspace = true }
 macroquad = { version = "0.4.14", features = ["audio"] }
 
+# To embed the icon for the Windows executable.
+[build-dependencies]
+embed-resource = "3.0.6"
+
 [package.metadata.deb]
 name = "by-a-thread"
 maintainer = "Peter Tunstall <pjtunstall@proton.me>"
