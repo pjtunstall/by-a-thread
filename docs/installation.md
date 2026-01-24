@@ -9,7 +9,7 @@
 
 ## Overview
 
-This document describes how to create executable files or packages for various systems. It assumes you're on Linux.
+This document describes how to create executable files or packages for various systems. It assumes you're creating them on Linux.
 
 ## Windows
 
@@ -48,7 +48,14 @@ The executable will be created at `../target/x86_64-pc-windows-gnu/release/ByATh
 
 ### Distribution
 
-The Windows executable is self-contained with the icon embedded. Simply distribute the `.exe` file along with the `assets` directory. Users can run the executable directly without any installation process.
+The Windows executable is self-contained with the icon and all assets embedded. Simply distribute the `.exe` file. Users can run the executable directly without any installation process.
+
+On first run, the game automatically extracts attribution and license files to `%APPDATA%\by-a-thread\` by calling `extract_license_files_to_user_directory()`:
+- `LICENSE` - Game license
+- `CREDITS.md` - Asset credits and licenses  
+- `FONT_LICENSE.txt` - Font license (Apache 2.0)
+
+This provides users with easy access to all required licenses while maintaining the convenience of a single executable distribution.
 
 ## Linux
 
@@ -99,9 +106,12 @@ sudo apt-get install -f
 The package installs the following files:
 
 - `/usr/lib/by-a-thread/ByAThread` - The game executable
-- `/usr/lib/by-a-thread/fonts/` - Font files
+- `/usr/lib/by-a-thread/fonts/` - Font files and license
 - `/usr/lib/by-a-thread/sfx/` - Sound effect files
+- `/usr/lib/by-a-thread/images/` - Game texture files
 - `/usr/share/icons/hicolor/256x256/apps/by-a-thread.png` - Application icon
 - `/usr/share/applications/by-a-thread.desktop` - Desktop file for applications menu
+- `/usr/share/doc/by-a-thread/LICENSE` - Game license
+- `/usr/share/doc/by-a-thread/CREDITS.md` - Asset credits and licenses
 
 After installation, the game will be available in your applications menu and can be run from anywhere with `/usr/lib/by-a-thread/ByAThread`.

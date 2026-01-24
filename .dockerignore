@@ -2,6 +2,8 @@
 **/*.rs.bk
 client/
 
+AppDir
+
 *.md
 
 .git

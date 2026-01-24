@@ -19,12 +19,36 @@ pub struct Assets {
 }
 
 #[cfg(target_os = "windows")]
-mod embedded_assets {
+pub mod embedded_assets {
     use super::*;
 
     pub async fn load_font() -> Font {
         load_ttf_font_from_bytes(include_bytes!("../assets/fonts/NotoSerifBold-MmDx.ttf"))
             .expect("failed to load font")
+    }
+
+    pub fn get_font_license() -> &'static str {
+        include_str!("../assets/fonts/Apache-2.0.txt")
+    }
+
+    pub fn get_game_license() -> &'static str {
+        include_str!("../../LICENSE")
+    }
+
+    pub fn get_credits() -> &'static str {
+        include_str!("../../CREDITS.md")
+    }
+
+    pub fn extract_license_files_to_user_directory() {
+        let license_dir = dirs::config_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("by-a-thread");
+
+        std::fs::create_dir_all(&license_dir).ok();
+
+        std::fs::write(license_dir.join("LICENSE"), get_game_license()).ok();
+        std::fs::write(license_dir.join("CREDITS.md"), get_credits()).ok();
+        std::fs::write(license_dir.join("FONT_LICENSE.txt"), get_font_license()).ok();
     }
 
     pub async fn load_bull_texture() -> Texture2D {
@@ -93,69 +117,146 @@ mod file_assets {
     use super::*;
 
     pub async fn load_font() -> Font {
-        load_ttf_font("assets/fonts/NotoSerifBold-MmDx.ttf")
-            .await
-            .expect("failed to load font")
+        let font_path = std::path::Path::new("/usr/lib/by-a-thread/fonts/NotoSerifBold-MmDx.ttf");
+        if font_path.exists() {
+            load_ttf_font("/usr/lib/by-a-thread/fonts/NotoSerifBold-MmDx.ttf")
+                .await
+                .expect("failed to load font")
+        } else {
+            load_ttf_font("assets/fonts/NotoSerifBold-MmDx.ttf")
+                .await
+                .expect("failed to load font")
+        }
     }
 
     pub async fn load_bull_texture() -> Texture2D {
-        load_texture("assets/images/bull.png")
-            .await
-            .expect("failed to load bull texture")
+        let img_path = std::path::Path::new("/usr/lib/by-a-thread/images/bull.png");
+        if img_path.exists() {
+            load_texture("/usr/lib/by-a-thread/images/bull.png")
+                .await
+                .expect("failed to load bull texture")
+        } else {
+            load_texture("assets/images/bull.png")
+                .await
+                .expect("failed to load bull texture")
+        }
     }
 
     pub async fn load_ball_texture() -> Texture2D {
-        load_texture("assets/images/ball.png")
-            .await
-            .expect("failed to load ball texture")
+        let img_path = std::path::Path::new("/usr/lib/by-a-thread/images/ball.png");
+        if img_path.exists() {
+            load_texture("/usr/lib/by-a-thread/images/ball.png")
+                .await
+                .expect("failed to load ball texture")
+        } else {
+            load_texture("assets/images/ball.png")
+                .await
+                .expect("failed to load ball texture")
+        }
     }
 
     pub async fn load_griffin_texture() -> Texture2D {
-        load_texture("assets/images/griffin.png")
-            .await
-            .expect("failed to load griffin texture")
+        let img_path = std::path::Path::new("/usr/lib/by-a-thread/images/griffin.png");
+        if img_path.exists() {
+            load_texture("/usr/lib/by-a-thread/images/griffin.png")
+                .await
+                .expect("failed to load griffin texture")
+        } else {
+            load_texture("assets/images/griffin.png")
+                .await
+                .expect("failed to load griffin texture")
+        }
     }
 
     pub async fn load_blue_rust_texture() -> Texture2D {
-        load_texture("assets/images/rust-blue.png")
-            .await
-            .expect("failed to load blue rust texture")
+        let img_path = std::path::Path::new("/usr/lib/by-a-thread/images/rust-blue.png");
+        if img_path.exists() {
+            load_texture("/usr/lib/by-a-thread/images/rust-blue.png")
+                .await
+                .expect("failed to load blue rust texture")
+        } else {
+            load_texture("assets/images/rust-blue.png")
+                .await
+                .expect("failed to load blue rust texture")
+        }
     }
 
     pub async fn load_white_rust_texture() -> Texture2D {
-        load_texture("assets/images/rust-white.png")
-            .await
-            .expect("failed to load white rust texture")
+        let img_path = std::path::Path::new("/usr/lib/by-a-thread/images/rust-white.png");
+        if img_path.exists() {
+            load_texture("/usr/lib/by-a-thread/images/rust-white.png")
+                .await
+                .expect("failed to load white rust texture")
+        } else {
+            load_texture("assets/images/rust-white.png")
+                .await
+                .expect("failed to load white rust texture")
+        }
     }
 
     pub async fn load_gun_sound() -> Sound {
-        load_sfx_from_file("assets/sfx/gun.wav")
-            .await
-            .expect("failed to load gun sound")
+        let sfx_path = std::path::Path::new("/usr/lib/by-a-thread/sfx/gun.wav");
+        if sfx_path.exists() {
+            load_sfx_from_file("/usr/lib/by-a-thread/sfx/gun.wav")
+                .await
+                .expect("failed to load gun sound")
+        } else {
+            load_sfx_from_file("assets/sfx/gun.wav")
+                .await
+                .expect("failed to load gun sound")
+        }
     }
 
     pub async fn load_clang() -> Sound {
-        load_sfx_from_file("assets/sfx/clang.wav")
-            .await
-            .expect("failed to load clang sound")
+        let sfx_path = std::path::Path::new("/usr/lib/by-a-thread/sfx/clang.wav");
+        if sfx_path.exists() {
+            load_sfx_from_file("/usr/lib/by-a-thread/sfx/clang.wav")
+                .await
+                .expect("failed to load clang sound")
+        } else {
+            load_sfx_from_file("assets/sfx/clang.wav")
+                .await
+                .expect("failed to load clang sound")
+        }
     }
 
     pub async fn load_deep_clang() -> Sound {
-        load_sfx_from_file("assets/sfx/deep_clang.wav")
-            .await
-            .expect("failed to load deep clang sound")
+        let sfx_path = std::path::Path::new("/usr/lib/by-a-thread/sfx/deep_clang.wav");
+        if sfx_path.exists() {
+            load_sfx_from_file("/usr/lib/by-a-thread/sfx/deep_clang.wav")
+                .await
+                .expect("failed to load deep clang sound")
+        } else {
+            load_sfx_from_file("assets/sfx/deep_clang.wav")
+                .await
+                .expect("failed to load deep clang sound")
+        }
     }
 
     pub async fn load_shatter_sound() -> Sound {
-        load_sfx_from_file("assets/sfx/shatter.wav")
-            .await
-            .expect("failed to load shatter sound")
+        let sfx_path = std::path::Path::new("/usr/lib/by-a-thread/sfx/shatter.wav");
+        if sfx_path.exists() {
+            load_sfx_from_file("/usr/lib/by-a-thread/sfx/shatter.wav")
+                .await
+                .expect("failed to load shatter sound")
+        } else {
+            load_sfx_from_file("assets/sfx/shatter.wav")
+                .await
+                .expect("failed to load shatter sound")
+        }
     }
 
     pub async fn load_bell_sound() -> Sound {
-        load_sfx_from_file("assets/sfx/bell.wav")
-            .await
-            .expect("failed to load bell sound")
+        let sfx_path = std::path::Path::new("/usr/lib/by-a-thread/sfx/bell.wav");
+        if sfx_path.exists() {
+            load_sfx_from_file("/usr/lib/by-a-thread/sfx/bell.wav")
+                .await
+                .expect("failed to load bell sound")
+        } else {
+            load_sfx_from_file("assets/sfx/bell.wav")
+                .await
+                .expect("failed to load bell sound")
+        }
     }
 }
 
@@ -183,6 +284,7 @@ impl Assets {
     }
 }
 
+#[allow(dead_code)]
 async fn load_sfx_from_file(path: &str) -> Result<Sound, Error> {
     let bytes = macroquad::file::load_file(path).await?;
     Ok(load_sound_from_bytes(&bytes).await?)
