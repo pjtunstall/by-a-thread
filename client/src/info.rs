@@ -57,7 +57,7 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate) {
         x_indentation,
         y_indentation,
         line_height,
-        &assets.font,
+        &assets.map_font,
         font_size,
     );
 

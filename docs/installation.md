@@ -53,7 +53,7 @@ The Windows executable is self-contained with the icon and all assets embedded. 
 On first run, the game automatically extracts attribution and license files to `%APPDATA%\by-a-thread\` by calling `extract_license_files_to_user_directory()`:
 - `LICENSE` - Game license
 - `CREDITS.md` - Asset credits and licenses  
-- `FONT_LICENSE.txt` - Font license (Apache 2.0)
+- `FONT_LICENSE.txt` - NotoSerifBold font license (Apache 2.0)
 
 This provides users with easy access to all required licenses while maintaining the convenience of a single executable distribution.
 
@@ -106,7 +106,7 @@ sudo apt-get install -f
 The package installs the following files:
 
 - `/usr/lib/by-a-thread/ByAThread` - The game executable
-- `/usr/lib/by-a-thread/fonts/` - Font files and license
+- `/usr/lib/by-a-thread/fonts/` - Font files (PF Hellenica and NotoSerifBold) and licenses
 - `/usr/lib/by-a-thread/sfx/` - Sound effect files
 - `/usr/lib/by-a-thread/images/` - Game texture files
 - `/usr/share/icons/hicolor/256x256/apps/by-a-thread.png` - Application icon

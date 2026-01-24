@@ -12,10 +12,10 @@ pub struct MapOverlay {
 // A map of the maze is drawn as text and captured as a texture to avoid having
 // to calculate where all the characters for spaces and walls should be printed
 // on every frame.
-pub fn initialize_map(maze: &Maze, font: &Font) -> MapOverlay {
+pub fn initialize_map(maze: &Maze, map_font: &Font) -> MapOverlay {
     clear_background(BG_COLOR);
     let map_string = create_map_string(&maze.grid);
-    let rect = draw_initial_map(&map_string, font);
+    let rect = draw_initial_map(&map_string, map_font);
     let texture = create_map_texture(rect);
 
     MapOverlay { texture, rect }
@@ -45,7 +45,7 @@ fn create_map_string(grid: &[Vec<u8>]) -> String {
     map_string
 }
 
-fn draw_initial_map(map: &str, font: &Font) -> Rect {
+fn draw_initial_map(map: &str, map_font: &Font) -> Rect {
     push_camera_state();
     set_default_camera();
 
@@ -55,8 +55,8 @@ fn draw_initial_map(map: &str, font: &Font) -> Rect {
 
     let line_height = FONT_SIZE;
 
-    let wall_metrics = measure_text(WALL_SYMBOL, Some(font), FONT_SIZE as u16, 1.0);
-    let space_metrics = measure_text(SPACE_SYMBOL, Some(font), FONT_SIZE as u16, 1.0);
+    let wall_metrics = measure_text(WALL_SYMBOL, Some(map_font), FONT_SIZE as u16, 1.0);
+    let space_metrics = measure_text(SPACE_SYMBOL, Some(map_font), FONT_SIZE as u16, 1.0);
 
     let symbol_width = wall_metrics.width.max(space_metrics.width);
 
@@ -78,7 +78,7 @@ fn draw_initial_map(map: &str, font: &Font) -> Rect {
                 x_pos,
                 y_pos,
                 TextParams {
-                    font: Some(font),
+                    font: Some(map_font),
                     font_size: FONT_SIZE as u16,
                     color: BLACK,
                     ..Default::default()

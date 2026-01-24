@@ -6,6 +6,7 @@ use macroquad::{
 
 pub struct Assets {
     pub font: Font,
+    pub map_font: Font,
     pub bull_texture: Texture2D,
     pub ball_texture: Texture2D,
     pub griffin_texture: Texture2D,
@@ -23,12 +24,15 @@ pub mod embedded_assets {
     use super::*;
 
     pub async fn load_font() -> Font {
-        load_ttf_font_from_bytes(include_bytes!("../assets/fonts/NotoSerifBold-MmDx.ttf"))
-            .expect("failed to load font")
+        load_ttf_font_from_bytes(include_bytes!(
+            "../assets/fonts/PF Hellenica Serif Pro Regular.ttf"
+        ))
+        .expect("failed to load font")
     }
 
-    pub fn get_font_license() -> &'static str {
-        include_str!("../assets/fonts/Apache-2.0.txt")
+    pub async fn load_map_font() -> Font {
+        load_ttf_font_from_bytes(include_bytes!("../assets/fonts/NotoSerifBold-MmDx.ttf"))
+            .expect("failed to load map font")
     }
 
     pub fn get_game_license() -> &'static str {
@@ -37,6 +41,10 @@ pub mod embedded_assets {
 
     pub fn get_credits() -> &'static str {
         include_str!("../../CREDITS.md")
+    }
+
+    pub fn get_noto_font_license() -> &'static str {
+        include_str!("../assets/fonts/LICENSE.txt")
     }
 
     pub fn extract_license_files_to_user_directory() {
@@ -48,7 +56,11 @@ pub mod embedded_assets {
 
         std::fs::write(license_dir.join("LICENSE"), get_game_license()).ok();
         std::fs::write(license_dir.join("CREDITS.md"), get_credits()).ok();
-        std::fs::write(license_dir.join("FONT_LICENSE.txt"), get_font_license()).ok();
+        std::fs::write(
+            license_dir.join("FONT_LICENSE.txt"),
+            get_noto_font_license(),
+        )
+        .ok();
     }
 
     pub async fn load_bull_texture() -> Texture2D {
@@ -117,15 +129,29 @@ mod file_assets {
     use super::*;
 
     pub async fn load_font() -> Font {
+        let font_path =
+            std::path::Path::new("/usr/lib/by-a-thread/fonts/PF Hellenica Serif Pro Regular.ttf");
+        if font_path.exists() {
+            load_ttf_font("/usr/lib/by-a-thread/fonts/PF Hellenica Serif Pro Regular.ttf")
+                .await
+                .expect("failed to load font")
+        } else {
+            load_ttf_font("assets/fonts/PF Hellenica Serif Pro Regular.ttf")
+                .await
+                .expect("failed to load font")
+        }
+    }
+
+    pub async fn load_map_font() -> Font {
         let font_path = std::path::Path::new("/usr/lib/by-a-thread/fonts/NotoSerifBold-MmDx.ttf");
         if font_path.exists() {
             load_ttf_font("/usr/lib/by-a-thread/fonts/NotoSerifBold-MmDx.ttf")
                 .await
-                .expect("failed to load font")
+                .expect("failed to load map font")
         } else {
             load_ttf_font("assets/fonts/NotoSerifBold-MmDx.ttf")
                 .await
-                .expect("failed to load font")
+                .expect("failed to load map font")
         }
     }
 
@@ -270,6 +296,7 @@ impl Assets {
 
         Self {
             font: load_font().await,
+            map_font: load_map_font().await,
             bull_texture: load_bull_texture().await,
             ball_texture: load_ball_texture().await,
             griffin_texture: load_griffin_texture().await,

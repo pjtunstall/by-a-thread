@@ -27,13 +27,12 @@ pub fn draw_players_on_map(
     x_indentation: f32,
     y_indentation: f32,
     line_height: f32,
-    font: &Font,
+    map_font: &Font,
     font_size: u16,
 ) {
     let maze = &game_state.maze;
-    let font = Some(font);
-    let wall_metrics = measure_text(WALL_SYMBOL, font, font_size, 1.0);
-    let space_metrics = measure_text(SPACE_SYMBOL, font, font_size, 1.0);
+    let wall_metrics = measure_text(WALL_SYMBOL, Some(map_font), font_size, 1.0);
+    let space_metrics = measure_text(SPACE_SYMBOL, Some(map_font), font_size, 1.0);
     let symbol_width = wall_metrics.width.max(space_metrics.width);
 
     for player in game_state.players.iter() {
@@ -47,7 +46,7 @@ pub fn draw_players_on_map(
                 x_indentation + padding + (col as f32) * symbol_width,
                 y_indentation + padding + (row as f32 + 1.0) * line_height,
                 TextParams {
-                    font,
+                    font: Some(map_font),
                     font_size,
                     color: player_color_to_macroquad_color(player.color),
                     ..Default::default()
