@@ -7,7 +7,6 @@ pub fn private_key() -> [u8; 32] {
     ]
 }
 
-pub const START_GAME: &str = "2b252b29-513f-47ac-8477-373bf6cacc05";
 pub const MAX_ATTEMPTS: u8 = 3;
 
 #[derive(Debug, Clone)]
