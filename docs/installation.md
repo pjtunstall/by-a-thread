@@ -15,7 +15,7 @@ To create the Debian package, you need to build from the client directory:
 
 ```bash
 cd client
-cargo build --release --bin ByAThread
+cargo build --release
 cargo deb
 ```
 
