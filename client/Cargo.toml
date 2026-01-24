@@ -9,6 +9,15 @@ description = "A multiplayer game built in Rust"
 name = "ByAThread"
 path = "src/main.rs"
 
+[dependencies]
+common = { workspace = true }
+crossterm = { workspace = true }
+rand = { workspace = true }
+renet = { workspace = true }
+renet_netcode = { workspace = true }
+bincode = { workspace = true }
+macroquad = { version = "0.4.14", features = ["audio"] }
+
 [package.metadata.deb]
 name = "by-a-thread"
 maintainer = "Peter Tunstall <pjtunstall@proton.me>"
@@ -28,12 +37,3 @@ assets = [
     ["assets/sfx/gun.wav", "usr/lib/by-a-thread/sfx/gun.wav", "644"],
     ["assets/sfx/shatter.wav", "usr/lib/by-a-thread/sfx/shatter.wav", "644"]
 ]
-
-[dependencies]
-common = { workspace = true }
-crossterm = { workspace = true }
-rand = { workspace = true }
-renet = { workspace = true }
-renet_netcode = { workspace = true }
-bincode = { workspace = true }
-macroquad = { version = "0.4.14", features = ["audio"] }
