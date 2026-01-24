@@ -7,7 +7,7 @@ edition.workspace = true
 glam = { workspace = true }
 rand = { workspace = true }
 renet = { workspace = true }
-socket2 = "0.6.1"
 strum = { version = "0.27", features = ["derive"] }
 serde = { version = "1.0.228", features = ["derive"] }
 dotenvy = "0.15.7"
+socket2 = "0.6.1"

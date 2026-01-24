@@ -59,4 +59,4 @@ docker run -d \
  server-image
 ```
 
-And run the client locally, as usual with `cargo run --release --bin client`.
+And run the client locally, as usual with `cargo run --release -p client`.

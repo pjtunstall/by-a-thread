@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=By A Thread
+Exec=ByAThread
+Icon=labyrinth
+Type=Application
+Categories=Game;
+StartupWMClass=ByAThread

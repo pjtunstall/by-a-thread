@@ -2,12 +2,38 @@
 name = "client"
 version.workspace = true
 edition.workspace = true
+license = "MIT"
+description = "A multiplayer game built in Rust"
+
+[[bin]]
+name = "ByAThread"
+path = "src/main.rs"
+
+[package.metadata.deb]
+name = "by-a-thread"
+maintainer = "Peter Tunstall <pjtunstall@proton.me>"
+copyright = "2026, Peter Tunstall"
+depends = "$auto"
+section = "games"
+priority = "optional"
+assets = [
+    ["target/release/ByAThread", "usr/lib/by-a-thread/ByAThread", "755"],
+    ["icon.png", "usr/share/icons/hicolor/256x256/apps/by-a-thread.png", "644"],
+    ["by-a-thread.desktop", "usr/share/applications/by-a-thread.desktop", "644"],
+    ["assets/fonts/NotoSerifBold-MmDx.ttf", "usr/lib/by-a-thread/fonts/NotoSerifBold-MmDx.ttf", "644"],
+    ["assets/fonts/LICENSE.txt", "usr/lib/by-a-thread/fonts/LICENSE.txt", "644"],
+    ["assets/sfx/bell.wav", "usr/lib/by-a-thread/sfx/bell.wav", "644"],
+    ["assets/sfx/clang.wav", "usr/lib/by-a-thread/sfx/clang.wav", "644"],
+    ["assets/sfx/deep_clang.wav", "usr/lib/by-a-thread/sfx/deep_clang.wav", "644"],
+    ["assets/sfx/gun.wav", "usr/lib/by-a-thread/sfx/gun.wav", "644"],
+    ["assets/sfx/shatter.wav", "usr/lib/by-a-thread/sfx/shatter.wav", "644"]
+]
 
 [dependencies]
 common = { workspace = true }
 crossterm = { workspace = true }
-macroquad = { version = "0.4.14", features = ["audio"] }
 rand = { workspace = true }
 renet = { workspace = true }
 renet_netcode = { workspace = true }
-bincode = { version = "2.0.1", features = ["serde"] }
+bincode = { workspace = true }
+macroquad = { version = "0.4.14", features = ["audio"] }

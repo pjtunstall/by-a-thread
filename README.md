@@ -19,7 +19,9 @@ This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://
 
 I used Macroquad, a simple game framework, for window management, reading input, loading textures, rendering, and audio. I used the Renet library for some networking abstractions over UDP. On the other hand, I wrote the collision and movement physics, and went to town rolling my own netcode. For more details on that, see the [Netcode](docs/netcode.md) document. For more on the structure of my code, see [Architecture](docs/architecture.md).
 
-The game is not yet publicly online, so real matches aren't possible. My plan is to play test it first with friends on a Hetzner VPS, then make it public according the the plan outlined in [Security](docs/security.md). For now, you can get a taste of it by running server and client [locally](#to-run-locally) (on one machine). See also [Docker](#docs/docker.md) for an idea of how the server is being deployed for initial testing.
+The game is not yet publicly online. Proper matches will have to wait till then. My plan is to play test it first with friends on a Hetzner VPS, then make it public according the the plan outlined in [Security](docs/security.md). For now, you can get a taste of it by running server and client [locally](#to-run-locally) (on one machine). See also [Docker](#docs/docker.md) for an idea of how the server is being deployed for initial testing.
+
+Looking ahead to distribution of the client binary, see my [Installation](docs/installation.md) guide.
 
 ## How to play
 
@@ -40,7 +42,7 @@ As instructed, I've implemented three difficulty levels. The 01 instructions def
 
 ## To run locally
 
-Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/install/) and run `IP=127.0.0.1 cargo run --release --bin server` in one terminal. For each player, open another terminal and run `cargo run --release --bin client`. Then follow the prompts. The passcode will appear in the server terminal.
+Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/install/) and run `IP=127.0.0.1 cargo run --release --bin server` in one terminal. For each player, open another terminal and run `cargo run --release --p client`. Then follow the prompts. The passcode will appear in the server terminal.
 
 (In production, the client will get IP and PORT as environment variables from a `.env` file.)
 
