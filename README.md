@@ -8,6 +8,7 @@
   - [Objective](#objective)
 - [To run locally](#to-run-locally)
 - [Levels](#levels)
+- [FPS meter](#fps-meter)
 - [Curiosities](#curiosities)
   - [Network debugging](#network-debugging)
   - [Docker: the dummy client trick](#docker-the-dummy-client-trick)
@@ -38,6 +39,10 @@ Be the last one standing.
 ## Levels
 
 As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`. That said, at least with the map, the "harder" levels can be easier to navigate, as their algorithms tend to produce more direct paths between distant cells.
+
+# FPS meter
+
+As instructed, there is an FPS (frames per second) meter to monitor in-game performance.
 
 ## To run locally
 

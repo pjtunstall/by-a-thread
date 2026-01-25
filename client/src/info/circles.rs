@@ -6,6 +6,45 @@ use super::BG_COLOR;
 use crate::frame::FrameRate;
 use common::player::PlayerState;
 
+pub fn draw_timer(estimated_server_time: f64, x: f32, y: f32, radius: f32) {
+    draw_circle(x, y, radius, BG_COLOR);
+
+    let seconds_in_minute = estimated_server_time % 60.0;
+    let timer_progress = (seconds_in_minute / 60.0) as f32;
+
+    let hand_angle = timer_progress * 2.0 * PI - PI / 2.0;
+    let c = vec2(x, y);
+    let cos = hand_angle.cos() * radius * 0.8;
+    let sin = hand_angle.sin() * radius * 0.8;
+    let front = vec2(-sin, cos);
+    let side = vec2(cos, sin) * 0.15;
+    draw_triangle(c + side, c - side, c - front, BLACK);
+
+    for i in 0..12 {
+        let marker_angle = (i as f32 * 30.0).to_radians() - PI / 2.0;
+        let inner_radius = radius * 0.75;
+        let outer_radius = radius * 0.92;
+
+        let inner_x = x + marker_angle.cos() * inner_radius;
+        let inner_y = y + marker_angle.sin() * inner_radius;
+        let outer_x = x + marker_angle.cos() * outer_radius;
+        let outer_y = y + marker_angle.sin() * outer_radius;
+
+        let dx = outer_x - inner_x;
+        let dy = outer_y - inner_y;
+        let length = (dx * dx + dy * dy).sqrt();
+        if length > 0.0 {
+            let circles = 8;
+            for j in 0..circles {
+                let t = j as f32 / (circles - 1) as f32;
+                let circle_x = inner_x + dx * t;
+                let circle_y = inner_y + dy * t;
+                draw_circle(circle_x, circle_y, 1.0, BLACK);
+            }
+        }
+    }
+}
+
 pub fn draw_compass(local_state: &PlayerState, x: f32, y: f32, radius: f32) {
     let r = radius;
     draw_circle(x, y, r, BG_COLOR);

@@ -472,7 +472,13 @@ impl Game {
         }
     }
 
-    pub fn draw(&mut self, tick_fraction: f32, assets: &Assets, fps: &FrameRate) {
+    pub fn draw(
+        &mut self,
+        tick_fraction: f32,
+        assets: &Assets,
+        fps: &FrameRate,
+        estimated_server_time: f64,
+    ) {
         clear_background(BEIGE);
         self.set_camera(tick_fraction);
 
@@ -480,7 +486,7 @@ impl Game {
         self.maze.draw(&self.maze_meshes);
         self.draw_players(assets);
         self.draw_bullets(tick_fraction);
-        info::draw(self, assets, fps);
+        info::draw(self, assets, fps, estimated_server_time);
 
         // This function must be called after drawing the scene so that the fade
         // covers everything and not just the background. If this becomes a

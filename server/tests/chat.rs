@@ -6,15 +6,15 @@ use bincode::{
 };
 use renet::{ChannelConfig, ClientNotFound, ConnectionConfig, RenetServer, SendType};
 
-use server::{
-    net::RenetServerNetworkHandle,
-    run::update_server_state,
-    state::{Lobby, ServerState},
-};
 use common::{
     auth::Passcode,
     net::AppChannel,
     protocol::{ClientMessage, ServerMessage},
+};
+use server::{
+    net::RenetServerNetworkHandle,
+    run::update_server_state,
+    state::{Lobby, ServerState},
 };
 
 fn empty_passcode() -> Passcode {
@@ -100,9 +100,9 @@ fn chat_messages_are_broadcast_to_other_clients() {
 
     if let ServerState::Lobby(lobby) = &mut state {
         lobby.mark_authenticated(alice_id);
-        lobby.register_username(alice_id, "Alice");
+        lobby.register_username(alice_id, "alice");
         lobby.mark_authenticated(bob_id);
-        lobby.register_username(bob_id, "Bob");
+        lobby.register_username(bob_id, "bob");
     } else {
         panic!("state should be Lobby");
     }
@@ -149,7 +149,7 @@ fn chat_messages_are_broadcast_to_other_clients() {
         content,
     } = message
     {
-        assert_eq!(username, "Alice");
+        assert_eq!(username, "alice");
         assert_eq!(color, alice_color);
         assert_eq!(content, "Hello, Bob!");
     } else {
@@ -181,7 +181,7 @@ fn players_are_notified_when_others_join_and_leave() {
 
     if let ServerState::Lobby(lobby) = &mut state {
         lobby.mark_authenticated(alice_id);
-        lobby.register_username(alice_id, "Alice");
+        lobby.register_username(alice_id, "alice");
         lobby.mark_authenticated(bob_id);
     } else {
         panic!("state should be Lobby");
@@ -218,7 +218,7 @@ fn players_are_notified_when_others_join_and_leave() {
         .0;
 
     if let ServerMessage::UserJoined { username } = join_message {
-        assert_eq!(username, "Bob");
+        assert_eq!(username, "bob");
     } else {
         panic!("expected UserJoined message, got {:?}", join_message);
     }
@@ -252,7 +252,7 @@ fn players_are_notified_when_others_join_and_leave() {
         .0;
 
     if let ServerMessage::UserLeft { username } = leave_message {
-        assert_eq!(username, "Bob");
+        assert_eq!(username, "bob");
     } else {
         panic!("expected UserLeft message, got {:?}", leave_message);
     }
@@ -282,7 +282,7 @@ fn test_handle_messages_username_success_and_broadcast() {
 
     if let ServerState::Lobby(lobby) = &mut state {
         lobby.mark_authenticated(alice_id);
-        lobby.register_username(alice_id, "Alice");
+        lobby.register_username(alice_id, "alice");
         lobby.mark_authenticated(bob_id);
     } else {
         panic!("state should be Lobby");
@@ -314,7 +314,7 @@ fn test_handle_messages_username_success_and_broadcast() {
     bob.update(Duration::from_millis(16));
 
     if let ServerState::Lobby(lobby) = &state {
-        assert_eq!(lobby.username(2), Some("Bob"));
+        assert_eq!(lobby.username(2), Some("bob"));
     } else {
         panic!("state should be Lobby");
     }
@@ -329,7 +329,7 @@ fn test_handle_messages_username_success_and_broadcast() {
 
     assert!(
         bob_msgs.iter().any(|msg| {
-            matches!(msg, ServerMessage::Welcome { username, .. } if username == "Bob")
+            matches!(msg, ServerMessage::Welcome { username, .. } if username == "bob")
         }),
         "Bob did not receive a welcome message"
     );
@@ -343,7 +343,7 @@ fn test_handle_messages_username_success_and_broadcast() {
     assert!(
         bob_msgs.iter().any(|msg| {
             matches!(msg, ServerMessage::Roster { online } if online.len() == 1
-                && online[0].username == "Alice"
+                && online[0].username == "alice"
                 && online[0].color == alice_color)
         }),
         "Bob did not receive a correct roster message"
@@ -364,7 +364,7 @@ fn test_handle_messages_username_success_and_broadcast() {
         .0;
 
     if let ServerMessage::UserJoined { username } = alice_msg {
-        assert_eq!(username, "Bob");
+        assert_eq!(username, "bob");
     } else {
         panic!("Alice expected UserJoined message, got {:?}", alice_msg);
     }

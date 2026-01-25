@@ -376,7 +376,7 @@ mod tests {
     #[test]
     fn username_validation_accepts_trimmed_valid_value() {
         let validated = validate_username_input("  Player-1  ").expect("valid username expected");
-        assert_eq!(validated, "Player-1");
+        assert_eq!(validated, "player-1");
     }
 
     #[test]

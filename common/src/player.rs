@@ -415,7 +415,7 @@ pub fn sanitize_username(input: &str) -> Result<String, UsernameError> {
         return Err(UsernameError::Reserved);
     }
 
-    Ok(trimmed.to_string())
+    Ok(trimmed.to_lowercase())
 }
 
 #[cfg(test)]
@@ -444,12 +444,12 @@ mod tests {
     #[test]
     fn sanitize_accepts_valid_usernames() {
         let name = "Player_1";
-        assert_eq!(sanitize_username(name), Ok(name.to_string()));
+        assert_eq!(sanitize_username(name), Ok("player_1".to_string()));
     }
 
     #[test]
     fn sanitize_trims_whitespace() {
         let name = "  Player-2  ";
-        assert_eq!(sanitize_username(name), Ok("Player-2".to_string()));
+        assert_eq!(sanitize_username(name), Ok("player-2".to_string()));
     }
 }

@@ -509,9 +509,7 @@ impl Lobby {
     }
 
     pub fn is_username_taken(&self, username: &str) -> bool {
-        self.usernames
-            .values()
-            .any(|existing| existing.eq_ignore_ascii_case(username))
+        self.usernames.values().any(|existing| existing == username)
     }
 
     pub fn usernames_except(&self, client_id: u64) -> Vec<String> {
@@ -676,28 +674,59 @@ mod tests {
         state.mark_authenticated(5);
 
         state
-            .register_username(5, "PlayerOne")
+            .register_username(5, "playerone")
             .expect("expected username to register");
 
         assert!(!state.needs_username(5));
-        assert_eq!(state.username(5), Some("PlayerOne"));
+        assert_eq!(state.username(5), Some("playerone"));
     }
 
     #[test]
-    fn username_taken_checks_existing_names_case_insensitively() {
+    fn username_taken_checks_existing_names() {
         let mut state = Lobby::new();
         state.register_connection(10);
         state.mark_authenticated(10);
-        state.register_username(10, "PlayerOne");
+        state.register_username(10, "playerone");
 
         assert!(state.is_username_taken("playerone"));
-        assert!(!state.is_username_taken("SomeoneElse"));
+        assert!(!state.is_username_taken("someoneelse"));
+    }
+
+    #[test]
+    fn username_rejection_is_case_insensitive() {
+        let mut state = Lobby::new();
+        state.register_connection(10);
+        state.mark_authenticated(10);
+        state.register_username(10, "playerone");
+
+        assert!(state.is_username_taken("playerone"));
+        assert!(!state.is_username_taken("PLAYERONE"));
+        assert!(!state.is_username_taken("PlayerOne"));
+
+        assert!(!state.is_username_taken("player_two"));
+        assert!(!state.is_username_taken("someoneelse"));
+    }
+
+    #[test]
+    fn username_sanitization_enforces_case_insensitive_storage() {
+        use common::player::sanitize_username;
+
+        assert_eq!(sanitize_username("PlayerOne"), Ok("playerone".to_string()));
+        assert_eq!(sanitize_username("PLAYERONE"), Ok("playerone".to_string()));
+        assert_eq!(sanitize_username("playerone"), Ok("playerone".to_string()));
+        assert_eq!(sanitize_username("pLaYeRoNe"), Ok("playerone".to_string()));
+
+        assert_eq!(sanitize_username("PlayerTwo"), Ok("playertwo".to_string()));
+        assert_ne!(
+            sanitize_username("PlayerOne"),
+            sanitize_username("PlayerTwo")
+        );
     }
 
     #[test]
     fn usernames_except_excludes_requested_client() {
         let mut state = Lobby::new();
-        for (id, name) in [(1, "Alpha"), (2, "Beta"), (3, "Gamma")] {
+        for (id, name) in [(1, "alpha"), (2, "beta"), (3, "gamma")] {
             state.register_connection(id);
             state.mark_authenticated(id);
             state.register_username(id, name);
@@ -705,7 +734,7 @@ mod tests {
 
         let mut others = state.usernames_except(2);
         others.sort();
-        assert_eq!(others, vec!["Alpha".to_string(), "Gamma".to_string()]);
+        assert_eq!(others, vec!["alpha".to_string(), "gamma".to_string()]);
     }
 
     #[test]

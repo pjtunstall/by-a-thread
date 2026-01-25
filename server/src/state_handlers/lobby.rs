@@ -16,9 +16,8 @@ use common::{
     net::AppChannel,
     player::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username},
     protocol::{
-        auth_success_message, ClientMessage, ServerMessage,
-        AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE,
-        AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE,
+        AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE, AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE,
+        ClientMessage, ServerMessage, auth_success_message,
     },
 };
 
@@ -270,8 +269,8 @@ mod tests {
     use common::{
         auth::{MAX_ATTEMPTS, Passcode},
         protocol::{
-            auth_success_message, ClientMessage, ServerMessage,
-            AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE,
+            AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE, ClientMessage, ServerMessage,
+            auth_success_message,
         },
     };
 
@@ -350,7 +349,7 @@ mod tests {
         network.add_client(1);
         lobby_state.register_connection(1);
         lobby_state.mark_authenticated(1);
-        lobby_state.register_username(1, "Alice");
+        lobby_state.register_username(1, "alice");
 
         network.add_client(2);
         lobby_state.register_connection(2);
@@ -362,7 +361,7 @@ mod tests {
 
         let next_state = handle(&mut network, &mut lobby_state, &passcode);
 
-        assert_eq!(lobby_state.username(2), Some("Bob"));
+        assert_eq!(lobby_state.username(2), Some("bob"));
         assert!(next_state.is_none());
 
         let bob_msgs = network.get_sent_messages_data(2);
@@ -371,11 +370,9 @@ mod tests {
         let msg1 = decode_from_slice::<ServerMessage, _>(&bob_msgs[0], standard())
             .unwrap()
             .0;
-        let bob_color = lobby_state
-            .color(2)
-            .expect("missing color for Bob");
+        let bob_color = lobby_state.color(2).expect("missing color for Bob");
         if let ServerMessage::Welcome { username, color } = msg1 {
-            assert_eq!(username, "Bob");
+            assert_eq!(username, "bob");
             assert_eq!(color, bob_color);
         } else {
             panic!("expected Welcome message, got {:?}", msg1);
@@ -384,12 +381,10 @@ mod tests {
         let msg2 = decode_from_slice::<ServerMessage, _>(&bob_msgs[1], standard())
             .unwrap()
             .0;
-        let alice_color = lobby_state
-            .color(1)
-            .expect("missing color for Alice");
+        let alice_color = lobby_state.color(1).expect("missing color for Alice");
         if let ServerMessage::Roster { online } = msg2 {
             assert_eq!(online.len(), 1);
-            assert_eq!(online[0].username, "Alice");
+            assert_eq!(online[0].username, "alice");
             assert_eq!(online[0].color, alice_color);
         } else {
             panic!("expected Roster message, got {:?}", msg2);
@@ -401,7 +396,7 @@ mod tests {
             .unwrap()
             .0;
         if let ServerMessage::UserJoined { username } = msg_alice {
-            assert_eq!(username, "Bob");
+            assert_eq!(username, "bob");
         } else {
             panic!("expected UserJoined message, got {:?}", msg_alice);
         }
@@ -417,12 +412,12 @@ mod tests {
         network.add_client(1);
         lobby_state.register_connection(1);
         lobby_state.mark_authenticated(1);
-        lobby_state.register_username(1, "Alice");
+        lobby_state.register_username(1, "alice");
 
         network.add_client(2);
         lobby_state.register_connection(2);
         lobby_state.mark_authenticated(2);
-        lobby_state.register_username(2, "Bob");
+        lobby_state.register_username(2, "bob");
 
         let msg = ClientMessage::SendChat("Hello Bob!".to_string());
         let payload = encode_to_vec(&msg, standard()).unwrap();
@@ -437,16 +432,14 @@ mod tests {
         let msg = decode_from_slice::<ServerMessage, _>(&broadcasts[0], standard())
             .unwrap()
             .0;
-        let alice_color = lobby_state
-            .color(1)
-            .expect("missing color for Alice");
+        let alice_color = lobby_state.color(1).expect("missing color for Alice");
         if let ServerMessage::ChatMessage {
             username,
             color,
             content,
         } = msg
         {
-            assert_eq!(username, "Alice");
+            assert_eq!(username, "alice");
             assert_eq!(color, alice_color);
             assert_eq!(content, "Hello Bob!");
         } else {
@@ -493,12 +486,12 @@ mod tests {
         network.add_client(1);
         lobby_state.register_connection(1);
         lobby_state.mark_authenticated(1);
-        lobby_state.register_username(1, "Alice");
+        lobby_state.register_username(1, "alice");
 
         network.add_client(2);
         lobby_state.register_connection(2);
         lobby_state.mark_authenticated(2);
-        lobby_state.register_username(2, "Bob");
+        lobby_state.register_username(2, "bob");
 
         let malicious_content = "  Hello\x07Bob!\x1B[2J  ";
         let expected_content = "HelloBob!";
@@ -517,16 +510,14 @@ mod tests {
             .unwrap()
             .0;
 
-        let alice_color = lobby_state
-            .color(1)
-            .expect("missing color for Alice");
+        let alice_color = lobby_state.color(1).expect("missing color for Alice");
         if let ServerMessage::ChatMessage {
             username,
             color,
             content,
         } = msg
         {
-            assert_eq!(username, "Alice");
+            assert_eq!(username, "alice");
             assert_eq!(color, alice_color);
             assert_eq!(
                 content, expected_content,

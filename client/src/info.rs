@@ -18,7 +18,7 @@ pub const INFO_SCALE: f32 = 1.3;
 pub const FONT_SIZE: f32 = 6.0;
 pub const BG_COLOR: Color = Color::new(1.0, 1.0, 1.0, 0.8);
 
-pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate) {
+pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate, estimated_server_time: f64) {
     let local_player = &game_state.players[game_state.local_player_index];
     let local_state = &local_player.state;
 
@@ -82,6 +82,12 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate) {
         circle_radius,
         &assets.font,
         stat_font_size,
+    );
+    circles::draw_timer(
+        estimated_server_time,
+        x,
+        circle_top + circle_gap * 3.0,
+        circle_radius,
     );
 
     pop_camera_state();

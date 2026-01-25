@@ -189,7 +189,12 @@ impl ClientRunner {
                     _ => {
                         let tick_fraction = (self.session.clock.accumulated_time / TICK_SECS)
                             .clamp(0.0, 1.0) as f32;
-                        game_state.draw(tick_fraction, &self.assets, &self.session.clock.fps);
+                        game_state.draw(
+                            tick_fraction,
+                            &self.assets,
+                            &self.session.clock.fps,
+                            self.session.clock.estimated_server_time,
+                        );
                     }
                 }
             }
