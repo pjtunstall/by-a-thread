@@ -447,10 +447,9 @@ impl LobbyUi for Gui {
         self.add_history(prompt, PROMPT_COLOR);
     }
 
-    fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr, client_id: u64) {
+    fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr) {
         self.add_history(&format!("  Game version:\t{}", protocol_id), BANNER_COLOR);
         self.add_history(&format!("  Connecting to:\t{}", server_addr), BANNER_COLOR);
-        self.add_history(&format!("  Your ID:\t{}", client_id), BANNER_COLOR);
     }
 
     fn show_banner_message(&mut self, message: &str) {
@@ -602,11 +601,12 @@ impl LobbyUi for Gui {
         let text_color = WHITE;
 
         let text_dimensions = measure_text(countdown_text, font, font_size as u16, 1.0);
-        let reference_dimensions = if countdown_text.len() == 1 && countdown_text.chars().all(|c| c.is_ascii_digit()) {
-            Some(measure_text("10", font, font_size as u16, 1.0))
-        } else {
-            None
-        };
+        let reference_dimensions =
+            if countdown_text.len() == 1 && countdown_text.chars().all(|c| c.is_ascii_digit()) {
+                Some(measure_text("10", font, font_size as u16, 1.0))
+            } else {
+                None
+            };
         let screen_center_x = screen_width() / 2.0;
         let screen_center_y = screen_height() / 2.0;
 

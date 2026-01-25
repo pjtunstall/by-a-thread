@@ -98,10 +98,10 @@ impl LobbyUi for MockUi {
         self.keys.pop_front().unwrap_or(Ok(None))
     }
 
-    fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr, client_id: u64) {
+    fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr) {
         self.messages.push(format!(
-            "Client Banner: Protocol={}, Server={}, ClientID={}",
-            protocol_id, server_addr, client_id
+            "Client Banner: Protocol={}, Server={}",
+            protocol_id, server_addr
         ));
     }
 

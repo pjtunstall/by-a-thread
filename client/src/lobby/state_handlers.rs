@@ -54,14 +54,13 @@ mod tests {
         let mut ui = MockUi::default();
         let protocol_id = 12345;
         let server_addr = common::net::get_connectable_address();
-        let client_id = 99;
 
         let expected_banner = format!(
-            "Client Banner: Protocol={}, Server={}, ClientID={}",
-            protocol_id, server_addr, client_id
+            "Client Banner: Protocol={}, Server={}",
+            protocol_id, server_addr
         );
 
-        ui.print_client_banner(protocol_id, server_addr, client_id);
+        ui.print_client_banner(protocol_id, server_addr);
 
         assert_eq!(ui.messages, vec![expected_banner]);
         assert!(ui.errors.is_empty());

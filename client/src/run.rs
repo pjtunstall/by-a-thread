@@ -326,11 +326,9 @@ pub async fn run_client_loop(private_key: [u8; 32], mut ui: Gui) {
             }
         };
 
-    runner.ui.print_client_banner(
-        common::protocol::version(),
-        server_addr,
-        runner.session.client_id,
-    );
+    runner
+        .ui
+        .print_client_banner(common::protocol::version(), server_addr);
 
     loop {
         if is_quit_requested() || is_key_pressed(KeyCode::Escape) {

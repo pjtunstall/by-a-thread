@@ -44,7 +44,7 @@ pub trait LobbyUi {
     fn draw(&self, should_show_input: bool, show_cursor: bool, font: Option<&Font>);
     fn poll_input(&mut self, limit: usize, is_host: bool) -> Result<Option<String>, UiInputError>;
     fn poll_single_key(&mut self) -> Result<Option<UiKey>, UiInputError>;
-    fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr, client_id: u64);
+    fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr);
     fn draw_countdown(&mut self, countdown_text: &str, font: Option<&Font>);
     fn flush_input(&mut self) {}
     fn show_banner_message(&mut self, message: &str) {
