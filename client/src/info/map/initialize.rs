@@ -5,59 +5,18 @@ use crate::info::{BG_COLOR, FONT_SIZE};
 use common::maze::{Maze, RADIUS};
 
 pub struct MapOverlay {
-    pub texture: Texture2D,
+    pub render_target: RenderTarget,
     pub rect: Rect,
 }
 
-// A map of the maze is drawn as text and captured as a texture to avoid having
-// to calculate where all the characters for spaces and walls should be printed
-// on every frame.
 pub fn initialize_map(maze: &Maze, map_font: &Font) -> MapOverlay {
-    clear_background(BG_COLOR);
-    let map_string = create_map_string(&maze.grid);
-    let rect = draw_initial_map(&map_string, map_font);
-    let texture = create_map_texture(rect);
-
-    MapOverlay { texture, rect }
-}
-
-fn create_map_texture(rect: Rect) -> Texture2D {
-    let screen = get_screen_data();
-    let map_image = screen.sub_image(rect);
-    let map_texture = Texture2D::from_image(&map_image);
-    map_texture.set_filter(FilterMode::Linear);
-    map_texture
-}
-
-fn create_map_string(grid: &[Vec<u8>]) -> String {
-    let mut map_string = String::new();
-
-    for row in grid {
-        for &cell in row {
-            match cell {
-                0 => map_string.push_str(SPACE_SYMBOL),
-                _ => map_string.push_str(WALL_SYMBOL),
-            }
-        }
-        map_string.push('\n');
-    }
-
-    map_string
-}
-
-fn draw_initial_map(map: &str, map_font: &Font) -> Rect {
-    push_camera_state();
-    set_default_camera();
-
     let padding = 10.0;
     let x_indentation = 10.0;
     let y_indentation = 10.0;
-
     let line_height = FONT_SIZE;
 
     let wall_metrics = measure_text(WALL_SYMBOL, Some(map_font), FONT_SIZE as u16, 1.0);
     let space_metrics = measure_text(SPACE_SYMBOL, Some(map_font), FONT_SIZE as u16, 1.0);
-
     let symbol_width = wall_metrics.width.max(space_metrics.width);
 
     let total_width = ((RADIUS * 2 + 1) as f32) * symbol_width;
@@ -66,11 +25,27 @@ fn draw_initial_map(map: &str, map_font: &Font) -> Rect {
     let w = total_width + x_indentation * 2.2;
     let h = total_height + y_indentation * 2.2;
 
-    draw_rectangle(x_indentation, y_indentation, w, h, BG_COLOR);
+    let render_target = render_target(w as u32, h as u32);
+    render_target.texture.set_filter(FilterMode::Linear);
 
-    for (row_idx, line) in map.lines().enumerate() {
-        let mut x_pos = x_indentation + padding;
-        let y_pos = y_indentation + padding + (row_idx as f32 + 1.0) * line_height;
+    let mut camera = Camera2D {
+        render_target: Some(render_target),
+        zoom: vec2(2.0 / w, 2.0 / h),
+        target: vec2(w / 2.0, h / 2.0),
+        ..Default::default()
+    };
+    camera.zoom.y *= -1.0;
+
+    set_camera(&camera);
+
+    clear_background(BG_COLOR);
+
+    let map_string = create_map_string(&maze.grid);
+
+    for (row_idx, line) in map_string.lines().enumerate() {
+        // Start from 0 relative to the texture
+        let mut x_pos = padding;
+        let y_pos = padding + (row_idx as f32 + 1.0) * line_height;
 
         for ch in line.chars() {
             draw_text_ex(
@@ -88,7 +63,30 @@ fn draw_initial_map(map: &str, map_font: &Font) -> Rect {
         }
     }
 
-    pop_camera_state();
+    set_default_camera();
 
-    Rect::new(x_indentation, screen_height() - y_indentation - h, w, h)
+    let final_render_target = camera.render_target.take().unwrap();
+
+    let rect = Rect::new(x_indentation, screen_height() - y_indentation - h, w, h);
+
+    MapOverlay {
+        render_target: final_render_target,
+        rect,
+    }
+}
+
+fn create_map_string(grid: &[Vec<u8>]) -> String {
+    let mut map_string = String::new();
+
+    for row in grid {
+        for &cell in row {
+            match cell {
+                0 => map_string.push_str(SPACE_SYMBOL),
+                _ => map_string.push_str(WALL_SYMBOL),
+            }
+        }
+        map_string.push('\n');
+    }
+
+    map_string
 }

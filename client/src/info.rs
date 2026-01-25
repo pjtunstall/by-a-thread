@@ -38,7 +38,7 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate, estimated_serve
 
     let map_overlay = &game_state.info_map;
     draw_texture_ex(
-        &map_overlay.texture,
+        &map_overlay.render_target.texture,
         x_indentation,
         y_indentation,
         WHITE,
