@@ -20,6 +20,9 @@ impl TimerMarkers {
     }
 
     fn create_marker_render_target(radius: f32) -> RenderTarget {
+        // We generate the texture at 4x the required resolution.
+        // When drawn down to the screen size, the linear filter will
+        // average the pixels, effectively anti-aliasing them.
         const SUPERSAMPLE: f32 = 4.0;
 
         let logical_size = radius * 1.84;
@@ -65,6 +68,7 @@ impl TimerMarkers {
             if length > 0.0 {
                 draw_line(inner_x, inner_y, outer_x, outer_y, marker_thickness, BLACK);
 
+                // Cap ends of lines to be less abrupt.
                 let cap_radius = marker_thickness / 2.0;
                 draw_circle(inner_x, inner_y, cap_radius, BLACK);
                 draw_circle(outer_x, outer_y, cap_radius, BLACK);
