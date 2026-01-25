@@ -68,14 +68,14 @@ pub fn draw_health(
     let phase = get_time() as f32 * current_speed;
 
     let root = (phase % (std::f32::consts::PI * 2.0)).sin();
-    let a = if severity < start_flashing_at {
+    let a = if severity < start_flashing_at || severity > 0.999 {
         1.0
     } else {
         root * root
     };
 
-    let red = Color::new(1.0, 0.0, 0.0, a);
-    let green = Color::new(0.0, 1.0, 0.0, a);
+    let danger = Color::new(1.0, 0.0, 0.0, a);
+    let safety = Color::new(0.0, 1.0, 0.0, a);
 
     draw_circle(x, y, radius, BG_COLOR);
 
@@ -90,9 +90,9 @@ pub fn draw_health(
         start_angle + sweep,
         rim,
         360.0 - sweep,
-        green,
+        safety,
     );
-    draw_arc(x, y, 32, radius - rim, start_angle, rim, sweep, red);
+    draw_arc(x, y, 32, radius - rim, start_angle, rim, sweep, danger);
 
     let font = Some(font);
     let text = format!("{}", health);
@@ -138,15 +138,15 @@ pub fn draw_timer(estimated_server_time: f64, start_time: f64, x: f32, y: f32, r
     let phase = time_in_zone * average_speed_in_zone;
 
     let root = (phase % (std::f32::consts::PI * 2.0)).sin();
-    let a = if severity < start_flashing_at {
+    let a = if severity < start_flashing_at || severity > 0.999 {
         1.0
     } else {
         root * root
     };
 
     let rim = radius * 0.22;
-    let red = Color::new(1.0, 0.0, 0.0, a);
-    let green = Color::new(0.0, 1.0, 0.0, a);
+    let danger = Color::new(1.0, 0.0, 0.0, a);
+    let safety = Color::new(0.0, 1.0, 0.0, a);
 
     let start_angle = 270.0;
     let sweep = 360.0 * severity;
@@ -159,9 +159,9 @@ pub fn draw_timer(estimated_server_time: f64, start_time: f64, x: f32, y: f32, r
         start_angle + sweep,
         rim,
         360.0 - sweep,
-        green,
+        safety,
     );
-    draw_arc(x, y, 32, radius - rim, start_angle, rim, sweep, red);
+    draw_arc(x, y, 32, radius - rim, start_angle, rim, sweep, danger);
 
     let seconds_in_minute = elapsed_time % 60.0;
     let timer_progress = seconds_in_minute / 60.0;
