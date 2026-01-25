@@ -5,14 +5,7 @@ use super::BG_COLOR;
 use crate::frame::FrameRate;
 use common::player::PlayerState;
 
-const HEALTH_FLASH_START_THRESHOLD: f32 = 0.6;
-const TIMER_FLASH_START_THRESHOLD: f32 = 0.9;
-const MIN_FLASH_SPEED: f32 = 4.0;
-const MAX_FLASH_SPEED: f32 = 10.0;
-
 pub struct TimerMarkers {
-    // We must store the RenderTarget, not just the Texture2D.
-    // If RenderTarget drops, the texture is deleted from the GPU.
     pub render_target: RenderTarget,
     pub radius: f32,
 }
@@ -27,10 +20,17 @@ impl TimerMarkers {
     }
 
     fn create_marker_render_target(radius: f32) -> RenderTarget {
-        let texture_size = (radius * 1.84).ceil() as u32;
+        const SUPERSAMPLE: f32 = 4.0;
+
+        let logical_size = radius * 1.84;
+
+        let texture_size = (logical_size * SUPERSAMPLE).ceil() as u32;
         let w = texture_size as f32;
         let h = texture_size as f32;
         let center = w / 2.0;
+
+        let scaled_radius = radius * SUPERSAMPLE;
+        let marker_thickness = 2.0 * SUPERSAMPLE;
 
         let render_target = render_target(texture_size, texture_size);
         render_target.texture.set_filter(FilterMode::Linear);
@@ -49,8 +49,10 @@ impl TimerMarkers {
 
         for i in 0..12 {
             let marker_angle = (i as f32 * 30.0).to_radians() - PI / 2.0;
-            let inner_radius = radius * 0.75;
-            let outer_radius = radius * 0.92;
+
+            let inner_radius = scaled_radius * 0.75;
+            let outer_radius = scaled_radius * 0.92;
+
             let inner_x = center + marker_angle.cos() * inner_radius;
             let inner_y = center + marker_angle.sin() * inner_radius;
             let outer_x = center + marker_angle.cos() * outer_radius;
@@ -59,25 +61,26 @@ impl TimerMarkers {
             let dx = outer_x - inner_x;
             let dy = outer_y - inner_y;
             let length = (dx * dx + dy * dy).sqrt();
+
             if length > 0.0 {
-                let circles = 8;
-                for j in 0..circles {
-                    let t = j as f32 / (circles - 1) as f32;
-                    let circle_x = inner_x + dx * t;
-                    let circle_y = inner_y + dy * t;
-                    draw_circle(circle_x, circle_y, 1.0, BLACK);
-                }
+                draw_line(inner_x, inner_y, outer_x, outer_y, marker_thickness, BLACK);
+
+                let cap_radius = marker_thickness / 2.0;
+                draw_circle(inner_x, inner_y, cap_radius, BLACK);
+                draw_circle(outer_x, outer_y, cap_radius, BLACK);
             }
         }
 
         set_default_camera();
 
-        camera
-            .render_target
-            .take()
-            .expect("faled to take back `render_target` from camera")
+        camera.render_target.take().unwrap()
     }
 }
+
+const HEALTH_FLASH_START_THRESHOLD: f32 = 0.6;
+const TIMER_FLASH_START_THRESHOLD: f32 = 0.9;
+const MIN_FLASH_SPEED: f32 = 4.0;
+const MAX_FLASH_SPEED: f32 = 10.0;
 
 pub fn draw_compass(local_state: &PlayerState, x: f32, y: f32, radius: f32) {
     let r = radius;
@@ -217,9 +220,10 @@ pub fn draw_timer(
 
     draw_triangle(center + side, center - side, center + tip, BLACK);
 
-    let texture_size = markers.radius * 1.84;
+    let texture_size_logical = markers.radius * 1.84;
     let scale = radius / markers.radius;
-    let scaled_texture_size = texture_size * scale;
+    let scaled_texture_size = texture_size_logical * scale;
+
     let dest_pos = vec2(x - scaled_texture_size / 2.0, y - scaled_texture_size / 2.0);
 
     draw_texture_ex(
