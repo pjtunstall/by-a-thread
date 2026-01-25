@@ -67,7 +67,7 @@ pub fn draw_health(
     let current_speed = min_speed + (max_speed - min_speed) * clamped_danger;
     let phase = get_time() as f32 * current_speed;
 
-    let root = (phase % (std::f32::consts::PI * 2.0)).sin();
+    let root = (phase % (PI * 2.0)).sin();
     let a = if severity < start_flashing_at || severity > 0.999 {
         1.0
     } else {
@@ -137,7 +137,7 @@ pub fn draw_timer(estimated_server_time: f64, start_time: f64, x: f32, y: f32, r
 
     let phase = time_in_zone * average_speed_in_zone;
 
-    let root = (phase % (std::f32::consts::PI * 2.0)).sin();
+    let root = (phase % (PI * 2.0)).sin();
     let a = if severity < start_flashing_at || severity > 0.999 {
         1.0
     } else {
