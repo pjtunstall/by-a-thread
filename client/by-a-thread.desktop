@@ -4,6 +4,7 @@ Comment=A multiplayer game built in Rust
 Exec=/usr/lib/by-a-thread/ByAThread
 Path=/usr/lib/by-a-thread
 Icon=by-a-thread
+StartupWMClass=by-a-thread
 Terminal=false
 Type=Application
 Categories=Game;

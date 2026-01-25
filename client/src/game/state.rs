@@ -77,6 +77,7 @@ pub struct Game {
     player_shadow_mesh: DiskMesh,
     previous_local_state: StaticState,
     fov: f32,
+    pub start_time: f64,
 }
 
 impl Game {
@@ -87,6 +88,7 @@ impl Game {
         sky_mesh: Mesh,
         sim_tick: u64,
         info_map: info::map::MapOverlay,
+        start_time: f64,
     ) -> Self {
         let sky = Sky { mesh: sky_mesh };
         let players = initial_data.players;
@@ -122,6 +124,7 @@ impl Game {
             player_shadow_mesh: DiskMesh::new(),
             previous_local_state,
             fov: NORMAL_FOV,
+            start_time,
         }
     }
 

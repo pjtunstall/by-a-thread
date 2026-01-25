@@ -303,7 +303,7 @@ pub struct Clock {
 impl Clock {
     pub fn new() -> Self {
         Self {
-            estimated_server_time: 0.0,
+            estimated_server_time: 0.0, // Seconds.
             samples: VecDeque::new(),
             smoothed_rtt: 0.0,
             accumulated_time: 0.0,

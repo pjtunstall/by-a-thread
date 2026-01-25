@@ -270,6 +270,7 @@ impl ClientRunner {
                 sky_mesh,
                 sim_tick,
                 info_map,
+                self.session.clock.estimated_server_time,
             )));
 
         Ok(())
