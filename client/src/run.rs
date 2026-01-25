@@ -248,8 +248,6 @@ impl ClientRunner {
         };
 
         let maze_meshes = maze_meshes.expect("maze meshes should be built during countdown");
-        let info_map = info::map::initialize_map(&initial_data.maze, &self.assets.map_font);
-        let timer_markers = info::circles::TimerMarkers::new(info::BASE_CIRCLE_RADIUS);
 
         let Some(local_player_index) = initial_data
             .players
@@ -262,6 +260,10 @@ impl ClientRunner {
             return Err(());
         };
 
+        let map_overlay = info::map::initialize_map(&initial_data.maze, &self.assets.map_font);
+        let timer_markers = info::circles::TimerMarkers::new(info::BASE_CIRCLE_RADIUS);
+        let needle_textures = info::circles::NeedleTextures::new(info::BASE_CIRCLE_RADIUS);
+
         self.session.local_player_index = Some(local_player_index);
         self.session
             .transition(ClientState::Game(game::state::Game::new(
@@ -270,9 +272,10 @@ impl ClientRunner {
                 maze_meshes,
                 sky_mesh,
                 sim_tick,
-                info_map,
+                map_overlay,
                 timer_markers,
                 self.session.clock.estimated_server_time,
+                needle_textures,
             )));
 
         Ok(())

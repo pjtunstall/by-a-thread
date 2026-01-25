@@ -36,7 +36,7 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate, estimated_serve
 
     crosshairs::draw_crosshairs();
 
-    let map_overlay = &game_state.info_map;
+    let map_overlay = &game_state.map_overlay;
     draw_texture_ex(
         &map_overlay.render_target.texture,
         x_indentation,
@@ -66,7 +66,13 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate, estimated_serve
     let circle_radius = BASE_CIRCLE_RADIUS * map_scale;
     let circle_top = y_indentation + BASE_CIRCLE_TOP_OFFSET * map_scale;
     let circle_gap = BASE_CIRCLE_GAP * map_scale;
-    circles::draw_compass(local_state, x, circle_top, circle_radius);
+    circles::draw_compass(
+        local_state,
+        x,
+        circle_top,
+        circle_radius,
+        &game_state.needle_textures,
+    );
     circles::draw_fps(
         fps,
         x,
@@ -91,6 +97,7 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate, estimated_serve
         circle_top + circle_gap * 3.0,
         circle_radius,
         &game_state.timer_markers,
+        &game_state.needle_textures,
     );
 
     pop_camera_state();

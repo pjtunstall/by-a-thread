@@ -55,9 +55,10 @@ const ZOOMED_FOV: f32 = 10.0_f32.to_radians();
 pub struct Game {
     pub local_player_index: usize,
     pub players: Vec<Player>,
-    pub info_map: info::map::MapOverlay,
+    pub map_overlay: info::map::MapOverlay,
     pub timer_markers: info::circles::TimerMarkers,
     pub maze: Maze,
+    pub start_time: f64,
     maze_meshes: MazeMeshes,
     sky: Sky,
     input_history: Ring<PlayerInput, INPUT_HISTORY_LENGTH>, // 256: ~4.3s at 60Hz.
@@ -78,7 +79,7 @@ pub struct Game {
     player_shadow_mesh: DiskMesh,
     previous_local_state: StaticState,
     fov: f32,
-    pub start_time: f64,
+    pub needle_textures: info::circles::NeedleTextures,
 }
 
 impl Game {
@@ -88,9 +89,10 @@ impl Game {
         maze_meshes: MazeMeshes,
         sky_mesh: Mesh,
         sim_tick: u64,
-        info_map: info::map::MapOverlay,
+        map_overlay: info::map::MapOverlay,
         timer_markers: info::circles::TimerMarkers,
         start_time: f64,
+        needle_textures: info::circles::NeedleTextures,
     ) -> Self {
         let sky = Sky { mesh: sky_mesh };
         let players = initial_data.players;
@@ -108,7 +110,7 @@ impl Game {
             maze_meshes,
             sky,
             players,
-            info_map,
+            map_overlay,
             timer_markers,
             input_history: Ring::new(),
             is_first_snapshot_received: false,
@@ -128,6 +130,7 @@ impl Game {
             previous_local_state,
             fov: NORMAL_FOV,
             start_time,
+            needle_textures,
         }
     }
 
