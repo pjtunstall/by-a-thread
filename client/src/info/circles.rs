@@ -56,13 +56,12 @@ pub fn draw_health(
     let max = max_health.max(1) as f32;
     let health_ratio = (health as f32 / max).clamp(0.0, 1.0);
 
-    let speed_factor = (1.0 - health_ratio) * 10.0;
-    let root = ((get_time() as f32 * speed_factor) % (std::f32::consts::PI * 2.0)).sin();
-    let a = if health_ratio > 0.6 || health == 0 {
-        1.0
-    } else {
-        root * root
-    };
+    let severity = 1.0 - health_ratio;
+    let flash_speed = severity * 10.0;
+    let phase = get_time() as f32 * flash_speed;
+
+    let root = (phase % (std::f32::consts::PI * 2.0)).sin();
+    let a = if severity < 0.4 { 1.0 } else { root * root };
 
     let red = Color::new(1.0, 0.0, 0.0, a);
     let green = Color::new(0.0, 1.0, 0.0, a);
@@ -88,8 +87,8 @@ pub fn draw_health(
     let text = format!("{}", health);
     let text_dims = measure_text(&text, font, font_size, 1.0);
 
-    let text_x = x - text_dims.width / 2.0; // Left edge of text.
-    let text_y = y + text_dims.height / 2.0 - radius * 0.055; // Base of text.
+    let text_x = x - text_dims.width / 2.0;
+    let text_y = y + text_dims.height / 2.0 - radius * 0.055;
 
     draw_text_ex(
         &text,
@@ -107,17 +106,17 @@ pub fn draw_health(
 pub fn draw_timer(estimated_server_time: f64, start_time: f64, x: f32, y: f32, radius: f32) {
     draw_circle(x, y, radius, BG_COLOR);
 
-    let elapsed_time = estimated_server_time - start_time;
+    let elapsed_time = (estimated_server_time - start_time) as f32;
     let minutes_elapsed = elapsed_time / 60.0;
-    let rim_progress = (minutes_elapsed / 3.0).clamp(0.0, 1.0) as f32; // The rim will fills with red over 3 minutes.
+    let rim_progress = (minutes_elapsed / 3.0).clamp(0.0, 1.0);
 
-    let phase = (elapsed_time * elapsed_time) / 36.0;
-    let root = phase.sin() as f32;
-    let a = if rim_progress < 0.4 || rim_progress == 0.0 {
-        1.0
-    } else {
-        root * root
-    };
+    let severity = rim_progress;
+    let flash_speed = severity * 10.0;
+    let average_speed = flash_speed / 2.0;
+    let phase = elapsed_time * average_speed;
+
+    let root = (phase % (std::f32::consts::PI * 2.0)).sin();
+    let a = if severity < 0.4 { 1.0 } else { root * root };
 
     let rim = radius * 0.22;
     let red = Color::new(1.0, 0.0, 0.0, a);
@@ -140,8 +139,8 @@ pub fn draw_timer(estimated_server_time: f64, start_time: f64, x: f32, y: f32, r
     }
 
     let seconds_in_minute = elapsed_time % 60.0;
-    let timer_progress = (seconds_in_minute / 60.0) as f32;
-    let hand_angle = timer_progress * 2.0 * PI - PI / 2.0;
+    let timer_progress = seconds_in_minute / 60.0;
+    let hand_angle = timer_progress * 2.0 * std::f32::consts::PI - std::f32::consts::PI / 2.0;
     let center = vec2(x, y);
     let cos = hand_angle.cos() * radius * 0.8;
     let sin = hand_angle.sin() * radius * 0.8;
@@ -151,7 +150,7 @@ pub fn draw_timer(estimated_server_time: f64, start_time: f64, x: f32, y: f32, r
     draw_triangle(center + side, center - side, center + tip, BLACK);
 
     for i in 0..12 {
-        let marker_angle = (i as f32 * 30.0).to_radians() - PI / 2.0;
+        let marker_angle = (i as f32 * 30.0).to_radians() - std::f32::consts::PI / 2.0;
         let inner_radius = radius * 0.75;
         let outer_radius = radius * 0.92;
 
