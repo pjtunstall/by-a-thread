@@ -52,17 +52,27 @@ pub fn draw_health(
     font: &Font,
     font_size: u16,
 ) {
+    let start_flashing_at = 0.6;
+    let min_speed = 4.0;
+    let max_speed = 10.0;
+
     let rim = radius * 0.22;
-    let max = max_health.max(1) as f32;
-    let health_ratio = (health as f32 / max).clamp(0.0, 1.0);
-    let rim_progress = 1.0 - health_ratio;
+    let health_ratio = (health as f32 / max_health as f32).clamp(0.0, 1.0);
 
     let severity = 1.0 - health_ratio;
-    let flash_speed = severity * 10.0;
-    let phase = get_time() as f32 * flash_speed;
+
+    let danger_progress = (severity - start_flashing_at) / (1.0 - start_flashing_at);
+    let clamped_danger = danger_progress.clamp(0.0, 1.0);
+
+    let current_speed = min_speed + (max_speed - min_speed) * clamped_danger;
+    let phase = get_time() as f32 * current_speed;
 
     let root = (phase % (std::f32::consts::PI * 2.0)).sin();
-    let a = if severity < 0.4 { 1.0 } else { root * root };
+    let a = if severity < start_flashing_at {
+        1.0
+    } else {
+        root * root
+    };
 
     let red = Color::new(1.0, 0.0, 0.0, a);
     let green = Color::new(0.0, 1.0, 0.0, a);
@@ -70,7 +80,8 @@ pub fn draw_health(
     draw_circle(x, y, radius, BG_COLOR);
 
     let start_angle = 270.0;
-    let sweep = 360.0 * rim_progress;
+    let sweep = 360.0 * severity;
+
     draw_arc(
         x,
         y,
@@ -104,26 +115,42 @@ pub fn draw_health(
 }
 
 pub fn draw_timer(estimated_server_time: f64, start_time: f64, x: f32, y: f32, radius: f32) {
+    let start_flashing_at = 0.9;
+    let min_speed = 4.0;
+    let max_speed = 10.0;
+
     draw_circle(x, y, radius, BG_COLOR);
 
+    let total_duration = 180.0;
     let elapsed_time = (estimated_server_time - start_time) as f32;
     let minutes_elapsed = elapsed_time / 60.0;
-    let rim_progress = (minutes_elapsed / 3.0).clamp(0.0, 1.0);
+    let severity = (minutes_elapsed / 3.0).clamp(0.0, 1.0);
 
-    let severity = rim_progress;
-    let flash_speed = severity * 10.0;
-    let average_speed = flash_speed / 2.0;
-    let phase = elapsed_time * average_speed;
+    let danger_progress = (severity - start_flashing_at) / (1.0 - start_flashing_at);
+    let clamped_danger = danger_progress.clamp(0.0, 1.0);
+
+    let current_speed = min_speed + (max_speed - min_speed) * clamped_danger;
+
+    let average_speed_in_zone = (min_speed + current_speed) / 2.0;
+    let time_flash_started = total_duration * start_flashing_at;
+    let time_in_zone = (elapsed_time - time_flash_started).max(0.0);
+
+    let phase = time_in_zone * average_speed_in_zone;
 
     let root = (phase % (std::f32::consts::PI * 2.0)).sin();
-    let a = if severity < 0.4 { 1.0 } else { root * root };
+    let a = if severity < start_flashing_at {
+        1.0
+    } else {
+        root * root
+    };
 
     let rim = radius * 0.22;
     let red = Color::new(1.0, 0.0, 0.0, a);
     let green = Color::new(0.0, 1.0, 0.0, a);
 
     let start_angle = 270.0;
-    let sweep = 360.0 * rim_progress;
+    let sweep = 360.0 * severity;
+
     draw_arc(
         x,
         y,
