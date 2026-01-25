@@ -15,13 +15,13 @@ pub fn draw_compass(local_state: &PlayerState, x: f32, y: f32, radius: f32) {
     draw_circle(x, y, r, BG_COLOR);
 
     let theta = local_state.yaw + PI;
-    let c = vec2(x, y);
+    let center = vec2(x, y);
     let cos = theta.cos() * r;
     let sin = theta.sin() * r;
     let front = vec2(-sin, cos);
     let side = vec2(cos, sin) * 0.2;
-    draw_triangle(c + side, c - side, c - front, BLACK);
-    draw_triangle(c + side, c - side, c + front, RED);
+    draw_triangle(center + side, center - side, center - front, BLACK);
+    draw_triangle(center + side, center - side, center + front, RED);
 }
 
 pub fn draw_fps(fps: &FrameRate, x: f32, y: f32, radius: f32, font: &Font, font_size: u16) {
@@ -65,12 +65,20 @@ pub fn draw_health(
 
     let phase = get_time() as f32 * current_speed;
 
-    let alpha = calculate_alpha(phase, should_flash);
+    let flash_opacity = calculate_flash_opacity(phase, should_flash);
 
     let danger_color = Color::new(1.0, 0.0, 0.0, 1.0);
     let safety_color = Color::new(0.0, 1.0, 0.0, 1.0);
 
-    draw_severity_arcs(x, y, radius, danger_color, safety_color, severity, alpha);
+    draw_severity_arcs(
+        x,
+        y,
+        radius,
+        danger_color,
+        safety_color,
+        severity,
+        flash_opacity,
+    );
 
     let font = Some(font);
     let text = format!("{}", health);
@@ -107,12 +115,20 @@ pub fn draw_timer(estimated_server_time: f64, start_time: f64, x: f32, y: f32, r
     let average_speed = (MIN_FLASH_SPEED + current_speed) / 2.0;
     let phase = time_in_zone * average_speed;
 
-    let alpha = calculate_alpha(phase, should_flash);
+    let flash_opacity = calculate_flash_opacity(phase, should_flash);
 
     let danger_color = Color::new(1.0, 0.0, 0.0, 1.0);
     let safety_color = Color::new(0.0, 1.0, 0.0, 1.0);
 
-    draw_severity_arcs(x, y, radius, danger_color, safety_color, severity, alpha);
+    draw_severity_arcs(
+        x,
+        y,
+        radius,
+        danger_color,
+        safety_color,
+        severity,
+        flash_opacity,
+    );
 
     let seconds_in_minute = elapsed_time % 60.0;
     let timer_progress = seconds_in_minute / 60.0;
@@ -162,7 +178,7 @@ fn get_flash_params(severity: f32, flash_start_threshold: f32) -> (f32, bool) {
     (speed, true)
 }
 
-fn calculate_alpha(phase: f32, should_flash: bool) -> f32 {
+fn calculate_flash_opacity(phase: f32, should_flash: bool) -> f32 {
     if !should_flash {
         return 1.0;
     }
@@ -177,13 +193,13 @@ fn draw_severity_arcs(
     mut danger_color: Color,
     mut safety_color: Color,
     severity: f32,
-    alpha: f32,
+    flash_opacity: f32,
 ) {
     draw_circle(x, y, radius, BG_COLOR);
 
     let rim = radius * 0.22;
-    danger_color.a = alpha;
-    safety_color.a = alpha;
+    danger_color.a = flash_opacity;
+    safety_color.a = flash_opacity;
 
     let start_angle = 270.0;
     let sweep = 360.0 * severity;
