@@ -72,8 +72,6 @@ pub fn draw_health(
     let start_angle = 270.0;
     let sweep = 360.0 * health_ratio;
 
-    draw_arc(x, y, 32, radius - rim, start_angle, rim, sweep, green);
-
     draw_arc(
         x,
         y,
@@ -81,9 +79,10 @@ pub fn draw_health(
         radius - rim,
         start_angle + sweep,
         rim,
-        360.0 - sweep,
+        360.0 * (1.0 - health_ratio),
         red,
     );
+    draw_arc(x, y, 32, radius - rim, start_angle, rim, sweep, green);
 
     let font = Some(font);
     let text = format!("{}", health);
@@ -109,6 +108,37 @@ pub fn draw_timer(estimated_server_time: f64, start_time: f64, x: f32, y: f32, r
     draw_circle(x, y, radius, BG_COLOR);
 
     let elapsed_time = estimated_server_time - start_time;
+    let minutes_elapsed = elapsed_time / 60.0;
+    let rim_progress = (minutes_elapsed / 3.0).clamp(0.0, 1.0) as f32; // The rim will fills with red over 3 minutes.
+
+    let phase = (elapsed_time * elapsed_time) / 36.0;
+    let root = phase.sin() as f32;
+    let a = if rim_progress < 0.4 || rim_progress == 0.0 {
+        1.0
+    } else {
+        root * root
+    };
+
+    let rim = radius * 0.22;
+    let red = Color::new(1.0, 0.0, 0.0, a);
+    let green = Color::new(0.0, 1.0, 0.0, a);
+
+    if rim_progress > 0.0 {
+        let start_angle = 270.0;
+        let sweep = 360.0 * rim_progress;
+        draw_arc(
+            x,
+            y,
+            32,
+            radius - rim,
+            start_angle + sweep,
+            rim,
+            360.0 - sweep,
+            green,
+        );
+        draw_arc(x, y, 32, radius - rim, start_angle, rim, sweep, red);
+    }
+
     let seconds_in_minute = elapsed_time % 60.0;
     let timer_progress = (seconds_in_minute / 60.0) as f32;
     let hand_angle = timer_progress * 2.0 * PI - PI / 2.0;
