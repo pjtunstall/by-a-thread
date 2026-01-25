@@ -37,7 +37,7 @@ Be the last one standing.
 
 ## Levels
 
-As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`. Ironically, the "harder" levels can be easier to navigate, in a way, especially with the help of a map, as their algorithms tend to produce more direct paths between distant cells. You can often see to the end of a deadend and so discount it. But how will maze style affect actual gameplay?
+As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`. That said, at least with the map, the "harder" levels can be easier to navigate, as their algorithms tend to produce more direct paths between distant cells.
 
 ## To run locally
 

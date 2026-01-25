@@ -44,7 +44,7 @@ cd client
 cargo build --release --target x86_64-pc-windows-gnu
 ```
 
-The executable will be created at `../target/x86_64-pc-windows-gnu/release/ByAThread.exe`.
+The executable will be created at `target/x86_64-pc-windows-gnu/release/ByAThread.exe` (relative to the workspace root).
 
 ### Distribution
 
@@ -81,7 +81,7 @@ cargo build --release
 cargo deb
 ```
 
-The package will be created at `../target/debian/by-a-thread_0.1.0-1_amd64.deb`.
+The package will be created at `target/debian/by-a-thread_0.1.0-1_amd64.deb` (relative to the workspace root).
 
 #### Why the `-1` suffix?
 
@@ -89,9 +89,10 @@ The `-1` in the filename is the Debian package revision number. It indicates thi
 
 ### Installing the package
 
-From the workspace root, install the package using `dpkg`:
+If you're still in `client` folder, move back to the the workspace root, then install the package using `dpkg`:
 
 ```sh
+cd ..
 sudo dpkg -i target/debian/by-a-thread_0.1.0-1_amd64.deb
 ```
 
