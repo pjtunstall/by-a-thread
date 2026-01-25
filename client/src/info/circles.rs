@@ -55,6 +55,7 @@ pub fn draw_health(
     let rim = radius * 0.22;
     let max = max_health.max(1) as f32;
     let health_ratio = (health as f32 / max).clamp(0.0, 1.0);
+    let rim_progress = 1.0 - health_ratio;
 
     let severity = 1.0 - health_ratio;
     let flash_speed = severity * 10.0;
@@ -69,8 +70,7 @@ pub fn draw_health(
     draw_circle(x, y, radius, BG_COLOR);
 
     let start_angle = 270.0;
-    let sweep = 360.0 * health_ratio;
-
+    let sweep = 360.0 * rim_progress;
     draw_arc(
         x,
         y,
@@ -78,10 +78,10 @@ pub fn draw_health(
         radius - rim,
         start_angle + sweep,
         rim,
-        360.0 * (1.0 - health_ratio),
-        red,
+        360.0 - sweep,
+        green,
     );
-    draw_arc(x, y, 32, radius - rim, start_angle, rim, sweep, green);
+    draw_arc(x, y, 32, radius - rim, start_angle, rim, sweep, red);
 
     let font = Some(font);
     let text = format!("{}", health);
@@ -122,21 +122,19 @@ pub fn draw_timer(estimated_server_time: f64, start_time: f64, x: f32, y: f32, r
     let red = Color::new(1.0, 0.0, 0.0, a);
     let green = Color::new(0.0, 1.0, 0.0, a);
 
-    if rim_progress > 0.0 {
-        let start_angle = 270.0;
-        let sweep = 360.0 * rim_progress;
-        draw_arc(
-            x,
-            y,
-            32,
-            radius - rim,
-            start_angle + sweep,
-            rim,
-            360.0 - sweep,
-            green,
-        );
-        draw_arc(x, y, 32, radius - rim, start_angle, rim, sweep, red);
-    }
+    let start_angle = 270.0;
+    let sweep = 360.0 * rim_progress;
+    draw_arc(
+        x,
+        y,
+        32,
+        radius - rim,
+        start_angle + sweep,
+        rim,
+        360.0 - sweep,
+        green,
+    );
+    draw_arc(x, y, 32, radius - rim, start_angle, rim, sweep, red);
 
     let seconds_in_minute = elapsed_time % 60.0;
     let timer_progress = seconds_in_minute / 60.0;
