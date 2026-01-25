@@ -56,43 +56,24 @@ pub fn draw_health(
     let min_speed = 4.0;
     let max_speed = 10.0;
 
-    let rim = radius * 0.22;
-    let health_ratio = (health as f32 / max_health as f32).clamp(0.0, 1.0);
-
-    let severity = 1.0 - health_ratio;
-
-    let danger_progress = (severity - start_flashing_at) / (1.0 - start_flashing_at);
-    let clamped_danger = danger_progress.clamp(0.0, 1.0);
-
-    let current_speed = min_speed + (max_speed - min_speed) * clamped_danger;
-    let phase = get_time() as f32 * current_speed;
-
-    let root = (phase % (PI * 2.0)).sin();
-    let a = if severity < start_flashing_at || severity > 0.999 {
-        1.0
-    } else {
-        root * root
-    };
-
-    let danger = Color::new(1.0, 0.0, 0.0, a);
-    let safety = Color::new(0.0, 1.0, 0.0, a);
-
     draw_circle(x, y, radius, BG_COLOR);
 
-    let start_angle = 270.0;
-    let sweep = 360.0 * severity;
+    let health_ratio = (health as f32 / max_health as f32).clamp(0.0, 1.0);
+    let severity = 1.0 - health_ratio;
 
-    draw_arc(
-        x,
-        y,
-        32,
-        radius - rim,
-        start_angle + sweep,
-        rim,
-        360.0 - sweep,
-        safety,
+    let a = calculate_flash_alpha(
+        severity,
+        start_flashing_at,
+        FlashSpeed {
+            min: min_speed,
+            max: max_speed,
+        },
+        get_time() as f32,
     );
-    draw_arc(x, y, 32, radius - rim, start_angle, rim, sweep, danger);
+
+    let danger_color = Color::new(1.0, 0.0, 0.0, a);
+    let safety_color = Color::new(0.0, 1.0, 0.0, a);
+    draw_severity(x, y, radius, danger_color, safety_color, severity);
 
     let font = Some(font);
     let text = format!("{}", health);
@@ -126,46 +107,26 @@ pub fn draw_timer(estimated_server_time: f64, start_time: f64, x: f32, y: f32, r
     let minutes_elapsed = elapsed_time / 60.0;
     let severity = (minutes_elapsed / 3.0).clamp(0.0, 1.0);
 
-    let danger_progress = (severity - start_flashing_at) / (1.0 - start_flashing_at);
-    let clamped_danger = danger_progress.clamp(0.0, 1.0);
-
-    let current_speed = min_speed + (max_speed - min_speed) * clamped_danger;
-
-    let average_speed_in_zone = (min_speed + current_speed) / 2.0;
     let time_flash_started = total_duration * start_flashing_at;
     let time_in_zone = (elapsed_time - time_flash_started).max(0.0);
 
-    let phase = time_in_zone * average_speed_in_zone;
-
-    let root = (phase % (PI * 2.0)).sin();
-    let a = if severity < start_flashing_at || severity > 0.999 {
-        1.0
-    } else {
-        root * root
-    };
-
-    let rim = radius * 0.22;
-    let danger = Color::new(1.0, 0.0, 0.0, a);
-    let safety = Color::new(0.0, 1.0, 0.0, a);
-
-    let start_angle = 270.0;
-    let sweep = 360.0 * severity;
-
-    draw_arc(
-        x,
-        y,
-        32,
-        radius - rim,
-        start_angle + sweep,
-        rim,
-        360.0 - sweep,
-        safety,
+    let a = calculate_flash_alpha(
+        severity,
+        start_flashing_at,
+        FlashSpeed {
+            min: min_speed,
+            max: max_speed,
+        },
+        time_in_zone,
     );
-    draw_arc(x, y, 32, radius - rim, start_angle, rim, sweep, danger);
+
+    let danger_color = Color::new(1.0, 0.0, 0.0, a);
+    let safety_color = Color::new(0.0, 1.0, 0.0, a);
+    draw_severity(x, y, radius, danger_color, safety_color, severity);
 
     let seconds_in_minute = elapsed_time % 60.0;
     let timer_progress = seconds_in_minute / 60.0;
-    let hand_angle = timer_progress * 2.0 * std::f32::consts::PI - std::f32::consts::PI / 2.0;
+    let hand_angle = timer_progress * 2.0 * PI - PI / 2.0;
     let center = vec2(x, y);
     let cos = hand_angle.cos() * radius * 0.8;
     let sin = hand_angle.sin() * radius * 0.8;
@@ -174,8 +135,9 @@ pub fn draw_timer(estimated_server_time: f64, start_time: f64, x: f32, y: f32, r
 
     draw_triangle(center + side, center - side, center + tip, BLACK);
 
+    // TODO: Create texture initially to save redrawing every frame.
     for i in 0..12 {
-        let marker_angle = (i as f32 * 30.0).to_radians() - std::f32::consts::PI / 2.0;
+        let marker_angle = (i as f32 * 30.0).to_radians() - PI / 2.0;
         let inner_radius = radius * 0.75;
         let outer_radius = radius * 0.92;
 
@@ -197,4 +159,63 @@ pub fn draw_timer(estimated_server_time: f64, start_time: f64, x: f32, y: f32, r
             }
         }
     }
+}
+
+struct FlashSpeed {
+    min: f32,
+    max: f32,
+}
+
+fn calculate_flash_alpha(
+    severity: f32,
+    start_flashing_at: f32,
+    speed: FlashSpeed,
+    time_in_zone: f32,
+) -> f32 {
+    let danger_progress = (severity - start_flashing_at) / (1.0 - start_flashing_at);
+    let clamped_danger = danger_progress.clamp(0.0, 1.0);
+
+    let current_speed = speed.min + (speed.max - speed.min) * clamped_danger;
+    let phase = time_in_zone * current_speed;
+
+    let root = (phase % (PI * 2.0)).sin();
+    if severity < start_flashing_at || severity > 0.999 {
+        1.0
+    } else {
+        root * root
+    }
+}
+
+fn draw_severity(
+    x: f32,
+    y: f32,
+    radius: f32,
+    danger_color: Color,
+    safety_color: Color,
+    severity: f32,
+) {
+    let rim = radius * 0.22;
+    let start_angle = 270.0;
+    let sweep = 360.0 * severity;
+
+    draw_arc(
+        x,
+        y,
+        32,
+        radius - rim,
+        start_angle + sweep,
+        rim,
+        360.0 - sweep,
+        safety_color,
+    );
+    draw_arc(
+        x,
+        y,
+        32,
+        radius - rim,
+        start_angle,
+        rim,
+        sweep,
+        danger_color,
+    );
 }
