@@ -56,6 +56,7 @@ pub struct Game {
     pub local_player_index: usize,
     pub players: Vec<Player>,
     pub info_map: info::map::MapOverlay,
+    pub timer_markers: info::circles::TimerMarkers,
     pub maze: Maze,
     maze_meshes: MazeMeshes,
     sky: Sky,
@@ -88,6 +89,7 @@ impl Game {
         sky_mesh: Mesh,
         sim_tick: u64,
         info_map: info::map::MapOverlay,
+        timer_markers: info::circles::TimerMarkers,
         start_time: f64,
     ) -> Self {
         let sky = Sky { mesh: sky_mesh };
@@ -107,6 +109,7 @@ impl Game {
             sky,
             players,
             info_map,
+            timer_markers,
             input_history: Ring::new(),
             is_first_snapshot_received: false,
             last_reconciled_tick: None,

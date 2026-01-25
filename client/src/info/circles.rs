@@ -10,6 +10,75 @@ const TIMER_FLASH_START_THRESHOLD: f32 = 0.9;
 const MIN_FLASH_SPEED: f32 = 4.0;
 const MAX_FLASH_SPEED: f32 = 10.0;
 
+pub struct TimerMarkers {
+    // We must store the RenderTarget, not just the Texture2D.
+    // If RenderTarget drops, the texture is deleted from the GPU.
+    pub render_target: RenderTarget,
+    pub radius: f32,
+}
+
+impl TimerMarkers {
+    pub fn new(radius: f32) -> Self {
+        let render_target = Self::create_marker_render_target(radius);
+        Self {
+            render_target,
+            radius,
+        }
+    }
+
+    fn create_marker_render_target(radius: f32) -> RenderTarget {
+        let texture_size = (radius * 1.84).ceil() as u32;
+        let w = texture_size as f32;
+        let h = texture_size as f32;
+        let center = w / 2.0;
+
+        let render_target = render_target(texture_size, texture_size);
+        render_target.texture.set_filter(FilterMode::Linear);
+
+        let mut camera = Camera2D {
+            render_target: Some(render_target),
+            zoom: vec2(2.0 / w, 2.0 / h),
+            target: vec2(w / 2.0, h / 2.0),
+            ..Default::default()
+        };
+        camera.zoom.y *= -1.0;
+
+        set_camera(&camera);
+
+        clear_background(Color::new(0.0, 0.0, 0.0, 0.0));
+
+        for i in 0..12 {
+            let marker_angle = (i as f32 * 30.0).to_radians() - PI / 2.0;
+            let inner_radius = radius * 0.75;
+            let outer_radius = radius * 0.92;
+            let inner_x = center + marker_angle.cos() * inner_radius;
+            let inner_y = center + marker_angle.sin() * inner_radius;
+            let outer_x = center + marker_angle.cos() * outer_radius;
+            let outer_y = center + marker_angle.sin() * outer_radius;
+
+            let dx = outer_x - inner_x;
+            let dy = outer_y - inner_y;
+            let length = (dx * dx + dy * dy).sqrt();
+            if length > 0.0 {
+                let circles = 8;
+                for j in 0..circles {
+                    let t = j as f32 / (circles - 1) as f32;
+                    let circle_x = inner_x + dx * t;
+                    let circle_y = inner_y + dy * t;
+                    draw_circle(circle_x, circle_y, 1.0, BLACK);
+                }
+            }
+        }
+
+        set_default_camera();
+
+        camera
+            .render_target
+            .take()
+            .expect("faled to take back `render_target` from camera")
+    }
+}
+
 pub fn draw_compass(local_state: &PlayerState, x: f32, y: f32, radius: f32) {
     let r = radius;
     draw_circle(x, y, r, BG_COLOR);
@@ -99,7 +168,14 @@ pub fn draw_health(
     );
 }
 
-pub fn draw_timer(estimated_server_time: f64, start_time: f64, x: f32, y: f32, radius: f32) {
+pub fn draw_timer(
+    estimated_server_time: f64,
+    start_time: f64,
+    x: f32,
+    y: f32,
+    radius: f32,
+    markers: &TimerMarkers,
+) {
     let total_duration = 180.0;
     let elapsed_time = (estimated_server_time - start_time) as f32;
     let minutes_elapsed = elapsed_time / 60.0;
@@ -141,28 +217,21 @@ pub fn draw_timer(estimated_server_time: f64, start_time: f64, x: f32, y: f32, r
 
     draw_triangle(center + side, center - side, center + tip, BLACK);
 
-    for i in 0..12 {
-        let marker_angle = (i as f32 * 30.0).to_radians() - PI / 2.0;
-        let inner_radius = radius * 0.75;
-        let outer_radius = radius * 0.92;
-        let inner_x = x + marker_angle.cos() * inner_radius;
-        let inner_y = y + marker_angle.sin() * inner_radius;
-        let outer_x = x + marker_angle.cos() * outer_radius;
-        let outer_y = y + marker_angle.sin() * outer_radius;
+    let texture_size = markers.radius * 1.84;
+    let scale = radius / markers.radius;
+    let scaled_texture_size = texture_size * scale;
+    let dest_pos = vec2(x - scaled_texture_size / 2.0, y - scaled_texture_size / 2.0);
 
-        let dx = outer_x - inner_x;
-        let dy = outer_y - inner_y;
-        let length = (dx * dx + dy * dy).sqrt();
-        if length > 0.0 {
-            let circles = 8;
-            for j in 0..circles {
-                let t = j as f32 / (circles - 1) as f32;
-                let circle_x = inner_x + dx * t;
-                let circle_y = inner_y + dy * t;
-                draw_circle(circle_x, circle_y, 1.0, BLACK);
-            }
-        }
-    }
+    draw_texture_ex(
+        &markers.render_target.texture,
+        dest_pos.x,
+        dest_pos.y,
+        WHITE,
+        DrawTextureParams {
+            dest_size: Some(vec2(scaled_texture_size, scaled_texture_size)),
+            ..Default::default()
+        },
+    );
 }
 
 fn get_flash_params(severity: f32, flash_start_threshold: f32) -> (f32, bool) {

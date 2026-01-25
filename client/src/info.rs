@@ -1,4 +1,4 @@
-mod circles;
+pub mod circles;
 mod crosshairs;
 pub mod map;
 
@@ -13,7 +13,7 @@ const BASE_INDENTATION: f32 = 10.0;
 const BASE_PADDING: f32 = 10.0;
 const BASE_CIRCLE_TOP_OFFSET: f32 = 29.0; // Top circle center minus indentation.
 const BASE_CIRCLE_GAP: f32 = 48.0;
-const BASE_CIRCLE_RADIUS: f32 = 18.0;
+pub const BASE_CIRCLE_RADIUS: f32 = 18.0;
 const BASE_STAT_FONT_SIZE: u16 = 16;
 const BASE_MAP_TO_STATS_GAP: f32 = 40.0;
 pub const FONT_SIZE: f32 = 6.0;
@@ -90,6 +90,7 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate, estimated_serve
         x,
         circle_top + circle_gap * 3.0,
         circle_radius,
+        &game_state.timer_markers,
     );
 
     pop_camera_state();
