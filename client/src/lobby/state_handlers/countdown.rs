@@ -20,6 +20,9 @@ pub fn handle(
         end_time,
         game_data,
         maze_meshes: _,
+        maze_meshes_escape: _,
+        map_overlay: _,
+        map_overlay_escape: _,
         sky_mesh: _,
     } = lobby_state
     else {
@@ -105,6 +108,9 @@ mod tests {
             end_time,
             game_data: InitialData::default(),
             maze_meshes: None,
+            maze_meshes_escape: None,
+            map_overlay: None,
+            map_overlay_escape: None,
             sky_mesh: sky::generate_sky(None, sky_colors),
         })
     }

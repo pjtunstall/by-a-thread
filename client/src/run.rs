@@ -227,15 +227,28 @@ impl ClientRunner {
         self.session.clock.sim_tick = sim_tick;
         self.last_updated = Instant::now();
 
-        let (initial_data, maze_meshes, sky_mesh) = match &mut self.session.state {
+        let (
+            initial_data,
+            maze_meshes,
+            maze_meshes_escape,
+            map_overlay,
+            map_overlay_escape,
+            sky_mesh,
+        ) = match &mut self.session.state {
             ClientState::Lobby(Lobby::Countdown {
                 game_data,
                 maze_meshes,
+                maze_meshes_escape,
+                map_overlay,
+                map_overlay_escape,
                 sky_mesh,
                 ..
             }) => (
                 std::mem::take(game_data),
                 maze_meshes.take(),
+                maze_meshes_escape.take(),
+                map_overlay.take(),
+                map_overlay_escape.take(),
                 std::mem::replace(sky_mesh, sky::generate_sky(None, sky::sky_colors(1))), // Default to level 1
             ),
             other => {
@@ -248,6 +261,11 @@ impl ClientRunner {
         };
 
         let maze_meshes = maze_meshes.expect("maze meshes should be built during countdown");
+        let maze_meshes_escape =
+            maze_meshes_escape.expect("sudden death maze meshes should be built during countdown");
+        let map_overlay = map_overlay.expect("map overlay should be built during countdown");
+        let map_overlay_escape =
+            map_overlay_escape.expect("sudden death map overlay should be built during countdown");
 
         let Some(local_player_index) = initial_data
             .players
@@ -260,7 +278,6 @@ impl ClientRunner {
             return Err(());
         };
 
-        let map_overlay = info::map::initialize_map(&initial_data.maze, &self.assets.map_font);
         let timer_markers = info::circles::TimerMarkers::new(info::BASE_CIRCLE_RADIUS);
         let needle_textures = info::circles::NeedleTextures::new(info::BASE_CIRCLE_RADIUS);
 
@@ -270,9 +287,11 @@ impl ClientRunner {
                 local_player_index,
                 initial_data,
                 maze_meshes,
+                maze_meshes_escape,
+                map_overlay,
+                map_overlay_escape,
                 sky_mesh,
                 sim_tick,
-                map_overlay,
                 timer_markers,
                 self.session.clock.estimated_server_time,
                 needle_textures,

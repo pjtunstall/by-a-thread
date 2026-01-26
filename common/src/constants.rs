@@ -1,5 +1,8 @@
 use std::time::Duration;
 
+// How long the last player remaining has to escape.
+pub const ESCAPE_DURATION: f32 = 90.0;
+
 // Client:
 pub const JITTER_SAFETY_MARGIN: f64 = 50.0; // Milliseconds.
 pub const INPUT_HISTORY_LENGTH: usize = 256; // 256 ticks, ~4.3s at 60Hz.

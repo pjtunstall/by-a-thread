@@ -8,6 +8,39 @@ use crate::{
     player::{self, Color, Player, WirePlayerLocal, WirePlayerRemote},
 };
 
+fn pick_exit_coords(maze: &Maze) -> (usize, usize) {
+    let grid = &maze.grid;
+    let height = grid.len();
+    let width = if height > 0 { grid[0].len() } else { 0 };
+
+    let mut candidates = Vec::new();
+
+    for z in 0..height {
+        for x in 0..width {
+            let is_edge = z == 0 || z == height - 1 || x == 0 || x == width - 1;
+            if !is_edge || grid[z][x] == 0 {
+                continue;
+            }
+
+            let has_space_neighbor = (z > 0 && grid[z - 1][x] == 0)
+                || (z + 1 < height && grid[z + 1][x] == 0)
+                || (x > 0 && grid[z][x - 1] == 0)
+                || (x + 1 < width && grid[z][x + 1] == 0);
+
+            if has_space_neighbor {
+                candidates.push((z, x));
+            }
+        }
+    }
+
+    if candidates.is_empty() {
+        (0, 0)
+    } else {
+        let idx = random_range(0..candidates.len());
+        candidates[idx]
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Snapshot {
     pub remote: Vec<WirePlayerRemote>,
@@ -19,6 +52,7 @@ pub struct InitialData {
     pub maze: Maze,
     pub players: Vec<Player>,
     pub difficulty: u8,
+    pub exit_coords: (usize, usize),
 }
 
 impl Default for InitialData {
@@ -27,6 +61,7 @@ impl Default for InitialData {
             maze: Maze::new(Algorithm::Backtrack),
             players: Vec::new(),
             difficulty: 1,
+            exit_coords: (0, 0),
         }
     }
 }
@@ -66,10 +101,13 @@ impl InitialData {
             })
             .collect();
 
+        let exit_coords = pick_exit_coords(&maze);
+
         Self {
             maze,
             players,
             difficulty: level,
+            exit_coords,
         }
     }
 }

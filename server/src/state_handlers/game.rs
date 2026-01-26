@@ -7,23 +7,41 @@ use glam::Vec3;
 use crate::{
     input,
     net::ServerNetworkHandle,
+    player::Status,
     state::{Game, ServerState},
 };
 use common::{
     bullets::{self, Bullet, check_player_collision, update_bullet_position},
     chat::MAX_CHAT_MESSAGE_BYTES,
-    constants::TICKS_PER_BROADCAST,
+    constants::{ESCAPE_DURATION, TICKS_PER_BROADCAST},
     input::sanitize,
     net::AppChannel,
     protocol::{BulletEvent, ClientMessage, ServerMessage},
     ring::WireItem,
     snapshot::Snapshot,
+    time,
 };
 
 // TODO: Consider if any of this logic belongs with the `Game` struct in `server/src/state.rs`.
 pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option<ServerState> {
     handle_reliable_messages(network, state);
     input::receive_inputs(network, state);
+
+    if !state.escape_active {
+        let alive_count = state
+            .players
+            .iter()
+            .filter(|p| matches!(p.status, Status::Alive))
+            .count();
+
+        if alive_count == 1 {
+            trigger_escape(network, state);
+        }
+    }
+
+    if state.escape_active {
+        check_escape_timer_expiration(network, state);
+    }
 
     let player_positions: Vec<(usize, Vec3)> = state
         .players
@@ -361,4 +379,94 @@ fn update_bullets(state: &mut Game, events: &mut Vec<BulletEvent>) {
 
         index += 1;
     }
+}
+
+fn trigger_escape(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
+    let (exit_z, exit_x) = state.exit_coords;
+    state.maze.grid[exit_z][exit_x] = 0;
+    state.maze.spaces.push((exit_z, exit_x));
+    state.escape_active = true;
+    let start_time = time::now_as_secs_f64();
+    state.escape_start_time = Some(start_time);
+
+    let message = ServerMessage::EscapeStarted { start_time };
+    let payload = encode_to_vec(&message, standard()).expect("failed to serialize EscapeStarted");
+    let payload_len = payload.len();
+    let recipients: Vec<u64> = state
+        .client_id_to_index
+        .keys()
+        .copied()
+        .filter(|client_id| !state.after_game_chat_clients.contains(client_id))
+        .collect();
+    let recipients_count = recipients.len();
+    for client_id in recipients {
+        network.send_message(client_id, AppChannel::ReliableOrdered, payload.clone());
+    }
+    state.note_egress_bytes(payload_len.saturating_mul(recipients_count));
+
+    println!("Sudden death activated! Timer started for 90 seconds.");
+}
+
+fn check_escape_timer_expiration(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
+    let Some(start_time) = state.escape_start_time else {
+        return;
+    };
+
+    let elapsed = time::now_as_secs_f64() - start_time;
+    if elapsed < ESCAPE_DURATION as f64 {
+        return;
+    }
+
+    let current_tick = state.current_tick;
+    let mut events = Vec::new();
+    let mut total_egress_bytes = 0usize;
+
+    for player in &mut state.players {
+        if !matches!(player.status, Status::Alive) {
+            continue;
+        }
+
+        player.health = 0;
+        player.status = Status::Dead;
+        if player.exit_tick.is_none() {
+            player.exit_tick = Some(current_tick);
+        }
+
+        let event = BulletEvent::HitPlayer {
+            bullet_id: 0,
+            tick: current_tick,
+            position: player.state.position,
+            velocity: glam::Vec3::ZERO,
+            target_index: player.index,
+            target_health: 0,
+        };
+
+        println!(
+            "Player {} killed by sudden death timer expiration.",
+            player.name
+        );
+        events.push(event);
+    }
+
+    for event in events {
+        let message = ServerMessage::BulletEvent(event);
+        let payload =
+            encode_to_vec(&message, standard()).expect("failed to serialize bullet event");
+        let payload_len = payload.len();
+        let recipients: Vec<u64> = state
+            .client_id_to_index
+            .keys()
+            .copied()
+            .filter(|client_id| !state.after_game_chat_clients.contains(client_id))
+            .collect();
+        let recipients_count = recipients.len();
+        for client_id in recipients {
+            network.send_message(client_id, AppChannel::ReliableOrdered, payload.clone());
+        }
+        total_egress_bytes =
+            total_egress_bytes.saturating_add(payload_len.saturating_mul(recipients_count));
+    }
+
+    state.note_egress_bytes(total_egress_bytes);
+    state.escape_start_time = None;
 }

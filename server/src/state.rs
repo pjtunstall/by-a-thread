@@ -83,14 +83,18 @@ pub struct Game {
     pub after_game_chat_clients: HashSet<u64>,
     pub leaderboard_sent: bool,
     pub net_stats: NetStats,
+    pub exit_coords: (usize, usize),
+    pub escape_active: bool,
+    pub escape_start_time: Option<f64>,
 }
 
 impl Game {
     pub fn new(initial_data: InitialData) -> Self {
         let current_tick = (common::time::now_as_secs_f64() / TICK_SECS) as u64;
-        let maze = initial_data.maze;
+        let mut maze = initial_data.maze;
+        let exit_coords = initial_data.exit_coords;
         let mut client_id_to_index = HashMap::new();
-        let players = initial_data
+        let players: Vec<ServerPlayer> = initial_data
             .players
             .into_iter()
             .map(|player| {
@@ -98,6 +102,21 @@ impl Game {
                 ServerPlayer::new(player, current_tick)
             })
             .collect();
+
+        let alive_count = players
+            .iter()
+            .filter(|p| matches!(p.status, Status::Alive))
+            .count();
+
+        let (escape_active, escape_start_time) = if alive_count == 1 {
+            let start_time = common::time::now_as_secs_f64();
+            let (exit_z, exit_x) = exit_coords;
+            maze.grid[exit_z][exit_x] = 0;
+            maze.spaces.push(exit_coords);
+            (true, Some(start_time))
+        } else {
+            (false, None)
+        };
 
         Self {
             maze,
@@ -110,6 +129,9 @@ impl Game {
             after_game_chat_clients: HashSet::new(),
             leaderboard_sent: false,
             net_stats: NetStats::new(),
+            exit_coords,
+            escape_active,
+            escape_start_time,
         }
     }
 

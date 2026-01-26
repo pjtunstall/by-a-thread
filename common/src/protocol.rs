@@ -83,6 +83,9 @@ pub enum ServerMessage {
     },
     BeginDifficultySelection, // Allow host to move to phase where they choose a difficulty.
     DenyDifficultySelection,  // Refuse non-host client who asks to choose a difficulty level.
+    EscapeStarted {
+        start_time: f64,
+    },
 }
 
 impl ServerMessage {
@@ -104,6 +107,7 @@ impl ServerMessage {
             Self::ServerInfo { .. } => "ServerInfo",
             Self::BeginDifficultySelection => "BeginDifficultySelection",
             Self::DenyDifficultySelection => "DenyDifficultySelection",
+            Self::EscapeStarted { .. } => "EscapeStarted",
         }
     }
 }

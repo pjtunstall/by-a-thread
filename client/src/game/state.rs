@@ -60,6 +60,8 @@ pub struct Game {
     pub maze: Maze,
     pub start_time: f64,
     maze_meshes: MazeMeshes,
+    maze_meshes_escape: MazeMeshes,
+    map_overlay_escape: info::map::MapOverlay,
     sky: Sky,
     input_history: Ring<PlayerInput, INPUT_HISTORY_LENGTH>, // 256: ~4.3s at 60Hz.
     snapshot_buffer: NetworkBuffer<Snapshot, SNAPSHOT_BUFFER_LENGTH>, // 16 broadcasts, 0.8s at 20Hz.
@@ -80,6 +82,8 @@ pub struct Game {
     previous_local_state: StaticState,
     fov: f32,
     pub needle_textures: info::circles::NeedleTextures,
+    exit_coords: (usize, usize),
+    pub escape_active: bool,
 }
 
 impl Game {
@@ -87,16 +91,45 @@ impl Game {
         local_player_index: usize,
         initial_data: InitialData,
         maze_meshes: MazeMeshes,
+        maze_meshes_escape: MazeMeshes,
+        map_overlay: info::map::MapOverlay,
+        map_overlay_escape: info::map::MapOverlay,
         sky_mesh: Mesh,
         sim_tick: u64,
-        map_overlay: info::map::MapOverlay,
         timer_markers: info::circles::TimerMarkers,
         start_time: f64,
         needle_textures: info::circles::NeedleTextures,
     ) -> Self {
         let sky = Sky { mesh: sky_mesh };
         let players = initial_data.players;
+        let exit_coords = initial_data.exit_coords;
         let previous_local_state = StaticState::new(&players[local_player_index]);
+
+        let alive_count = players.iter().filter(|p| p.is_alive()).count();
+        let escape_active = alive_count == 1;
+
+        let (maze, maze_meshes, maze_meshes_escape, map_overlay, map_overlay_escape) =
+            if escape_active {
+                println!("Game starting with 1 player - sudden death active immediately.");
+                let mut maze_sd = initial_data.maze;
+                maze_sd.grid[exit_coords.0][exit_coords.1] = 0;
+                maze_sd.spaces.push(exit_coords);
+                (
+                    maze_sd,
+                    maze_meshes_escape,
+                    maze_meshes,
+                    map_overlay_escape,
+                    map_overlay,
+                )
+            } else {
+                (
+                    initial_data.maze,
+                    maze_meshes,
+                    maze_meshes_escape,
+                    map_overlay,
+                    map_overlay_escape,
+                )
+            };
 
         Self {
             // `snapshot_buffer.head` will be reset when the first snapshot is
@@ -106,11 +139,13 @@ impl Game {
             // correct 64-bit storage id.
             snapshot_buffer: NetworkBuffer::new(sim_tick, 0),
             local_player_index,
-            maze: initial_data.maze,
+            maze,
             maze_meshes,
+            maze_meshes_escape,
+            map_overlay,
+            map_overlay_escape,
             sky,
             players,
-            map_overlay,
             timer_markers,
             input_history: Ring::new(),
             is_first_snapshot_received: false,
@@ -131,6 +166,8 @@ impl Game {
             fov: NORMAL_FOV,
             start_time,
             needle_textures,
+            exit_coords,
+            escape_active,
         }
     }
 
@@ -336,6 +373,9 @@ impl Game {
                     if let Some(player) = self.players.iter_mut().find(|p| p.name == username) {
                         player.disconnected = true;
                     }
+                }
+                Ok((ServerMessage::EscapeStarted { start_time }, _)) => {
+                    self.handle_escape_started(start_time);
                 }
                 Ok((other, _)) => {
                     eprintln!(
@@ -970,6 +1010,18 @@ impl Game {
 
     fn handle_bullet_expire_event(&mut self, bullet_id: u32) {
         self.bullets.retain(|b| b.id != Some(bullet_id));
+    }
+
+    fn handle_escape_started(&mut self, start_time: f64) {
+        self.escape_active = true;
+        self.start_time = start_time;
+
+        let (exit_z, exit_x) = self.exit_coords;
+        self.maze.grid[exit_z][exit_x] = 0;
+        self.maze.spaces.push(self.exit_coords);
+
+        std::mem::swap(&mut self.maze_meshes, &mut self.maze_meshes_escape);
+        std::mem::swap(&mut self.map_overlay, &mut self.map_overlay_escape);
     }
 }
 
