@@ -9,14 +9,14 @@ pub struct MapOverlay {
     pub rect: Rect,
 }
 
-pub fn initialize_map(maze: &Maze, map_font: &Font) -> MapOverlay {
+pub fn initialize_map(maze: &Maze, font: &Font) -> MapOverlay {
     let padding = 10.0;
     let x_indentation = 10.0;
     let y_indentation = 10.0;
     let line_height = FONT_SIZE;
 
-    let wall_metrics = measure_text(WALL_SYMBOL, Some(map_font), FONT_SIZE as u16, 1.0);
-    let space_metrics = measure_text(SPACE_SYMBOL, Some(map_font), FONT_SIZE as u16, 1.0);
+    let wall_metrics = measure_text(WALL_SYMBOL, Some(font), FONT_SIZE as u16, 1.0);
+    let space_metrics = measure_text(SPACE_SYMBOL, Some(font), FONT_SIZE as u16, 1.0);
     let symbol_width = wall_metrics.width.max(space_metrics.width);
 
     let total_width = ((RADIUS * 2 + 1) as f32) * symbol_width;
@@ -53,7 +53,7 @@ pub fn initialize_map(maze: &Maze, map_font: &Font) -> MapOverlay {
                 x_pos,
                 y_pos,
                 TextParams {
-                    font: Some(map_font),
+                    font: Some(font),
                     font_size: FONT_SIZE as u16,
                     color: BLACK,
                     ..Default::default()
