@@ -61,6 +61,8 @@ This provides users with easy access to all required licenses while maintaining 
 
 This section describes how to build and install the Debian package for By a Thread on Linux systems. The package includes the game binary, assets, icon, and desktop file for easy installation.
 
+Once installed, you should see an icon in your applications menu. Click it to launch the game. Note that, when you launch the game, it a plain icon with a cogwheel will appear in your taskbar, to represent the game instance, rather than a dot appearing beside the icon you clicked to launch it. As I understand it, this is because Macroquad, the library I used for window management, doesn't support full taskbar integration.
+
 ### Build files
 
 The Linux Debian package build, in particular, involves these components of the `client` directory:
