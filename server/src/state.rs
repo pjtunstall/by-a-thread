@@ -86,6 +86,7 @@ pub struct Game {
     pub exit_coords: (usize, usize),
     pub escape_active: bool,
     pub escape_start_time: Option<f64>,
+    pub timer_expiration_tick: Option<u64>,
 }
 
 impl Game {
@@ -132,6 +133,7 @@ impl Game {
             exit_coords,
             escape_active,
             escape_start_time,
+            timer_expiration_tick: None,
         }
     }
 
@@ -235,18 +237,22 @@ impl Game {
 
         entries.sort_by(|a, b| b.ticks_survived.cmp(&a.ticks_survived));
 
-        if let Some(survivor) = entries.first_mut() {
-            if let Some(survivor_player) = self.players.iter().find(|p| p.name == survivor.username)
-            {
-                let escaped = self.maze.is_outside(
-                    survivor_player.state.position.x,
-                    survivor_player.state.position.z,
-                );
-                survivor.exit_reason = if escaped {
-                    AfterGameExitReason::Winner
-                } else {
-                    AfterGameExitReason::Minotaured
-                };
+        // Only apply winner/minotaured to players who were killed by the timer.
+        if let Some(timer_tick) = self.timer_expiration_tick {
+            for entry in &mut entries {
+                if let Some(player) = self.players.iter().find(|p| p.name == entry.username) {
+                    // Check if this player died from the timer expiration.
+                    if player.exit_tick == Some(timer_tick) {
+                        let escaped = self
+                            .maze
+                            .is_outside(player.state.position.x, player.state.position.z);
+                        entry.exit_reason = if escaped {
+                            AfterGameExitReason::Winner
+                        } else {
+                            AfterGameExitReason::Minotaured
+                        };
+                    }
+                }
             }
         }
 

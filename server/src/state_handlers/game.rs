@@ -463,5 +463,6 @@ fn check_escape_timer_expiration(network: &mut dyn ServerNetworkHandle, state: &
     }
 
     state.note_egress_bytes(total_egress_bytes);
+    state.timer_expiration_tick = Some(current_tick);
     state.escape_start_time = None;
 }
