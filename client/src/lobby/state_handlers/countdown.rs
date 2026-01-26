@@ -35,9 +35,6 @@ pub fn handle(
                 message: "maze data is missing".to_string(),
             });
         }
-
-        // Meshes are now created when transitioning to countdown state,
-        // so we don't need to recreate them here
     }
 
     if network.is_disconnected() {

@@ -6,6 +6,7 @@ use macroquad::{
 
 pub struct Assets {
     pub font: Font,
+    pub bold_font: Font,
     pub map_font: Font,
     pub bull_texture: Texture2D,
     pub ball_texture: Texture2D,
@@ -26,6 +27,13 @@ pub mod embedded_assets {
     pub async fn load_font() -> Font {
         load_ttf_font_from_bytes(include_bytes!(
             "../assets/fonts/PF Hellenica Serif Pro Regular.ttf"
+        ))
+        .expect("failed to load font")
+    }
+
+    pub async fn load_bold_font() -> Font {
+        load_ttf_font_from_bytes(include_bytes!(
+            "../assets/fonts/PF Hellenica Serif Pro Bold.ttf"
         ))
         .expect("failed to load font")
     }
@@ -137,6 +145,20 @@ mod file_assets {
                 .expect("failed to load font")
         } else {
             load_ttf_font("assets/fonts/PF Hellenica Serif Pro Regular.ttf")
+                .await
+                .expect("failed to load font")
+        }
+    }
+
+    pub async fn load_bold_font() -> Font {
+        let font_path =
+            std::path::Path::new("/usr/lib/by-a-thread/fonts/PF Hellenica Serif Pro Bold.ttf");
+        if font_path.exists() {
+            load_ttf_font("/usr/lib/by-a-thread/fonts/PF Hellenica Serif Pro Bold.ttf")
+                .await
+                .expect("failed to load font")
+        } else {
+            load_ttf_font("assets/fonts/PF Hellenica Serif Pro Bold.ttf")
                 .await
                 .expect("failed to load font")
         }
@@ -296,6 +318,7 @@ impl Assets {
 
         Self {
             font: load_font().await,
+            bold_font: load_bold_font().await,
             map_font: load_map_font().await,
             bull_texture: load_bull_texture().await,
             ball_texture: load_ball_texture().await,

@@ -2,13 +2,9 @@
 
 ## Fonts
 
-PF Hellenica Serif Pro Regular was designed by Panos Vassiliou and is part of the Adope Fonts library. It's the main font that I used for my UI.
+PF Hellenica Serif Pro was designed by Panos Vassiliou and is part of the Adope Fonts library. I used it--in its Regular and Bold variants--as the main font for my game. PF Hellenica Serif Pro licensed under the [Adobe Fonts License](https://fonts.adobe.com/fonts/pf-hellenica#licensing-section) and is cleared for personal and commercial use.
 
-This font is licensed under the [Adobe Fonts License](https://fonts.adobe.com/fonts/pf-hellenica#licensing-section) and is cleared for personal and commercial use.
-
-NotoSerifBold is part of the NotoSerif font family, copyright 2012 Google inc. I used it specifically for the in-game map.
-
-This font is licensed under the Apache License, Version 2.0 (the "License"). You may not use this font file except in compliance with the License. You can obtain a copy of the License at:
+NotoSerifBold is part of the NotoSerif font family, copyright 2012 Google inc. I used it specifically for the in-game map. This one is licensed under the Apache License, Version 2.0 (the "License"). You may not use this font file except in compliance with the License. You can obtain a copy of the License at:
 
     [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0)
 
