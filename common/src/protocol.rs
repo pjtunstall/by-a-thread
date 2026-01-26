@@ -1,5 +1,6 @@
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
+use strum::Display;
 
 use crate::{
     player::{Color, PlayerInput},
@@ -20,7 +21,8 @@ pub fn auth_success_message(max_username_length: usize) -> String {
     )
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Display)]
+#[strum(serialize_all = "lowercase")]
 pub enum AfterGameExitReason {
     Disconnected,
     Slain,

@@ -14,7 +14,7 @@ use common::{
     chat::MAX_CHAT_MESSAGE_BYTES,
     constants::TICK_SECS,
     net::AppChannel,
-    protocol::{AfterGameExitReason, ClientMessage, ServerMessage},
+    protocol::{ClientMessage, ServerMessage},
 };
 
 #[derive(Debug)]
@@ -131,19 +131,13 @@ fn handle(
                 ui.show_sanitized_message("Leaderboard:");
                 for (rank, entry) in entries.iter().enumerate() {
                     let seconds = entry.ticks_survived as f64 * TICK_SECS;
-                    let reason = match entry.exit_reason {
-                        AfterGameExitReason::Disconnected => "disconnected",
-                        AfterGameExitReason::Slain => "slain",
-                        AfterGameExitReason::Winner => "winner",
-                        AfterGameExitReason::Minotaured => "minotaured",
-                    };
                     ui.show_sanitized_message_with_color(
                         &format!(
                             "  {}. {}  {:.1}s  ({})",
                             rank + 1,
                             entry.username,
                             seconds,
-                            reason
+                            entry.exit_reason
                         ),
                         entry.color,
                     );
