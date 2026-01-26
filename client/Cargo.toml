@@ -34,7 +34,6 @@ assets = [
     ["target/release/ByAThread", "usr/lib/by-a-thread/ByAThread", "755"],
     ["icon.png", "usr/share/icons/hicolor/256x256/apps/by-a-thread.png", "644"],
     ["by-a-thread.desktop", "usr/share/applications/by-a-thread.desktop", "644"],
-    ["assets/fonts/PF Hellenica Serif Pro Regular.ttf", "usr/lib/by-a-thread/fonts/PF Hellenica Serif Pro Regular.ttf", "644"],
     ["assets/fonts/PF Hellenica Serif Pro Bold.ttf", "usr/lib/by-a-thread/fonts/PF Hellenica Serif Pro Bold.ttf", "644"],
     ["assets/fonts/NotoSerifBold-MmDx.ttf", "usr/lib/by-a-thread/fonts/NotoSerifBold-MmDx.ttf", "644"],
 ["assets/fonts/LICENSE.txt", "usr/lib/by-a-thread/fonts/LICENSE.txt", "644"],

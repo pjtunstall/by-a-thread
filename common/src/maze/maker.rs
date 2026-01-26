@@ -163,7 +163,7 @@ impl MazeMaker {
 
         let i = self.rng.random_range(0..cells.len());
         let cell = cells[i];
-        cells.remove(i);
+        cells.swap_remove(i);
 
         Some(cell)
     }

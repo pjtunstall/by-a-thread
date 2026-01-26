@@ -7,11 +7,13 @@ pub trait Backtrack {
 impl Backtrack for MazeMaker {
     fn backtrack(&mut self) {
         let mut stack = Vec::new();
-
         let mut cells = self.get_cells();
+
         let initial_cell = self
             .pick_out_cell(&mut cells)
             .expect("should always be some cells unless the grid was malformed");
+
+        self.visit_cell(initial_cell);
         stack.push(initial_cell);
 
         while let Some(curr) = stack.pop() {
