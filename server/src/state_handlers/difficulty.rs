@@ -57,11 +57,8 @@ pub fn handle(
                     println!("Host selected difficulty {}.", level);
                     state.set_difficulty(level);
 
-                    let game_data = InitialData::new(
-                        &state.lobby.usernames,
-                        state.lobby.colors(),
-                        level,
-                    );
+                    let game_data =
+                        InitialData::new(&state.lobby.usernames, state.lobby.colors(), level);
 
                     println!("\n{}", game_data.maze);
                     println!();
@@ -69,7 +66,7 @@ pub fn handle(
                         println!("{:#?}\n", player);
                     }
 
-                    let countdown_duration = Duration::from_secs(11);
+                    let countdown_duration = Duration::from_secs(0);
                     let end_time_instant = Instant::now() + countdown_duration;
 
                     return Some(ServerState::Countdown(Countdown::new(

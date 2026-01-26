@@ -144,7 +144,7 @@ mod file_assets {
                 .await
                 .expect("failed to load font")
         } else {
-            load_ttf_font("assets/fonts/PF Hellenica Serif Pro Regular.ttf")
+            load_ttf_font("client/assets/fonts/PF Hellenica Serif Pro Regular.ttf")
                 .await
                 .expect("failed to load font")
         }
@@ -158,7 +158,7 @@ mod file_assets {
                 .await
                 .expect("failed to load font")
         } else {
-            load_ttf_font("assets/fonts/PF Hellenica Serif Pro Bold.ttf")
+            load_ttf_font("client/assets/fonts/PF Hellenica Serif Pro Bold.ttf")
                 .await
                 .expect("failed to load font")
         }
@@ -171,7 +171,7 @@ mod file_assets {
                 .await
                 .expect("failed to load map font")
         } else {
-            load_ttf_font("assets/fonts/NotoSerifBold-MmDx.ttf")
+            load_ttf_font("client/assets/fonts/NotoSerifBold-MmDx.ttf")
                 .await
                 .expect("failed to load map font")
         }
@@ -184,7 +184,7 @@ mod file_assets {
                 .await
                 .expect("failed to load bull texture")
         } else {
-            load_texture("assets/images/bull.png")
+            load_texture("client/assets/images/bull.png")
                 .await
                 .expect("failed to load bull texture")
         }
@@ -197,7 +197,7 @@ mod file_assets {
                 .await
                 .expect("failed to load ball texture")
         } else {
-            load_texture("assets/images/ball.png")
+            load_texture("client/assets/images/ball.png")
                 .await
                 .expect("failed to load ball texture")
         }
@@ -210,7 +210,7 @@ mod file_assets {
                 .await
                 .expect("failed to load griffin texture")
         } else {
-            load_texture("assets/images/griffin.png")
+            load_texture("client/assets/images/griffin.png")
                 .await
                 .expect("failed to load griffin texture")
         }
@@ -223,7 +223,7 @@ mod file_assets {
                 .await
                 .expect("failed to load blue rust texture")
         } else {
-            load_texture("assets/images/rust-blue.png")
+            load_texture("client/assets/images/rust-blue.png")
                 .await
                 .expect("failed to load blue rust texture")
         }
@@ -236,7 +236,7 @@ mod file_assets {
                 .await
                 .expect("failed to load white rust texture")
         } else {
-            load_texture("assets/images/rust-white.png")
+            load_texture("client/assets/images/rust-white.png")
                 .await
                 .expect("failed to load white rust texture")
         }
@@ -249,7 +249,7 @@ mod file_assets {
                 .await
                 .expect("failed to load gun sound")
         } else {
-            load_sfx_from_file("assets/sfx/gun.wav")
+            load_sfx_from_file("client/assets/sfx/gun.wav")
                 .await
                 .expect("failed to load gun sound")
         }
@@ -262,7 +262,7 @@ mod file_assets {
                 .await
                 .expect("failed to load clang sound")
         } else {
-            load_sfx_from_file("assets/sfx/clang.wav")
+            load_sfx_from_file("client/assets/sfx/clang.wav")
                 .await
                 .expect("failed to load clang sound")
         }
@@ -275,7 +275,7 @@ mod file_assets {
                 .await
                 .expect("failed to load deep clang sound")
         } else {
-            load_sfx_from_file("assets/sfx/deep_clang.wav")
+            load_sfx_from_file("client/assets/sfx/deep_clang.wav")
                 .await
                 .expect("failed to load deep clang sound")
         }
@@ -288,7 +288,7 @@ mod file_assets {
                 .await
                 .expect("failed to load shatter sound")
         } else {
-            load_sfx_from_file("assets/sfx/shatter.wav")
+            load_sfx_from_file("client/assets/sfx/shatter.wav")
                 .await
                 .expect("failed to load shatter sound")
         }
@@ -301,7 +301,7 @@ mod file_assets {
                 .await
                 .expect("failed to load bell sound")
         } else {
-            load_sfx_from_file("assets/sfx/bell.wav")
+            load_sfx_from_file("client/assets/sfx/bell.wav")
                 .await
                 .expect("failed to load bell sound")
         }
