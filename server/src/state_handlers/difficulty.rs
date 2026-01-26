@@ -66,7 +66,7 @@ pub fn handle(
                         println!("{:#?}\n", player);
                     }
 
-                    let countdown_duration = Duration::from_secs(0);
+                    let countdown_duration = Duration::from_secs(11);
                     let end_time_instant = Instant::now() + countdown_duration;
 
                     return Some(ServerState::Countdown(Countdown::new(

@@ -6,7 +6,6 @@ use macroquad::{
 
 pub struct Assets {
     pub font: Font,
-    pub bold_font: Font,
     pub map_font: Font,
     pub bull_texture: Texture2D,
     pub ball_texture: Texture2D,
@@ -20,18 +19,36 @@ pub struct Assets {
     pub bell_sound: Sound,
 }
 
+impl Assets {
+    pub async fn load() -> Self {
+        #[cfg(target_os = "windows")]
+        use embedded_assets::*;
+
+        #[cfg(not(target_os = "windows"))]
+        use file_assets::*;
+
+        Self {
+            font: load_font().await,
+            map_font: load_map_font().await,
+            bull_texture: load_bull_texture().await,
+            ball_texture: load_ball_texture().await,
+            griffin_texture: load_griffin_texture().await,
+            blue_rust_texture: load_blue_rust_texture().await,
+            white_rust_texture: load_white_rust_texture().await,
+            gun_sound: load_gun_sound().await,
+            clang: load_clang().await,
+            deep_clang: load_deep_clang().await,
+            shatter_sound: load_shatter_sound().await,
+            bell_sound: load_bell_sound().await,
+        }
+    }
+}
+
 #[cfg(target_os = "windows")]
 pub mod embedded_assets {
     use super::*;
 
     pub async fn load_font() -> Font {
-        load_ttf_font_from_bytes(include_bytes!(
-            "../assets/fonts/PF Hellenica Serif Pro Regular.ttf"
-        ))
-        .expect("failed to load font")
-    }
-
-    pub async fn load_bold_font() -> Font {
         load_ttf_font_from_bytes(include_bytes!(
             "../assets/fonts/PF Hellenica Serif Pro Bold.ttf"
         ))
@@ -137,20 +154,6 @@ mod file_assets {
     use super::*;
 
     pub async fn load_font() -> Font {
-        let font_path =
-            std::path::Path::new("/usr/lib/by-a-thread/fonts/PF Hellenica Serif Pro Regular.ttf");
-        if font_path.exists() {
-            load_ttf_font("/usr/lib/by-a-thread/fonts/PF Hellenica Serif Pro Regular.ttf")
-                .await
-                .expect("failed to load font")
-        } else {
-            load_ttf_font("client/assets/fonts/PF Hellenica Serif Pro Regular.ttf")
-                .await
-                .expect("failed to load font")
-        }
-    }
-
-    pub async fn load_bold_font() -> Font {
         let font_path =
             std::path::Path::new("/usr/lib/by-a-thread/fonts/PF Hellenica Serif Pro Bold.ttf");
         if font_path.exists() {
@@ -304,32 +307,6 @@ mod file_assets {
             load_sfx_from_file("client/assets/sfx/bell.wav")
                 .await
                 .expect("failed to load bell sound")
-        }
-    }
-}
-
-impl Assets {
-    pub async fn load() -> Self {
-        #[cfg(target_os = "windows")]
-        use embedded_assets::*;
-
-        #[cfg(not(target_os = "windows"))]
-        use file_assets::*;
-
-        Self {
-            font: load_font().await,
-            bold_font: load_bold_font().await,
-            map_font: load_map_font().await,
-            bull_texture: load_bull_texture().await,
-            ball_texture: load_ball_texture().await,
-            griffin_texture: load_griffin_texture().await,
-            blue_rust_texture: load_blue_rust_texture().await,
-            white_rust_texture: load_white_rust_texture().await,
-            gun_sound: load_gun_sound().await,
-            clang: load_clang().await,
-            deep_clang: load_deep_clang().await,
-            shatter_sound: load_shatter_sound().await,
-            bell_sound: load_bell_sound().await,
         }
     }
 }
