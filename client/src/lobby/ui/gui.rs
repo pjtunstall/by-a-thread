@@ -353,18 +353,18 @@ impl Gui {
                     continue;
                 }
 
-                // Word doesn't fit - need to handle wrapping.
+                // Word doesn't fit: need to handle wrapping.
                 let word_width = self.measure_text_strict(&word, font);
                 let is_at_prompt_only = current_line.trim() == ">";
                 let word_fits_on_new_line = word_width <= max_width;
 
-                // Case 2: Standard wrap - word fits on a new line and is not
+                // Case 2: Standard wrap: word fits on a new line and is not
                 // the prompt, >, so add it to the current line.
                 if word_fits_on_new_line && !is_at_prompt_only {
                     wrapped_lines.push(current_line);
                     current_line = word.to_string();
                 }
-                // Case 3: Force-split - either word is too wide OR we're at the prompt.
+                // Case 3: Force-split: either word is too wide OR we're at the prompt.
                 else {
                     // We enter this case when EITHER:
                     // a) The word is wider than the entire screen width, OR

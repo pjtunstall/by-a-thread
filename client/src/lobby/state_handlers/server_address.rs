@@ -81,7 +81,7 @@ fn parse_server_address(
     }
 
     Err(format!(
-        "Invalid address. Press Enter, or Tab, or enter an IP like 192.168.0.10:5000.",
+        "Invalid address. Press Enter, or Tab, or choose an IP like 192.168.0.10:5000.",
     ))
 }
 

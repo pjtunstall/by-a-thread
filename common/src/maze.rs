@@ -34,6 +34,13 @@ impl Maze {
         Self { grid, spaces }
     }
 
+    pub fn is_outside(&self, x: f32, z: f32) -> bool {
+        x < 0.0
+            || z < 0.0
+            || x > self.grid[0].len() as f32 * CELL_SIZE
+            || z > self.grid.len() as f32 * CELL_SIZE
+    }
+
     pub fn position_from_grid_coordinates(&self, height: f32, z: usize, x: usize) -> Option<Vec3> {
         if self.spaces.is_empty() {
             None

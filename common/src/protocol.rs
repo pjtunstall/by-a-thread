@@ -25,6 +25,7 @@ pub enum AfterGameExitReason {
     Disconnected,
     Slain,
     Winner,
+    Minotaured,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

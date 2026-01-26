@@ -234,9 +234,22 @@ impl Game {
             .collect::<Vec<_>>();
 
         entries.sort_by(|a, b| b.ticks_survived.cmp(&a.ticks_survived));
-        if let Some(winner) = entries.first_mut() {
-            winner.exit_reason = AfterGameExitReason::Winner;
+
+        if let Some(survivor) = entries.first_mut() {
+            if let Some(survivor_player) = self.players.iter().find(|p| p.name == survivor.username)
+            {
+                let escaped = self.maze.is_outside(
+                    survivor_player.state.position.x,
+                    survivor_player.state.position.z,
+                );
+                survivor.exit_reason = if escaped {
+                    AfterGameExitReason::Winner
+                } else {
+                    AfterGameExitReason::Minotaured
+                };
+            }
         }
+
         entries
     }
 }

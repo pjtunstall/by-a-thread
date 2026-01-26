@@ -440,11 +440,6 @@ fn check_escape_timer_expiration(network: &mut dyn ServerNetworkHandle, state: &
             target_index: player.index,
             target_health: 0,
         };
-
-        println!(
-            "Player {} killed by sudden death timer expiration.",
-            player.name
-        );
         events.push(event);
     }
 

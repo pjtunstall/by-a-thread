@@ -135,6 +135,7 @@ fn handle(
                         AfterGameExitReason::Disconnected => "disconnected",
                         AfterGameExitReason::Slain => "slain",
                         AfterGameExitReason::Winner => "winner",
+                        AfterGameExitReason::Minotaured => "minotaured",
                     };
                     ui.show_sanitized_message_with_color(
                         &format!(
