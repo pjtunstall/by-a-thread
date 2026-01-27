@@ -10,8 +10,8 @@ use common::{input::UiKey, player::Color as PlayerColor};
 
 const PROMPT: &str = "> ";
 const FONT_SIZE: f32 = 24.0;
-const SIDE_PAD: f32 = 10.0;
-const BOTTOM_PAD: f32 = 20.0;
+const SIDE_PAD: f32 = 40.0;
+const BOTTOM_PAD: f32 = 80.0;
 
 const TEXT_COLOR: Color = WHITE;
 const WARNING_COLOR: Color = YELLOW;
