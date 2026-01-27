@@ -89,18 +89,17 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate, estimated_serve
         &assets.font,
         stat_font_size,
     );
-
-    if game_state.escape_active {
-        circles::draw_timer(
-            estimated_server_time,
-            game_state.start_time,
-            x,
-            circle_top + circle_gap * 3.0,
-            circle_radius,
-            &game_state.timer_markers,
-            &game_state.needle_textures,
-        );
-    }
+    
+    circles::draw_timer(
+        estimated_server_time,
+        game_state.start_time,
+        game_state.timer_duration,
+        x,
+        circle_top + circle_gap * 3.0,
+        circle_radius,
+        &game_state.timer_markers,
+        &game_state.needle_textures,
+    );
 
     pop_camera_state();
 }

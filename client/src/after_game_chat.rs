@@ -129,12 +129,19 @@ fn handle(
             }
             Ok((ServerMessage::AfterGameLeaderboard { entries }, _)) => {
                 ui.show_sanitized_message("Leaderboard:");
-                for (rank, entry) in entries.iter().enumerate() {
+                let mut current_rank = 0;
+                let mut prev_ticks: Option<u64> = None;
+                for entry in entries.iter() {
+                    if prev_ticks != Some(entry.ticks_survived) {
+                        current_rank += 1;
+                    }
+                    prev_ticks = Some(entry.ticks_survived);
+
                     let seconds = entry.ticks_survived as f64 * TICK_SECS;
                     ui.show_sanitized_message_with_color(
                         &format!(
                             "  {}. {}  {:.1}s  ({})",
-                            rank + 1,
+                            current_rank,
                             entry.username,
                             seconds,
                             entry.exit_reason

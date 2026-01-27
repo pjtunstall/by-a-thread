@@ -13,7 +13,7 @@ use crate::{
 use common::{
     bullets::{self, Bullet, check_player_collision, update_bullet_position},
     chat::MAX_CHAT_MESSAGE_BYTES,
-    constants::{ESCAPE_DURATION, TICKS_PER_BROADCAST},
+    constants::TICKS_PER_BROADCAST,
     input::sanitize,
     net::AppChannel,
     protocol::{BulletEvent, ClientMessage, ServerMessage},
@@ -27,21 +27,7 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
     handle_reliable_messages(network, state);
     input::receive_inputs(network, state);
 
-    if !state.escape_active {
-        let alive_count = state
-            .players
-            .iter()
-            .filter(|p| matches!(p.status, Status::Alive))
-            .count();
-
-        if alive_count == 1 {
-            trigger_escape(network, state);
-        }
-    }
-
-    if state.escape_active {
-        check_escape_timer_expiration(network, state);
-    }
+    check_timer_expiration(network, state);
 
     let player_positions: Vec<(usize, Vec3)> = state
         .players
@@ -143,6 +129,8 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
             state.note_egress_bytes(payload_len.saturating_mul(recipients_count));
         }
     }
+
+    check_multiplayer_winner(network, state);
 
     // Only send snapshots every third tick.
     if state.current_tick % TICKS_PER_BROADCAST == 0 {
@@ -381,16 +369,36 @@ fn update_bullets(state: &mut Game, events: &mut Vec<BulletEvent>) {
     }
 }
 
-fn trigger_escape(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
-    let (exit_z, exit_x) = state.exit_coords;
-    state.maze.grid[exit_z][exit_x] = 0;
-    state.maze.spaces.push((exit_z, exit_x));
-    state.escape_active = true;
-    let start_time = time::now_as_secs_f64();
-    state.escape_start_time = Some(start_time);
+fn check_multiplayer_winner(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
+    if state.is_solo_mode {
+        return;
+    }
 
-    let message = ServerMessage::EscapeStarted { start_time };
-    let payload = encode_to_vec(&message, standard()).expect("failed to serialize EscapeStarted");
+    let alive_players: Vec<usize> = state
+        .players
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| matches!(p.status, Status::Alive))
+        .map(|(i, _)| i)
+        .collect();
+
+    if alive_players.len() != 1 {
+        return;
+    }
+
+    let winner_index = alive_players[0];
+    state.winner_index = Some(winner_index);
+    
+    let winner = &mut state.players[winner_index];
+    
+    println!("Player {} wins! Last survivor in multiplayer.", winner.name);
+
+    winner.health = 0;
+    winner.status = Status::Dead;
+    winner.exit_tick = Some(state.current_tick);
+
+    let message = ServerMessage::Victory { winner_index };
+    let payload = encode_to_vec(&message, standard()).expect("failed to serialize victory message");
     let payload_len = payload.len();
     let recipients: Vec<u64> = state
         .client_id_to_index
@@ -403,17 +411,15 @@ fn trigger_escape(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
         network.send_message(client_id, AppChannel::ReliableOrdered, payload.clone());
     }
     state.note_egress_bytes(payload_len.saturating_mul(recipients_count));
-
-    println!("Sudden death activated! Timer started for 90 seconds.");
 }
 
-fn check_escape_timer_expiration(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
-    let Some(start_time) = state.escape_start_time else {
+fn check_timer_expiration(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
+    if state.timer_expiration_tick.is_some() {
         return;
-    };
+    }
 
-    let elapsed = time::now_as_secs_f64() - start_time;
-    if elapsed < ESCAPE_DURATION as f64 {
+    let elapsed = time::now_as_secs_f64() - state.timer_start_time;
+    if elapsed < state.timer_duration as f64 {
         return;
     }
 
@@ -428,9 +434,7 @@ fn check_escape_timer_expiration(network: &mut dyn ServerNetworkHandle, state: &
 
         player.health = 0;
         player.status = Status::Dead;
-        if player.exit_tick.is_none() {
-            player.exit_tick = Some(current_tick);
-        }
+        player.exit_tick = Some(current_tick);
 
         let event = BulletEvent::HitPlayer {
             bullet_id: 0,
@@ -440,6 +444,8 @@ fn check_escape_timer_expiration(network: &mut dyn ServerNetworkHandle, state: &
             target_index: player.index,
             target_health: 0,
         };
+
+        println!("Player {} killed by timer expiration.", player.name);
         events.push(event);
     }
 
@@ -464,5 +470,5 @@ fn check_escape_timer_expiration(network: &mut dyn ServerNetworkHandle, state: &
 
     state.note_egress_bytes(total_egress_bytes);
     state.timer_expiration_tick = Some(current_tick);
-    state.escape_start_time = None;
 }
+

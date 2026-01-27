@@ -4,6 +4,7 @@ use rand::random_range;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    constants::{BATTLE_TIMER_DURATION, SOLO_TIMER_DURATION},
     maze::{self, Maze, maker::Algorithm},
     player::{self, Color, Player, WirePlayerLocal, WirePlayerRemote},
 };
@@ -53,6 +54,7 @@ pub struct InitialData {
     pub players: Vec<Player>,
     pub difficulty: u8,
     pub exit_coords: (usize, usize),
+    pub timer_duration: f32,
 }
 
 impl Default for InitialData {
@@ -62,6 +64,7 @@ impl Default for InitialData {
             players: Vec::new(),
             difficulty: 1,
             exit_coords: (0, 0),
+            timer_duration: 360.0,
         }
     }
 }
@@ -77,7 +80,7 @@ impl InitialData {
             2 => Algorithm::Wilson,
             _ => Algorithm::Prim,
         };
-        let maze = maze::Maze::new(generator);
+        let mut maze = maze::Maze::new(generator);
 
         let mut spaces_remaining = maze.spaces.clone();
         let mut player_count: usize = 0;
@@ -102,12 +105,22 @@ impl InitialData {
             .collect();
 
         let exit_coords = pick_exit_coords(&maze);
+        let is_solo = player_count == 1;
+        let timer_duration = if is_solo {
+            let (exit_z, exit_x) = exit_coords;
+            maze.grid[exit_z][exit_x] = 0;
+            maze.spaces.push(exit_coords);
+            SOLO_TIMER_DURATION
+        } else {
+            BATTLE_TIMER_DURATION
+        };
 
         Self {
             maze,
             players,
             difficulty: level,
             exit_coords,
+            timer_duration,
         }
     }
 }

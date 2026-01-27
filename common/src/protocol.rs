@@ -25,9 +25,10 @@ pub fn auth_success_message(max_username_length: usize) -> String {
 #[strum(serialize_all = "lowercase")]
 pub enum AfterGameExitReason {
     Disconnected,
-    Slain,
+    Shot,
     Winner,
     Minotaured,
+    Escaped,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -86,8 +87,8 @@ pub enum ServerMessage {
     },
     BeginDifficultySelection, // Allow host to move to phase where they choose a difficulty.
     DenyDifficultySelection,  // Refuse non-host client who asks to choose a difficulty level.
-    EscapeStarted {
-        start_time: f64,
+    Victory {
+        winner_index: usize,
     },
 }
 
@@ -110,7 +111,7 @@ impl ServerMessage {
             Self::ServerInfo { .. } => "ServerInfo",
             Self::BeginDifficultySelection => "BeginDifficultySelection",
             Self::DenyDifficultySelection => "DenyDifficultySelection",
-            Self::EscapeStarted { .. } => "EscapeStarted",
+            Self::Victory { .. } => "Victory",
         }
     }
 }

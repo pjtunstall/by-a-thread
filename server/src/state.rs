@@ -83,17 +83,19 @@ pub struct Game {
     pub after_game_chat_clients: HashSet<u64>,
     pub leaderboard_sent: bool,
     pub net_stats: NetStats,
-    pub exit_coords: (usize, usize),
-    pub escape_active: bool,
-    pub escape_start_time: Option<f64>,
+    pub exit_coords: Option<(usize, usize)>,
+    pub timer_duration: f32,
+    pub timer_start_time: f64,
     pub timer_expiration_tick: Option<u64>,
+    pub is_solo_mode: bool,
+    pub winner_index: Option<usize>,
 }
 
 impl Game {
     pub fn new(initial_data: InitialData) -> Self {
         let current_tick = (common::time::now_as_secs_f64() / TICK_SECS) as u64;
-        let mut maze = initial_data.maze;
-        let exit_coords = initial_data.exit_coords;
+        let maze = initial_data.maze;
+        let timer_duration = initial_data.timer_duration;
         let mut client_id_to_index = HashMap::new();
         let players: Vec<ServerPlayer> = initial_data
             .players
@@ -104,19 +106,12 @@ impl Game {
             })
             .collect();
 
-        let alive_count = players
-            .iter()
-            .filter(|p| matches!(p.status, Status::Alive))
-            .count();
-
-        let (escape_active, escape_start_time) = if alive_count == 1 {
-            let start_time = common::time::now_as_secs_f64();
-            let (exit_z, exit_x) = exit_coords;
-            maze.grid[exit_z][exit_x] = 0;
-            maze.spaces.push(exit_coords);
-            (true, Some(start_time))
+        let is_solo_mode = players.len() == 1;
+        let timer_start_time = common::time::now_as_secs_f64();
+        let exit_coords = if is_solo_mode {
+            Some(initial_data.exit_coords)
         } else {
-            (false, None)
+            None
         };
 
         Self {
@@ -131,9 +126,11 @@ impl Game {
             leaderboard_sent: false,
             net_stats: NetStats::new(),
             exit_coords,
-            escape_active,
-            escape_start_time,
+            timer_duration,
+            timer_start_time,
             timer_expiration_tick: None,
+            is_solo_mode,
+            winner_index: None,
         }
     }
 
@@ -224,7 +221,7 @@ impl Game {
                 let ticks_survived = end_tick.saturating_sub(self.game_start_tick);
                 let exit_reason = match player.status {
                     Status::Disconnected => AfterGameExitReason::Disconnected,
-                    Status::Dead | Status::Alive => AfterGameExitReason::Slain,
+                    Status::Dead | Status::Alive => AfterGameExitReason::Shot,
                 };
                 AfterGameLeaderboardEntry {
                     username: player.name.clone(),
@@ -237,24 +234,47 @@ impl Game {
 
         entries.sort_by(|a, b| b.ticks_survived.cmp(&a.ticks_survived));
 
-        // Only apply winner/minotaured to players who were killed by the timer.
+        // Handle timer expiration deaths.
         if let Some(timer_tick) = self.timer_expiration_tick {
             for entry in &mut entries {
                 if let Some(player) = self.players.iter().find(|p| p.name == entry.username) {
-                    // Check if this player died from the timer expiration.
                     if player.exit_tick == Some(timer_tick) {
-                        let escaped = self
-                            .maze
-                            .is_outside(player.state.position.x, player.state.position.z);
-                        entry.exit_reason = if escaped {
-                            AfterGameExitReason::Winner
+                        if self.is_solo_mode {
+                            let escaped = self
+                                .maze
+                                .is_outside(player.state.position.x, player.state.position.z);
+                            entry.exit_reason = if escaped {
+                                AfterGameExitReason::Escaped
+                            } else {
+                                AfterGameExitReason::Minotaured
+                            };
                         } else {
-                            AfterGameExitReason::Minotaured
-                        };
+                            entry.exit_reason = AfterGameExitReason::Minotaured;
+                        }
                     }
                 }
             }
         }
+
+        // Mark the winner if one was determined.
+        if let Some(winner_idx) = self.winner_index {
+            if let Some(winner_player) = self.players.get(winner_idx) {
+                if let Some(winner_entry) = entries.iter_mut().find(|e| e.username == winner_player.name) {
+                    winner_entry.exit_reason = AfterGameExitReason::Winner;
+                }
+            }
+        }
+
+        // Re-sort to ensure winner is always first.
+        entries.sort_by(|a, b| {
+            let a_is_winner = matches!(a.exit_reason, AfterGameExitReason::Winner);
+            let b_is_winner = matches!(b.exit_reason, AfterGameExitReason::Winner);
+            match (a_is_winner, b_is_winner) {
+                (true, false) => std::cmp::Ordering::Less,
+                (false, true) => std::cmp::Ordering::Greater,
+                _ => b.ticks_survived.cmp(&a.ticks_survived),
+            }
+        });
 
         entries
     }

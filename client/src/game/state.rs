@@ -20,6 +20,7 @@ use crate::{
     game::input,
     game::{
         obe::ObeEffect,
+        victory::VictoryEffect,
         world::{
             avatar::{DiskMesh, OrientedSphereMesh},
             bullet::{self, BULLET_COLOR_MODE, BulletColorMode, ClientBullet},
@@ -59,9 +60,8 @@ pub struct Game {
     pub timer_markers: info::circles::TimerMarkers,
     pub maze: Maze,
     pub start_time: f64,
+    pub timer_duration: f32,
     maze_meshes: MazeMeshes,
-    maze_meshes_escape: MazeMeshes,
-    map_overlay_escape: info::map::MapOverlay,
     sky: Sky,
     input_history: Ring<PlayerInput, INPUT_HISTORY_LENGTH>, // 256: ~4.3s at 60Hz.
     snapshot_buffer: NetworkBuffer<Snapshot, SNAPSHOT_BUFFER_LENGTH>, // 16 broadcasts, 0.8s at 20Hz.
@@ -77,13 +77,12 @@ pub struct Game {
     pending_bullet_events: Vec<BulletEvent>,
     after_game_chat_sent: bool,
     obe_effect: Option<ObeEffect>,
+    victory_effect: Option<VictoryEffect>,
     player_avatar_mesh: OrientedSphereMesh,
     player_shadow_mesh: DiskMesh,
     previous_local_state: StaticState,
     fov: f32,
     pub needle_textures: info::circles::NeedleTextures,
-    exit_coords: (usize, usize),
-    pub escape_active: bool,
 }
 
 impl Game {
@@ -91,9 +90,7 @@ impl Game {
         local_player_index: usize,
         initial_data: InitialData,
         maze_meshes: MazeMeshes,
-        maze_meshes_escape: MazeMeshes,
         map_overlay: info::map::MapOverlay,
-        map_overlay_escape: info::map::MapOverlay,
         sky_mesh: Mesh,
         sim_tick: u64,
         timer_markers: info::circles::TimerMarkers,
@@ -102,34 +99,9 @@ impl Game {
     ) -> Self {
         let sky = Sky { mesh: sky_mesh };
         let players = initial_data.players;
-        let exit_coords = initial_data.exit_coords;
+        let maze = initial_data.maze;
+        let timer_duration = initial_data.timer_duration;
         let previous_local_state = StaticState::new(&players[local_player_index]);
-
-        let alive_count = players.iter().filter(|p| p.is_alive()).count();
-        let escape_active = alive_count == 1;
-
-        let (maze, maze_meshes, maze_meshes_escape, map_overlay, map_overlay_escape) =
-            if escape_active {
-                println!("Game starting with 1 player - sudden death active immediately.");
-                let mut maze_sd = initial_data.maze;
-                maze_sd.grid[exit_coords.0][exit_coords.1] = 0;
-                maze_sd.spaces.push(exit_coords);
-                (
-                    maze_sd,
-                    maze_meshes_escape,
-                    maze_meshes,
-                    map_overlay_escape,
-                    map_overlay,
-                )
-            } else {
-                (
-                    initial_data.maze,
-                    maze_meshes,
-                    maze_meshes_escape,
-                    map_overlay,
-                    map_overlay_escape,
-                )
-            };
 
         Self {
             // `snapshot_buffer.head` will be reset when the first snapshot is
@@ -141,12 +113,11 @@ impl Game {
             local_player_index,
             maze,
             maze_meshes,
-            maze_meshes_escape,
             map_overlay,
-            map_overlay_escape,
             sky,
             players,
             timer_markers,
+            timer_duration,
             input_history: Ring::new(),
             is_first_snapshot_received: false,
             last_reconciled_tick: None,
@@ -160,14 +131,13 @@ impl Game {
             pending_bullet_events: Vec::new(),
             after_game_chat_sent: false,
             obe_effect: None,
+            victory_effect: None,
             player_avatar_mesh: OrientedSphereMesh::new(),
             player_shadow_mesh: DiskMesh::new(),
             previous_local_state,
             fov: NORMAL_FOV,
             start_time,
             needle_textures,
-            exit_coords,
-            escape_active,
         }
     }
 
@@ -374,8 +344,8 @@ impl Game {
                         player.disconnected = true;
                     }
                 }
-                Ok((ServerMessage::EscapeStarted { start_time }, _)) => {
-                    self.handle_escape_started(start_time);
+                Ok((ServerMessage::Victory { winner_index }, _)) => {
+                    self.handle_victory(winner_index);
                 }
                 Ok((other, _)) => {
                     eprintln!(
@@ -388,6 +358,18 @@ impl Game {
                 }
             }
         }
+    }
+
+    fn handle_victory(&mut self, winner_index: usize) {
+        if winner_index == self.local_player_index {
+            self.fade_to_black = Some(fade::new_fade_to_black());
+            self.fade_to_black_finished = false;
+            if self.victory_effect.is_none() {
+                self.victory_effect = Some(VictoryEffect::new());
+            }
+        }
+        // Winner remains visible to other players (health stays > 0 on client).
+        // Server tracks them as Dead for leaderboard purposes.
     }
 
     pub fn reconcile(&mut self, head: u64) -> bool {
@@ -553,6 +535,10 @@ impl Game {
         let mut position = prev_state.position.lerp(curr_state.position, tick_fraction);
         let mut yaw = prev_state.yaw + (curr_state.yaw - prev_state.yaw) * tick_fraction;
         let mut pitch = prev_state.pitch + (curr_state.pitch - prev_state.pitch) * tick_fraction;
+
+        if let Some(victory_effect) = &mut self.victory_effect {
+            victory_effect.update();
+        }
 
         if let Some(obe_effect) = &mut self.obe_effect {
             obe_effect.update();
@@ -1010,18 +996,6 @@ impl Game {
 
     fn handle_bullet_expire_event(&mut self, bullet_id: u32) {
         self.bullets.retain(|b| b.id != Some(bullet_id));
-    }
-
-    fn handle_escape_started(&mut self, start_time: f64) {
-        self.escape_active = true;
-        self.start_time = start_time;
-
-        let (exit_z, exit_x) = self.exit_coords;
-        self.maze.grid[exit_z][exit_x] = 0;
-        self.maze.spaces.push(self.exit_coords);
-
-        std::mem::swap(&mut self.maze_meshes, &mut self.maze_meshes_escape);
-        std::mem::swap(&mut self.map_overlay, &mut self.map_overlay_escape);
     }
 }
 

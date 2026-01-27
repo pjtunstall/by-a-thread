@@ -4,7 +4,7 @@ use macroquad::prelude::*;
 
 use super::BG_COLOR;
 use crate::frame::FrameRate;
-use common::{constants::ESCAPE_DURATION, player::PlayerState};
+use common::player::PlayerState;
 
 pub struct TimerMarkers {
     pub render_target: RenderTarget,
@@ -290,13 +290,14 @@ pub fn draw_health(
 pub fn draw_timer(
     estimated_server_time: f64,
     start_time: f64,
+    timer_duration: f32,
     x: f32,
     y: f32,
     radius: f32,
     markers: &TimerMarkers,
     needles: &NeedleTextures,
 ) {
-    let total_duration = ESCAPE_DURATION;
+    let total_duration = timer_duration;
     let elapsed_time = (estimated_server_time - start_time) as f32;
 
     let rim_progress = (elapsed_time / total_duration).clamp(0.0, 1.0);

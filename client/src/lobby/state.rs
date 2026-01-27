@@ -30,9 +30,7 @@ pub enum Lobby {
         end_time: f64,
         game_data: InitialData,
         maze_meshes: Option<MazeMeshes>,
-        maze_meshes_escape: Option<MazeMeshes>,
         map_overlay: Option<MapOverlay>,
-        map_overlay_escape: Option<MapOverlay>,
         sky_mesh: Mesh,
     },
     ChoosingDifficulty {
@@ -85,18 +83,14 @@ impl std::fmt::Debug for Lobby {
                 end_time,
                 game_data,
                 maze_meshes,
-                maze_meshes_escape,
                 map_overlay: _,
-                map_overlay_escape: _,
                 sky_mesh: _,
             } => f
                 .debug_struct("Countdown")
                 .field("end_time", end_time)
                 .field("game_data", game_data)
                 .field("maze_meshes", maze_meshes)
-                .field("maze_meshes_escape", maze_meshes_escape)
                 .field("map_overlay", &"<MapOverlay>")
-                .field("map_overlay_escape", &"<MapOverlay>")
                 .field("sky_mesh", &"<Mesh>")
                 .finish(),
             Lobby::ChoosingDifficulty {
