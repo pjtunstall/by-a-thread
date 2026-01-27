@@ -17,6 +17,8 @@
 
 This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://github.com/01-edu/public/tree/master/subjects/multiplayer-fps) (commit bb1e883). The aim is to remake [Maze](<https://en.wikipedia.org/wiki/Maze_(1973_video_game)>), a 3D multiplayer first-person shooter from 1973. We're asked to implement a client-server architecture and communicate via the UDP networking protocol.
 
+Although essentially a multiplayer game, I decided to allow solo matches for convenience during development. I've kept the feature so that it's easier to take a casual look at the game. To make it more interesting, I added a challenge to escape the maze before the timer runs out.
+
 I used Macroquad, a simple game framework, for window management, reading input, loading textures, rendering, and audio. I used the Renet library for some networking abstractions over UDP. On the other hand, I wrote the collision and movement physics, and went to town rolling my own netcode. For more details on that, see the [Netcode](docs/netcode.md) document. For more on the structure of my code, see [Architecture](docs/architecture.md).
 
 The game is not yet publicly online. Proper matches will have to wait till then. My plan is to play test it first with friends on a Hetzner VPS, then make it public according the the plan outlined in [Security](docs/security.md). For now, you can get a taste of it by running server and client [locally](#to-run-locally) (on one machine). See also [Docker](#docs/docker.md) for an idea of how the server is being deployed for initial testing.
