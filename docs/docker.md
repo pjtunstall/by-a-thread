@@ -5,7 +5,7 @@
 
 ## To run locally
 
-Assuming you've installed [Docker](https://www.docker.com/)--and started it with `sudo systemctl start docker` if need be--you can run the server on Docker and the client directly on your host machine. Build the server image:
+Assuming you've installed [Docker](https://www.docker.com/)--and started it with `sudo systemctl start docker` if need be--you can run the server on Docker and the client directly on your host machine. Build the server image from the project root (where `Dockerfile` lives):
 
 ```sh
 # Extract the version number to tag the image with.
@@ -41,13 +41,21 @@ Then run the client as usual.
 
 ## To run on Hetzner
 
-SSH into a Hetzner VPS. Transfer the latest image of the server:
+This section assumes you have a Hetzner VPS, suitably configured.
+
+From your local machine, push the latest image of the server to your VPS:
 
 ```sh
 docker save server-image | gzip | ssh hetzner 'gunzip | docker load'
 ```
 
-Then, in SSH, run the server container:
+Then SSH into the VPS:
+
+```sh
+ssh hetzner
+```
+
+And run the server container:
 
 ```sh
 # Set IP to the IP address of the VPS.
@@ -60,3 +68,5 @@ docker run -d \
 ```
 
 And run the client locally, as usual with `cargo run --release -p client`.
+
+As before, stop the container with `docker stop server-container`, or just let it stop by itself when all players have left.
