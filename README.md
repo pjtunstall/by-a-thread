@@ -31,6 +31,7 @@ Looking ahead to distribution of the client binary, see my [Installation](docs/i
 - Arrow keys to turn.
 - Space to fire.
 - Left shift for sniper mode.
+- Escape to quit.
 
 ### Objective
 
