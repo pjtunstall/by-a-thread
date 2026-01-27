@@ -36,7 +36,8 @@ Looking ahead to distribution of the client binary, see my [Installation](docs/i
 
 ### Objective
 
-Be the last one standing.
+- Single player: Escape in time.
+- Multiplayer: Be the last one standing.
 
 ## Levels
 
