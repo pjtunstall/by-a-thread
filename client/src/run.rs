@@ -23,6 +23,9 @@ use crate::{
 };
 use common::{self, constants::TICK_SECS};
 
+pub const WINDOW_WIDTH: f32 = 1280.0;
+pub const WINDOW_HEIGHT: f32 = 720.0;
+
 pub struct ClientRunner {
     pub session: ClientSession,
     pub client: RenetClient,
@@ -333,7 +336,7 @@ pub async fn run_client_loop(private_key: [u8; 32], mut ui: Gui) {
         .print_client_banner(common::protocol::version(), server_addr);
 
     loop {
-        if is_quit_requested() || is_key_pressed(KeyCode::Escape) {
+        if should_quit() {
             break;
         }
 
@@ -346,13 +349,17 @@ pub async fn run_client_loop(private_key: [u8; 32], mut ui: Gui) {
     }
 }
 
+fn should_quit() -> bool {
+    is_quit_requested() || is_key_pressed(KeyCode::Escape)
+}
+
 async fn prompt_for_server_address(
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     font: Option<&Font>,
 ) -> Option<SocketAddr> {
     loop {
-        if is_quit_requested() || is_key_pressed(KeyCode::Escape) {
+        if should_quit() {
             return None;
         }
 
