@@ -21,10 +21,35 @@ Specific to the Windows build process are these components of the `client` direc
 
 - `src/build.rs` - Build script that compiles the icon resource
 - `icon.rc` - Resource file specifying the icon to embed
-- `icon.png` - The icon image file
+- `icon.ico` - Icons in various sizes
 - `Cargo.toml` sections:
   - `[build-dependencies]` with `embed-resource = "3.0.6"`
   - `[[bin]]` section defining the `ByAThread` binary
+
+The `.ico` file was built from the PNG with:
+
+```sh
+convert icon.png -define icon:auto-resize="256,128,96,64,48,32,24,16" icon.ico
+```
+
+To test that it worked:
+
+```sh
+file icon.ico
+```
+
+Expected output:
+
+```sh
+icon.ico[0] PNG 256x256 256x256+0+0 8-bit sRGB 23680B 0.000u 0:00.002
+icon.ico[1] ICO 128x128 128x128+0+0 8-bit sRGB 0.000u 0:00.002
+icon.ico[2] ICO 96x96 96x96+0+0 8-bit sRGB 0.000u 0:00.001
+icon.ico[3] ICO 64x64 64x64+0+0 8-bit sRGB 0.000u 0:00.001
+icon.ico[4] ICO 48x48 48x48+0+0 8-bit sRGB 0.000u 0:00.000
+icon.ico[5] ICO 32x32 32x32+0+0 8-bit sRGB 0.000u 0:00.000
+icon.ico[6] ICO 24x24 24x24+0+0 8-bit sRGB 0.000u 0:00.000
+icon.ico[7] ICO 16x16 16x16+0+0 8-bit sRGB 163902B 0.000u 0:00.000
+```
 
 ### Prerequisites
 

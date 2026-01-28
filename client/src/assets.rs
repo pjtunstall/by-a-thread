@@ -72,6 +72,10 @@ pub mod embedded_assets {
         include_str!("../assets/fonts/LICENSE.txt")
     }
 
+    pub fn get_env_config() -> &'static str {
+        include_str!("../../.env")
+    }
+
     pub fn extract_license_files_to_user_directory() {
         let license_dir = dirs::config_dir()
             .unwrap_or_else(|| std::path::PathBuf::from("."))
@@ -86,6 +90,7 @@ pub mod embedded_assets {
             get_noto_font_license(),
         )
         .ok();
+        std::fs::write(license_dir.join(".env"), get_env_config()).ok();
     }
 
     pub async fn load_bull_texture() -> Texture2D {

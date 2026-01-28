@@ -313,6 +313,17 @@ pub async fn run_client_loop(private_key: [u8; 32], mut ui: Gui) {
 
     println!("Connecting to server: {}", server_addr);
 
+    #[cfg(target_os = "windows")]
+    let socket_addr = {
+        if server_addr.ip().is_loopback() {
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0)
+        } else {
+            let local_ip = get_best_local_binding_ip();
+            SocketAddr::new(local_ip, 0)
+        }
+    };
+
+    #[cfg(not(target_os = "windows"))]
     let socket_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
     let socket = match UdpSocket::bind(socket_addr) {
         Ok(socket) => socket,
@@ -351,6 +362,25 @@ pub async fn run_client_loop(private_key: [u8; 32], mut ui: Gui) {
 
 fn should_quit() -> bool {
     is_quit_requested() || is_key_pressed(KeyCode::Escape)
+}
+
+#[cfg(target_os = "windows")]
+fn get_best_local_binding_ip() -> IpAddr {
+    // Try to connect to Google's DNS server (8.8.8.8) on port 53.
+    // This won't actually send data, just determines the local interface.
+    match UdpSocket::bind("0.0.0.0:0") {
+        Ok(socket) => {
+            if socket.connect("8.8.8.8:53").is_ok() {
+                if let Ok(addr) = socket.local_addr() {
+                    return addr.ip();
+                }
+            }
+        }
+        Err(_) => {}
+    }
+
+    // Fallback to localhost if the dummy connection fails.
+    IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))
 }
 
 async fn prompt_for_server_address(

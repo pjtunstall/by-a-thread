@@ -10,7 +10,20 @@ use renet::{ChannelConfig, ConnectionConfig, SendType};
 use socket2::{Domain, Socket, Type};
 
 pub fn get_connectable_address() -> SocketAddr {
-    dotenvy::dotenv().ok();
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(config_dir) = dirs::config_dir() {
+            let env_path = config_dir.join("by-a-thread").join(".env");
+            if env_path.exists() {
+                dotenvy::from_path(&env_path).ok();
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        dotenvy::dotenv().ok();
+    }
 
     let ip = env::var("IP").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "5000".to_string());
