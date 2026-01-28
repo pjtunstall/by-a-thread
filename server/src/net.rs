@@ -8,8 +8,7 @@ use renet_netcode::{ServerAuthentication, ServerConfig};
 
 use common::{self, constants::MAX_PLAYERS, net::AppChannel};
 
-pub const BINDING_ADDRESS: SocketAddr =
-    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 5000);
+pub const BINDING_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 5000);
 
 pub enum ServerNetworkEvent {
     ClientConnected { client_id: u64 },

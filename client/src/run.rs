@@ -368,7 +368,7 @@ fn should_quit() -> bool {
 fn get_best_local_binding_ip() -> IpAddr {
     // Try to connect to Google's DNS server (8.8.8.8) on port 53.
     // This won't actually send data, just determines the local interface.
-    match UdpSocket::bind("0.0.0.0:0") {
+    match UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0)) {
         Ok(socket) => {
             if socket.connect("8.8.8.8:53").is_ok() {
                 if let Ok(addr) = socket.local_addr() {
