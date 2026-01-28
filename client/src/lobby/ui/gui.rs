@@ -47,6 +47,7 @@ pub struct Gui {
     left_arrow_last_pressed: Option<Instant>,
     backspace_last_pressed: Option<Instant>,
     local_player_color: Option<PlayerColor>,
+    scroll_offset: usize,
 }
 
 impl Gui {
@@ -54,12 +55,13 @@ impl Gui {
         Self {
             input_buffer: String::new(),
             message_history: Vec::new(),
-            max_history_lines: 20,
+            max_history_lines: 1024,
             cursor_pos: 0,
             right_arrow_last_pressed: None,
             left_arrow_last_pressed: None,
             backspace_last_pressed: None,
             local_player_color: None,
+            scroll_offset: 0,
         }
     }
 
@@ -69,6 +71,9 @@ impl Gui {
         if self.message_history.len() > self.max_history_lines {
             self.message_history.remove(0);
         }
+
+        // Reset scroll offset to show newest messages.
+        self.scroll_offset = 0;
     }
 
     pub fn draw(&self, should_show_input: bool, show_cursor: bool, font: Option<&Font>) {
@@ -78,7 +83,7 @@ impl Gui {
         clear_background(BACKGROUND_COLOR);
 
         let line_height = FONT_SIZE * 1.2;
-        let max_width = screen_width() - 2.0 * SIDE_PAD; // ... of a line of text.
+        let max_width = screen_width() - 2.0 * SIDE_PAD; // of a line of text.
 
         // Start at the bottom,
         let mut current_baseline = screen_height() - BOTTOM_PAD;
@@ -116,8 +121,6 @@ impl Gui {
         let mut draw_y = input_start_y;
 
         for line in input_lines.iter() {
-            // draw_text(line, SIDE_PAD, draw_y, FONT_SIZE, INPUT_COLOR);
-
             if let Some(font) = font {
                 draw_text_ex(
                     line,
@@ -164,8 +167,8 @@ impl Gui {
         for (i, line) in input_lines.iter().enumerate() {
             let line_len = line.chars().count();
 
-            // Check if the cursor sits on this line
-            // We use <= because the cursor can be AT the very end of the line
+            // Check if the cursor sits on this line. We use <= because the
+            // cursor can be AT the very end of the line.
             if target_char_index <= chars_processed + line_len {
                 // The cursor is on this line.
                 let index_in_line = target_char_index - chars_processed;
@@ -184,15 +187,15 @@ impl Gui {
             chars_processed += line_len;
         }
 
-        // Fallback: If the cursor is at the very end of the entire text
-        // (loop finished).
         if !cursor_found && !input_lines.is_empty() {
+            // If the cursor is at the very end of all the text:
             let last_idx = input_lines.len() - 1;
             let last_line = &input_lines[last_idx];
             let text_width = self.measure_text_strict(last_line, font);
             cursor_x = SIDE_PAD + text_width;
             cursor_y = input_start_y + (last_idx as f32 * line_height);
         } else if input_lines.is_empty() {
+            // If there's no input text:
             cursor_x = SIDE_PAD + self.measure_text_strict(PROMPT, font);
             cursor_y = input_start_y;
         }
@@ -223,7 +226,7 @@ impl Gui {
         let banner_value_x = SIDE_PAD + banner_label_width + BANNER_COLUMN_GAP;
         let banner_value_width = (max_width - banner_label_width - BANNER_COLUMN_GAP).max(0.0);
 
-        for (message, color) in self.message_history.iter().rev() {
+        for (message, color) in self.message_history.iter().rev().skip(self.scroll_offset) {
             if let Some((label, value)) = message.split_once('\t') {
                 let lines = if banner_value_width > 0.0 {
                     self.wrap_text(value, banner_value_width, font)
@@ -484,6 +487,17 @@ impl LobbyUi for Gui {
 
         let initial_delay = Duration::from_millis(500);
         let repeat_rate = Duration::from_millis(32);
+
+        if is_key_pressed(KeyCode::Up) {
+            if self.scroll_offset < self.message_history.len().saturating_sub(1) {
+                self.scroll_offset += 1;
+            }
+        }
+        if is_key_pressed(KeyCode::Down) {
+            if self.scroll_offset > 0 {
+                self.scroll_offset -= 1;
+            }
+        }
 
         if is_key_down(KeyCode::Left) && self.cursor_pos > 0 {
             match self.left_arrow_last_pressed {
