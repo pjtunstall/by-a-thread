@@ -961,8 +961,7 @@ impl Game {
         }
 
         if let Some(player) = self.players.get_mut(target_index) {
-            // Don't set health to 0 for local player during victory scenarios
-            // to keep them visible and disable inputs through victory_in_progress flag
+            // Don't set health to 0 for local player if hit by a bullet during victory sequence, and thus prevent the OBE effect. The server already prevents bullet events from being generated in such a case, but this is an extra safeguard.
             if !(target_index == self.local_player_index
                 && target_health == 0
                 && self.victory_in_progress)
