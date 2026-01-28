@@ -259,13 +259,16 @@ impl Game {
         // Mark the winner if one was determined.
         if let Some(winner_idx) = self.winner_index {
             if let Some(winner_player) = self.players.get(winner_idx) {
-                if let Some(winner_entry) = entries.iter_mut().find(|e| e.username == winner_player.name) {
+                if let Some(winner_entry) = entries
+                    .iter_mut()
+                    .find(|e| e.username == winner_player.name)
+                {
                     winner_entry.exit_reason = AfterGameExitReason::Winner;
                 }
             }
         }
 
-        // Re-sort to ensure winner is always first.
+        // Re-sort to ensure the winner is always first.
         entries.sort_by(|a, b| {
             let a_is_winner = matches!(a.exit_reason, AfterGameExitReason::Winner);
             let b_is_winner = matches!(b.exit_reason, AfterGameExitReason::Winner);
