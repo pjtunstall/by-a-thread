@@ -1,6 +1,6 @@
 use std::{
     env, io,
-    net::{SocketAddr, UdpSocket},
+    net::{IpAddr, SocketAddr, UdpSocket},
     time::Duration,
 };
 
@@ -25,11 +25,16 @@ pub fn get_connectable_address() -> SocketAddr {
         dotenvy::dotenv().ok();
     }
 
-    let ip = env::var("IP").unwrap_or_else(|_| "127.0.0.1".to_string());
-    let port = env::var("PORT").unwrap_or_else(|_| "5000".to_string());
+    let ip = env::var("IP")
+        .unwrap_or_else(|_| String::from("127.0.0.1"))
+        .parse::<IpAddr>()
+        .expect("invalid IP format");
+    let port = env::var("PORT")
+        .unwrap_or_else(|_| String::from("5000"))
+        .parse::<u16>()
+        .expect("invalid port format");
 
-    let address_string = format!("{}:{}", ip, port);
-    address_string.parse().expect("Invalid IP or Port format")
+    SocketAddr::new(ip, port)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
