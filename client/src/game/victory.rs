@@ -8,7 +8,7 @@ impl VictoryEffect {
     }
 
     pub fn update(&mut self) {
-        // Currently just a simple fade to black with no camera effects.
-        // This can be extended later to add celebratory effects.
+        // Victory sequence: fade to black only, no camera movement.
+        // Player stays where they are, no flying or spinning.
     }
 }

@@ -388,9 +388,9 @@ fn check_multiplayer_winner(network: &mut dyn ServerNetworkHandle, state: &mut G
 
     let winner_index = alive_players[0];
     state.winner_index = Some(winner_index);
-    
+
     let winner = &mut state.players[winner_index];
-    
+
     println!("Player {} wins! Last survivor in multiplayer.", winner.name);
 
     winner.health = 0;
@@ -426,6 +426,7 @@ fn check_timer_expiration(network: &mut dyn ServerNetworkHandle, state: &mut Gam
     let current_tick = state.current_tick;
     let mut events = Vec::new();
     let mut total_egress_bytes = 0usize;
+    let is_solo_mode = state.players.len() == 1;
 
     for player in &mut state.players {
         if !matches!(player.status, Status::Alive) {
@@ -436,17 +437,53 @@ fn check_timer_expiration(network: &mut dyn ServerNetworkHandle, state: &mut Gam
         player.status = Status::Dead;
         player.exit_tick = Some(current_tick);
 
-        let event = BulletEvent::HitPlayer {
-            bullet_id: 0,
-            tick: current_tick,
-            position: player.state.position,
-            velocity: glam::Vec3::ZERO,
-            target_index: player.index,
-            target_health: 0,
-        };
+        let has_escaped = is_solo_mode
+            && state.exit_coords.is_some()
+            && state
+                .maze
+                .is_outside(player.state.position.x, player.state.position.z);
 
-        println!("Player {} killed by timer expiration.", player.name);
-        events.push(event);
+        if has_escaped {
+            println!(
+                "Player {} escaped! Timer expired but they reached the exit.",
+                player.name
+            );
+
+            let message = ServerMessage::Victory {
+                winner_index: player.index,
+            };
+            let payload =
+                encode_to_vec(&message, standard()).expect("failed to serialize victory message");
+            let payload_len = payload.len();
+            let recipients: Vec<u64> = state
+                .client_id_to_index
+                .keys()
+                .copied()
+                .filter(|client_id| !state.after_game_chat_clients.contains(client_id))
+                .collect();
+            let recipients_count = recipients.len();
+            for client_id in recipients {
+                network.send_message(client_id, AppChannel::ReliableOrdered, payload.clone());
+            }
+            total_egress_bytes =
+                total_egress_bytes.saturating_add(payload_len.saturating_mul(recipients_count));
+        } else {
+            let event = BulletEvent::HitPlayer {
+                bullet_id: 0,
+                tick: current_tick,
+                position: player.state.position,
+                velocity: glam::Vec3::ZERO,
+                target_index: player.index,
+                target_health: 0,
+            };
+
+            if is_solo_mode {
+                println!("Player {} failed to escape. Timer expired.", player.name);
+            } else {
+                println!("Player {} killed by timer expiration.", player.name);
+            }
+            events.push(event);
+        }
     }
 
     for event in events {
@@ -471,4 +508,3 @@ fn check_timer_expiration(network: &mut dyn ServerNetworkHandle, state: &mut Gam
     state.note_egress_bytes(total_egress_bytes);
     state.timer_expiration_tick = Some(current_tick);
 }
-

@@ -49,6 +49,13 @@ pub fn handle(
     }
 
     if !*prompt_printed {
+        ui.show_warning("  WASD to move.");
+        ui.show_warning("  Arrow keys to turn.");
+        ui.show_warning("  Space to fire.");
+        ui.show_warning("  Left shift for sniper mode.");
+        ui.show_message(" ");
+        ui.show_warning("  Escape to quit/exit.");
+        ui.show_message(" ");
         ui.show_prompt(&server_address_prompt());
         *prompt_printed = true;
         return None;
@@ -59,7 +66,7 @@ pub fn handle(
 
 fn server_address_prompt() -> String {
     format!(
-        "Press Enter to connect to the default server, Tab for localhost, or choose another server (ip[:port]): ",
+        "Press Enter to connect to the default server,\nTab for localhost,\nor choose another address (ip[:port]): ",
     )
 }
 

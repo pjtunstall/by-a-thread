@@ -76,6 +76,7 @@ pub struct Game {
     last_sim_tick: u64,
     pending_bullet_events: Vec<BulletEvent>,
     after_game_chat_sent: bool,
+    victory_in_progress: bool,
     obe_effect: Option<ObeEffect>,
     victory_effect: Option<VictoryEffect>,
     player_avatar_mesh: OrientedSphereMesh,
@@ -130,6 +131,7 @@ impl Game {
             last_sim_tick: sim_tick,
             pending_bullet_events: Vec::new(),
             after_game_chat_sent: false,
+            victory_in_progress: false,
             obe_effect: None,
             victory_effect: None,
             player_avatar_mesh: OrientedSphereMesh::new(),
@@ -196,7 +198,7 @@ impl Game {
         while clock.accumulated_time >= TICK_SECS && ticks_processed < MAX_TICKS_PER_FRAME {
             let sim_tick = clock.sim_tick;
 
-            if self.players[self.local_player_index].health > 0 {
+            if self.players[self.local_player_index].health > 0 && !self.victory_in_progress {
                 let mut input = input::player_input_from_keys(sim_tick);
                 self.prepare_fire_input(sim_tick, &mut input, assets);
                 self.send_input(network, input, sim_tick);
@@ -362,6 +364,7 @@ impl Game {
 
     fn handle_victory(&mut self, winner_index: usize) {
         if winner_index == self.local_player_index {
+            self.victory_in_progress = true;
             self.fade_to_black = Some(fade::new_fade_to_black());
             self.fade_to_black_finished = false;
             if self.victory_effect.is_none() {
@@ -958,7 +961,14 @@ impl Game {
         }
 
         if let Some(player) = self.players.get_mut(target_index) {
-            player.health = target_health;
+            // Don't set health to 0 for local player during victory scenarios
+            // to keep them visible and disable inputs through victory_in_progress flag
+            if !(target_index == self.local_player_index
+                && target_health == 0
+                && self.victory_in_progress)
+            {
+                player.health = target_health;
+            }
         }
 
         if target_health == 0 {
@@ -975,10 +985,12 @@ impl Game {
 
         if target_index == self.local_player_index {
             if target_health == 0 {
-                self.fade_to_black = Some(fade::new_fade_to_black());
-                self.fade_to_black_finished = false;
-                if self.obe_effect.is_none() {
-                    self.obe_effect = Some(ObeEffect::new(self.players[target_index].state));
+                if !self.victory_in_progress {
+                    self.fade_to_black = Some(fade::new_fade_to_black());
+                    self.fade_to_black_finished = false;
+                    if self.obe_effect.is_none() {
+                        self.obe_effect = Some(ObeEffect::new(self.players[target_index].state));
+                    }
                 }
             } else {
                 self.flash = Some(fade::new_flash());

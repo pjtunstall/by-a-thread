@@ -79,12 +79,6 @@ pub fn handle(
                 ui.show_sanitized_message(&format!("Server: {} left the chat.", username));
             }
             Ok((ServerMessage::Roster { online }, _)) => {
-                ui.show_warning("  WASD to move.");
-                ui.show_warning("  Arrow keys to turn.");
-                ui.show_warning("  Space to fire.");
-                ui.show_warning("  Left shift for sniper mode.");
-                ui.show_warning("  Escape to quit/exit.");
-
                 if online.is_empty() {
                     ui.show_sanitized_message("Server: You are the only player online.");
                 } else {
