@@ -70,3 +70,5 @@ docker run -d \
 And run the client locally, as usual with `cargo run --release -p client`.
 
 As before, stop the container with `docker stop server-container`, or just let it stop by itself when all players have left.
+
+And, as before, check the logs with `docker logs server-container` to get the passcode.
