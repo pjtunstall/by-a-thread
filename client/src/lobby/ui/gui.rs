@@ -48,6 +48,8 @@ pub struct Gui {
     backspace_last_pressed: Option<Instant>,
     local_player_color: Option<PlayerColor>,
     scroll_offset: usize,
+    up_arrow_last_pressed: Option<Instant>,
+    down_arrow_last_pressed: Option<Instant>,
 }
 
 impl Gui {
@@ -62,6 +64,8 @@ impl Gui {
             backspace_last_pressed: None,
             local_player_color: None,
             scroll_offset: 0,
+            up_arrow_last_pressed: None,
+            down_arrow_last_pressed: None,
         }
     }
 
@@ -469,6 +473,8 @@ impl LobbyUi for Gui {
         self.right_arrow_last_pressed = None;
         self.left_arrow_last_pressed = None;
         self.backspace_last_pressed = None;
+        self.up_arrow_last_pressed = None;
+        self.down_arrow_last_pressed = None;
         while get_char_pressed().is_some() {}
     }
 
@@ -488,15 +494,46 @@ impl LobbyUi for Gui {
         let initial_delay = Duration::from_millis(500);
         let repeat_rate = Duration::from_millis(32);
 
-        if is_key_pressed(KeyCode::Up) {
-            if self.scroll_offset < self.message_history.len().saturating_sub(1) {
-                self.scroll_offset += 1;
+        if is_key_down(KeyCode::Up) {
+            match self.up_arrow_last_pressed {
+                Some(last) => {
+                    if last.elapsed() >= repeat_rate {
+                        if self.scroll_offset < self.message_history.len().saturating_sub(1) {
+                            self.scroll_offset += 1;
+                        }
+                        self.up_arrow_last_pressed = Some(Instant::now());
+                    }
+                }
+                None => {
+                    if self.scroll_offset < self.message_history.len().saturating_sub(1) {
+                        self.scroll_offset += 1;
+                    }
+                    self.up_arrow_last_pressed = Some(Instant::now() + initial_delay);
+                }
             }
+        } else {
+            self.up_arrow_last_pressed = None;
         }
-        if is_key_pressed(KeyCode::Down) {
-            if self.scroll_offset > 0 {
-                self.scroll_offset -= 1;
+
+        if is_key_down(KeyCode::Down) {
+            match self.down_arrow_last_pressed {
+                Some(last) => {
+                    if last.elapsed() >= repeat_rate {
+                        if self.scroll_offset > 0 {
+                            self.scroll_offset -= 1;
+                        }
+                        self.down_arrow_last_pressed = Some(Instant::now());
+                    }
+                }
+                None => {
+                    if self.scroll_offset > 0 {
+                        self.scroll_offset -= 1;
+                    }
+                    self.down_arrow_last_pressed = Some(Instant::now() + initial_delay);
+                }
             }
+        } else {
+            self.down_arrow_last_pressed = None;
         }
 
         if is_key_down(KeyCode::Left) && self.cursor_pos > 0 {
