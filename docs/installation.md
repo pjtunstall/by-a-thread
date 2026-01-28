@@ -73,7 +73,7 @@ The executable will be created at `target/x86_64-pc-windows-gnu/release/ByAThrea
 
 ### Distribution
 
-The Windows executable is self-contained with the icon and all assets embedded. Simply distribute the `.exe` file or a zipped version of it. Users can run it directly without any installation process, although they may have to ignore warnings that it definitely contains a virus, just because it's from an unknown publisher. Windows may try to make it seem impossible to do anything other than not run it; in that case, clicking info will reveal the option to "run anyway".
+The Windows executable is self-contained with the icon and all assets embedded. Simply distribute the `.exe` file or a zipped version of it. Ignore warnings that it contains a virus; that just means it's from an unknown publisher. Windows may hide options to download a raw `.exe` or run an unzipped one. You should find them with a little poking around.
 
 On first run, the game automatically extracts attribution and license files to `%APPDATA%\by-a-thread\` by calling `extract_license_files_to_user_directory()`:
 
