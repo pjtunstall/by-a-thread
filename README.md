@@ -19,7 +19,7 @@ This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://
 
 I used Macroquad, a simple game framework, for window management, reading input, loading textures, rendering, and audio. I used the Renet library for some networking abstractions over UDP. On the other hand, I wrote the collision and movement physics, and went to town rolling my own netcode. For more details on that, see the [Netcode](docs/netcode.md) document. For more on the structure of my code, see [Architecture](docs/architecture.md).
 
-The game is not yet publicly online. Proper matches will have to wait till then. My plan is to play test it first with friends on a Hetzner VPS, then make it public according the the plan outlined in [Security](docs/security.md). For now, you can get a taste of it by running server and client [locally](#to-run-locally) (on one machine). See also [Docker](#docs/docker.md) for an idea of how the server is being deployed for initial testing.
+The game is not yet publicly online. Proper matches will have to wait till then. My plan is to play test it first on a VPS, then make it public according the the plan outlined in [Security](docs/security.md). For now, you can get a taste of it by running server and client [locally](#to-run-locally) (on one machine). See also [Docker](#docs/docker.md) for an idea of how the server is being deployed for initial testing.
 
 Looking ahead to distribution of the client binary, see my [Installation](docs/installation.md) guide.
 
@@ -42,17 +42,23 @@ Looking ahead to distribution of the client binary, see my [Installation](docs/i
 
 ## Levels
 
-As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`. That said, at least with the map, the "harder" levels can be easier to navigate, as their algorithms tend to produce more direct paths between distant cells.
+As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`.
+
+That said, with the map, the "harder" levels can be easier to navigate, as their algorithms tend to produce more direct paths between distant cells.
 
 # FPS meter
 
-As instructed, there is an FPS (frames per second) meter to monitor in-game performance.
+As instructed, I've included an FPS (frames per second) meter to monitor in-game performance.
 
 ## To run locally
 
-Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/install/) and run `cargo run --release --bin server` in one terminal. For each player, open another terminal and run `cargo run --release -p client` (or `cargo run --release --bin ByAThread`). Then follow the prompts. The passcode will appear in the server terminal.
+This section assumes you're on Linux. I haven't tried running the game locally on Windows or Mac. On Windows, at least, it may fail due to the technique I found to let the client discover its own binding address by pinging a known external address.
 
-(In production, the client will get IP and PORT as environment variables from a `.env` file.)
+Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/install/) and run `cargo run --release --bin server` in one terminal. For each player, open another terminal and run `cargo run --release -p client` (or `cargo run --release --bin ByAThread`). Then follow the prompts.
+
+As a shortcut, you can press Tab to connect to localhost. When connecting to a remote server, the client gets IP and PORT as environment variables from a `.env` file.
+
+The passcode will appear in the server terminal.
 
 ## Curiosities
 
