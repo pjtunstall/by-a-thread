@@ -11,11 +11,16 @@ for arg in "$@"; do
   fi
 done
 
-# --- Compile game server ---
+# --- Run tests ---
 #
 # Prerequisites:
 #   Rust: https://www.rust-lang.org/tools/install/
 #
+echo "Running tests..."
+cargo test --workspace
+echo "Tests passed."
+
+# --- Compile game server ---
 echo "Compiling game server..."
 cargo build --release -p server
 echo "Game server compiled."
