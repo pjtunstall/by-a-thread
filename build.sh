@@ -105,3 +105,13 @@ echo "Building Debian .deb package..."
 (cd client && cargo build --release && cargo deb)
 cp target/debian/by-a-thread_*.deb dist/
 echo "Created dist/by-a-thread_*.deb"
+
+# --- RPM package ---
+#
+# Prerequisites:
+#   cargo install cargo-generate-rpm
+#
+echo "Building RPM package..."
+cargo generate-rpm -p client
+cp target/generate-rpm/*.rpm dist/
+echo "Created dist/*.rpm"

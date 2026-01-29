@@ -1,18 +1,24 @@
-# Installation
+# Build
 
 - [Overview](#overview)
 - [Windows](#windows)
+  - [Build files](#build-files)
+  - [Icon](#icon)
+  - [Distribution](#distribution)
 - [macOS](#macos)
 - [Linux](#linux)
-  - [Building the .deb package](#building-the-deb-package)
-  - [Installing the package](#installing-the-package)
+  - [Build files](#build-files)
   - [Package contents](#package-contents)
+  - [.deb](#deb)
+  - [.rpm](#rpm)
 
 ## Overview
 
 This document describes how to create executable files or packages for various systems. It assumes you're creating them on Linux.
 
 ## Windows
+
+When you run the general build script, `build.sh`, it produces a `.zip` file, containing a Windows executable file, credits, and licenses.
 
 ### Build files
 
@@ -24,6 +30,8 @@ Specific to the Windows build process are these components of the `client` direc
 - `Cargo.toml` sections:
   - `[build-dependencies]` with `embed-resource = "3.0.6"`
   - `[[bin]]` section defining the `ByAThread` binary
+
+### Icon
 
 The `.ico` file was built from the PNG using ImageMagick with:
 
@@ -50,10 +58,6 @@ icon.ico[6] ICO 24x24 24x24+0+0 8-bit sRGB 0.000u 0:00.000
 icon.ico[7] ICO 16x16 16x16+0+0 8-bit sRGB 163902B 0.000u 0:00.000
 ```
 
-### Building the executable
-
-When you run the general build script, `build.sh`, it produces a `.zip` file, containing a Windows executable file, credits, and licenses.
-
 ### Distribution
 
 Ignore virus warnings; that just means the file is from an unknown publisher. If SmartScreen tells you, "Windows has protected your PC", click "info" to reveal the hidden "run anyway" button.
@@ -71,39 +75,17 @@ Each script creates a .app bundle so the app is double-clickable and shows in th
 
 ### Build files
 
-The Linux Debian package build, in particular, involves these components of the `client` directory:
+The Linux package builds (.deb and .rpm) use these components of the `client` directory:
 
 - `icon.png` - Icon file for the application
 - `by-a-thread.desktop` - Desktop file for applications menu
 - `Cargo.toml` sections:
-  - `[package.metadata.deb]` with package metadata and asset paths
+  - `[package.metadata.deb]` and `[package.metadata.generate-rpm]` with package metadata and asset paths
   - `[[bin]]` section defining the `ByAThread` binary
-
-### Building the .deb package
-
-The `.deb` package is built as one step of the general `build.sh` script.
-
-#### Why the `-1` suffix?
-
-The `-1` in the filename is the Debian package revision number. It indicates this is the first revision of version 0.1.0. If you make changes to the package without changing the version number, you would increment this to `-2`, `-3`, etc.
-
-### Installing the package
-
-If you're still in `client` folder, move back to the the workspace root, then install the package using `dpkg`:
-
-```sh
-sudo dpkg -i dist/by-a-thread_*.deb
-```
-
-If you encounter dependency issues, run:
-
-```sh
-sudo apt-get install -f
-```
 
 ### Package contents
 
-The package installs the following files:
+Both the .deb and .rpm packages install the following files:
 
 - `/usr/lib/by-a-thread/ByAThread` - The game executable
 - `/usr/lib/by-a-thread/fonts/` - Font files and licenses
@@ -117,3 +99,37 @@ The package installs the following files:
 After installation, the game will be available in your applications menu and can be run from anywhere with `/usr/lib/by-a-thread/ByAThread` or by clicking on the icon in your taskbar.
 
 Note that game client instances will appear as a plain (cogwheel) icons in the taskbar, instead of a dot beside the icon you clicked. I gather this is because Macroquad, the library I used for window management, doesn't support full taskbar integration.
+
+### .deb
+
+The `.deb` package is built as one step of the general `build.sh` script. Prerequisite: `cargo install cargo-deb`.
+
+The `-1` in the filename is the Debian package revision number. It indicates this is the first revision of version 0.1.0. If you make changes to the package without changing the version number, you would increment this to `-2`, `-3`, etc.
+
+To install: if you're still in `client` folder, move back to the workspace root, then:
+
+```sh
+sudo dpkg -i dist/by-a-thread_*.deb
+```
+
+If you encounter dependency issues, run:
+
+```sh
+sudo apt-get install -f
+```
+
+### .rpm
+
+The `.rpm` package is built as one step of the general `build.sh` script. Prerequisite: `cargo install cargo-generate-rpm`. The script produces a file such as `by-a-thread-0.1.0-1.x86_64.rpm` in `dist/`, for use on Fedora, RHEL, openSUSE and other RPM-based distributions.
+
+To install from the workspace root:
+
+```sh
+sudo rpm -i dist/by-a-thread-*.rpm
+```
+
+Or, on Fedora and similar:
+
+```sh
+sudo dnf install dist/by-a-thread-*.rpm
+```

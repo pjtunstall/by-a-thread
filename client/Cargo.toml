@@ -50,3 +50,28 @@ assets = [
     ["../LICENSE", "usr/share/doc/by-a-thread/LICENSE", "644"],
     ["../CREDITS.md", "usr/share/doc/by-a-thread/CREDITS.md", "644"]
 ]
+
+[package.metadata.generate-rpm]
+name = "by-a-thread"
+release = "1"
+license = "LicenseRef-Preview"
+assets = [
+    { source = "target/release/ByAThread", dest = "/usr/lib/by-a-thread/ByAThread", mode = "755" },
+    { source = "icon.png", dest = "/usr/share/icons/hicolor/256x256/apps/by-a-thread.png", mode = "644" },
+    { source = "by-a-thread.desktop", dest = "/usr/share/applications/by-a-thread.desktop", mode = "644" },
+    { source = "assets/fonts/PF Hellenica Serif Pro Bold.ttf", dest = "/usr/lib/by-a-thread/fonts/PF Hellenica Serif Pro Bold.ttf", mode = "644" },
+    { source = "assets/fonts/NotoSerifBold-MmDx.ttf", dest = "/usr/lib/by-a-thread/fonts/NotoSerifBold-MmDx.ttf", mode = "644" },
+    { source = "assets/fonts/LICENSE.txt", dest = "/usr/lib/by-a-thread/fonts/LICENSE.txt", mode = "644" },
+    { source = "assets/images/bull.png", dest = "/usr/lib/by-a-thread/images/bull.png", mode = "644" },
+    { source = "assets/images/ball.png", dest = "/usr/lib/by-a-thread/images/ball.png", mode = "644" },
+    { source = "assets/images/griffin.png", dest = "/usr/lib/by-a-thread/images/griffin.png", mode = "644" },
+    { source = "assets/images/rust-blue.png", dest = "/usr/lib/by-a-thread/images/rust-blue.png", mode = "644" },
+    { source = "assets/images/rust-white.png", dest = "/usr/lib/by-a-thread/images/rust-white.png", mode = "644" },
+    { source = "assets/sfx/bell.wav", dest = "/usr/lib/by-a-thread/sfx/bell.wav", mode = "644" },
+    { source = "assets/sfx/clang.wav", dest = "/usr/lib/by-a-thread/sfx/clang.wav", mode = "644" },
+    { source = "assets/sfx/deep_clang.wav", dest = "/usr/lib/by-a-thread/sfx/deep_clang.wav", mode = "644" },
+    { source = "assets/sfx/gun.wav", dest = "/usr/lib/by-a-thread/sfx/gun.wav", mode = "644" },
+    { source = "assets/sfx/shatter.wav", dest = "/usr/lib/by-a-thread/sfx/shatter.wav", mode = "644" },
+    { source = "../LICENSE", dest = "/usr/share/doc/by-a-thread/LICENSE", mode = "644", doc = true },
+    { source = "../CREDITS.md", dest = "/usr/share/doc/by-a-thread/CREDITS.md", mode = "644", doc = true }
+]

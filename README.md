@@ -21,7 +21,7 @@ I used Macroquad, a simple game framework, for window management, reading input,
 
 The game is not yet publicly online. Proper matches will have to wait till then. My plan is to play test it first on a VPS, then make it public according the the plan outlined in [Security](docs/security.md). For now, you can get a taste of it by running server and client [locally](#to-run-locally) (on one machine). See also [Docker](#docs/docker.md) for an idea of how the server is being deployed for initial testing.
 
-Looking ahead to distribution of the client binary, see my [Installation](docs/installation.md) guide.
+Looking ahead to distribution of the client binary, see the [Build](docs/build.md) guide.
 
 ## How to play
 
