@@ -49,6 +49,8 @@ pub fn handle(
     }
 
     if !*prompt_printed {
+        ui.show_message("------ BY A THREAD ------");
+        ui.show_message(" ");
         ui.show_warning("  WASD to move.");
         ui.show_warning("  Arrow keys to turn.");
         ui.show_warning("  Space to fire.");
