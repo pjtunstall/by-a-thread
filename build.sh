@@ -3,6 +3,23 @@
 #
 set -e
 
+HETZNER=false
+for arg in "$@"; do
+  if [ "$arg" = "--hetzner" ] || [ "$arg" = "-h" ]; then
+    HETZNER=true
+    break
+  fi
+done
+
+# --- Compile game server ---
+#
+# Prerequisites:
+#   Rust: https://www.rust-lang.org/tools/install/
+#
+echo "Compiling game server..."
+cargo build --release -p server
+echo "Game server compiled."
+
 # --- Build Docker image of game server ---
 #
 # Prerequisites:
@@ -21,7 +38,8 @@ docker build \
 
 echo "Created server-image:$VERSION and server-image:latest"
 
-# --- Update game server on VPS ---
+if [ "$HETZNER" = true ]; then
+  # --- Update game server on VPS ---
 #
 # Prerequisites:
 #   Ensure that the VPS is running.
@@ -34,14 +52,17 @@ docker save server-image | gzip | ssh hetzner 'gunzip | docker load'
 #
 # Prerequisites:
 #    Ensure that the user who runs this script
-#    has permission to rundocker commands on the VPS:
+#    has permission to run docker commands on the VPS:
 #    sudo usermod -aG docker $USER
 #
 # Stop and remove any existing container first.
 # Then run the container.
 # (-e IP=... sets the game server's public IP
-# to that of the VPSfrom Hetzner metadata.)
+# to that of the VPS from Hetzner metadata.)
 ssh hetzner 'docker stop server-container 2>/dev/null; docker rm server-container 2>/dev/null; docker run -d --name server-container --rm -e IP=$(curl -s http://169.254.169.254/hetzner/v1/metadata/public-ipv4) -p 5000:5000/udp server-image'
+
+echo "Game server updated on VPS."
+fi
 
 # --- Windows executable and zip ---
 #
