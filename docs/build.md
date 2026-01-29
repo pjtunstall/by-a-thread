@@ -133,3 +133,5 @@ Or, on Fedora and similar:
 ```sh
 sudo dnf install dist/by-a-thread-*.rpm
 ```
+
+Compatibility: the RPM uses gzip payload compression so it can be installed on any recent rpm (Fedora, openSUSE, RHEL 8+, etc.). The binary is built for the host you run `build.sh` on; if that host has a newer glibc than the target system (e.g. you build on Ubuntu 24.04 and install on RHEL 8), the binary may fail at runtime. For maximum compatibility, build on the oldest distro you need to support or in a container with an older glibc. CentOS 7 and other RPMv3-based systems are not supported by cargo-generate-rpm.

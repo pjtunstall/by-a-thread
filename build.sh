@@ -112,6 +112,6 @@ echo "Created dist/by-a-thread_*.deb"
 #   cargo install cargo-generate-rpm
 #
 echo "Building RPM package..."
-cargo generate-rpm -p client
+cargo generate-rpm -p client --payload-compress gzip
 cp target/generate-rpm/*.rpm dist/
 echo "Created dist/*.rpm"
