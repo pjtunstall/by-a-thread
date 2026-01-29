@@ -19,9 +19,6 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    #[cfg(target_os = "windows")]
-    client::assets::embedded_assets::extract_license_files_to_user_directory();
-
     let private_key = common::auth::private_key();
 
     let ui = Gui::new();

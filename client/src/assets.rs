@@ -60,39 +60,6 @@ pub mod embedded_assets {
             .expect("failed to load map font")
     }
 
-    pub fn get_game_license() -> &'static str {
-        include_str!("../../LICENSE")
-    }
-
-    pub fn get_credits() -> &'static str {
-        include_str!("../../CREDITS.md")
-    }
-
-    pub fn get_noto_font_license() -> &'static str {
-        include_str!("../assets/fonts/LICENSE.txt")
-    }
-
-    pub fn get_env_config() -> &'static str {
-        include_str!("../../.env")
-    }
-
-    pub fn extract_license_files_to_user_directory() {
-        let license_dir = dirs::config_dir()
-            .unwrap_or_else(|| std::path::PathBuf::from("."))
-            .join("by-a-thread");
-
-        std::fs::create_dir_all(&license_dir).ok();
-
-        std::fs::write(license_dir.join("LICENSE"), get_game_license()).ok();
-        std::fs::write(license_dir.join("CREDITS.md"), get_credits()).ok();
-        std::fs::write(
-            license_dir.join("FONT_LICENSE.txt"),
-            get_noto_font_license(),
-        )
-        .ok();
-        std::fs::write(license_dir.join(".env"), get_env_config()).ok();
-    }
-
     pub async fn load_bull_texture() -> Texture2D {
         let bull_bytes = include_bytes!("../assets/images/bull.png");
         Texture2D::from_file_with_format(bull_bytes, None)

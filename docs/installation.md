@@ -2,7 +2,7 @@
 
 - [Overview](#overview)
 - [Windows](#windows)
-- [Linux]
+- [Linux](#linux)
   - [Building the .deb package](#building-the-deb-package)
   - [Installing the package](#installing-the-package)
   - [Package contents](#package-contents)
@@ -73,15 +73,7 @@ The executable will be created at `target/x86_64-pc-windows-gnu/release/ByAThrea
 
 ### Distribution
 
-The Windows executable is self-contained with the icon and all assets embedded. Simply distribute the `.exe` file or a zipped version of it. Ignore warnings that it contains a virus; that just means it's from an unknown publisher. Windows may hide options to download a raw `.exe` or run an unzipped one. You should find them with a little poking around.
-
-On first run, the game automatically extracts attribution and license files to `%APPDATA%\by-a-thread\` by calling `extract_license_files_to_user_directory()`:
-
-- `LICENSE` - Game license
-- `CREDITS.md` - Asset credits and licenses
-- `FONT_LICENSE.txt` - NotoSerifBold font license (Apache 2.0)
-
-This provides users with easy access to all required licenses while maintaining the convenience of a single executable distribution.
+The Windows executable is self-contained with the icon and all assets embedded. Distribute a zip that contains the exe and the license/credit files in the same folder (see the build script in the project root). Ignore warnings that it contains a virus; that just means it's from an unknown publisher. If SmartScreen tells you, "Windows has protected your PC", click "info" to reveal the hidden "run anyway" button.
 
 ## Linux
 

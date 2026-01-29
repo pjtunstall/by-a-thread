@@ -17,11 +17,10 @@ renet = { workspace = true }
 renet_netcode = { workspace = true }
 bincode = { workspace = true }
 macroquad = { version = "0.4.14", features = ["audio"] }
-dirs = "5.0"
 
 # To embed the icon for the Windows executable.
 [build-dependencies]
-embed-resource = "3.0.6"
+winres = "0.1.12"
 
 [package.metadata.deb]
 name = "by-a-thread"
