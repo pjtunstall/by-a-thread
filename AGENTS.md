@@ -5,7 +5,7 @@
 - Use the 2024 edition.
 - Use modern module structure, i.e. no `mod.rs` files.
 
-## Imports:
+## Imports
 
 - Group imports in curly braces, e.g. `use std::{collections::HashMap, io::Result};`.
 - Group imports into paragraphs by category (standard library, external crates, local modules) with an empty line between each category.
@@ -24,3 +24,8 @@
 - Don't introduce any new comments unless asked to.
 - Only use `//` comments, not `///`.
 - Comments should adhere to the conventions of standard English punctuation, inlcuding a trailing period.
+
+## Punctuation
+
+- Use ' for a single quote and " for a double quote, even in comments and documentation.
+- Use -- for an m-dash, thus: "Yet--never--in Extremity".

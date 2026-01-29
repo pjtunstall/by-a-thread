@@ -2,23 +2,22 @@
 
 - [Overview](#overview)
 - [Windows](#windows)
-  - [Build files](#build-files)
-  - [Icon](#icon)
+  - [Building the executable](#building-the-executable)
   - [Distribution](#distribution)
 - [macOS](#macos)
 - [Linux](#linux)
+  - [Compatibility](#compatibility)
   - [Build files](#build-files)
   - [Package contents](#package-contents)
   - [.deb](#deb)
   - [.rpm](#rpm)
+  - [AppImage](#appimage)
 
 ## Overview
 
 This document describes how to create executable files or packages for various systems. It assumes you're creating them on Linux.
 
 ## Windows
-
-When you run the general build script, `build.sh`, it produces a `.zip` file, containing a Windows executable file, credits, and licenses.
 
 ### Build files
 
@@ -30,8 +29,6 @@ Specific to the Windows build process are these components of the `client` direc
 - `Cargo.toml` sections:
   - `[build-dependencies]` with `embed-resource = "3.0.6"`
   - `[[bin]]` section defining the `ByAThread` binary
-
-### Icon
 
 The `.ico` file was built from the PNG using ImageMagick with:
 
@@ -58,6 +55,10 @@ icon.ico[6] ICO 24x24 24x24+0+0 8-bit sRGB 0.000u 0:00.000
 icon.ico[7] ICO 16x16 16x16+0+0 8-bit sRGB 163902B 0.000u 0:00.000
 ```
 
+### Building the executable
+
+When you run the general build script, `build.sh`, it produces a `.zip` file, containing a Windows executable file, credits, and licenses.
+
 ### Distribution
 
 Ignore virus warnings; that just means the file is from an unknown publisher. If SmartScreen tells you, "Windows has protected your PC", click "info" to reveal the hidden "run anyway" button.
@@ -73,12 +74,21 @@ Each script creates a .app bundle so the app is double-clickable and shows in th
 
 ## Linux
 
+There are three options for Linux: `.deb` and `.rpm` according to Linux distro type (advantage: native system integration), and AppImage, which bundles the game and its dependencies (libraries and assets) into a single executable file that should be compatible with any distro.
+
+### Compatibility
+
+The binary is built for the machine (or container) you run `build.sh` on. If that environment has a newer glibc than the systems where users will run the game, the binary may fail at runtime. Building on an older Ubuntu (e.g. in CI or a local container) avoids that.
+
+A common solution is to build Linux artifacts (`.deb`, `.rpm`, AppImage) in an automated run (e.g. GitHub Actions) on an older image such as `ubuntu-22.04` or `ubuntu-20.04`, so the binaries link against an older glibc and run on a wide range of distros. You can run `build.sh` locally on any supported Linux for testing; for published releases, running it inside a container or CI on a fixed older Ubuntu avoids compatibility surprises. A later step is to add a workflow that runs the script in that environment and uploads the artifacts.
+
 ### Build files
 
-The Linux package builds (.deb and .rpm) use these components of the `client` directory:
+All three types of Linux package (.deb, .rpm, and AppImage) are built using these components of the `client` directory:
 
 - `icon.png` - Icon file for the application
-- `by-a-thread.desktop` - Desktop file for applications menu
+- `by-a-thread.desktop` - Desktop file for .deb and .rpm (points at the installed path under `/usr`)
+- `by-a-thread-appimage.desktop` - Desktop file used only when building the AppImage (different paths, since the AppImage is not installed under `/usr`)
 - `Cargo.toml` sections:
   - `[package.metadata.deb]` and `[package.metadata.generate-rpm]` with package metadata and asset paths
   - `[[bin]]` section defining the `ByAThread` binary
@@ -134,4 +144,28 @@ Or, on Fedora and similar:
 sudo dnf install dist/by-a-thread-*.rpm
 ```
 
-Compatibility: the RPM uses gzip payload compression so it can be installed on any recent rpm (Fedora, openSUSE, RHEL 8+, etc.). The binary is built for the host you run `build.sh` on; if that host has a newer glibc than the target system (e.g. you build on Ubuntu 24.04 and install on RHEL 8), the binary may fail at runtime. For maximum compatibility, build on the oldest distro you need to support or in a container with an older glibc. CentOS 7 and other RPMv3-based systems are not supported by cargo-generate-rpm.
+The RPM uses gzip payload compression so it can be installed on any recent rpm (Fedora, openSUSE, RHEL 8+, etc.). CentOS 7 and other RPMv3-based systems are not supported by cargo-generate-rpm.
+
+### AppImage
+
+An **AppImage** is a single file that runs on most Linux desktops without installation: the user downloads it, makes it executable, and runs it. The script produces `ByAThread.AppImage` in `dist/`.
+
+There is only one build file specific to AppImage:
+
+- `client/by-a-thread-appimage.desktop`
+
+**What the script does.** It builds the AppImage in two stages. First it assembles a folder (an **AppDir**, the standard name for "a folder containing the app and its files before it's turned into an AppImage"). Our script calls that folder `ByAThread.AppDir`. It copies the binary, assets, icon, and `client/by-a-thread-appimage.desktop` into it; the `.desktop` file is written into the AppDir as `ByAThread.desktop` because the AppDir layout expects a `.desktop` file named after the app. Then it runs **linuxdeploy** (which adds the launcher script and bundled libraries) and **appimagetool** (which turns the folder into the single `ByAThread.AppImage` file). Then it deletes the temporary folder. You never need to create or edit the AppDir yourself.
+
+**Why two `.desktop` files?** The .deb and .rpm install under `/usr`, so `by-a-thread.desktop` uses paths like `/usr/lib/by-a-thread/ByAThread`. Inside an AppImage there's no `/usr` install; the binary is just `ByAThread` in the image's path. So we use a second file, `by-a-thread-appimage.desktop`, with `Exec=ByAThread` and `Icon=ByAThread`. The script copies that into the AppDir when building.
+
+**Prerequisites (what you must do before running the script).** The script needs two tools: **linuxdeploy** and **appimagetool**. Both are distributed as AppImages. For local and CI use, install them the same way: download the AppImages, make them executable, put them in a directory that is in your PATH (e.g. `~/bin` or `/usr/local/bin`), and create symlinks so the script can run them by name (`linuxdeploy` and `appimagetool`). Then `./build.sh` will find them.
+
+1. Download [linuxdeploy](https://github.com/linuxdeploy/linuxdeploy/releases) (`linuxdeploy-x86_64.AppImage`) and [appimagetool](https://github.com/AppImage/appimagetool/releases) (or [appimage.github.io/appimagetool](https://appimage.github.io/appimagetool/)). For linuxdeploy, prefer a versioned release (e.g. the latest `1-alpha-...`) over **continuous** so builds are reproducible, especially in CI; continuous is fine for one-off local use.
+2. `chmod +x linuxdeploy-x86_64.AppImage appimagetool-*.AppImage`
+3. Put both in a PATH directory and symlink: `ln -s /path/to/linuxdeploy-x86_64.AppImage ~/.local/bin/linuxdeploy` and `ln -s /path/to/appimagetool-*.AppImage ~/bin/appimagetool`. If `~/.local/bin` is not in your PATH, add `export PATH="$HOME/bin:$PATH"` to `~/.bashrc` (if in a local shell) or `~/.profile` (if SSH):
+
+```sh
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+```
+
+(To use linuxdeploy from a different path without putting it in PATH, set the environment variable `LINUXDEPLOY` to the full path of the file when you run the script; `appimagetool` must still be in PATH.)

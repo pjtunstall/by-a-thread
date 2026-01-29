@@ -148,6 +148,13 @@ mod file_assets {
                 return p;
             }
         }
+        #[cfg(target_os = "linux")]
+        if let Ok(appdir) = std::env::var("APPDIR") {
+            let p = PathBuf::from(appdir).join("assets").join(subdir).join(name);
+            if p.exists() {
+                return p;
+            }
+        }
         let usr = PathBuf::from("/usr/lib/by-a-thread")
             .join(subdir)
             .join(name);
