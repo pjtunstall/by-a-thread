@@ -24,6 +24,7 @@ winres = "0.1.12"
 
 [package.metadata.deb]
 name = "by-a-thread"
+revision = "1"
 maintainer = "Peter Tunstall <pjtunstall@proton.me>"
 copyright = "2026, Peter Tunstall"
 depends = "$auto"

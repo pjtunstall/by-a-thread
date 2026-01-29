@@ -2,6 +2,7 @@
 **/*.rs.bk
 client/
 
+dist/
 AppDir
 
 *.md

@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # Run from the workspace root.
 #
+# Prerequisites:
+#   Rust: https://www.rust-lang.org/tools/install/
+#   Make the script executable: chmod +x build.sh
+#
+# Usage:
+#   ./build.sh [--hetzner|-h]
+#
 set -e
 
 HETZNER=false
@@ -11,11 +18,9 @@ for arg in "$@"; do
   fi
 done
 
+mkdir -p dist
+
 # --- Run tests ---
-#
-# Prerequisites:
-#   Rust: https://www.rust-lang.org/tools/install/
-#
 echo "Running tests..."
 cargo test --workspace
 echo "Tests passed."
@@ -44,7 +49,7 @@ docker build \
 echo "Created server-image:$VERSION and server-image:latest"
 
 if [ "$HETZNER" = true ]; then
-  # --- Update game server on VPS ---
+# --- Update game server on VPS ---
 #
 # Prerequisites:
 #   Ensure that the VPS is running.
@@ -78,7 +83,7 @@ fi
 echo "Building Windows executable and zip..."
 
 STAGING=ByAThread-win64
-EXE=client/target/x86_64-pc-windows-gnu/release/ByAThread.exe
+EXE=target/x86_64-pc-windows-gnu/release/ByAThread.exe
 
 cargo build --release --target x86_64-pc-windows-gnu -p client
 
@@ -86,20 +91,17 @@ mkdir -p "$STAGING"
 cp "$EXE" "$STAGING/"
 cp LICENSE CREDITS.md "$STAGING/"
 cp client/assets/fonts/LICENSE.txt "$STAGING/NOTO_FONT_LICENSE.txt"
-zip -r ByAThread-win64.zip "$STAGING"
+zip -r dist/ByAThread-win64.zip "$STAGING"
 rm -r "$STAGING"
 
-echo "Created ByAThread-win64.zip"
+echo "Created dist/ByAThread-win64.zip"
 
 # --- Debian .deb package ---
 #
 # Prerequisites:
 #   cargo install cargo-deb
 #
-# Build from the client directory so cargo-deb finds package.metadata.deb (see docs/installation.md).
-#
 echo "Building Debian .deb package..."
-
 (cd client && cargo build --release && cargo deb)
-
-echo "Created client/target/debian/by-a-thread_*.deb"
+cp target/debian/by-a-thread_*.deb dist/
+echo "Created dist/by-a-thread_*.deb"

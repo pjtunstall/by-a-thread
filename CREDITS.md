@@ -8,7 +8,7 @@ NotoSerifBold is part of the NotoSerif font family, copyright 2012 Google inc. I
 
     [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0)
 
-A copy of the license is also included in this distribution in [`assets/fonts/LICENSE.txt`](assets/fonts/LICENSE.txt).
+A copy is included in this distribution as `NOTO_FONT_LICENSE`.
 
 ## Sound effects
 
