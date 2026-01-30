@@ -68,7 +68,7 @@ pub fn handle(
 
 fn server_address_prompt() -> String {
     format!(
-        "Press Enter to connect to the default server (recommended),\nor Tab for localhost (testing),\nor choose another address (ip[:port]): ",
+        "Press Enter to connect to the default server (recommended),\nor Tab for localhost (testing),\nor pick another server (ip[:port]): ",
     )
 }
 
