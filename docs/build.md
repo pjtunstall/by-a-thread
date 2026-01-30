@@ -15,7 +15,7 @@
 
 ## Overview
 
-This document describes how to create executable files or packages for various systems. It assumes you're creating them on Linux.
+This document describes how to create executable files or packages for various systems. It assumes you're creating them on Ubuntu.
 
 ## Windows
 
