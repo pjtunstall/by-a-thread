@@ -155,7 +155,7 @@ fn handle(
                 }
                 ui.show_message(" ");
                 ui.show_message_with_color("You're all done here. Disconnecting...", YELLOW);
-                ui.show_warning(" ");
+                ui.show_message(" ");
                 ui.show_warning("Press escape to exit.")
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
@@ -169,19 +169,21 @@ fn handle(
         }
     }
 
-    while let Some(input) = session.take_input() {
-        let trimmed_input = input.trim();
+    if !*leaderboard_received {
+        while let Some(input) = session.take_input() {
+            let trimmed_input = input.trim();
 
-        if trimmed_input.is_empty() {
-            continue;
+            if trimmed_input.is_empty() {
+                continue;
+            }
+
+            let message = ClientMessage::SendChat(trimmed_input.to_string());
+
+            let payload = encode_to_vec(&message, standard()).expect("failed to serialize chat");
+            network.send_message(AppChannel::ReliableOrdered, payload);
+
+            *waiting_for_server = true;
         }
-
-        let message = ClientMessage::SendChat(trimmed_input.to_string());
-
-        let payload = encode_to_vec(&message, standard()).expect("failed to serialize chat");
-        network.send_message(AppChannel::ReliableOrdered, payload);
-
-        *waiting_for_server = true;
     }
 
     if network.is_disconnected() {

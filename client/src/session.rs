@@ -213,9 +213,13 @@ impl ClientSession {
                 }
             }
             ClientState::AfterGameChat(AfterGameChat {
-                waiting_for_server, ..
+                waiting_for_server,
+                leaderboard_received,
+                ..
             }) => {
-                if *waiting_for_server {
+                if *leaderboard_received {
+                    InputMode::Hidden
+                } else if *waiting_for_server {
                     InputMode::DisabledWaiting
                 } else {
                     InputMode::Enabled

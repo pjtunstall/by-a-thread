@@ -226,9 +226,16 @@ impl ClientRunner {
 
         if !self.session.state.is_disconnected() {
             if let Some(message) = self.session.take_pending_disconnect() {
+                let show_error = !matches!(
+                    &self.session.state,
+                    ClientState::AfterGameChat(crate::after_game_chat::AfterGameChat {
+                        leaderboard_received: true,
+                        ..
+                    })
+                );
                 self.session.transition(ClientState::Disconnected {
                     message,
-                    show_error: true,
+                    show_error,
                 });
             }
         }
