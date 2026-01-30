@@ -262,12 +262,14 @@ fn handle(
 
 const AFTER_GAME_MAP_BORDER_THICKNESS: f32 = 16.0;
 const AFTER_GAME_MAP_BORDER_ALPHA: f32 = 0.5;
+const AFTER_GAME_MAP_SCALE: f32 = 1.6; // Compared to in-game map.
 
 fn draw_after_game_map(data: &AfterGameMap, assets: &Assets) {
     push_camera_state();
     set_default_camera();
     let rect_h = data.map_overlay.rect.h;
-    let map_scale = screen_height() * info::MAP_FRACTION_OF_SCREEN_HEIGHT / rect_h;
+    let map_scale =
+        AFTER_GAME_MAP_SCALE * screen_height() * info::MAP_FRACTION_OF_SCREEN_HEIGHT / rect_h;
     let map_w = data.map_overlay.rect.w * map_scale;
     let map_h = rect_h * map_scale;
     let margin = info::BASE_INDENTATION;
