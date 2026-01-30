@@ -22,6 +22,7 @@ use common::{
 pub struct AfterGameChat {
     pub awaiting_initial_roster: bool,
     pub waiting_for_server: bool,
+    pub leaderboard_received: bool,
 }
 
 pub fn update(
@@ -70,6 +71,7 @@ fn handle(
     let AfterGameChat {
         awaiting_initial_roster,
         waiting_for_server,
+        leaderboard_received,
     } = chat_state;
 
     if matches!(session.input_mode(), InputMode::Enabled) {
@@ -79,6 +81,7 @@ fn handle(
                 ui.show_sanitized_error(&format!("No connection: {}.", UiInputError::Disconnected));
                 return Some(ClientState::Disconnected {
                     message: UiInputError::Disconnected.to_string(),
+                    show_error: true,
                 });
             }
             Ok(None) => {}
@@ -129,6 +132,7 @@ fn handle(
                 *awaiting_initial_roster = false;
             }
             Ok((ServerMessage::AfterGameLeaderboard { entries }, _)) => {
+                *leaderboard_received = true;
                 ui.show_message(" ");
                 ui.show_sanitized_message("Leaderboard:");
                 let mut current_rank = 1;
@@ -151,6 +155,8 @@ fn handle(
                 }
                 ui.show_message(" ");
                 ui.show_message_with_color("You're all done here. Disconnecting...", YELLOW);
+                ui.show_warning(" ");
+                ui.show_warning("Press escape to exit.")
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));
@@ -179,18 +185,21 @@ fn handle(
     }
 
     if network.is_disconnected() {
-        ui.show_typed_error(
-            UiErrorKind::NetworkDisconnect,
-            &format!(
-                "Disconnected from chat: {}.",
-                network.get_disconnect_reason()
-            ),
-        );
+        if !*leaderboard_received {
+            ui.show_typed_error(
+                UiErrorKind::NetworkDisconnect,
+                &format!(
+                    "Disconnected from chat: {}.",
+                    network.get_disconnect_reason()
+                ),
+            );
+        }
         Some(ClientState::Disconnected {
             message: format!(
                 "Disconnected from chat: {}.",
                 network.get_disconnect_reason()
             ),
+            show_error: !*leaderboard_received,
         })
     } else {
         None

@@ -355,10 +355,11 @@ mod tests {
         ));
         session.transition(ClientState::Disconnected {
             message: "done".to_string(),
+            show_error: true,
         });
 
         match session.state {
-            ClientState::Disconnected { message } => assert_eq!(message, "done"),
+            ClientState::Disconnected { message, .. } => assert_eq!(message, "done"),
             _ => panic!("unexpected state after transition"),
         }
     }

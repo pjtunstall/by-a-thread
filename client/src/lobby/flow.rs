@@ -31,6 +31,7 @@ pub fn update(
                 ui.show_sanitized_error(&format!("No connection: {}.", e));
                 return LobbyStep::Transition(ClientState::Disconnected {
                     message: e.to_string(),
+                    show_error: true,
                 });
             }
             Ok(None) => {}

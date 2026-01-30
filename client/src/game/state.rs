@@ -159,6 +159,7 @@ impl Game {
             return Some(ClientState::AfterGameChat(AfterGameChat {
                 awaiting_initial_roster: true,
                 waiting_for_server: false,
+                leaderboard_received: false,
             }));
         }
 

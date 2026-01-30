@@ -80,6 +80,7 @@ pub fn handle(
                 "disconnected while choosing username: {}",
                 network.get_disconnect_reason()
             ),
+            show_error: true,
         });
     }
 
@@ -106,6 +107,7 @@ pub fn handle_server_message(
         ui.show_message("Server: Disconnecting.");
         return Some(ClientState::Disconnected {
             message: message.clone(),
+            show_error: true,
         });
     }
     None

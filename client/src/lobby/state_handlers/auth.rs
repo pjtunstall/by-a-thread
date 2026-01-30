@@ -46,6 +46,7 @@ pub fn handle(
                 if sanitized_message == GAME_ALREADY_STARTED_MESSAGE {
                     return Some(ClientState::Disconnected {
                         message: sanitized_message,
+                        show_error: true,
                     });
                 }
 
@@ -62,6 +63,7 @@ pub fn handle(
                 } else if sanitized_message == AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE {
                     return Some(ClientState::Disconnected {
                         message: "authentication failed".to_string(),
+                        show_error: true,
                     });
                 }
             }
@@ -125,6 +127,7 @@ pub fn handle(
         let reason = network.get_disconnect_reason();
         return Some(ClientState::Disconnected {
             message: format!("disconnected while authenticating: {}", reason),
+            show_error: true,
         });
     }
 

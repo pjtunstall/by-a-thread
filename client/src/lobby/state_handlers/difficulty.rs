@@ -42,6 +42,7 @@ fn enqueue_difficulty_input(
             ui.show_sanitized_error("No connection: disconnected.");
             return Some(ClientState::Disconnected {
                 message: "disconnected".to_string(),
+                show_error: true,
             });
         }
     }
@@ -153,6 +154,7 @@ pub fn handle(
                 "disconnected while choosing difficulty: {}",
                 network.get_disconnect_reason()
             ),
+            show_error: true,
         });
     }
 

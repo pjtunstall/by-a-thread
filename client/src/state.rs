@@ -5,7 +5,10 @@ pub enum ClientState {
     Lobby(Lobby),
     Game(Game),
     AfterGameChat(AfterGameChat),
-    Disconnected { message: String },
+    Disconnected {
+        message: String,
+        show_error: bool,
+    },
 }
 
 impl ClientState {

@@ -43,7 +43,10 @@ pub fn handle(
                 if message != GAME_ALREADY_STARTED_MESSAGE {
                     ui.show_sanitized_message(&format!("Server: {}", message));
                 }
-                return Some(ClientState::Disconnected { message });
+                return Some(ClientState::Disconnected {
+                    message,
+                    show_error: true,
+                });
             }
             Ok((_, _)) => {}
             Err(e) => {
@@ -61,6 +64,7 @@ pub fn handle(
                 "disconnected while awaiting username confirmation: {}",
                 network.get_disconnect_reason()
             ),
+            show_error: true,
         });
     }
 

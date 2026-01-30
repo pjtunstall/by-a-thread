@@ -148,6 +148,7 @@ pub fn handle(
                 "Disconnected from chat: {}.",
                 network.get_disconnect_reason()
             ),
+            show_error: true,
         })
     } else {
         None

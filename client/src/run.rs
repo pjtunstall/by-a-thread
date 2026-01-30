@@ -161,14 +161,22 @@ impl ClientRunner {
         // below because both mutably borrow `self` (the `ClientRunner`). Hence
         // we handle the `Disconnected` state here separately from the other
         // states.
-        if let Some(disconnect_message) = {
-            if let ClientState::Disconnected { message } = &self.session.state {
-                Some(message.clone())
+        if let Some((disconnect_message, show_error)) = {
+            if let ClientState::Disconnected {
+                message,
+                show_error,
+            } = &self.session.state
+            {
+                Some((message.clone(), *show_error))
             } else {
                 None
             }
         } {
-            self.display_disconnect_message(&disconnect_message);
+            if show_error {
+                self.display_disconnect_message(&disconnect_message);
+            } else {
+                self.ui.draw(false, false, Some(&self.assets.font));
+            }
             return;
         }
 
@@ -218,8 +226,10 @@ impl ClientRunner {
 
         if !self.session.state.is_disconnected() {
             if let Some(message) = self.session.take_pending_disconnect() {
-                self.session
-                    .transition(ClientState::Disconnected { message });
+                self.session.transition(ClientState::Disconnected {
+                    message,
+                    show_error: true,
+                });
             }
         }
     }
@@ -262,6 +272,7 @@ impl ClientRunner {
         else {
             self.session.transition(ClientState::Disconnected {
                 message: format!("could not find you in the list of players"),
+                show_error: true,
             });
             return Err(());
         };
