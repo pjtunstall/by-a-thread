@@ -67,12 +67,14 @@ Ignore virus warnings; that just means the file is from an unknown publisher. If
 
 ## macOS
 
-Build on macOS using the scripts in the project root:
+Build on macOS using the Makefile (or the scripts in the project root):
 
-- `./build-apple-intel.sh` – Intel Mac (x86_64), produces `ByAThread.app` and `dist/ByAThread-macos-intel.zip`
-- `./build-apple-silicon.sh` – Apple Silicon (aarch64), produces `ByAThread.app` and `dist/ByAThread-macos-silicon.zip`
+- `make macos-intel` – Intel Mac (x86_64), produces `ByAThread.app` and `dist/ByAThread-macos-intel.zip`
+- `make macos-silicon` – Apple Silicon (aarch64), produces `ByAThread.app` and `dist/ByAThread-macos-silicon.zip`
 
-Each script creates a .app bundle so the app is double-clickable and shows in the Dock. For the app icon to appear, create `client/icon.icns` (e.g. from `client/icon.png` using `iconutil` on macOS).
+Alternatively: `./build-apple-intel.sh` and `./build-apple-silicon.sh`. These targets are opt-in (not part of the default `make`).
+
+Each build creates a .app bundle so the app is double-clickable and shows in the Dock. For the app icon to appear, create `client/icon.icns` (e.g. from `client/icon.png` using `iconutil` on macOS).
 
 ## Linux
 

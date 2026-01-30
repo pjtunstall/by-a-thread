@@ -5,6 +5,8 @@
 # Usage:
 #   make              # full build (test, server, docker, windows, deb, rpm, appimage)
 #   make deploy-hetzner   # after 'make', push image to VPS and run container
+#   make macos-intel      # Intel Mac .app and dist/ByAThread-macos-intel.zip (macOS only)
+#   make macos-silicon    # Apple Silicon .app and dist/ByAThread-macos-silicon.zip (macOS only)
 #   make windows      # only Windows zip
 #   make deb          # only .deb package
 #   make clean        # remove dist/, temp dirs, and Docker image
@@ -12,7 +14,7 @@
 # Make checks that required tools exist before each step, and rebuilds artifacts
 # only when their dependencies have changed (e.g. Windows zip only if the exe changed).
 #
-.PHONY: all test server docker deploy-hetzner windows deb rpm appimage clean
+.PHONY: all test server docker deploy-hetzner windows deb rpm appimage macos-intel macos-silicon clean
 .PHONY: check-windows check-deb check-rpm check-appimage check-docker check-deploy
 
 DIST := dist
@@ -23,6 +25,17 @@ EXE_WIN := target/x86_64-pc-windows-gnu/release/ByAThread.exe
 ZIP_WIN := $(DIST)/ByAThread-win64.zip
 EXE_HOST := target/release/ByAThread
 APPIMAGE_FILE := $(DIST)/ByAThread.AppImage
+SERVER_BIN := target/release/server
+DOCKER_SENTINEL := $(DIST)/.docker-image-built
+TARGET_APPLE_INTEL := x86_64-apple-darwin
+TARGET_APPLE_SILICON := aarch64-apple-darwin
+EXE_APPLE_INTEL := target/$(TARGET_APPLE_INTEL)/release/ByAThread
+EXE_APPLE_SILICON := target/$(TARGET_APPLE_SILICON)/release/ByAThread
+ZIP_APPLE_INTEL := $(DIST)/ByAThread-macos-intel.zip
+ZIP_APPLE_SILICON := $(DIST)/ByAThread-macos-silicon.zip
+
+SERVER_SOURCES := Cargo.toml Cargo.lock server/Cargo.toml common/Cargo.toml $(shell find server -name '*.rs') $(shell find common -name '*.rs')
+CLIENT_SOURCES := Cargo.toml Cargo.lock client/Cargo.toml client/build.rs $(shell find client/src -name '*.rs') common/Cargo.toml $(shell find common -name '*.rs')
 
 all: test server docker windows deb rpm appimage
 
@@ -31,8 +44,10 @@ test:
 	cargo test --workspace
 
 # --- Compile game server ---
-server:
+$(SERVER_BIN): $(SERVER_SOURCES)
 	cargo build --release -p server
+
+server: $(SERVER_BIN)
 
 # --- Tool checks (run before steps that need them) ---
 check-windows:
@@ -59,15 +74,19 @@ check-deploy: check-docker
 #
 # Prerequisites: Docker (https://docs.docker.com/engine/install)
 #
-docker: server | check-docker
+$(DOCKER_SENTINEL): $(SERVER_BIN) Dockerfile | check-docker
+	mkdir -p $(DIST)
 	VERSION=$$(cargo pkgid -p server | cut -d# -f2 | cut -d: -f2); \
 	docker build -t server-image:$$VERSION -t server-image:latest .
+	touch $(DOCKER_SENTINEL)
+
+docker: $(DOCKER_SENTINEL)
 
 # --- Update game server on VPS ---
 #
 # Prerequisites: VPS running; SSH access as 'hetzner'; docker in PATH on VPS
 #
-deploy-hetzner: docker | check-deploy
+deploy-hetzner: $(DOCKER_SENTINEL) | check-deploy
 	docker save server-image | gzip | ssh hetzner 'gunzip | docker load'
 	ssh hetzner 'docker stop server-container 2>/dev/null; docker rm server-container 2>/dev/null; docker run -d --name server-container --rm -e IP=$$(curl -s http://169.254.169.254/hetzner/v1/metadata/public-ipv4) -p 5000:5000/udp server-image'
 
@@ -75,7 +94,7 @@ deploy-hetzner: docker | check-deploy
 #
 # Prerequisites: rustup target add x86_64-pc-windows-gnu; apt install mingw-w64 zip
 #
-$(EXE_WIN): | check-windows
+$(EXE_WIN): $(CLIENT_SOURCES) | check-windows
 	cargo build --release --target x86_64-pc-windows-gnu -p client
 
 $(ZIP_WIN): $(EXE_WIN)
@@ -93,25 +112,31 @@ windows: $(ZIP_WIN)
 #
 # Prerequisites: cargo install cargo-deb
 #
-deb: | check-deb
+$(DIST)/.deb-built: $(EXE_HOST) | check-deb
 	mkdir -p $(DIST)
 	cd client && cargo build --release && cargo deb
 	cp target/debian/by-a-thread_*.deb $(DIST)/
+	touch $(DIST)/.deb-built
+
+deb: $(DIST)/.deb-built
 
 # --- RPM package ---
 #
 # Prerequisites: cargo install cargo-generate-rpm
 #
-rpm: | check-rpm
+$(DIST)/.rpm-built: $(EXE_HOST) | check-rpm
 	mkdir -p $(DIST)
 	cargo generate-rpm -p client --payload-compress gzip
 	cp target/generate-rpm/*.rpm $(DIST)/
+	touch $(DIST)/.rpm-built
+
+rpm: $(DIST)/.rpm-built
 
 # --- AppImage ---
 #
 # Prerequisites: linuxdeploy (e.g. linuxdeploy-x86_64.AppImage) in PATH or set LINUXDEPLOY; appimagetool in PATH
 #
-$(EXE_HOST):
+$(EXE_HOST): $(CLIENT_SOURCES)
 	cargo build --release -p client
 
 $(APPIMAGE_FILE): $(EXE_HOST) | check-appimage
@@ -128,6 +153,48 @@ $(APPIMAGE_FILE): $(EXE_HOST) | check-appimage
 
 appimage: $(APPIMAGE_FILE)
 
+# --- macOS (Intel and Apple Silicon) ---
+#
+# Prerequisites: run on macOS; rustup target add x86_64-apple-darwin and/or aarch64-apple-darwin; optional client/icon.icns
+#
+$(EXE_APPLE_INTEL): $(CLIENT_SOURCES)
+	rustup target add $(TARGET_APPLE_INTEL) 2>/dev/null || true
+	cargo build --release --target $(TARGET_APPLE_INTEL) -p client
+
+$(EXE_APPLE_SILICON): $(CLIENT_SOURCES)
+	rustup target add $(TARGET_APPLE_SILICON) 2>/dev/null || true
+	cargo build --release --target $(TARGET_APPLE_SILICON) -p client
+
+define macos_bundle_recipe
+BUNDLE=ByAThread.app; STAGING=$(1); TARGET=$(2); \
+rm -rf "$$BUNDLE" "$$STAGING"; \
+mkdir -p "$$BUNDLE/Contents/MacOS" "$$BUNDLE/Contents/Resources/fonts" "$$BUNDLE/Contents/Resources/images" "$$BUNDLE/Contents/Resources/sfx"; \
+cp target/$$TARGET/release/ByAThread "$$BUNDLE/Contents/MacOS/"; \
+cp "client/assets/fonts/PF Hellenica Serif Pro Bold.ttf" "client/assets/fonts/NotoSerifBold-MmDx.ttf" "$$BUNDLE/Contents/Resources/fonts/"; \
+cp client/assets/images/*.png "$$BUNDLE/Contents/Resources/images/"; \
+cp client/assets/sfx/*.wav "$$BUNDLE/Contents/Resources/sfx/"; \
+if [ -f client/icon.icns ]; then cp client/icon.icns "$$BUNDLE/Contents/Resources/"; fi; \
+{ printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' '<plist version="1.0">' '<dict>' '    <key>CFBundleExecutable</key>' '    <string>ByAThread</string>' '    <key>CFBundleIdentifier</key>' '    <string>com.byathread.client</string>' '    <key>CFBundleName</key>' '    <string>By A Thread</string>' '    <key>CFBundlePackageType</key>' '    <string>APPL</string>'; \
+  if [ -f client/icon.icns ]; then printf '%s\n' '    <key>CFBundleIconFile</key>' '    <string>icon</string>'; fi; \
+  printf '%s\n' '</dict>' '</plist>'; } > "$$BUNDLE/Contents/Info.plist"; \
+mkdir -p dist "$$STAGING"; \
+cp -R "$$BUNDLE" "$$STAGING/"; \
+cp LICENSE CREDITS.md "$$STAGING/"; \
+cp client/assets/fonts/LICENSE.txt "$$STAGING/NOTO_FONT_LICENSE.txt"; \
+(cd dist && zip -r "$(3)" "$$(basename "$$STAGING")"); \
+rm -rf "$$STAGING"
+endef
+
+$(ZIP_APPLE_INTEL): $(EXE_APPLE_INTEL)
+	@$(call macos_bundle_recipe,dist/ByAThread-macos-intel,$(TARGET_APPLE_INTEL),ByAThread-macos-intel.zip)
+
+$(ZIP_APPLE_SILICON): $(EXE_APPLE_SILICON)
+	@$(call macos_bundle_recipe,dist/ByAThread-macos-silicon,$(TARGET_APPLE_SILICON),ByAThread-macos-silicon.zip)
+
+macos-intel: $(ZIP_APPLE_INTEL)
+
+macos-silicon: $(ZIP_APPLE_SILICON)
+
 clean:
-	rm -rf $(DIST) $(STAGING_WIN) $(STAGING_APPDIR)
+	rm -rf $(DIST) $(STAGING_WIN) $(STAGING_APPDIR) ByAThread.app
 	-docker rmi server-image:latest $$(docker images -q server-image) 2>/dev/null || true

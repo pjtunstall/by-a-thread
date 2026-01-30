@@ -66,16 +66,6 @@ fn transition(
     network_handle: &mut RenetNetworkHandle<'_>,
     assets: Option<&Assets>,
 ) -> Option<ClientState> {
-    // Use a helper function to avoid borrow checker issues
-    call_handler(session, ui, network_handle, assets)
-}
-
-fn call_handler(
-    session: &mut ClientSession,
-    ui: &mut dyn crate::lobby::ui::LobbyUi,
-    network_handle: &mut RenetNetworkHandle<'_>,
-    assets: Option<&Assets>,
-) -> Option<ClientState> {
     let state = std::mem::take(&mut session.state);
 
     let result = match state {
