@@ -159,24 +159,19 @@ impl ClientRunner {
     fn update_client_state(&mut self) {
         // We can't call `self.display_disconnect_message` in the `match` block
         // below because both mutably borrow `self` (the `ClientRunner`). Hence
-        // we handle the `Disconnected` state here separately from the other
-        // states.
-        if let Some((disconnect_message, show_error)) = {
-            if let ClientState::Disconnected {
-                message,
-                show_error,
-            } = &self.session.state
-            {
-                Some((message.clone(), *show_error))
-            } else {
-                None
-            }
-        } {
-            if show_error {
-                self.display_disconnect_message(&disconnect_message);
-            } else {
-                self.ui.draw(false, false, Some(&self.assets.font));
-            }
+        // we handle the disconnected states here separately from the other
+        // states. We extract what we need so the borrow of `session.state`
+        // ends before we call methods that need `&mut self`.
+        let disconnect_message = match &self.session.state {
+            ClientState::Disconnected { message } => Some(message.clone()),
+            _ => None,
+        };
+        if let Some(msg) = disconnect_message {
+            self.display_disconnect_message(&msg);
+            return;
+        }
+        if matches!(&self.session.state, ClientState::EndAfterLeaderboard) {
+            self.ui.draw(false, false, Some(&self.assets.font));
             return;
         }
 
@@ -221,22 +216,19 @@ impl ClientRunner {
                     self.session.transition(next_state);
                 }
             }
-            ClientState::Disconnected { .. } => {}
+            ClientState::Disconnected { .. } | ClientState::EndAfterLeaderboard => {}
         }
 
         if !self.session.state.is_disconnected() {
             if let Some(message) = self.session.take_pending_disconnect() {
-                let show_error = !matches!(
-                    &self.session.state,
+                let next_state = match &self.session.state {
                     ClientState::AfterGameChat(crate::after_game_chat::AfterGameChat {
                         leaderboard_received: true,
                         ..
-                    })
-                );
-                self.session.transition(ClientState::Disconnected {
-                    message,
-                    show_error,
-                });
+                    }) => ClientState::EndAfterLeaderboard,
+                    _ => ClientState::Disconnected { message },
+                };
+                self.session.transition(next_state);
             }
         }
     }
@@ -279,7 +271,6 @@ impl ClientRunner {
         else {
             self.session.transition(ClientState::Disconnected {
                 message: format!("could not find you in the list of players"),
-                show_error: true,
             });
             return Err(());
         };

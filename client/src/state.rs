@@ -5,19 +5,23 @@ pub enum ClientState {
     Lobby(Lobby),
     Game(Game),
     AfterGameChat(AfterGameChat),
-    Disconnected {
-        message: String,
-        show_error: bool,
-    },
+    Disconnected { message: String },
+    EndAfterLeaderboard,
 }
 
 impl ClientState {
     pub fn not_already_disconnecting_or_disconnected(&self) -> bool {
-        !matches!(self, ClientState::Disconnected { .. })
+        !matches!(
+            self,
+            ClientState::Disconnected { .. } | ClientState::EndAfterLeaderboard
+        )
     }
 
     pub fn is_disconnected(&self) -> bool {
-        matches!(self, ClientState::Disconnected { .. })
+        matches!(
+            self,
+            ClientState::Disconnected { .. } | ClientState::EndAfterLeaderboard
+        )
     }
 }
 

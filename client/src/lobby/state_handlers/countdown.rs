@@ -34,7 +34,6 @@ pub fn handle(
         {
             return Some(ClientState::Disconnected {
                 message: "maze data is missing".to_string(),
-                show_error: true,
             });
         }
     }
@@ -52,7 +51,6 @@ pub fn handle(
                 "disconnected during countdown: {}",
                 network.get_disconnect_reason()
             ),
-            show_error: true,
         });
     }
 
@@ -60,7 +58,6 @@ pub fn handle(
         ui.show_sanitized_error("No connection: input thread disconnected.");
         return Some(ClientState::Disconnected {
             message: "input thread disconnected".to_string(),
-            show_error: true,
         });
     }
 
@@ -254,7 +251,7 @@ mod tests {
         };
 
         assert!(next_state.is_some());
-        if let Some(ClientState::Disconnected { message, .. }) = next_state {
+        if let Some(ClientState::Disconnected { message }) = next_state {
             assert!(message.contains("Server hung up."));
         } else {
             panic!("did not transition to disconnected state");

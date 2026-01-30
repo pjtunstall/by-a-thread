@@ -50,7 +50,10 @@ impl ClientSession {
     }
 
     pub fn transition(&mut self, new_state: ClientState) {
-        if matches!(new_state, ClientState::Disconnected { .. }) {
+        if matches!(
+            new_state,
+            ClientState::Disconnected { .. } | ClientState::EndAfterLeaderboard
+        ) {
             self.disconnected_notified = false;
             self.pending_disconnect = None;
         }
@@ -233,7 +236,9 @@ impl ClientSession {
                 }
             }
             ClientState::Lobby(Lobby::Countdown { .. }) => InputMode::Hidden,
-            ClientState::Disconnected { .. } => InputMode::Hidden,
+            ClientState::Disconnected { .. } | ClientState::EndAfterLeaderboard => {
+                InputMode::Hidden
+            }
             ClientState::Game(_) => InputMode::SingleKey,
         }
     }
@@ -359,11 +364,10 @@ mod tests {
         ));
         session.transition(ClientState::Disconnected {
             message: "done".to_string(),
-            show_error: true,
         });
 
         match session.state {
-            ClientState::Disconnected { message, .. } => assert_eq!(message, "done"),
+            ClientState::Disconnected { message } => assert_eq!(message, "done"),
             _ => panic!("unexpected state after transition"),
         }
     }

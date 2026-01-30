@@ -81,7 +81,6 @@ fn handle(
                 ui.show_sanitized_error(&format!("No connection: {}.", UiInputError::Disconnected));
                 return Some(ClientState::Disconnected {
                     message: UiInputError::Disconnected.to_string(),
-                    show_error: true,
                 });
             }
             Ok(None) => {}
@@ -154,9 +153,7 @@ fn handle(
                     );
                 }
                 ui.show_message(" ");
-                ui.show_message_with_color("You're all done here. Disconnecting...", YELLOW);
-                ui.show_message(" ");
-                ui.show_warning("Press escape to exit.")
+                ui.show_message_with_color("That's your lot. Press escape to exit.", YELLOW);
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));
@@ -195,14 +192,15 @@ fn handle(
                     network.get_disconnect_reason()
                 ),
             );
+            Some(ClientState::Disconnected {
+                message: format!(
+                    "Disconnected from chat: {}.",
+                    network.get_disconnect_reason()
+                ),
+            })
+        } else {
+            Some(ClientState::EndAfterLeaderboard)
         }
-        Some(ClientState::Disconnected {
-            message: format!(
-                "Disconnected from chat: {}.",
-                network.get_disconnect_reason()
-            ),
-            show_error: !*leaderboard_received,
-        })
     } else {
         None
     }

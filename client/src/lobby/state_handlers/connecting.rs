@@ -25,10 +25,7 @@ pub fn handle(
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
             Ok((ServerMessage::ServerInfo { message }, _)) => {
-                return Some(ClientState::Disconnected {
-                    message,
-                    show_error: true,
-                });
+                return Some(ClientState::Disconnected { message });
             }
             Ok((_, _)) => {}
             Err(e) => {
@@ -75,10 +72,7 @@ pub fn handle(
             _ => format!("connection failed: {}", reason),
         };
 
-        Some(ClientState::Disconnected {
-            message,
-            show_error: true,
-        })
+        Some(ClientState::Disconnected { message })
     } else {
         None
     }
@@ -179,7 +173,7 @@ mod tests {
 
         assert!(matches!(
             next_state,
-            Some(ClientState::Disconnected { ref message, .. })
+            Some(ClientState::Disconnected { ref message })
                 if message == GAME_ALREADY_STARTED_MESSAGE
         ));
     }
@@ -208,7 +202,7 @@ mod tests {
 
         assert!(matches!(
             next_state,
-            Some(ClientState::Disconnected { ref message, .. })
+            Some(ClientState::Disconnected { ref message })
                 if message.contains("connection failed") && message.contains("dns failure")
         ));
     }
