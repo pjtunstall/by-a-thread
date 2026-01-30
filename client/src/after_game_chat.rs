@@ -260,20 +260,19 @@ fn handle(
     }
 }
 
-const BORDER_THICKNESS: f32 = 16.0;
-const BORDER_ALPHA: f32 = 0.5;
+const AFTER_GAME_MAP_BORDER_THICKNESS: f32 = 16.0;
+const AFTER_GAME_MAP_BORDER_ALPHA: f32 = 0.5;
 
 fn draw_after_game_map(data: &AfterGameMap, assets: &Assets) {
     push_camera_state();
     set_default_camera();
-
     let rect_h = data.map_overlay.rect.h;
     let map_scale = screen_height() * info::MAP_FRACTION_OF_SCREEN_HEIGHT / rect_h;
     let map_w = data.map_overlay.rect.w * map_scale;
     let map_h = rect_h * map_scale;
     let margin = info::BASE_INDENTATION;
-    let border_w = map_w + 2.0 * BORDER_THICKNESS;
-    let border_h = map_h + 2.0 * BORDER_THICKNESS;
+    let border_w = map_w + 2.0 * AFTER_GAME_MAP_BORDER_THICKNESS;
+    let border_h = map_h + 2.0 * AFTER_GAME_MAP_BORDER_THICKNESS;
     let border_x = screen_width() - margin - border_w;
     let border_y = margin;
     draw_rectangle(
@@ -281,11 +280,10 @@ fn draw_after_game_map(data: &AfterGameMap, assets: &Assets) {
         border_y,
         border_w,
         border_h,
-        macroquad::prelude::Color::new(0.0, 0.0, 0.0, BORDER_ALPHA),
+        macroquad::prelude::Color::new(0.0, 0.0, 0.0, AFTER_GAME_MAP_BORDER_ALPHA),
     );
-
-    let map_x = screen_width() - margin - BORDER_THICKNESS - map_w;
-    let map_y = margin + BORDER_THICKNESS;
+    let map_x = screen_width() - margin - AFTER_GAME_MAP_BORDER_THICKNESS - map_w;
+    let map_y = margin + AFTER_GAME_MAP_BORDER_THICKNESS;
     info::draw_map_at(
         map_x,
         map_y,
@@ -295,6 +293,5 @@ fn draw_after_game_map(data: &AfterGameMap, assets: &Assets) {
         assets,
         map_scale,
     );
-
     pop_camera_state();
 }
