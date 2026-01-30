@@ -27,7 +27,7 @@ fn enqueue_difficulty_input(
     // Don't use session.input_mode() here because session.state has been extracted
     // by std::mem::take in flow.rs. Instead, determine input mode from choice_sent.
     if choice_sent {
-        // Already sent, don't accept more input
+        // Already sent, don't accept more input.
         return None;
     }
 
@@ -90,7 +90,6 @@ pub fn handle(
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));
-                // Reset state when server info received
                 return Some(ClientState::Lobby(Lobby::ChoosingDifficulty {
                     prompt_printed: false,
                     choice_sent: false,
@@ -104,7 +103,7 @@ pub fn handle(
         }
     }
 
-    // Check if choice was already sent via lobby_state
+    // Check if choice was already sent via lobby_state.
     let choice_already_sent = *choice_sent;
 
     if !choice_already_sent {
@@ -129,7 +128,6 @@ pub fn handle(
                     encode_to_vec(&msg, standard()).expect("failed to serialize SetDifficulty");
                 network.send_message(AppChannel::ReliableOrdered, payload);
 
-                // Return updated state with choice_sent set to true
                 return Some(ClientState::Lobby(Lobby::ChoosingDifficulty {
                     prompt_printed: *prompt_printed,
                     choice_sent: true,

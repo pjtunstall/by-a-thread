@@ -12,7 +12,7 @@ fn window_conf() -> Conf {
         window_title: "By a Thread".to_owned(),
         window_width: WINDOW_WIDTH as i32,
         window_height: WINDOW_HEIGHT as i32,
-        fullscreen: true,
+        // // fullscreen: true,
         ..Default::default()
     }
 }
