@@ -13,7 +13,7 @@ use macroquad::{
 };
 
 use crate::{
-    after_game_chat::AfterGameChat,
+    after_game_chat::{AfterGameChat, AfterGameMap},
     assets::Assets,
     fade::{self, Fade},
     frame::FrameRate,
@@ -160,6 +160,7 @@ impl Game {
                 awaiting_initial_roster: true,
                 waiting_for_server: false,
                 leaderboard_received: false,
+                map_for_after_game: None,
             }));
         }
 
@@ -173,6 +174,24 @@ impl Game {
         self.advance_simulation(clock, network, assets);
 
         None
+    }
+
+    pub fn consume_for_after_game(self, chat_state: AfterGameChat) -> AfterGameChat {
+        let positions = self
+            .players
+            .iter()
+            .filter(|p| p.is_alive() && p.index != self.local_player_index)
+            .map(|p| (p.state.position, p.color))
+            .collect();
+        let map_for_after_game = Some(AfterGameMap {
+            map_overlay: self.map_overlay,
+            maze: self.maze,
+            positions,
+        });
+        AfterGameChat {
+            map_for_after_game,
+            ..chat_state
+        }
     }
 
     fn advance_simulation(

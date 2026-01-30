@@ -8,7 +8,7 @@
 ## Imports
 
 - Group imports in curly braces, e.g. `use std::{collections::HashMap, io::Result};`.
-- Group imports into paragraphs by category (standard library, external crates, local modules) with an empty line between each category.
+- Group imports into paragraphs by category (standard library first, then external crates, then local modules) with an empty line between each paragraph.
 
 ## Errors
 
@@ -27,5 +27,5 @@
 
 ## Punctuation
 
-- Use ' for a single quote and " for a double quote, even in comments and documentation.
+- Use ' for a single quote or apostrophe, and " for a double quote, even in comments and documentation.
 - Use -- for an m-dash, thus: "Yet--never--in Extremity".

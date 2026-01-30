@@ -236,9 +236,9 @@ impl ClientSession {
                 }
             }
             ClientState::Lobby(Lobby::Countdown { .. }) => InputMode::Hidden,
-            ClientState::Disconnected { .. } | ClientState::EndAfterLeaderboard => {
-                InputMode::Hidden
-            }
+            ClientState::Disconnected { .. }
+            | ClientState::EndAfterLeaderboard
+            | ClientState::Transitioning => InputMode::Hidden,
             ClientState::Game(_) => InputMode::SingleKey,
         }
     }
@@ -287,9 +287,7 @@ impl ClientSession {
 
 impl Default for ClientState {
     fn default() -> Self {
-        Self::Lobby(Lobby::ServerAddress {
-            prompt_printed: false,
-        })
+        Self::Transitioning
     }
 }
 

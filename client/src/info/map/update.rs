@@ -1,8 +1,9 @@
 use macroquad::prelude::*;
 
 use super::{SPACE_SYMBOL, WALL_SYMBOL};
-use crate::game::state::Game;
+use common::maze::Maze;
 use common::player::Color as PlayerColor;
+use glam::Vec3;
 
 const PLAYER_SYMBOL: &str = "█";
 
@@ -21,34 +22,30 @@ fn player_color_to_macroquad_color(color: PlayerColor) -> Color {
     }
 }
 
-pub fn draw_players_on_map(
-    game_state: &Game,
+pub fn draw_player_positions_on_map(
+    maze: &Maze,
+    positions: &[(Vec3, PlayerColor)],
+    base_x: f32,
+    base_y: f32,
     padding: f32,
-    x_indentation: f32,
-    y_indentation: f32,
     line_height: f32,
     map_font: &Font,
     font_size: u16,
 ) {
-    let maze = &game_state.maze;
     let wall_metrics = measure_text(WALL_SYMBOL, Some(map_font), font_size, 1.0);
     let space_metrics = measure_text(SPACE_SYMBOL, Some(map_font), font_size, 1.0);
     let symbol_width = wall_metrics.width.max(space_metrics.width);
 
-    for player in game_state.players.iter() {
-        if !player.is_alive() {
-            continue;
-        }
-
-        if let Some((col, row)) = maze.grid_coordinates_from_position(&player.state.position) {
+    for (position, color) in positions {
+        if let Some((col, row)) = maze.grid_coordinates_from_position(position) {
             draw_text_ex(
                 PLAYER_SYMBOL,
-                x_indentation + padding + (col as f32) * symbol_width,
-                y_indentation + padding + (row as f32 + 1.0) * line_height,
+                base_x + padding + (col as f32) * symbol_width,
+                base_y + padding + (row as f32 + 1.0) * line_height,
                 TextParams {
                     font: Some(map_font),
                     font_size,
-                    color: player_color_to_macroquad_color(player.color),
+                    color: player_color_to_macroquad_color(*color),
                     ..Default::default()
                 },
             );

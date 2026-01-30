@@ -132,13 +132,10 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
 
     check_multiplayer_winner(network, state);
 
-    // Only send snapshots every third tick.
+    // Only send snapshots every third tick. Send to all clients until the leaderboard is sent.
     if state.current_tick % TICKS_PER_BROADCAST == 0 {
         let mut egress_bytes = 0usize;
         for (&client_id, &player_index) in &state.client_id_to_index {
-            if state.after_game_chat_clients.contains(&client_id) {
-                continue;
-            }
             let snapshot = state.snapshot_for(player_index);
             let message = ServerMessage::Snapshot(WireItem::<Snapshot> {
                 id: state.current_tick as u16,

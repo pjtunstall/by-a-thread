@@ -181,18 +181,27 @@ impl ClientRunner {
 
                 let mut network = RenetNetworkHandle::new(&mut self.client, &mut self.transport);
 
-                match game_state.update_with_network(
+                let next_state = game_state.update_with_network(
                     &mut self.session.clock,
                     &mut network,
                     &self.assets,
-                ) {
-                    Some(next_state) => {
-                        if matches!(next_state, ClientState::AfterGameChat { .. }) {
-                            self.ui.flush_input();
+                );
+                match next_state {
+                    Some(ClientState::AfterGameChat(chat_state)) => {
+                        self.ui.flush_input();
+                        let old =
+                            std::mem::replace(&mut self.session.state, ClientState::default());
+                        if let ClientState::Game(game) = old {
+                            let full_chat = game.consume_for_after_game(chat_state);
+                            self.session.state = ClientState::AfterGameChat(full_chat);
+                        } else {
+                            unreachable!("transition to AfterGameChat only happens from Game");
                         }
-                        self.session.transition(next_state);
                     }
-                    _ => {
+                    Some(other) => {
+                        self.session.transition(other);
+                    }
+                    None => {
                         let tick_fraction = (self.session.clock.accumulated_time / TICK_SECS)
                             .clamp(0.0, 1.0) as f32;
                         game_state.draw(
@@ -216,7 +225,9 @@ impl ClientRunner {
                     self.session.transition(next_state);
                 }
             }
-            ClientState::Disconnected { .. } | ClientState::EndAfterLeaderboard => {}
+            ClientState::Disconnected { .. }
+            | ClientState::EndAfterLeaderboard
+            | ClientState::Transitioning => {}
         }
 
         if !self.session.state.is_disconnected() {

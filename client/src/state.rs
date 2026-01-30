@@ -7,6 +7,7 @@ pub enum ClientState {
     AfterGameChat(AfterGameChat),
     Disconnected { message: String },
     EndAfterLeaderboard,
+    Transitioning,
 }
 
 impl ClientState {
