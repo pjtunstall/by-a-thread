@@ -456,8 +456,8 @@ impl LobbyUi for Gui {
 
     fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr) {
         self.add_history(" ", WHITE);
-        self.show_banner_message(&format!("  Game version:\t{}", protocol_id));
-        self.show_banner_message(&format!("  Connecting to:\t{}", server_addr));
+        self.show_banner_message(&format!("Game version:\t{}", protocol_id));
+        self.show_banner_message(&format!("Connecting to:\t{}", server_addr));
         self.add_history(" ", WHITE);
     }
 

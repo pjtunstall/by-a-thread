@@ -14,6 +14,7 @@ use common::{
     chat::MAX_CHAT_MESSAGE_BYTES,
     constants::TICK_SECS,
     net::AppChannel,
+    player::Color::YELLOW,
     protocol::{ClientMessage, ServerMessage},
 };
 
@@ -128,6 +129,7 @@ fn handle(
                 *awaiting_initial_roster = false;
             }
             Ok((ServerMessage::AfterGameLeaderboard { entries }, _)) => {
+                ui.show_message(" ");
                 ui.show_sanitized_message("Leaderboard:");
                 let mut current_rank = 1;
                 let mut prev_ticks: Option<u64> = None;
@@ -139,13 +141,16 @@ fn handle(
 
                     let seconds = entry.ticks_survived as f64 * TICK_SECS;
                     ui.show_sanitized_message_with_color(
+                        // TODO: Format as minutes and seconds.
                         &format!(
-                            "  {}. {}  {:.1}s  ({})",
+                            "  {}. {}  {:.1} s  ({})",
                             current_rank, entry.username, seconds, entry.exit_reason
                         ),
                         entry.color,
                     );
                 }
+                ui.show_message(" ");
+                ui.show_message_with_color("You're all done here. Disconnecting...", YELLOW);
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));
