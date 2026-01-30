@@ -156,7 +156,11 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
     // // Uncomment to log egress and ingress rates.
     // state.net_stats.log_if_ready();
 
-    None
+    if state.leaderboard_sent {
+        Some(ServerState::Exiting)
+    } else {
+        None
+    }
 }
 
 fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut Game) {

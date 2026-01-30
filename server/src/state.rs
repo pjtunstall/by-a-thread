@@ -29,6 +29,7 @@ pub enum ServerState {
     ChoosingDifficulty(ChoosingDifficulty),
     Countdown(Countdown),
     Game(Game),
+    Exiting,
 }
 
 impl ServerState {
@@ -38,6 +39,7 @@ impl ServerState {
             ServerState::ChoosingDifficulty(_) => "ChoosingDifficulty",
             ServerState::Countdown(_) => "Countdown",
             ServerState::Game(_) => "Game",
+            ServerState::Exiting => "Exiting",
         }
     }
 
@@ -68,6 +70,7 @@ impl ServerState {
             ServerState::ChoosingDifficulty(state) => state.lobby.remove_client(client_id, network),
             ServerState::Countdown(countdown) => countdown.remove_client(client_id, network),
             ServerState::Game(game) => game.remove_client(client_id, network),
+            ServerState::Exiting => {}
         }
     }
 }
