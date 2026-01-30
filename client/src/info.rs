@@ -8,8 +8,8 @@ use macroquad::prelude::*;
 use crate::{assets::Assets, frame::FrameRate, game::state::Game};
 use common::{maze::Maze, player::Color as PlayerColor, player::MAX_HEALTH};
 
-pub const INFO_SCALE: f32 = 1.6;
 pub const FONT_SIZE: f32 = 6.0;
+pub const MAP_FRACTION_OF_SCREEN_HEIGHT: f32 = 0.5;
 pub const BG_COLOR: Color = Color::new(1.0, 1.0, 1.0, 0.8);
 pub const BASE_CIRCLE_RADIUS: f32 = 18.0;
 pub const BASE_INDENTATION: f32 = 10.0;
@@ -26,11 +26,14 @@ pub fn draw_map_at(
     maze: &Maze,
     positions: &[(Vec3, PlayerColor)],
     assets: &Assets,
+    map_scale: f32,
 ) {
-    let font_size = (FONT_SIZE * INFO_SCALE).round().max(1.0) as u16;
-    let map_scale = font_size as f32 / FONT_SIZE;
     let padding = BASE_PADDING * map_scale;
-    let line_height = font_size as f32;
+    let line_height = FONT_SIZE * map_scale;
+    let symbol_width_base =
+        map::update::cell_width_at_font_size(&assets.map_font, FONT_SIZE as u16);
+    let symbol_width = symbol_width_base * map_scale;
+    let font_size = (FONT_SIZE * map_scale).round().max(1.0) as u16;
     draw_texture_ex(
         &map_overlay.render_target.texture,
         base_x,
@@ -51,6 +54,7 @@ pub fn draw_map_at(
         base_x,
         base_y,
         padding,
+        symbol_width,
         line_height,
         &assets.map_font,
         font_size,
@@ -64,15 +68,14 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate, estimated_serve
     push_camera_state();
     set_default_camera();
 
-    let font_size = (FONT_SIZE * INFO_SCALE).round().max(1.0) as u16;
-    let map_scale = font_size as f32 / FONT_SIZE;
+    let map_overlay = &game_state.map_overlay;
+    let map_scale = screen_height() * MAP_FRACTION_OF_SCREEN_HEIGHT / map_overlay.rect.h;
     let x_indentation = BASE_INDENTATION;
     let y_indentation = BASE_INDENTATION;
     let stat_font_size = (BASE_STAT_FONT_SIZE as f32 * map_scale).round().max(1.0) as u16;
 
     crosshairs::draw_crosshairs();
 
-    let map_overlay = &game_state.map_overlay;
     let positions: Vec<_> = game_state
         .players
         .iter()
@@ -86,6 +89,7 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate, estimated_serve
         &game_state.maze,
         &positions,
         assets,
+        map_scale,
     );
 
     let x = x_indentation + map_overlay.rect.w * map_scale + BASE_MAP_TO_STATS_GAP * map_scale;

@@ -7,6 +7,12 @@ use glam::Vec3;
 
 const PLAYER_SYMBOL: &str = "█";
 
+pub fn cell_width_at_font_size(map_font: &Font, font_size: u16) -> f32 {
+    let wall_metrics = measure_text(WALL_SYMBOL, Some(map_font), font_size, 1.0);
+    let space_metrics = measure_text(SPACE_SYMBOL, Some(map_font), font_size, 1.0);
+    wall_metrics.width.max(space_metrics.width)
+}
+
 fn player_color_to_macroquad_color(color: PlayerColor) -> Color {
     match color {
         PlayerColor::RED => RED,
@@ -28,14 +34,11 @@ pub fn draw_player_positions_on_map(
     base_x: f32,
     base_y: f32,
     padding: f32,
+    symbol_width: f32,
     line_height: f32,
     map_font: &Font,
     font_size: u16,
 ) {
-    let wall_metrics = measure_text(WALL_SYMBOL, Some(map_font), font_size, 1.0);
-    let space_metrics = measure_text(SPACE_SYMBOL, Some(map_font), font_size, 1.0);
-    let symbol_width = wall_metrics.width.max(space_metrics.width);
-
     for (position, color) in positions {
         if let Some((col, row)) = maze.grid_coordinates_from_position(position) {
             draw_text_ex(

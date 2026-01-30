@@ -267,10 +267,10 @@ fn draw_after_game_map(data: &AfterGameMap, assets: &Assets) {
     push_camera_state();
     set_default_camera();
 
-    let font_size = (info::FONT_SIZE * info::INFO_SCALE).round().max(1.0) as u16;
-    let map_scale = font_size as f32 / info::FONT_SIZE;
+    let rect_h = data.map_overlay.rect.h;
+    let map_scale = screen_height() * info::MAP_FRACTION_OF_SCREEN_HEIGHT / rect_h;
     let map_w = data.map_overlay.rect.w * map_scale;
-    let map_h = data.map_overlay.rect.h * map_scale;
+    let map_h = rect_h * map_scale;
     let margin = info::BASE_INDENTATION;
     let border_w = map_w + 2.0 * BORDER_THICKNESS;
     let border_h = map_h + 2.0 * BORDER_THICKNESS;
@@ -293,6 +293,7 @@ fn draw_after_game_map(data: &AfterGameMap, assets: &Assets) {
         &data.maze,
         &data.positions,
         assets,
+        map_scale,
     );
 
     pop_camera_state();
