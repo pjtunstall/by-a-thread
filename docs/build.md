@@ -76,6 +76,8 @@ Each script creates a .app bundle so the app is double-clickable and shows in th
 
 There are three options for Linux: `.deb` and `.rpm` according to Linux distro type (advantage: native system integration), and AppImage, which bundles the game and its dependencies (libraries and assets) into a single executable file that should be compatible with any distro.
 
+Use the `.deb` on Debian, Ubuntu and other apt-based distros; use the `.rpm` on Fedora, RHEL, openSUSE and other RPM-based distros. On Arch Linux and other distros that use neither format, use the AppImage or build from source.
+
 ### Compatibility
 
 The binary is built for the machine (or container) you run `build.sh` on. If that environment has a newer glibc than the systems where users will run the game, the binary may fail at runtime. Building on an older Ubuntu (e.g. in CI or a local container) avoids that.
