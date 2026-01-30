@@ -13,7 +13,7 @@
 #   make windows      # only Windows zip
 #   make deb          # only .deb package
 #   make clean        # remove dist/, temp dirs, and Docker image
-#   make fullscreen   # uncomment fullscreen: true in client/src/main.rs (idempotent)
+#   make fullscreen   # set fullscreen: true in client/src/main.rs (idempotent)
 #
 # Make checks that required tools exist before each step, and rebuilds artifacts
 # only when their dependencies have changed (e.g. Windows zip only if the exe changed).
@@ -43,11 +43,11 @@ CLIENT_SOURCES := Cargo.toml Cargo.lock client/Cargo.toml client/build.rs $(shel
 
 all: test server docker windows deb rpm appimage unfullscreen
 
-# Uncomment fullscreen in the client so the built game runs fullscreen. Only run
+# Set fullscreen true in the client so the built game runs fullscreen. Only run
 # this when building the client (inside those rules), not as a separate first step,
 # so the source is not touched when everything is already up to date.
 fullscreen:
-	@grep -q '// fullscreen: true,' client/src/main.rs && sed -i 's|// fullscreen: true,|fullscreen: true,|' client/src/main.rs || true
+	@grep -q 'fullscreen: false,' client/src/main.rs && sed -i 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs || true
 
 # --- Run tests ---
 test:
@@ -105,7 +105,7 @@ deploy-hetzner: $(DOCKER_SENTINEL) | check-deploy
 # Prerequisites: rustup target add x86_64-pc-windows-gnu; apt install mingw-w64 zip
 #
 $(EXE_WIN): $(CLIENT_SOURCES) | check-windows
-	@grep -q '// fullscreen: true,' client/src/main.rs && sed -i 's|// fullscreen: true,|fullscreen: true,|' client/src/main.rs || true
+	@grep -q 'fullscreen: false,' client/src/main.rs && sed -i 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs || true
 	cargo build --release --target x86_64-pc-windows-gnu -p client
 
 $(ZIP_WIN): $(EXE_WIN)
@@ -148,7 +148,7 @@ rpm: $(DIST)/.rpm-built
 # Prerequisites: linuxdeploy (e.g. linuxdeploy-x86_64.AppImage) in PATH or set LINUXDEPLOY; appimagetool in PATH
 #
 $(EXE_HOST): $(CLIENT_SOURCES)
-	@grep -q '// fullscreen: true,' client/src/main.rs && sed -i 's|// fullscreen: true,|fullscreen: true,|' client/src/main.rs || true
+	@grep -q 'fullscreen: false,' client/src/main.rs && sed -i 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs || true
 	cargo build --release -p client
 
 $(APPIMAGE_FILE): $(EXE_HOST) | check-appimage
@@ -211,11 +211,11 @@ clean:
 	rm -rf $(DIST) $(STAGING_WIN) $(STAGING_APPDIR) ByAThread.app
 	-docker rmi server-image:latest $$(docker images -q server-image) 2>/dev/null || true
 
-# Comment fullscreen back so the source is in development state after a release build.
-# Only runs when it is currently uncommented. Then touch client outputs so their mtime
-# is newer than main.rs and the next make does not rebuild everything.
+# Set fullscreen false so the source is in development state after a release build.
+# Only runs when it is currently true, so the file is not touched when already false.
+# Then touch client outputs so their mtime is newer than main.rs and the next make does not rebuild.
 # Must be last in the Makefile so it runs after all other targets.
 # This assumes `make` is not run in parallel, i.e., we should not run `make -j`.
 unfullscreen:
-	@grep -q 'fullscreen: true,' client/src/main.rs && sed -i 's|fullscreen: true,|// fullscreen: true,|' client/src/main.rs || true
+	@grep -q 'fullscreen: true,' client/src/main.rs && sed -i 's|fullscreen: true,|fullscreen: false,|' client/src/main.rs || true
 	@for f in $(EXE_HOST) $(EXE_WIN) $(ZIP_WIN) $(DIST)/.deb-built $(DIST)/.rpm-built $(APPIMAGE_FILE); do [ -f "$$f" ] && touch "$$f"; done
