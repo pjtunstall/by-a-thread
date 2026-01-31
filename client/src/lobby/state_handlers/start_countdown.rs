@@ -26,7 +26,7 @@ pub fn handle_countdown_started(
         }
         3 => {
             let sky_texture = Some(assets.white_marble_texture.clone());
-            let wall_texture = &assets.octopuses_texture;
+            let wall_texture = &assets.squids_texture;
             (wall_texture, sky_texture)
         }
         4 => {

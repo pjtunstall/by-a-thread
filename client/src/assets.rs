@@ -10,7 +10,7 @@ pub struct Assets {
     pub bull_texture: Texture2D,
     pub ball_texture: Texture2D,
     pub griffin_texture: Texture2D,
-    pub octopuses_texture: Texture2D,
+    pub squids_texture: Texture2D,
     pub dolphins_texture: Texture2D,
     pub blue_rust_texture: Texture2D,
     pub green_marble_texture: Texture2D,
@@ -36,7 +36,7 @@ impl Assets {
             bull_texture: load_bull_texture().await,
             ball_texture: load_ball_texture().await,
             griffin_texture: load_griffin_texture().await,
-            octopuses_texture: load_octopuses_texture().await,
+            squids_texture: load_squids_texture().await,
             dolphins_texture: load_dolphins_texture().await,
             blue_rust_texture: load_blue_rust_texture().await,
             green_marble_texture: load_green_marble_texture().await,
@@ -79,6 +79,16 @@ pub mod embedded_assets {
     pub async fn load_griffin_texture() -> Texture2D {
         let griffin_bytes = include_bytes!("../assets/images/griffin.png");
         Texture2D::from_file_with_format(griffin_bytes, None)
+    }
+
+    pub async fn load_squids_texture() -> Texture2D {
+        let squids_bytes = include_bytes!("../assets/images/squids.png");
+        Texture2D::from_file_with_format(squids_bytes, None)
+    }
+
+    pub async fn load_dolphins_texture() -> Texture2D {
+        let dolphins_bytes = include_bytes!("../assets/images/dolphins.png");
+        Texture2D::from_file_with_format(dolphins_bytes, None)
     }
 
     pub async fn load_blue_rust_texture() -> Texture2D {
@@ -231,11 +241,11 @@ mod file_assets {
             .expect("failed to load white marble texture")
     }
 
-    pub async fn load_octopuses_texture() -> Texture2D {
-        let path = resource_path("images", "octopuses.png");
+    pub async fn load_squids_texture() -> Texture2D {
+        let path = resource_path("images", "squids.png");
         load_texture(path.to_string_lossy().as_ref())
             .await
-            .expect("failed to load octopuses texture")
+            .expect("failed to load squids texture")
     }
 
     pub async fn load_dolphins_texture() -> Texture2D {
