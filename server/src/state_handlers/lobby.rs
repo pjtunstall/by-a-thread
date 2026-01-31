@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
@@ -30,9 +32,11 @@ pub fn handle(
     network: &mut dyn ServerNetworkHandle,
     state: &mut Lobby,
     passcode: &Passcode,
+    last_activity: &mut Instant,
 ) -> Option<ServerState> {
     for client_id in network.clients_id() {
         while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
+            *last_activity = Instant::now();
             let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
                 eprintln!(
                     "client {} sent malformed data; disconnecting them",
@@ -261,6 +265,8 @@ fn send_username_error(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Instant;
+
     use crate::state::Lobby;
     use crate::test_helpers::MockServerNetwork;
     use bincode::config::standard;
@@ -288,7 +294,13 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let next_state = handle(&mut network, &mut lobby_state, &passcode);
+        let mut last_activity = Instant::now();
+        let next_state = handle(
+            &mut network,
+            &mut lobby_state,
+            &passcode,
+            &mut last_activity,
+        );
 
         assert!(lobby_state.needs_username(1));
         assert!(next_state.is_none());
@@ -321,7 +333,13 @@ mod tests {
             network.queue_raw_message(1, payload);
         }
 
-        let next_state = handle(&mut network, &mut lobby_state, &passcode);
+        let mut last_activity = Instant::now();
+        let next_state = handle(
+            &mut network,
+            &mut lobby_state,
+            &passcode,
+            &mut last_activity,
+        );
 
         assert_eq!(lobby_state.username(1), None);
         assert!(next_state.is_none());
@@ -359,7 +377,13 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(2, payload);
 
-        let next_state = handle(&mut network, &mut lobby_state, &passcode);
+        let mut last_activity = Instant::now();
+        let next_state = handle(
+            &mut network,
+            &mut lobby_state,
+            &passcode,
+            &mut last_activity,
+        );
 
         assert_eq!(lobby_state.username(2), Some("bob"));
         assert!(next_state.is_none());
@@ -423,7 +447,13 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let next_state = handle(&mut network, &mut lobby_state, &passcode);
+        let mut last_activity = Instant::now();
+        let next_state = handle(
+            &mut network,
+            &mut lobby_state,
+            &passcode,
+            &mut last_activity,
+        );
 
         assert!(next_state.is_none());
 
@@ -464,7 +494,13 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let next_state = handle(&mut network, &mut lobby_state, &passcode);
+        let mut last_activity = Instant::now();
+        let next_state = handle(
+            &mut network,
+            &mut lobby_state,
+            &passcode,
+            &mut last_activity,
+        );
 
         assert!(next_state.is_none());
 
@@ -500,7 +536,13 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let next_state = handle(&mut network, &mut lobby_state, &passcode);
+        let mut last_activity = Instant::now();
+        let next_state = handle(
+            &mut network,
+            &mut lobby_state,
+            &passcode,
+            &mut last_activity,
+        );
 
         assert!(next_state.is_none());
 
@@ -543,7 +585,13 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let next_state = handle(&mut network, &mut lobby_state, &passcode);
+        let mut last_activity = Instant::now();
+        let next_state = handle(
+            &mut network,
+            &mut lobby_state,
+            &passcode,
+            &mut last_activity,
+        );
 
         assert!(next_state.is_none());
         assert_eq!(lobby_state.username(1), None);

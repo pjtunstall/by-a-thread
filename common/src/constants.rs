@@ -1,13 +1,13 @@
 use std::time::Duration;
 
 // Timer durations based on game mode.
-pub const SOLO_TIMER_DURATION: f32 = 60.0; // Single player has one minute to escape.
-pub const BATTLE_TIMER_DURATION: f32 = 600.0; // Multiplayer gets ten minutes.
+pub const SOLO_TIMER_DURATION: f32 = 60.0; // Single player has 1 minute to escape.
+pub const BATTLE_TIMER_DURATION: f32 = 600.0; // Multiplayer gets 10 minutes.
 
 // Client:
 pub const JITTER_SAFETY_MARGIN: f64 = 50.0; // Milliseconds.
 pub const INPUT_HISTORY_LENGTH: usize = 256; // 256 ticks, ~4.3s at 60Hz.
-pub const SNAPSHOT_BUFFER_LENGTH: usize = 16; // 16 broadcasts, 0.8s at 20Hz. Big safety margin in case we introduce a dynamic interpolation delay later.
+pub const SNAPSHOT_BUFFER_LENGTH: usize = 16; // 16 broadcasts, 0.8s at 20Hz.
 
 // Tick-related:
 pub const TICK_RATE: f64 = 60.0;

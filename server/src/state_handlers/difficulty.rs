@@ -20,6 +20,7 @@ use common::{
 pub fn handle(
     network: &mut dyn ServerNetworkHandle,
     state: &mut ChoosingDifficulty,
+    last_activity: &mut Instant,
 ) -> Option<ServerState> {
     let Some(host_id) = state.host_id() else {
         eprintln!("difficulty selection has no host; ignoring inputs");
@@ -28,6 +29,8 @@ pub fn handle(
 
     for client_id in network.clients_id() {
         while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
+            *last_activity = Instant::now();
+
             let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
                 eprintln!(
                     "client {} sent malformed data; disconnecting them",
@@ -171,7 +174,8 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(user_id, payload);
 
-        let next_state = handle(&mut network, &mut choosing_state);
+        let mut last_activity = Instant::now();
+        let next_state = handle(&mut network, &mut choosing_state, &mut last_activity);
 
         assert!(next_state.is_none());
 

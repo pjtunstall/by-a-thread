@@ -29,6 +29,10 @@ use common::{
     time,
 };
 
+// Server exits from `Lobby` and `ChoosingDifficulty` states if there's been no
+// activity (no messages from clients) for 5 minutes.
+const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(300);
+
 pub fn run_server(socket: UdpSocket, connectable_addr: SocketAddr, private_key: [u8; 32]) {
     let current_time = common::time::now();
     let protocol_id = common::protocol::version();
@@ -65,6 +69,7 @@ fn server_loop(
     let mut next_tick_time = Instant::now();
     let mut last_updated = Instant::now();
     let mut last_sync_time = Instant::now();
+    let mut last_activity = Instant::now();
 
     loop {
         let now = Instant::now();
@@ -83,7 +88,7 @@ fn server_loop(
             last_sync_time = now;
         }
 
-        update_server_state(&mut network_handle, state, passcode);
+        update_server_state(&mut network_handle, state, passcode, &mut last_activity);
 
         transport.send_packets(server);
 
@@ -106,15 +111,24 @@ pub fn update_server_state(
     network: &mut dyn ServerNetworkHandle,
     state: &mut ServerState,
     passcode: &Passcode,
+    last_activity: &mut Instant,
 ) {
+    if last_activity.elapsed() > INACTIVITY_TIMEOUT {
+        println!(
+            "No activity for {:#?}. Server exiting...",
+            INACTIVITY_TIMEOUT
+        );
+        std::process::exit(0);
+    }
+
     process_events(network, state);
 
     let next_state = match state {
         ServerState::Lobby(lobby_state) => {
-            state_handlers::lobby::handle(network, lobby_state, passcode)
+            state_handlers::lobby::handle(network, lobby_state, passcode, last_activity)
         }
         ServerState::ChoosingDifficulty(difficulty_state) => {
-            state_handlers::difficulty::handle(network, difficulty_state)
+            state_handlers::difficulty::handle(network, difficulty_state, last_activity)
         }
         ServerState::Countdown(countdown_state) => {
             state_handlers::countdown::handle(network, countdown_state)

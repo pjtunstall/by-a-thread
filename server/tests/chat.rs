@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use bincode::{
     config::standard,
@@ -81,6 +81,7 @@ fn chat_messages_are_broadcast_to_other_clients() {
     let mut server = setup_test_server();
     let mut state = ServerState::Lobby(Lobby::new());
     let passcode = empty_passcode();
+    let mut last_activity = Instant::now();
 
     let alice_id = 1;
     let bob_id = 2;
@@ -93,7 +94,7 @@ fn chat_messages_are_broadcast_to_other_clients() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        update_server_state(&mut network_handle, &mut state, &passcode);
+        update_server_state(&mut network_handle, &mut state, &passcode, &mut last_activity);
     }
 
     full_tick(&mut server, &mut alice, &mut bob);
@@ -117,7 +118,7 @@ fn chat_messages_are_broadcast_to_other_clients() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        update_server_state(&mut network_handle, &mut state, &passcode);
+        update_server_state(&mut network_handle, &mut state, &passcode, &mut last_activity);
     }
 
     server.update(Duration::from_millis(16));
@@ -162,6 +163,7 @@ fn players_are_notified_when_others_join_and_leave() {
     let mut server = setup_test_server();
     let mut state = ServerState::Lobby(Lobby::new());
     let passcode = empty_passcode();
+    let mut last_activity = Instant::now();
 
     let alice_id = 1;
     let bob_id = 2;
@@ -174,7 +176,7 @@ fn players_are_notified_when_others_join_and_leave() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        update_server_state(&mut network_handle, &mut state, &passcode);
+        update_server_state(&mut network_handle, &mut state, &passcode, &mut last_activity);
     }
 
     full_tick(&mut server, &mut alice, &mut bob);
@@ -197,7 +199,7 @@ fn players_are_notified_when_others_join_and_leave() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        update_server_state(&mut network_handle, &mut state, &passcode);
+        update_server_state(&mut network_handle, &mut state, &passcode, &mut last_activity);
     }
 
     server.update(Duration::from_millis(16));
@@ -231,7 +233,7 @@ fn players_are_notified_when_others_join_and_leave() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        update_server_state(&mut network_handle, &mut state, &passcode);
+        update_server_state(&mut network_handle, &mut state, &passcode, &mut last_activity);
     }
 
     server.update(Duration::from_millis(16));
@@ -263,6 +265,7 @@ fn test_handle_messages_username_success_and_broadcast() {
     let mut server = setup_test_server();
     let mut state = ServerState::Lobby(Lobby::new());
     let passcode = empty_passcode();
+    let mut last_activity = Instant::now();
 
     let alice_id = 1;
     let bob_id = 2;
@@ -275,7 +278,7 @@ fn test_handle_messages_username_success_and_broadcast() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        update_server_state(&mut network_handle, &mut state, &passcode);
+        update_server_state(&mut network_handle, &mut state, &passcode, &mut last_activity);
     }
 
     full_tick(&mut server, &mut alice, &mut bob);
@@ -298,7 +301,7 @@ fn test_handle_messages_username_success_and_broadcast() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        update_server_state(&mut network_handle, &mut state, &passcode);
+        update_server_state(&mut network_handle, &mut state, &passcode, &mut last_activity);
     }
 
     server.update(Duration::from_millis(16));

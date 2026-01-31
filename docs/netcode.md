@@ -67,7 +67,7 @@ The client maintains an accumulator: a value that's incremented by the duration 
 
 ### Buffers and history
 
-The client maintains ring buffers called `input_history` (for their own inputs, 256 ticks, ~4.3s at 60Hz) and `snapshot_buffer` (for player position updates, 16 broadcasts, ~0.8s at 20Hz). The server maintains an `input_buffer` ring buffer for each player to store their inputs till it's time to process them (128 ticks, ~2.1s at 60Hz).
+The client maintains ring buffers called `input_history` (for their own inputs, 256 ticks, ~4.3s at 60Hz) and `snapshot_buffer` (for player position updates, 16 broadcasts, ~0.8s at 20Hz; a big safety margin). The server maintains an `input_buffer` ring buffer for each player to store their inputs till it's time to process them (128 ticks, ~2.1s at 60Hz).
 
 The `input_history` is implemented as a `Ring` struct, and the others with the `NetworkBuffer` struct. A `Ring` stores items in an array, labeled with a 64-bit tick number. The index at which an item is inserted is its tick modulo the length of the array. This allows items to be inserted in a circular fashion. Since they're labeled with the tick number, the item corresponding to a given tick can be extracted; if the item at the corresponding index doesn't match the tick, the item for that tick is considered not found.
 
