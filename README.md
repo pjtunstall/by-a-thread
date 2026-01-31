@@ -29,6 +29,7 @@ Looking ahead to distribution of the client binary, see the [Build](docs/build.m
 - Arrow keys to turn.
 - Space to fire.
 - Left shift for sniper mode.
+
 - Escape to quit/exit.
 
 ### Objective
@@ -40,9 +41,7 @@ Looking ahead to distribution of the client binary, see the [Build](docs/build.m
 
 ## Levels
 
-As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`.
-
-That said, with aid of the map, the "harder" levels can actually be easier to navigate, as their algorithms tend to produce more direct paths between distant cells.
+The spec calls for three difficulty levels. I've made four. The 01 instructions define difficulty as the tendency for a maze to have dead ends. I chose the following algorithms for this, in order of increasing difficulty: Backtrack, Wilson, and, in equal first place, Kruskal and Prim.
 
 # FPS meter
 
