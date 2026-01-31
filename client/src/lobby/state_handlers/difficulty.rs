@@ -71,8 +71,8 @@ pub fn handle(
     if !*prompt_printed && !*choice_sent {
         ui.show_message("Server: Choose a difficulty level:");
         ui.show_message("  1. Easy (backtracking)");
-        ui.show_message("  2. Middling (Prim's algorithm)");
-        ui.show_message("  3. Next level (Wilson's algorithm)");
+        ui.show_message("  2. Middling (Wilson's algorithm)");
+        ui.show_message("  3. Next level (Prim's algorithm)");
         ui.show_prompt("Press 1, 2, or 3.");
         *prompt_printed = true;
     }

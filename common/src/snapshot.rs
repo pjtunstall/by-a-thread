@@ -41,7 +41,8 @@ impl InitialData {
         let generator = match level {
             1 => Algorithm::Backtrack,
             2 => Algorithm::Wilson,
-            _ => Algorithm::Prim,
+            3 => Algorithm::Prim,
+            _ => Algorithm::Backtrack,
         };
         let mut maze = maze::Maze::new(generator);
 
