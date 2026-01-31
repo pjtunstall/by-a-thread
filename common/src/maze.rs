@@ -3,6 +3,7 @@ pub mod maker;
 use std::fmt;
 
 use glam::{Vec3, vec3};
+use rand;
 use serde::{Deserialize, Serialize};
 
 pub use maker::Algorithm;
@@ -51,6 +52,44 @@ impl Maze {
                 (z as f32 + 0.5) * CELL_SIZE,
             );
             Some(position)
+        }
+    }
+
+    pub fn pick_exit_coords(&self) -> (usize, usize) {
+        let grid = &self.grid;
+        let height = grid.len();
+        let width = if height > 0 { grid[0].len() } else { 0 };
+
+        let mut candidates = Vec::new();
+
+        let has_space_neighbor = |z: usize, x: usize| {
+            (z > 0 && grid[z - 1][x] == 0)
+                || (z + 1 < height && grid[z + 1][x] == 0)
+                || (x > 0 && grid[z][x - 1] == 0)
+                || (x + 1 < width && grid[z][x + 1] == 0)
+        };
+
+        let mut check_if_valid = |z, x| {
+            if has_space_neighbor(z, x) {
+                candidates.push((z, x));
+            }
+        };
+
+        for x in 1..(width - 1) {
+            check_if_valid(0, x);
+            check_if_valid(height - 1, x);
+        }
+
+        for z in 1..(height - 1) {
+            check_if_valid(z, 0);
+            check_if_valid(z, width - 1);
+        }
+
+        if candidates.is_empty() {
+            (0, 0) // This should never happen with a sensible maze.
+        } else {
+            let idx = rand::random_range(0..candidates.len());
+            candidates[idx]
         }
     }
 

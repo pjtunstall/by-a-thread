@@ -1,5 +1,3 @@
-use std::fmt;
-
 use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
@@ -9,7 +7,7 @@ use macroquad::prelude::*;
 
 use crate::{
     assets::Assets,
-    info::{self, map::MapOverlay},
+    info::map::{self, after_game::AfterGameMap},
     lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
     net::NetworkHandle,
     session::ClientSession,
@@ -18,27 +16,11 @@ use crate::{
 use common::{
     chat::MAX_CHAT_MESSAGE_BYTES,
     constants::TICK_SECS,
-    maze::Maze,
     net::AppChannel,
     player::{Color, Color::YELLOW},
     protocol::{ClientMessage, ServerMessage},
     snapshot::Snapshot,
 };
-
-pub struct AfterGameMap {
-    pub map_overlay: MapOverlay,
-    pub maze: Maze,
-    pub positions: Vec<(Vec3, Color)>,
-}
-
-impl fmt::Debug for AfterGameMap {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("AfterGameMap")
-            .field("maze", &self.maze)
-            .field("positions", &self.positions)
-            .finish_non_exhaustive()
-    }
-}
 
 #[derive(Debug)]
 pub struct AfterGameChat {
@@ -85,7 +67,7 @@ pub fn update(
     if let (Some(assets), ClientState::AfterGameChat(chat)) = (assets, &session.state) {
         if let Some(data) = &chat.map_for_after_game {
             if !chat.leaderboard_received && !data.positions.is_empty() {
-                draw_after_game_map(data, assets);
+                map::after_game::draw_after_game_map(data, assets);
             }
         }
     }
@@ -196,12 +178,13 @@ fn handle(
                     }
                     prev_ticks = Some(entry.ticks_survived);
 
-                    let seconds = entry.ticks_survived as f64 * TICK_SECS;
+                    let seconds = entry.ticks_survived * TICK_SECS as u64;
+                    let minutes = seconds / 60;
+                    let remainder = seconds % 60;
                     ui.show_sanitized_message_with_color(
-                        // TODO: Format as minutes and seconds.
                         &format!(
-                            "  {}. {}  {:.1} s  ({})",
-                            current_rank, entry.username, seconds, entry.exit_reason
+                            "  {}. {}  {:02}:{:02}  ({})",
+                            current_rank, entry.username, minutes, remainder, entry.exit_reason
                         ),
                         entry.color,
                     );
@@ -258,42 +241,4 @@ fn handle(
     } else {
         None
     }
-}
-
-const AFTER_GAME_MAP_BORDER_THICKNESS: f32 = 16.0;
-const AFTER_GAME_MAP_BORDER_ALPHA: f32 = 0.5;
-const AFTER_GAME_MAP_SCALE: f32 = 1.6; // Compared to in-game map.
-
-fn draw_after_game_map(data: &AfterGameMap, assets: &Assets) {
-    push_camera_state();
-    set_default_camera();
-    let rect_h = data.map_overlay.rect.h;
-    let map_scale =
-        AFTER_GAME_MAP_SCALE * screen_height() * info::MAP_FRACTION_OF_SCREEN_HEIGHT / rect_h;
-    let map_w = data.map_overlay.rect.w * map_scale;
-    let map_h = rect_h * map_scale;
-    let margin = info::BASE_INDENTATION;
-    let border_w = map_w + 2.0 * AFTER_GAME_MAP_BORDER_THICKNESS;
-    let border_h = map_h + 2.0 * AFTER_GAME_MAP_BORDER_THICKNESS;
-    let border_x = screen_width() - margin - border_w;
-    let border_y = margin;
-    draw_rectangle(
-        border_x,
-        border_y,
-        border_w,
-        border_h,
-        macroquad::prelude::Color::new(0.0, 0.0, 0.0, AFTER_GAME_MAP_BORDER_ALPHA),
-    );
-    let map_x = screen_width() - margin - AFTER_GAME_MAP_BORDER_THICKNESS - map_w;
-    let map_y = margin + AFTER_GAME_MAP_BORDER_THICKNESS;
-    info::draw_map_at(
-        map_x,
-        map_y,
-        &data.map_overlay,
-        &data.maze,
-        &data.positions,
-        assets,
-        map_scale,
-    );
-    pop_camera_state();
 }

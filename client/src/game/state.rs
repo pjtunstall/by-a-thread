@@ -13,7 +13,7 @@ use macroquad::{
 };
 
 use crate::{
-    after_game_chat::{AfterGameChat, AfterGameMap},
+    after_game_chat::AfterGameChat,
     assets::Assets,
     fade::{self, Fade},
     frame::FrameRate,
@@ -28,7 +28,7 @@ use crate::{
             sky::Sky,
         },
     },
-    info,
+    info::{self, map::after_game::AfterGameMap},
     net::NetworkHandle,
     session::Clock,
     state::ClientState,

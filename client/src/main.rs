@@ -19,9 +19,8 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let private_key = common::auth::private_key();
-
     let ui = Gui::new();
+    let private_key = common::auth::private_key();
 
     run::run_client_loop(private_key, ui).await;
 }

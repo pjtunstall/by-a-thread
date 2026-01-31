@@ -9,9 +9,7 @@
 - [To run locally](#to-run-locally)
 - [Levels](#levels)
 - [FPS meter](#fps-meter)
-- [Curiosities](#curiosities)
-  - [Network debugging](#network-debugging)
-  - [Docker: the dummy client trick](#docker-the-dummy-client-trick)
+- [Docker: the dummy client trick](#docker-the-dummy-client-trick)
 
 ## Overview
 
@@ -44,7 +42,7 @@ Looking ahead to distribution of the client binary, see the [Build](docs/build.m
 
 As instructed, I've implemented three difficulty levels. The 01 instructions define difficulty as the tendency of a maze to have dead ends. I chose three maze-generating algorithms for this, in order of increasing difficulty: `Backtrack`, `Wilson`, and `Prim`.
 
-That said, with the map, the "harder" levels can be easier to navigate, as their algorithms tend to produce more direct paths between distant cells.
+That said, with aid of the map, the "harder" levels can actually be easier to navigate, as their algorithms tend to produce more direct paths between distant cells.
 
 # FPS meter
 
@@ -60,15 +58,9 @@ As a shortcut, you can press Tab to connect to localhost. When connecting to a r
 
 The passcode will appear in the server terminal.
 
-## Curiosities
+## Docker: The dummy client trick
 
-### Network debugging
-
-[Network Debugging](docs/network-debugging.md) documents some lessons learnt while fixing a bug I had when I first tried to run the server on Docker.
-
-### The dummy client trick
-
-As I containerized the server using Docker, I came across a useful trick. The server consists of one package: `server`. It depends on another package, called `common`. Both belong to the same workspace, and that workspace contains a third package: `client`. I wanted to keep this structure without polluting the Docker build context with the client source code and assets. The solution I found was to include, in my [Dockerfile](Dockerfile), commands to create a dummy client, i.e. the minimal file structure required to satisfy `cargo install`.
+As I containerized the server using Docker, I came across a handy trick. The server consists of one package: `server`. It depends on another package, called `common`. Both belong to the same workspace, and that workspace contains a third package: `client`. I wanted to keep this structure without polluting the Docker build context with the client source code and assets. The solution I found was to include, in my [Dockerfile](Dockerfile), commands to create a dummy client, i.e. the minimal file structure required to satisfy `cargo install`.
 
 ```sh
 RUN mkdir -p client/src && \
