@@ -3,7 +3,7 @@ use std::{
     fmt,
 };
 
-use glam::{Vec3, vec3};
+use glam::{Vec2, Vec3, vec2, vec3};
 use serde::{Deserialize, Serialize};
 use strum::{Display, IntoStaticStr};
 
@@ -273,7 +273,7 @@ impl PlayerState {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Default)]
 pub struct WirePlayerRemote {
-    pub position: Vec3,
+    pub position: Vec2,
     pub yaw: f32,
     pub pitch: f32,
 }
@@ -281,7 +281,7 @@ pub struct WirePlayerRemote {
 impl From<PlayerState> for WirePlayerRemote {
     fn from(player_state: PlayerState) -> Self {
         Self {
-            position: player_state.position,
+            position: vec2(player_state.position.x, player_state.position.z),
             yaw: player_state.yaw,
             pitch: player_state.pitch,
         }
@@ -290,8 +290,8 @@ impl From<PlayerState> for WirePlayerRemote {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Default)]
 pub struct WirePlayerLocal {
-    pub position: Vec3,
-    pub velocity: Vec3,
+    pub position: Vec2,
+    pub velocity: Vec2,
 
     pub yaw: f32,
     pub pitch: f32,
@@ -305,8 +305,8 @@ pub struct WirePlayerLocal {
 impl From<PlayerState> for WirePlayerLocal {
     fn from(player_state: PlayerState) -> Self {
         Self {
-            position: player_state.position,
-            velocity: player_state.velocity,
+            position: vec2(player_state.position.x, player_state.position.z),
+            velocity: vec2(player_state.velocity.x, player_state.velocity.z),
 
             yaw: player_state.yaw,
             pitch: player_state.pitch,

@@ -411,8 +411,12 @@ impl Game {
 
             let local_state = &mut local_player.state;
 
-            local_state.position = snapshot.local.position;
-            local_state.velocity = snapshot.local.velocity;
+            local_state.position = vec3(
+                snapshot.local.position.x,
+                player::HEIGHT,
+                snapshot.local.position.y,
+            );
+            local_state.velocity = vec3(snapshot.local.velocity.x, 0.0, snapshot.local.velocity.y);
             local_state.yaw = snapshot.local.yaw;
             local_state.pitch = snapshot.local.pitch;
             local_state.yaw_velocity = snapshot.local.yaw_velocity;
@@ -504,8 +508,11 @@ impl Game {
                 return None;
             };
 
+            let a_pos = vec3(a.position.x, player::HEIGHT, a.position.y);
+            let b_pos = vec3(b.position.x, player::HEIGHT, b.position.y);
+
             let state = &mut player.state;
-            state.position = a.position + (b.position - a.position) * alpha;
+            state.position = a_pos + (b_pos - a_pos) * alpha;
             state.yaw = a.yaw + (b.yaw - a.yaw) * alpha;
             state.pitch = a.pitch + (b.pitch - a.pitch) * alpha;
 

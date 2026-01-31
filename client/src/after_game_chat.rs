@@ -17,7 +17,7 @@ use common::{
     chat::MAX_CHAT_MESSAGE_BYTES,
     constants::TICK_SECS,
     net::AppChannel,
-    player::{Color, Color::YELLOW},
+    player::{self, Color, Color::YELLOW},
     protocol::{ClientMessage, ServerMessage},
     snapshot::Snapshot,
 };
@@ -80,7 +80,7 @@ pub fn update(
 fn apply_snapshot_to_positions(positions: &mut [(Vec3, Color)], snapshot: &Snapshot) {
     for (i, pos_color) in positions.iter_mut().enumerate() {
         if let Some(remote) = snapshot.remote.get(i) {
-            pos_color.0 = remote.position;
+            pos_color.0 = vec3(remote.position.x, player::HEIGHT, remote.position.y);
         }
     }
 }
