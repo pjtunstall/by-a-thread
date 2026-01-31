@@ -51,7 +51,7 @@ As instructed, I've included an FPS (frames per second) meter to monitor in-game
 
 This section assumes you're on Linux. I haven't tried running the game locally on Windows or Mac. On Windows, at least, it may fail due to the technique I found to let the client discover its own binding address by pinging a known external address.
 
-Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/install/) and run `cargo run --release -p server` (or `cargo run --release --bin server`) in one terminal. For each player, open another terminal and run `cargo run --release -p client` (or `cargo run --release --bin ByAThread`). Then follow the prompts.
+Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/install/) and run `cargo run --release -p server` in one terminal. For each player, open another terminal and run `cargo run --release -p client`. Then follow the prompts.
 
 As a shortcut, you can press Tab to connect to localhost. When connecting to a remote server, the client gets IP and PORT as environment variables from a `.env` file.
 
