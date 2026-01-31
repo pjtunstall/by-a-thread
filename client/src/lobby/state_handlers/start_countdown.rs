@@ -14,14 +14,24 @@ pub fn handle_countdown_started(
 ) -> ClientState {
     let assets = assets.expect("assets required for countdown but none provided");
     let (wall_texture, sky_texture) = match game_data.difficulty {
+        1 => {
+            let sky_texture = None;
+            let wall_texture = &assets.griffin_texture;
+            (wall_texture, sky_texture)
+        }
         2 => {
             let sky_texture = Some(assets.blue_rust_texture.clone());
             let wall_texture = &assets.bull_texture;
             (wall_texture, sky_texture)
         }
         3 => {
-            let sky_texture = None;
-            let wall_texture = &assets.white_rust_texture;
+            let sky_texture = Some(assets.white_marble_texture.clone());
+            let wall_texture = &assets.octopuses_texture;
+            (wall_texture, sky_texture)
+        }
+        4 => {
+            let sky_texture = Some(assets.green_marble_texture.clone());
+            let wall_texture = &assets.dolphins_texture;
             (wall_texture, sky_texture)
         }
         _ => {

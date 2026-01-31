@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use rand::prelude::IteratorRandom;
 
-use super::super::{Cell, MazeMaker, Orientation, Wall};
+use super::super::{Cell, MazeMaker, Wall};
 
 pub trait Prim {
     fn prim(&mut self);
@@ -17,7 +17,7 @@ impl Prim for MazeMaker {
         add_walls(self, initial_cell, &mut frontier);
 
         while let Some(wall) = pick_wall(self, &frontier) {
-            let (cell_1, cell_2) = get_flanking_cells(self, wall);
+            let (cell_1, cell_2) = self.get_flanking_cells(wall);
 
             let is_visited_1 = self.is_visited(cell_1);
             let is_visited_2 = self.is_visited(cell_2);
@@ -50,20 +50,6 @@ fn visit_new_cell_and_add_its_walls(
 ) {
     maze.visit_cell(cell);
     add_walls(maze, cell, frontier);
-}
-
-fn get_flanking_cells(maze: &MazeMaker, wall: Wall) -> (Cell, Cell) {
-    if wall.orientation == Orientation::Horizontal {
-        (
-            Cell::new(&maze.grid, wall.x - 1, wall.y),
-            Cell::new(&maze.grid, wall.x + 1, wall.y),
-        )
-    } else {
-        (
-            Cell::new(&maze.grid, wall.x, wall.y - 1),
-            Cell::new(&maze.grid, wall.x, wall.y + 1),
-        )
-    }
 }
 
 fn add_walls(maze: &mut MazeMaker, cell: Cell, frontier: &mut HashSet<Wall>) {

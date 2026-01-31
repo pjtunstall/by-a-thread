@@ -12,3 +12,4 @@ serde = { version = "1.0.228", features = ["derive"] }
 dotenvy = "0.15.7"
 socket2 = "0.6.1"
 dirs = "6.0.0"
+disjoint = "0.8.0"

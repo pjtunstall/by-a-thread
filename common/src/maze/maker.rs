@@ -1,12 +1,15 @@
 pub mod algorithms;
 
+use std::collections::HashMap;
+
 use rand::prelude::{IndexedRandom, Rng, ThreadRng};
 
-use algorithms::{backtrack::Backtrack, prim::Prim, wilson::Wilson};
+use algorithms::{backtrack::Backtrack, kruskal::Kruskal, prim::Prim, wilson::Wilson};
 
 pub enum Algorithm {
     Backtrack, // Easy: more long corridors.
     Wilson,    // Medium: unbiased.
+    Kruskal,   // Hard: more dead-ends.
     Prim,      // Hard: more dead-ends.
 }
 
@@ -55,9 +58,9 @@ impl Wall {
         );
 
         let orientation = if cell_1.x == cell_2.x {
-            Orientation::Vertical
-        } else {
             Orientation::Horizontal
+        } else {
+            Orientation::Vertical
         };
 
         Wall { x, y, orientation }
@@ -87,6 +90,7 @@ impl MazeMaker {
         match generator {
             Algorithm::Backtrack => maze.backtrack(),
             Algorithm::Wilson => maze.wilson(),
+            Algorithm::Kruskal => maze.kruskal(),
             Algorithm::Prim => maze.prim(),
         }
         maze
@@ -168,6 +172,52 @@ impl MazeMaker {
         Some(cell)
     }
 
+    fn get_rooms_walls_pillars(
+        &self,
+    ) -> (Vec<Cell>, Vec<Wall>, Vec<Cell>, HashMap<[usize; 2], usize>) {
+        let mut rooms = Vec::new();
+        let mut walls = Vec::new();
+        let mut pillars = Vec::new();
+        let mut i = 0;
+        let mut room_to_index = HashMap::<[usize; 2], usize>::new();
+
+        for y in 0..self.height {
+            for x in 0..self.width {
+                if y % 2 == 1 && x % 2 == 1 {
+                    room_to_index.insert([x, y], i);
+                    rooms.push(Cell::new(&self.grid, x, y));
+                    i += 1;
+                    continue;
+                }
+
+                if y % 2 == 0 && x % 2 == 0 {
+                    pillars.push(Cell::new(&self.grid, x, y));
+                    continue;
+                }
+
+                if x == 0 || y == 0 || x == self.width - 1 || y == self.height - 1 {
+                    continue;
+                }
+
+                if y % 2 == 0 {
+                    walls.push(Wall {
+                        x,
+                        y,
+                        orientation: Orientation::Horizontal,
+                    });
+                } else {
+                    walls.push(Wall {
+                        x,
+                        y,
+                        orientation: Orientation::Vertical,
+                    });
+                }
+            }
+        }
+
+        (rooms, walls, pillars, room_to_index)
+    }
+
     fn get_cells(&self) -> Vec<Cell> {
         let mut cells = Vec::new();
 
@@ -187,5 +237,19 @@ impl MazeMaker {
         let x = (cell_1.x + cell_2.x) / 2;
         let y = (cell_1.y + cell_2.y) / 2;
         self.grid[y][x] = 0;
+    }
+
+    fn get_flanking_cells(&self, wall: Wall) -> (Cell, Cell) {
+        if wall.orientation == Orientation::Horizontal {
+            (
+                Cell::new(&self.grid, wall.x, wall.y - 1),
+                Cell::new(&self.grid, wall.x, wall.y + 1),
+            )
+        } else {
+            (
+                Cell::new(&self.grid, wall.x - 1, wall.y),
+                Cell::new(&self.grid, wall.x + 1, wall.y),
+            )
+        }
     }
 }
