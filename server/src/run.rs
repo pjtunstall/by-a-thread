@@ -87,7 +87,7 @@ fn server_loop(
 
         transport.send_packets(server);
 
-        if matches!(state, ServerState::Exiting) {
+        if matches!(state, ServerState::Ending) {
             break;
         }
 
@@ -120,7 +120,7 @@ pub fn update_server_state(
             state_handlers::countdown::handle(network, countdown_state)
         }
         ServerState::Game(game_state) => state_handlers::game::handle(network, game_state),
-        ServerState::Exiting => None,
+        ServerState::Ending => None,
     };
 
     if let Some(new_state) = next_state {
@@ -213,7 +213,7 @@ fn apply_server_transition(
 
         ServerState::Game(_) => {}
 
-        ServerState::Exiting => {}
+        ServerState::Ending => {}
     }
 }
 

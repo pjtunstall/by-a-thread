@@ -154,7 +154,7 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
     state.net_stats.log_if_ready();
 
     if state.leaderboard_sent {
-        Some(ServerState::Exiting)
+        Some(ServerState::Ending)
     } else {
         None
     }

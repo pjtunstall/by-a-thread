@@ -29,7 +29,7 @@ pub enum ServerState {
     ChoosingDifficulty(ChoosingDifficulty),
     Countdown(Countdown),
     Game(Game),
-    Exiting,
+    Ending,
 }
 
 impl ServerState {
@@ -39,7 +39,7 @@ impl ServerState {
             ServerState::ChoosingDifficulty(_) => "ChoosingDifficulty",
             ServerState::Countdown(_) => "Countdown",
             ServerState::Game(_) => "Game",
-            ServerState::Exiting => "Exiting",
+            ServerState::Ending => "Ending",
         }
     }
 
@@ -70,7 +70,7 @@ impl ServerState {
             ServerState::ChoosingDifficulty(state) => state.lobby.remove_client(client_id, network),
             ServerState::Countdown(countdown) => countdown.remove_client(client_id, network),
             ServerState::Game(game) => game.remove_client(client_id, network),
-            ServerState::Exiting => {}
+            ServerState::Ending => {}
         }
     }
 }
@@ -498,6 +498,14 @@ impl Lobby {
                 self.set_host(remaining_id, network);
                 println!("Host assigned to remaining client {}", remaining_id);
             }
+        }
+
+        if self.auth_attempts.is_empty()
+            && self.usernames.is_empty()
+            && self.pending_usernames.is_empty()
+        {
+            println!("All clients have disconnected. Server exiting...");
+            std::process::exit(0);
         }
     }
 

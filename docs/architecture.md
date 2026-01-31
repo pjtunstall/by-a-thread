@@ -50,7 +50,8 @@ Lobby -> ChoosingDifficulty -> Countdown -> Game
 ```
 
 - The host, in Lobby, triggers a move to `ChoosingDifficulty`; when the host starts the game, the server moves to `Countdown` and broadcasts to all clients.
-- The server enters the formal state `Exiting` only from `Game`: when the leaderboard has been sent to all clients in after-game chat (`leaderboard_sent`), the game handler returns `Exiting` and the run loop breaks, exiting the process. If all clients disconnect during `Game` (before or after entering after-game chat), the server does not transition to `Exiting`; instead `Game::remove_client` calls `std::process::exit(0)` when the last client is removed, so the process exits without ever entering `Exiting`. (TODO: Explain why!) If all clients disconnect during `Lobby`, `ChoosingDifficulty`, or `Countdown`, the server does not move to `Exiting` and does not exit; it remains in that state with zero clients. (TODO: Fix this!)
+- The server enters the formal state `Exiting` only from `Game`: when the leaderboard has been sent to all clients in after-game chat (`leaderboard_sent`), the game handler returns `Exiting` and the run loop breaks, exiting the process.
+- If all clients disconnect during `Game`, `Lobby`, or `ChoosingDifficulty`, the server does not transition to `Exiting`; instead the given state's `remove_client` method calls `std::process::exit(0)` when the last client is removed, so the process exits. (This only runs when a client actually disconnects, so the server does not exit at startup when no one has connected.) If all clients disconnect during `Countdown`, the just waits for the game to start, and lets the disconnection logic there take care of it.
 - The `Game` state also manages clients in after-game chat, since they arrive at different times.
 
 ## File structure
