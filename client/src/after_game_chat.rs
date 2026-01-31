@@ -178,7 +178,7 @@ fn handle(
                     }
                     prev_ticks = Some(entry.ticks_survived);
 
-                    let seconds = entry.ticks_survived * TICK_SECS as u64;
+                    let seconds = (entry.ticks_survived as f64 * TICK_SECS) as u64;
                     let minutes = seconds / 60;
                     let remainder = seconds % 60;
                     ui.show_sanitized_message_with_color(

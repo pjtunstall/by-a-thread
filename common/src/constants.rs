@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 // Timer durations based on game mode.
-pub const SOLO_TIMER_DURATION: f32 = 90.0; // Single player has one and a half to escape.
+pub const SOLO_TIMER_DURATION: f32 = 120.0; // Single player has two minutes to escape.
 pub const BATTLE_TIMER_DURATION: f32 = 600.0; // Multiplayer gets ten minutes.
 
 // Client:
