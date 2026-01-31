@@ -17,7 +17,7 @@
 
 This document describes how to create executable files or packages for various systems. It assumes you're creating them on Ubuntu.
 
-From the workspace root you can run the full build with `make` (or `./build.sh`). To build only one artifact, use e.g. `make windows`, `make deb`, `make rpm`, or `make appimage`. To push the server image to the Hetzner VPS and run the container, run `make deploy-hetzner` after a full build (equivalent to `./build.sh --hetzner`).
+From the workspace root you can run the full build with `make`. To build only one artifact, use e.g. `make windows`, `make deb`, `make rpm`, or `make appimage`. To push the server image to the Hetzner VPS and run the container, run `make deploy-hetzner` after a full build.
 
 ## Windows
 
@@ -59,7 +59,7 @@ icon.ico[7] ICO 16x16 16x16+0+0 8-bit sRGB 163902B 0.000u 0:00.000
 
 ### Building the executable
 
-When you run the full build (`make` or `./build.sh`), it produces a `.zip` file, containing a Windows executable file, credits, and licenses.
+When you run the full build (`make`), it produces a `.zip` file, containing a Windows executable file, credits, and licenses.
 
 ### Distribution
 
@@ -67,12 +67,10 @@ Ignore virus warnings; that just means the file is from an unknown publisher. If
 
 ## macOS
 
-Build on macOS using the Makefile (or the scripts in the project root):
+Build on macOS using the Makefile:
 
 - `make macos-intel` – Intel Mac (x86_64), produces `ByAThread.app` and `dist/ByAThread-macos-intel.zip`
 - `make macos-silicon` – Apple Silicon (aarch64), produces `ByAThread.app` and `dist/ByAThread-macos-silicon.zip`
-
-Alternatively: `./build-apple-intel.sh` and `./build-apple-silicon.sh`. These targets are opt-in (not part of the default `make`).
 
 Each build creates a .app bundle so the app is double-clickable and shows in the Dock. For the app icon to appear, create `client/icon.icns` (e.g. from `client/icon.png` using `iconutil` on macOS).
 
@@ -86,7 +84,7 @@ Use the `.deb` on Debian, Ubuntu and other apt-based distros; use the `.rpm` on 
 
 The binary's runtime requirements (such as glibc version) are determined by the machine or container you build on. If that environment has a newer glibc than the systems where users will run the game, the binary may fail at runtime. Building on an older Ubuntu (e.g. in CI or a local container) avoids that.
 
-A common solution is to build Linux artifacts (`.deb`, `.rpm`, AppImage) in an automated run (e.g. GitHub Actions) on an older image such as `ubuntu-22.04` or `ubuntu-20.04`, so the binaries link against an older glibc and run on a wide range of distros. You can run `make` or `./build.sh` locally on any supported Linux for testing; for published releases, running the build inside a container or CI on a fixed older Ubuntu avoids compatibility surprises. A later step is to add a workflow that runs the build in that environment and uploads the artifacts.
+A common solution is to build Linux artifacts (`.deb`, `.rpm`, AppImage) in an automated run (e.g. GitHub Actions) on an older image such as `ubuntu-22.04` or `ubuntu-20.04`, so the binaries link against an older glibc and run on a wide range of distros. You can run `make` locally on any supported Linux for testing; for published releases, running the build inside a container or CI on a fixed older Ubuntu avoids compatibility surprises. A later step is to add a workflow that runs the build in that environment and uploads the artifacts.
 
 ### Build files
 
@@ -118,7 +116,7 @@ Note that game client instances will appear as a plain (cogwheel) icons in the t
 
 ### .deb
 
-The `.deb` package is built as one step of the full build (`make` or `./build.sh`). Prerequisite: `cargo install cargo-deb`.
+The `.deb` package is built as one step of the full build (`make`). Prerequisite: `cargo install cargo-deb`.
 
 The `-1` in the filename is the Debian package revision number. It indicates this is the first revision of version 0.1.0. If you make changes to the package without changing the version number, you would increment this to `-2`, `-3`, etc.
 
@@ -136,7 +134,7 @@ sudo apt-get install -f
 
 ### .rpm
 
-The `.rpm` package is built as one step of the full build (`make` or `./build.sh`). Prerequisite: `cargo install cargo-generate-rpm`. The build produces a file such as `by-a-thread-0.1.0-1.x86_64.rpm` in `dist/`, for use on Fedora, RHEL, openSUSE and other RPM-based distributions.
+The `.rpm` package is built as one step of the full build (`make`). Prerequisite: `cargo install cargo-generate-rpm`. The build produces a file such as `by-a-thread-0.1.0-1.x86_64.rpm` in `dist/`, for use on Fedora, RHEL, openSUSE and other RPM-based distributions.
 
 To install from the workspace root:
 
@@ -164,14 +162,14 @@ There is only one build file specific to AppImage:
 
 **Why two `.desktop` files?** The .deb and .rpm install under `/usr`, so `by-a-thread.desktop` uses paths like `/usr/lib/by-a-thread/ByAThread`. Inside an AppImage there's no `/usr` install; the binary is just `ByAThread` in the image's path. So we use a second file, `by-a-thread-appimage.desktop`, with `Exec=ByAThread` and `Icon=ByAThread`. The build copies that into the AppDir when building.
 
-**Prerequisites (what you must do before running the build).** The build needs two tools: **linuxdeploy** and **appimagetool**. Both are distributed as AppImages. For local and CI use, install them the same way: download the AppImages, make them executable, put them in a directory that is in your PATH (e.g. `~/bin` or `/usr/local/bin`), and create symlinks so the build can run them by name (`linuxdeploy` and `appimagetool`). Then `make` or `./build.sh` will find them.
+**Prerequisites (what you must do before running the build).** The build needs two tools: **linuxdeploy** and **appimagetool**. Both are distributed as AppImages. For local and CI use, install them the same way: download the AppImages, make them executable, put them in a directory that is in your PATH (e.g. `~/bin` or `/usr/local/bin`), and create symlinks so the build can run them by name (`linuxdeploy` and `appimagetool`). Then `make` will find them.
 
 1. Download [linuxdeploy](https://github.com/linuxdeploy/linuxdeploy/releases) (`linuxdeploy-x86_64.AppImage`) and [appimagetool](https://github.com/AppImage/appimagetool/releases) (or [appimage.github.io/appimagetool](https://appimage.github.io/appimagetool/)). For linuxdeploy, prefer a versioned release (e.g. the latest `1-alpha-...`) over **continuous** so builds are reproducible, especially in CI; continuous is fine for one-off local use.
 2. `chmod +x linuxdeploy-x86_64.AppImage appimagetool-*.AppImage`
-3. Put both in a PATH directory and symlink: `ln -s /path/to/linuxdeploy-x86_64.AppImage ~/.local/bin/linuxdeploy` and `ln -s /path/to/appimagetool-*.AppImage ~/bin/appimagetool`. If `~/.local/bin` is not in your PATH, add `export PATH="$HOME/bin:$PATH"` to `~/.bashrc` (if in a local shell) or `~/.profile` (if SSH). Then `make` or `./build.sh` will find them:
+3. Put both in a PATH directory and symlink: `ln -s /path/to/linuxdeploy-x86_64.AppImage ~/.local/bin/linuxdeploy` and `ln -s /path/to/appimagetool-*.AppImage ~/bin/appimagetool`. If `~/.local/bin` is not in your PATH, add `export PATH="$HOME/bin:$PATH"` to `~/.bashrc` (if in a local shell) or `~/.profile` (if SSH). Then `make` will find them:
 
 ```sh
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 ```
 
-(To use linuxdeploy from a different path without putting it in PATH, set the environment variable `LINUXDEPLOY` to the full path of the file when you run `make` or `./build.sh`; `appimagetool` must still be in PATH.)
+(To use linuxdeploy from a different path without putting it in PATH, set the environment variable `LINUXDEPLOY` to the full path of the file when you run `make`; `appimagetool` must still be in PATH.)

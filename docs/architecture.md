@@ -17,13 +17,17 @@ Both client and server use the state pattern to organize flow. Each has its own 
 
 ### Client State Machine
 
+Top-level states:
+
 ```txt
-Lobby -> Game -> AfterGameChat
+Lobby -> Game -> AfterGameChat -> EndAfterLeaderboard
 ```
 
-Lobby has various substates, as detailed [below](#lobby).
+- `Transitioning` is a formal state used only during the transition from `Game` to `AfterGameChat`. The run loop replaces the current state with `Transitioning` (via `ClientState::default()`) so it can consume the `Game` state to build the full `AfterGameChat` value, then immediately sets the state to `AfterGameChat`. The client is in `Transitioning` only for that brief moment; the run loop does nothing while in this state.
+- `Disconnected` can be entered from the Lobby substate `Connecting` onwards (and from Game/AfterGameChat on connection loss).
+- `EndAfterLeaderboard` is terminal: the client displays the post-game leaderboard and waits for the player to exit.
 
-From the Lobby substate `Connecting` onwards, any state (or substate) can lead to `Disconnected`.
+Lobby has various substates, as detailed [below](#lobby).
 
 #### Lobby
 
@@ -33,7 +37,7 @@ ServerAddress -> Passcode -> Connecting -> Authenticating -> ChoosingUsername <-
 
 `ServerAddress` prompts for an IP address and port number; pressing Enter uses the local default.
 
-If the player is the host: `Chat -> ChoosingDifficulty`, otherwise `Chat -> Countdown`. In either case,
+If the player is the host: `Chat -> ChoosingDifficulty`, then the host starts the countdown and everyone (including the host) receives `CountdownStarted` and enters `Countdown`. Non-hosts: `Chat -> Countdown` when the server broadcasts that the countdown has started. In either case,
 
 ```txt
 Countdown -> Game
@@ -45,7 +49,9 @@ Countdown -> Game
 Lobby -> ChoosingDifficulty -> Countdown -> Game
 ```
 
-The `Game` state also manages clients in `AfterGameChat` since they arrive at different times.
+- The host, in Lobby, triggers a move to `ChoosingDifficulty`; when the host starts the game, the server moves to `Countdown` and broadcasts to all clients.
+- The server enters the formal state `Exiting` only from `Game`: when the leaderboard has been sent to all clients in after-game chat (`leaderboard_sent`), the game handler returns `Exiting` and the run loop breaks, exiting the process. If all clients disconnect during `Game` (before or after entering after-game chat), the server does not transition to `Exiting`; instead `Game::remove_client` calls `std::process::exit(0)` when the last client is removed, so the process exits without ever entering `Exiting`. (TODO: Explain why!) If all clients disconnect during `Lobby`, `ChoosingDifficulty`, or `Countdown`, the server does not move to `Exiting` and does not exit; it remains in that state with zero clients. (TODO: Fix this!)
+- The `Game` state also manages clients in after-game chat, since they arrive at different times.
 
 ## File structure
 
@@ -79,33 +85,46 @@ client/src/
 ├── assets.rs
 ├── fade.rs
 ├── frame.rs
-├── game.rs
+├── game/
 │   ├── input.rs
 │   ├── obe.rs
 │   ├── state.rs
+│   ├── victory.rs
+│   ├── world/
+│   │   ├── avatar.rs
+│   │   ├── bullet.rs
+│   │   ├── maze.rs
+│   │   └── sky.rs
 │   └── world.rs
-│       ├── avatar.rs
-│       ├── bullet.rs
-│       ├── maze.rs
-│       └── sky.rs
+├── game.rs
+├── info/
+│   ├── circles.rs
+│   ├── crosshairs.rs
+│   ├── map/
+│   │   ├── after_game.rs
+│   │   ├── initialize.rs
+│   │   └── update.rs
+│   └── map.rs
 ├── info.rs
-│   └── (4 files)
-├── lobby.rs
+├── lobby/
 │   ├── flow.rs
-│   ├── state.rs
+│   ├── state_handlers/
+│   │   ├── auth.rs
+│   │   ├── chat.rs
+│   │   ├── connecting.rs
+│   │   ├── countdown.rs
+│   │   ├── difficulty.rs
+│   │   ├── passcode.rs
+│   │   ├── server_address.rs
+│   │   ├── start_countdown.rs
+│   │   ├── username.rs
+│   │   └── waiting.rs
 │   ├── state_handlers.rs
-│   ├── ui.rs
-│   └── state_handlers/
-│       ├── auth.rs
-│       ├── chat.rs
-│       ├── connecting.rs
-│       ├── countdown.rs
-│       ├── difficulty.rs
-│       ├── passcode.rs
-│       ├── server_address.rs
-│       ├── start_countdown.rs
-│       ├── username.rs
-│       └── waiting.rs
+│   ├── state.rs
+│   ├── ui/
+│   │   └── gui.rs
+│   └── ui.rs
+├── lobby.rs
 ├── net.rs
 ├── run.rs
 ├── session.rs
@@ -124,13 +143,15 @@ common/src/
 ├── chat.rs
 ├── constants.rs
 ├── input.rs
-├── maze.rs
+├── maze/
+│   ├── maker/
+│   │   ├── algorithms/
+│   │   │   ├── backtrack.rs
+│   │   │   ├── prim.rs
+│   │   │   └── wilson.rs
+│   │   └── algorithms.rs
 │   └── maker.rs
-│       ├── algorithms.rs
-│       └── algorithms/
-│           ├── backtrack.rs
-│           ├── prim.rs
-│           └── wilson.rs
+├── maze.rs
 ├── net.rs
 ├── player.rs
 ├── protocol.rs
