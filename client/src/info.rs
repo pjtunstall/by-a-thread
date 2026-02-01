@@ -14,7 +14,6 @@ pub const BG_COLOR: Color = Color::new(1.0, 1.0, 1.0, 0.8);
 pub const BASE_CIRCLE_RADIUS: f32 = 18.0;
 pub const BASE_INDENTATION: f32 = 10.0;
 pub const BASE_PADDING: f32 = 10.0;
-const BASE_CIRCLE_TOP_OFFSET: f32 = 29.0; // Top circle center minus indentation.
 const BASE_CIRCLE_GAP: f32 = 48.0;
 const BASE_STAT_FONT_SIZE: u16 = 16;
 const BASE_MAP_TO_STATS_GAP: f32 = 40.0;
@@ -94,8 +93,9 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate, estimated_serve
 
     let x = x_indentation + map_overlay.rect.w * map_scale + BASE_MAP_TO_STATS_GAP * map_scale;
     let circle_radius = BASE_CIRCLE_RADIUS * map_scale;
-    let circle_top = y_indentation + BASE_CIRCLE_TOP_OFFSET * map_scale;
     let circle_gap = BASE_CIRCLE_GAP * map_scale;
+    let map_height = map_overlay.rect.h * map_scale;
+    let circle_top = y_indentation + (map_height - 3.0 * circle_gap) / 2.0;
     circles::draw_compass(
         local_state,
         x,
