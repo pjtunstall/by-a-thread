@@ -2,6 +2,7 @@
 
 - [To run on locally](#to-run-locally)
 - [To run on Hetzner](#to-run-on-hetzner)
+- [A curiosity: The dummy client trick](#a-curiosity-the-dummy-client-trick)
 
 ## To run locally
 
@@ -72,3 +73,15 @@ And run the client locally, as usual with `cargo run --release -p client`.
 As before, stop the container with `docker stop server-container`, or just let it stop by itself when all players have left.
 
 And, as before, check the logs with `docker logs server-container` to get the passcode.
+
+## A curiosity: The dummy client trick
+
+As I containerized the server using Docker, I came across a handy trick. The server consists of one package: `server`. It depends on another package, called `common`. Both belong to the same workspace, and that workspace contains a third package: `client`. I wanted to keep this structure without polluting the Docker build context with the client source code and assets. The solution I found was to include, in my [Dockerfile](Dockerfile), commands to create a dummy client, i.e. the minimal file structure required to satisfy `cargo install`.
+
+```sh
+RUN mkdir -p client/src && \
+    echo '[package]\nname = "client"\nversion = "0.0.0"\n[dependencies]' > client/Cargo.toml && \
+    echo 'fn main() {}' > client/src/main.rs
+```
+
+In this way, I could omit/ignore the real client.
