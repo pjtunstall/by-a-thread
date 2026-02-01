@@ -95,18 +95,23 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate, estimated_serve
     let circle_radius = BASE_CIRCLE_RADIUS * map_scale;
     let circle_gap = BASE_CIRCLE_GAP * map_scale;
     let map_height = map_overlay.rect.h * map_scale;
-    let circle_top = y_indentation + (map_height - 3.0 * circle_gap) / 2.0;
+    // The vertical span of the 4 circles, from the center of the first to the
+    // center of the last, is `3 * circle_gap` and is centered at the vertical
+    // center of the map. `y_indentation` is the top of the map, and the 2nd
+    // term shifts us to the center of the map and then back up by the half of
+    // that span that lies above the map center.
+    let top_circle_center = y_indentation + (map_height - 3.0 * circle_gap) / 2.0;
     circles::draw_compass(
         local_state,
         x,
-        circle_top,
+        top_circle_center,
         circle_radius,
         &game_state.needle_textures,
     );
     circles::draw_fps(
         fps,
         x,
-        circle_top + circle_gap,
+        top_circle_center + circle_gap,
         circle_radius,
         &assets.font,
         stat_font_size,
@@ -115,7 +120,7 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate, estimated_serve
         local_player.health,
         MAX_HEALTH,
         x,
-        circle_top + circle_gap * 2.0,
+        top_circle_center + circle_gap * 2.0,
         circle_radius,
         &assets.font,
         stat_font_size,
@@ -126,7 +131,7 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate, estimated_serve
         game_state.start_time,
         game_state.timer_duration,
         x,
-        circle_top + circle_gap * 3.0,
+        top_circle_center + circle_gap * 3.0,
         circle_radius,
         &game_state.timer_markers,
         &game_state.needle_textures,
