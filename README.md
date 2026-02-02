@@ -34,7 +34,7 @@ According to the 01 spec, the game is expected to include:
 - client-server architecture;
 - communication via the UDP networking protocol;
 - frames-per-second meter to monitor in-game performance;
-- three levels with mazes of increasing difficulty, defined as more deadends.
+- three levels with mazes of increasing difficulty, defined as more dead ends.
 
 ## How to play
 

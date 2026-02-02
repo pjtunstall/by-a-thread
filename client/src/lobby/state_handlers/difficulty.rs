@@ -17,7 +17,7 @@ use common::{
     protocol::{ClientMessage, ServerMessage},
 };
 
-const INVALID_CHOICE_MESSAGE: &str = "Invalid choice. Please press 1, 2, 3, or 4.";
+const INVALID_CHOICE_MESSAGE: &str = "Invalid choice. Please press 1, 2, 3, 4, or 5.";
 
 fn enqueue_difficulty_input(
     session: &mut ClientSession,
@@ -33,7 +33,7 @@ fn enqueue_difficulty_input(
 
     match ui.poll_single_key() {
         Ok(key_result) => match key_result {
-            Some(UiKey::Char(c)) if matches!(c, '1' | '2' | '3' | '4') => {
+            Some(UiKey::Char(c)) if matches!(c, '1' | '2' | '3' | '4' | '5') => {
                 session.add_input(c.to_string());
             }
             _ => {}
@@ -71,13 +71,14 @@ pub fn handle(
     if !*prompt_printed && !*choice_sent {
         ui.show_message("Server: Choose a difficulty level:");
         ui.show_message(" ");
-        ui.show_message("  1. Easy (backtracking)");
-        ui.show_message("  2. Middling (Wilson's algorithm)");
-        ui.show_message("  3. Crushing (Kruskal's algorithm)");
-        ui.show_message("  4. Next level (Prim's algorithm)");
+        ui.show_message("  1. Backtracking (easy)");
+        ui.show_message("  2. Four-Quadrants Binary Tree (fair to middling)");
+        ui.show_message("  3. Wilson's algorithm (middling)");
+        ui.show_message("  4. Kruskal's algorithm (next level)");
+        ui.show_message("  5. Prim's algorithm (next level)");
         ui.show_message(" ");
 
-        ui.show_prompt("Press 1, 2, 3, or 4.");
+        ui.show_prompt("Pick a number.");
         *prompt_printed = true;
     }
 
@@ -118,6 +119,7 @@ pub fn handle(
                 "2" => Some(2),
                 "3" => Some(3),
                 "4" => Some(4),
+                "5" => Some(5),
                 _ => {
                     ui.show_typed_error(
                         UiErrorKind::DifficultyInvalidChoice,

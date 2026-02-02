@@ -4,13 +4,16 @@ use std::collections::HashMap;
 
 use rand::prelude::{IndexedRandom, Rng, ThreadRng};
 
-use algorithms::{backtrack::Backtrack, kruskal::Kruskal, prim::Prim, wilson::Wilson};
+use algorithms::{
+    backtrack::Backtrack, binary_tree::BinaryTree, kruskal::Kruskal, prim::Prim, wilson::Wilson,
+};
 
 pub enum Algorithm {
-    Backtrack, // Easy: more long corridors.
-    Wilson,    // Medium: unbiased.
-    Kruskal,   // Hard: more dead-ends.
-    Prim,      // Hard: more dead-ends.
+    Backtrack,  // Easy: more long corridors.
+    BinaryTree, // Fairly easy: fewer long corridors.
+    Wilson,     // Medium: unbiased.
+    Kruskal,    // Hard: more dead ends.
+    Prim,       // Hard: more dead ends.
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -89,6 +92,7 @@ impl MazeMaker {
         };
         match generator {
             Algorithm::Backtrack => maze.backtrack(),
+            Algorithm::BinaryTree => maze.binary_tree(),
             Algorithm::Wilson => maze.wilson(),
             Algorithm::Kruskal => maze.kruskal(),
             Algorithm::Prim => maze.prim(),

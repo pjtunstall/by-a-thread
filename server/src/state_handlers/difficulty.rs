@@ -47,10 +47,10 @@ pub fn handle(
                         continue;
                     }
 
-                    if !(1..=4).contains(&level) {
+                    if !(1..=5).contains(&level) {
                         eprintln!("host {} sent invalid difficulty level: {}", host_id, level);
                         let msg = ServerMessage::ServerInfo {
-                            message: "Invalid choice. Please press 1, 2, 3, or 4.".to_string(),
+                            message: "Invalid choice. Please press 1, 2, 3, 4, or 5.".to_string(),
                         };
                         let payload = encode_to_vec(&msg, standard()).expect("failed to serialize");
                         network.send_message(host_id, AppChannel::ReliableOrdered, payload);
