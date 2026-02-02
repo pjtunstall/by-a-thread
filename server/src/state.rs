@@ -152,6 +152,8 @@ impl Game {
             let message = ServerMessage::UserLeft { username: name };
             let payload =
                 encode_to_vec(&message, standard()).expect("failed to serialize UserLeft");
+            let recipients_count = self.client_id_to_index.len();
+            self.note_egress_bytes(payload.len().saturating_mul(recipients_count));
             network.broadcast_message(AppChannel::ReliableOrdered, payload);
 
             // If there are no connected players left, exit.

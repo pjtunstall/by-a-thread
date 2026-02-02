@@ -84,7 +84,7 @@ fn server_loop(
         let mut network_handle = RenetServerNetworkHandle { server };
 
         if now.duration_since(last_sync_time) > BROADCAST_INTERVAL {
-            sync_clocks(&mut network_handle);
+            sync_clocks(&mut network_handle, state);
             last_sync_time = now;
         }
 
@@ -251,10 +251,15 @@ pub fn process_events(network: &mut dyn ServerNetworkHandle, state: &mut ServerS
     }
 }
 
-fn sync_clocks(network: &mut dyn ServerNetworkHandle) {
+fn sync_clocks(network: &mut dyn ServerNetworkHandle, state: &mut ServerState) {
     let server_time_f64 = common::time::now().as_secs_f64();
     let message = ServerMessage::ServerTime(server_time_f64);
     let payload = encode_to_vec(&message, standard()).expect("failed to serialize ServerTime");
+    let payload_len = payload.len();
+    let client_count = network.clients_id().len();
+    if let ServerState::Game(game) = state {
+        game.note_egress_bytes(payload_len.saturating_mul(client_count));
+    }
     network.broadcast_message(AppChannel::ServerTime, payload);
 }
 
