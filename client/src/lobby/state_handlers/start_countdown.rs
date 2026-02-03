@@ -56,7 +56,7 @@ pub fn handle_countdown_started(
         }
         8 => {
             let sky_texture = Some(assets.procession_secondlast_texture.clone());
-            let wall_texture = &assets.procession_secondlast_texture;
+            let wall_texture = &assets.ants_in_maze_texture;
             (wall_texture, sky_texture)
         }
         9 => {

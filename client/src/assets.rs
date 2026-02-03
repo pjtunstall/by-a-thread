@@ -8,6 +8,7 @@ pub struct Assets {
     pub font: Font,
     pub map_font: Font,
     pub ants_texture: Texture2D,
+    pub ants_in_maze_texture: Texture2D,
     pub bull_texture: Texture2D,
     pub ball_texture: Texture2D,
     pub griffin_texture: Texture2D,
@@ -43,6 +44,7 @@ impl Assets {
             font: load_font().await,
             map_font: load_map_font().await,
             ants_texture: load_ants_texture().await,
+            ants_in_maze_texture: load_ants_in_maze_texture().await,
             bull_texture: load_bull_texture().await,
             ball_texture: load_ball_texture().await,
             griffin_texture: load_griffin_texture().await,
@@ -86,6 +88,11 @@ pub mod embedded_assets {
 
     pub async fn load_ants_texture() -> Texture2D {
         let bytes = include_bytes!("../assets/images/ants.png");
+        Texture2D::from_file_with_format(bytes, None)
+    }
+
+    pub async fn load_ants_in_maze_texture() -> Texture2D {
+        let bytes = include_bytes!("../assets/images/ants-in-maze.png");
         Texture2D::from_file_with_format(bytes, None)
     }
 
@@ -267,6 +274,13 @@ mod file_assets {
         load_texture(path.to_string_lossy().as_ref())
             .await
             .expect("failed to load ants texture")
+    }
+
+    pub async fn load_ants_in_maze_texture() -> Texture2D {
+        let path = resource_path("images", "ants-in-maze.png");
+        load_texture(path.to_string_lossy().as_ref())
+            .await
+            .expect("failed to load ants-in-maze texture")
     }
 
     pub async fn load_bull_texture() -> Texture2D {
