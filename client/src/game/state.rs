@@ -56,6 +56,7 @@ const ZOOMED_FOV: f32 = 10.0_f32.to_radians();
 pub struct Game {
     pub local_player_index: usize,
     pub players: Vec<Player>,
+    difficulty: u8,
     pub map_overlay: info::map::MapOverlay,
     pub timer_markers: info::circles::TimerMarkers,
     pub maze: Maze,
@@ -102,6 +103,7 @@ impl Game {
         let players = initial_data.players;
         let maze = initial_data.maze;
         let timer_duration = initial_data.timer_duration;
+        let difficulty = initial_data.difficulty;
         let previous_local_state = StaticState::new(&players[local_player_index]);
 
         Self {
@@ -112,6 +114,7 @@ impl Game {
             // correct 64-bit storage id.
             snapshot_buffer: NetworkBuffer::new(sim_tick, 0),
             local_player_index,
+            difficulty,
             maze,
             maze_meshes,
             map_overlay,
@@ -540,7 +543,7 @@ impl Game {
         fps: &FrameRate,
         estimated_server_time: f64,
     ) {
-        clear_background(BEIGE);
+        clear_background(if self.difficulty == 9 { BLACK } else { BEIGE });
         self.set_camera(tick_fraction);
 
         self.sky.draw();

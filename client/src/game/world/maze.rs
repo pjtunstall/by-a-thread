@@ -335,16 +335,16 @@ pub fn generate_floor_texture(difficulty: u8) -> Texture2D {
     let check_size = 2.0 * half_check_size;
     let checks_per_cell = (CELL_SIZE / check_size).round() as u16;
 
-    let base_color = if difficulty == 5 || difficulty == 9 {
-        WHITE
-    } else {
-        BEIGE
+    let (base_color, alternate_color) = match difficulty {
+        9 => (WHITE, BLACK),
+        5 => (WHITE, BROWN),
+        _ => (BEIGE, BROWN),
     };
     let mut image = Image::gen_image_color(checks_per_cell, checks_per_cell, base_color);
     for y in 0..checks_per_cell {
         for x in 0..checks_per_cell {
             if (x + y) % 2 != 0 {
-                image.set_pixel(x as u32, y as u32, BROWN);
+                image.set_pixel(x as u32, y as u32, alternate_color);
             }
         }
     }
