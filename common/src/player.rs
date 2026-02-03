@@ -349,15 +349,17 @@ pub enum Color {
     PURPLE,
     #[strum(serialize = "sky blue")]
     SKYBLUE,
+    CHARTREUSE,
 }
 
-pub const COLORS: [Color; 10] = [
+pub const COLORS: [Color; 11] = [
     Color::ORANGE,
     Color::BLUE,
     Color::LIME,
     Color::PINK,
     Color::SKYBLUE,
     Color::GREEN,
+    Color::CHARTREUSE,
     Color::MAROON,
     Color::PURPLE,
     Color::YELLOW,

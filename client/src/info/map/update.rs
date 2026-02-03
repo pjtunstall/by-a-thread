@@ -25,6 +25,7 @@ fn player_color_to_macroquad_color(color: PlayerColor) -> Color {
         PlayerColor::ORANGE => ORANGE,
         PlayerColor::PURPLE => PURPLE,
         PlayerColor::SKYBLUE => SKYBLUE,
+        PlayerColor::CHARTREUSE => Color::from_rgba(128, 255, 0, 1),
     }
 }
 

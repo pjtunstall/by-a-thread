@@ -77,10 +77,10 @@ pub fn handle(
             Color::GREEN,
         );
         ui.show_message_with_color("  1. Backtracker (easy)", Color::GREEN);
-        ui.show_message_with_color("  2. Voronoi Stack (fair)", Color::GREEN);
+        ui.show_message_with_color("  2. Voronoi Stack (fair)", Color::CHARTREUSE);
         ui.show_message_with_color(
             "  3. Four-Quadrants Binary Tree (fair to middling)",
-            Color::YELLOW,
+            Color::CHARTREUSE,
         );
         ui.show_message_with_color("  4. Wilson (middling)", Color::YELLOW);
         ui.show_message_with_color("  5. Kruskal (middling hard)", Color::YELLOW);
