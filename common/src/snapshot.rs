@@ -40,10 +40,13 @@ impl InitialData {
     pub fn new(usernames: &HashMap<u64, String>, colors: &HashMap<u64, Color>, level: u8) -> Self {
         let generator = match level {
             1 => Algorithm::Backtrack,
-            2 => Algorithm::BinaryTree,
-            3 => Algorithm::Wilson,
-            4 => Algorithm::Kruskal,
-            5 => Algorithm::Prim,
+            2 => Algorithm::VoronoiStack,
+            3 => Algorithm::BinaryTree,
+            4 => Algorithm::Wilson,
+            5 => Algorithm::Kruskal,
+            6 => Algorithm::VoronoiRandom,
+            7 => Algorithm::Prim,
+            8 => Algorithm::VoronoiQueue,
             _ => Algorithm::Backtrack,
         };
         let mut maze = maze::Maze::new(generator);

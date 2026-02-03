@@ -20,23 +20,38 @@ pub fn handle_countdown_started(
             (wall_texture, sky_texture)
         }
         2 => {
-            let sky_texture = None;
-            let wall_texture = &assets.green_marble_texture;
+            let sky_texture = Some(assets.white_marble_texture.clone());
+            let wall_texture = &assets.procession_left_texture;
             (wall_texture, sky_texture)
         }
         3 => {
+            let sky_texture = Some(assets.green_marble_texture.clone());
+            let wall_texture = &assets.green_marble_texture;
+            (wall_texture, sky_texture)
+        }
+        4 => {
             let sky_texture = Some(assets.blue_rust_texture.clone());
             let wall_texture = &assets.bull_texture;
             (wall_texture, sky_texture)
         }
-        4 => {
+        5 => {
             let sky_texture = Some(assets.white_marble_texture.clone());
             let wall_texture = &assets.squids_texture;
             (wall_texture, sky_texture)
         }
-        5 => {
+        6 => {
+            let sky_texture = Some(assets.purple_texture.clone());
+            let wall_texture = &assets.procession_right_texture;
+            (wall_texture, sky_texture)
+        }
+        7 => {
             let sky_texture = Some(assets.green_marble_texture.clone());
             let wall_texture = &assets.dolphins_texture;
+            (wall_texture, sky_texture)
+        }
+        8 => {
+            let sky_texture = Some(assets.white_marble_texture.clone());
+            let wall_texture = &assets.procession_secondlast_texture;
             (wall_texture, sky_texture)
         }
         _ => {

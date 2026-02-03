@@ -5,15 +5,19 @@ use std::collections::HashMap;
 use rand::prelude::{IndexedRandom, Rng, ThreadRng};
 
 use algorithms::{
-    backtrack::Backtrack, binary_tree::BinaryTree, kruskal::Kruskal, prim::Prim, wilson::Wilson,
+    backtrack::Backtrack, binary_tree::BinaryTree, kruskal::Kruskal, prim::Prim,
+    voronoi::GrowthStrategy, wilson::Wilson,
 };
 
 pub enum Algorithm {
-    Backtrack,  // Easy: more long corridors.
-    BinaryTree, // Fairly easy: fewer long corridors.
-    Wilson,     // Medium: unbiased.
-    Kruskal,    // Hard: more dead ends.
-    Prim,       // Hard: more dead ends.
+    Backtrack,     // Easy: more long corridors.
+    VoronoiStack,  // Winding/snake-like (DFS).
+    BinaryTree,    // Four quadrants: fewer long corridors.
+    Wilson,        // Medium: unbiased.
+    VoronoiRandom, // Fractal/dendritic.
+    Kruskal,       // Hard: more dead ends.
+    Prim,          // Hard: more dead ends.
+    VoronoiQueue,  // Geometric/round (BFS).
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -92,10 +96,13 @@ impl MazeMaker {
         };
         match generator {
             Algorithm::Backtrack => maze.backtrack(),
+            Algorithm::VoronoiStack => maze.voronoi(GrowthStrategy::Stack),
             Algorithm::BinaryTree => maze.binary_tree(),
             Algorithm::Wilson => maze.wilson(),
+            Algorithm::VoronoiRandom => maze.voronoi(GrowthStrategy::Random),
             Algorithm::Kruskal => maze.kruskal(),
             Algorithm::Prim => maze.prim(),
+            Algorithm::VoronoiQueue => maze.voronoi(GrowthStrategy::Queue),
         }
         maze
     }

@@ -335,7 +335,7 @@ pub fn generate_floor_texture(difficulty: u8) -> Texture2D {
     let check_size = 2.0 * half_check_size;
     let checks_per_cell = (CELL_SIZE / check_size).round() as u16;
 
-    let base_color = if difficulty == 4 { WHITE } else { BEIGE };
+    let base_color = if difficulty == 5 { WHITE } else { BEIGE };
     let mut image = Image::gen_image_color(checks_per_cell, checks_per_cell, base_color);
     for y in 0..checks_per_cell {
         for x in 0..checks_per_cell {
