@@ -14,14 +14,19 @@ pub fn handle_countdown_started(
 ) -> ClientState {
     let assets = assets.expect("assets required for countdown but none provided");
     let (wall_texture, sky_texture) = match game_data.difficulty {
+        0 => {
+            let sky_texture = Some(assets.purple_texture.clone());
+            let wall_texture = &assets.griffin_texture;
+            (wall_texture, sky_texture)
+        }
         1 => {
             let sky_texture = None;
-            let wall_texture = &assets.griffin_texture;
+            let wall_texture = &assets.ants_texture;
             (wall_texture, sky_texture)
         }
         2 => {
             let sky_texture = Some(assets.white_marble_texture.clone());
-            let wall_texture = &assets.procession_left_texture;
+            let wall_texture = &assets.happy_monkeys_texture;
             (wall_texture, sky_texture)
         }
         3 => {
@@ -40,23 +45,23 @@ pub fn handle_countdown_started(
             (wall_texture, sky_texture)
         }
         6 => {
-            let sky_texture = Some(assets.purple_texture.clone());
-            let wall_texture = &assets.procession_right_texture;
+            let sky_texture = Some(assets.white_marble_texture.clone());
+            let wall_texture = &assets.circuits_texture;
             (wall_texture, sky_texture)
         }
         7 => {
             let sky_texture = Some(assets.green_marble_texture.clone());
-            let wall_texture = &assets.dolphins_texture;
+            let wall_texture = &assets.sad_monkeys_texture;
             (wall_texture, sky_texture)
         }
         8 => {
-            let sky_texture = Some(assets.white_marble_texture.clone());
+            let sky_texture = Some(assets.procession_secondlast_texture.clone());
             let wall_texture = &assets.procession_secondlast_texture;
             (wall_texture, sky_texture)
         }
         9 => {
-            let sky_texture = Some(assets.white_marble_texture.clone());
-            let wall_texture = &assets.griffin_texture;
+            let sky_texture = Some(assets.white_rust_texture.clone());
+            let wall_texture = &assets.white_rust_texture;
             (wall_texture, sky_texture)
         }
         _ => {

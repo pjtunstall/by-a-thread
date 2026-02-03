@@ -10,7 +10,9 @@
 - [Where to play](#where-to-play)
   - [Locally](#locally)
   - [Online plan](#online-plan)
-- [Levels](#levels)
+- [Link](#links)
+  - [Maze-generating algorithms](#maze-generating-algorithms)
+  - [Netcode](#netcode)
 
 ## Overview
 
@@ -18,7 +20,7 @@ This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://
 
 I used Macroquad, a simple game framework, for window management, reading input, loading textures, rendering, and audio. I used the Renet library for some networking abstractions over UDP.
 
-I wrote my own collision and movement physics (drawing on what I learnt in an [earlier project on ray tracing](https://github.com/pjtunstall/a-ray-tracer-darkly)), and went to town with the networking. For more details on what that entails and how I did it, see the [Netcode](docs/netcode.md) document.
+On the other hand, I wrote my own collision and movement physics (drawing on what I learnt in an [earlier project on ray tracing](https://github.com/pjtunstall/a-ray-tracer-darkly)), generated my own mazes, and went to town with the networking. For more details on what that entails and how I did it, see the [Netcode](docs/netcode.md) document.
 
 For more on the structure of my project, see [Architecture](docs/architecture.md).
 
@@ -69,3 +71,13 @@ The passcode will appear in the server terminal.
 Looking ahead to distribution of the client binary, see the [Build](docs/build.md) guide.
 
 My plan is to play test it first on a VPS, then make it public according to the scheme outlined in [Security](docs/security.md). See [Docker](#docs/docker.md) for an idea of how the server is being deployed for initial testing.
+
+## Links
+
+### Maze-generating algorithms
+
+Jamis Buck: [The Buckblog](https://weblog.jamisbuck.org/archives.html).
+
+### Netcode
+
+Gabriel Giambetta: [Fast-Paced Multiplayer](https://gabrielgambetta.com/client-server-game-architecture.html).

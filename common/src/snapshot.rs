@@ -39,6 +39,7 @@ impl Default for InitialData {
 impl InitialData {
     pub fn new(usernames: &HashMap<u64, String>, colors: &HashMap<u64, Color>, level: u8) -> Self {
         let generator = match level {
+            0 => Algorithm::RecursiveDivision,
             1 => Algorithm::Backtrack,
             2 => Algorithm::VoronoiStack,
             3 => Algorithm::BinaryTree,

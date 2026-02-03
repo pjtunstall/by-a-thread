@@ -14,10 +14,11 @@ use crate::{
 use common::{
     input::UiKey,
     net::AppChannel,
+    player::Color,
     protocol::{ClientMessage, ServerMessage},
 };
 
-const INVALID_CHOICE_MESSAGE: &str = "Invalid choice. Please press 1 through 9.";
+const INVALID_CHOICE_MESSAGE: &str = "Invalid choice. Please press 0 through 9.";
 
 fn enqueue_difficulty_input(
     session: &mut ClientSession,
@@ -33,9 +34,7 @@ fn enqueue_difficulty_input(
 
     match ui.poll_single_key() {
         Ok(key_result) => match key_result {
-            Some(UiKey::Char(c))
-                if matches!(c, '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9') =>
-            {
+            Some(UiKey::Char(c)) if matches!(c, '0'..='9') => {
                 session.add_input(c.to_string());
             }
             _ => {}
@@ -71,17 +70,27 @@ pub fn handle(
     }
 
     if !*prompt_printed && !*choice_sent {
-        ui.show_message("Server: What sort of maze do you fancy?");
+        ui.show_message("Server: What manner of maze will it be?");
         ui.show_message(" ");
-        ui.show_message("  1. Backtracker (easy)");
-        ui.show_message("  2. Voronoi Stack (fair)");
-        ui.show_message("  3. Four-Quadrants Binary Tree (fair to middling)");
-        ui.show_message("  4. Wilson (middling)");
-        ui.show_message("  5. Kruskal (middling hard)");
-        ui.show_message("  6. Blobby Division (middling hard)");
-        ui.show_message("  7. Voronoi Random (hard)");
-        ui.show_message("  8. Prim (hard)");
-        ui.show_message("  9. Starburst (next level)");
+        ui.show_message_with_color(
+            "  0. Standard Recursive Division (easy-peasy)",
+            Color::GREEN,
+        );
+        ui.show_message_with_color("  1. Backtracker (easy)", Color::GREEN);
+        ui.show_message_with_color("  2. Voronoi Stack (fair)", Color::GREEN);
+        ui.show_message_with_color(
+            "  3. Four-Quadrants Binary Tree (fair to middling)",
+            Color::YELLOW,
+        );
+        ui.show_message_with_color("  4. Wilson (middling)", Color::YELLOW);
+        ui.show_message_with_color("  5. Kruskal (middling hard)", Color::YELLOW);
+        ui.show_message_with_color(
+            "  6. Blobby Recursive Division (middling hard)",
+            Color::YELLOW,
+        );
+        ui.show_message_with_color("  7. Voronoi Random (hard)", Color::ORANGE);
+        ui.show_message_with_color("  8. Prim (hard)", Color::ORANGE);
+        ui.show_message_with_color("  9. Starburst (next level)", Color::RED);
         ui.show_message(" ");
 
         ui.show_prompt("Pick a number.");
@@ -121,6 +130,7 @@ pub fn handle(
         if let Some(input) = session.take_input() {
             let trimmed = input.trim();
             let level = match trimmed {
+                "0" => Some(0),
                 "1" => Some(1),
                 "2" => Some(2),
                 "3" => Some(3),

@@ -5,20 +5,21 @@ use std::collections::HashMap;
 use rand::prelude::{IndexedRandom, Rng, ThreadRng};
 
 use algorithms::{
-    backtrack::Backtrack, binary_tree::BinaryTree, blobby::Blobby, kruskal::Kruskal, prim::Prim,
-    voronoi::GrowthStrategy, wilson::Wilson,
+    backtrack::Backtrack, binary_tree::BinaryTree, blobby::Blobby, division::RecursiveDivision,
+    kruskal::Kruskal, prim::Prim, voronoi::GrowthStrategy, wilson::Wilson,
 };
 
 pub enum Algorithm {
-    Backtrack,     // Easy: more long corridors.
-    VoronoiStack,  // Winding/snake-like (DFS).
-    BinaryTree,    // Four quadrants: fewer long corridors.
-    Wilson,        // Medium: unbiased.
-    Kruskal,       // Hard: more dead ends.
-    Blobby,        // Blobby recursive division.
-    VoronoiRandom, // Fractal/dendritic.
-    Prim,          // Hard: more dead ends.
-    VoronoiQueue,  // Geometric/round (BFS).
+    RecursiveDivision, // Easiest: classic recursive division.
+    Backtrack,         // Easy: more long corridors.
+    VoronoiStack,      // Winding/snake-like (DFS).
+    BinaryTree,        // Four quadrants: fewer long corridors.
+    Wilson,            // Medium: unbiased.
+    Kruskal,           // Hard: more dead ends.
+    Blobby,            // Blobby recursive division.
+    VoronoiRandom,     // Fractal/dendritic.
+    Prim,              // Hard: more dead ends.
+    VoronoiQueue,      // Geometric/round (BFS).
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -96,6 +97,7 @@ impl MazeMaker {
             rng,
         };
         match generator {
+            Algorithm::RecursiveDivision => maze.recursive_division(),
             Algorithm::Backtrack => maze.backtrack(),
             Algorithm::VoronoiStack => maze.voronoi(GrowthStrategy::Stack),
             Algorithm::BinaryTree => maze.binary_tree(),
