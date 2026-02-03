@@ -17,9 +17,6 @@ pub struct Assets {
     pub circuits_texture: Texture2D,
     pub squids_texture: Texture2D,
     pub dolphins_texture: Texture2D,
-    pub procession_left_texture: Texture2D,
-    pub procession_right_texture: Texture2D,
-    pub procession_secondlast_texture: Texture2D,
     pub blue_rust_texture: Texture2D,
     pub white_rust_texture: Texture2D,
     pub purple_texture: Texture2D,
@@ -53,9 +50,6 @@ impl Assets {
             circuits_texture: load_circuits_texture().await,
             squids_texture: load_squids_texture().await,
             dolphins_texture: load_dolphins_texture().await,
-            procession_left_texture: load_procession_left_texture().await,
-            procession_right_texture: load_procession_right_texture().await,
-            procession_secondlast_texture: load_procession_secondlast_texture().await,
             blue_rust_texture: load_blue_rust_texture().await,
             white_rust_texture: load_white_rust_texture().await,
             purple_texture: load_purple_texture().await,
@@ -134,21 +128,6 @@ pub mod embedded_assets {
     pub async fn load_dolphins_texture() -> Texture2D {
         let dolphins_bytes = include_bytes!("../assets/images/dolphins.png");
         Texture2D::from_file_with_format(dolphins_bytes, None)
-    }
-
-    pub async fn load_procession_left_texture() -> Texture2D {
-        let bytes = include_bytes!("../assets/images/procession-left.png");
-        Texture2D::from_file_with_format(bytes, None)
-    }
-
-    pub async fn load_procession_right_texture() -> Texture2D {
-        let bytes = include_bytes!("../assets/images/procession-right.png");
-        Texture2D::from_file_with_format(bytes, None)
-    }
-
-    pub async fn load_procession_secondlast_texture() -> Texture2D {
-        let bytes = include_bytes!("../assets/images/procession-secondlast.png");
-        Texture2D::from_file_with_format(bytes, None)
     }
 
     pub async fn load_blue_rust_texture() -> Texture2D {
@@ -365,27 +344,6 @@ mod file_assets {
         load_texture(path.to_string_lossy().as_ref())
             .await
             .expect("failed to load dolphins texture")
-    }
-
-    pub async fn load_procession_left_texture() -> Texture2D {
-        let path = resource_path("images", "procession-left.png");
-        load_texture(path.to_string_lossy().as_ref())
-            .await
-            .expect("failed to load procession left texture")
-    }
-
-    pub async fn load_procession_right_texture() -> Texture2D {
-        let path = resource_path("images", "procession-right.png");
-        load_texture(path.to_string_lossy().as_ref())
-            .await
-            .expect("failed to load procession right texture")
-    }
-
-    pub async fn load_procession_secondlast_texture() -> Texture2D {
-        let path = resource_path("images", "procession-secondlast.png");
-        load_texture(path.to_string_lossy().as_ref())
-            .await
-            .expect("failed to load procession secondlast texture")
     }
 
     pub async fn load_purple_texture() -> Texture2D {

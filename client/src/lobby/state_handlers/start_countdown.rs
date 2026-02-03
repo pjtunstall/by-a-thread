@@ -20,7 +20,7 @@ pub fn handle_countdown_started(
             (wall_texture, sky_texture)
         }
         1 => {
-            let sky_texture = None;
+            let sky_texture = Some(sky::generate_starfield_texture());
             let wall_texture = &assets.ants_texture;
             (wall_texture, sky_texture)
         }
@@ -30,8 +30,8 @@ pub fn handle_countdown_started(
             (wall_texture, sky_texture)
         }
         3 => {
-            let sky_texture = Some(assets.green_marble_texture.clone());
-            let wall_texture = &assets.green_marble_texture;
+            let sky_texture = Some(assets.dolphins_texture.clone());
+            let wall_texture = &assets.dolphins_texture;
             (wall_texture, sky_texture)
         }
         4 => {
@@ -55,12 +55,12 @@ pub fn handle_countdown_started(
             (wall_texture, sky_texture)
         }
         8 => {
-            let sky_texture = Some(assets.procession_secondlast_texture.clone());
+            let sky_texture = Some(assets.white_marble_texture.clone());
             let wall_texture = &assets.ants_in_maze_texture;
             (wall_texture, sky_texture)
         }
         9 => {
-            let sky_texture = Some(assets.white_rust_texture.clone());
+            let sky_texture = Some(sky::generate_starfield_texture());
             let wall_texture = &assets.white_rust_texture;
             (wall_texture, sky_texture)
         }

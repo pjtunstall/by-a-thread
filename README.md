@@ -76,8 +76,9 @@ My plan is to play test it first on a VPS, then make it public according to the 
 
 ### Maze-generating algorithms
 
-Jamis Buck: [The Buckblog](https://weblog.jamisbuck.org/archives.html).
+- Jamis Buck: [The Buckblog](https://weblog.jamisbuck.org/archives.html).
+- Jamis Buck: [Mazes for Programmers](http://www.mazesforprogrammers.com/).
 
 ### Netcode
 
-Gabriel Giambetta: [Fast-Paced Multiplayer](https://gabrielgambetta.com/client-server-game-architecture.html).
+- Gabriel Giambetta: [Fast-Paced Multiplayer](https://gabrielgambetta.com/client-server-game-architecture.html).

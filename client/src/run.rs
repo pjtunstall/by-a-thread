@@ -261,7 +261,7 @@ impl ClientRunner {
                 std::mem::take(game_data),
                 maze_meshes.take(),
                 map_overlay.take(),
-                std::mem::replace(sky_mesh, sky::generate_sky(None, sky::sky_colors(1))), // Default to level 1
+                std::mem::replace(sky_mesh, sky::generate_sky(None, sky::sky_colors(1))), // Default to level 1.
             ),
             other => {
                 self.ui.show_sanitized_error(&format!(

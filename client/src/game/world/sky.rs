@@ -1,5 +1,6 @@
 use std::f32::consts::PI;
 
+use ::rand::{Rng, SeedableRng, rngs::StdRng};
 use macroquad::prelude::*;
 
 pub struct Sky {
@@ -20,8 +21,8 @@ impl Sky {
 
 pub fn generate_sky(texture: Option<Texture2D>, sky_colors: [[u8; 4]; 3]) -> Mesh {
     let radius = 4096.0;
-    let slices = 32;
-    let stacks = 16;
+    let slices = SLICES as usize;
+    let stacks = STACKS as usize;
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
     let [c1, c2, c3] = sky_colors;
@@ -72,6 +73,62 @@ pub fn generate_sky(texture: Option<Texture2D>, sky_colors: [[u8; 4]; 3]) -> Mes
         indices,
         texture,
     }
+}
+
+const SLICES: u32 = 32;
+const STACKS: u32 = 16;
+const TILE_SIZE: u32 = 64;
+const STARS_PER_TILE: usize = 3;
+
+pub fn generate_starfield_texture() -> Texture2D {
+    generate_starfield_atlas_texture(SLICES, STACKS)
+}
+
+fn generate_starfield_atlas_texture(slices: u32, stacks: u32) -> Texture2D {
+    let width = slices * TILE_SIZE;
+    let height = stacks * TILE_SIZE;
+    let black = Color::from_rgba(0, 0, 0, 255);
+    let deep_blue = Color::from_rgba(15, 25, 90, 255);
+
+    let mut image = Image::gen_image_color(width as u16, height as u16, black);
+    for ty in 0..height {
+        let t = ty as f32 / (height - 1).max(1) as f32;
+        let r = (black.r as f32 + (deep_blue.r as f32 - black.r as f32) * t) as u8;
+        let g = (black.g as f32 + (deep_blue.g as f32 - black.g as f32) * t) as u8;
+        let b = (black.b as f32 + (deep_blue.b as f32 - black.b as f32) * t) as u8;
+        let row_color = Color::from_rgba(r, g, b, 255);
+        for tx in 0..width {
+            image.set_pixel(tx, ty, row_color);
+        }
+    }
+
+    for stack in 0..stacks {
+        for slice in 0..slices {
+            let seed = 9u64
+                .wrapping_add(stack as u64 * 1000)
+                .wrapping_add(slice as u64);
+            let mut rng = StdRng::seed_from_u64(seed);
+            let base_x = slice * TILE_SIZE;
+            let base_y = stack * TILE_SIZE;
+            for _ in 0..STARS_PER_TILE {
+                let x = base_x + rng.random_range(0..TILE_SIZE);
+                let y = base_y + rng.random_range(0..TILE_SIZE);
+                let brightness = match rng.random_range(0..100) {
+                    0..=4 => 255,
+                    5..=14 => 220,
+                    15..=29 => 180,
+                    30..=49 => 140,
+                    _ => 100,
+                };
+                let star_color = Color::from_rgba(brightness, brightness, brightness, 255);
+                image.set_pixel(x, y, star_color);
+            }
+        }
+    }
+
+    let texture = Texture2D::from_image(&image);
+    texture.set_filter(FilterMode::Linear);
+    texture
 }
 
 pub fn sky_colors(level: u8) -> [[u8; 4]; 3] {
@@ -131,9 +188,9 @@ pub fn sky_colors(level: u8) -> [[u8; 4]; 3] {
             [c1, c2, c3]
         }
         9 => {
-            let c1 = [255, 192, 203, 255];
-            let c2 = [221, 160, 221, 255];
-            let c3 = [138, 43, 226, 255];
+            let c1 = [255, 255, 255, 255];
+            let c2 = [255, 255, 255, 255];
+            let c3 = [255, 255, 255, 255];
             [c1, c2, c3]
         }
         _ => {
