@@ -61,7 +61,7 @@ pub fn handle_countdown_started(
         }
         9 => {
             let sky_texture = Some(sky::generate_starfield_texture());
-            let wall_texture = &assets.white_rust_texture;
+            let wall_texture = &assets.black_marble_texture;
             (wall_texture, sky_texture)
         }
         _ => {

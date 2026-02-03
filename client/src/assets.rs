@@ -18,10 +18,10 @@ pub struct Assets {
     pub squids_texture: Texture2D,
     pub dolphins_texture: Texture2D,
     pub blue_rust_texture: Texture2D,
-    pub white_rust_texture: Texture2D,
     pub purple_texture: Texture2D,
     pub green_marble_texture: Texture2D,
     pub white_marble_texture: Texture2D,
+    pub black_marble_texture: Texture2D,
     pub gun_sound: Sound,
     pub clang: Sound,
     pub deep_clang: Sound,
@@ -51,10 +51,10 @@ impl Assets {
             squids_texture: load_squids_texture().await,
             dolphins_texture: load_dolphins_texture().await,
             blue_rust_texture: load_blue_rust_texture().await,
-            white_rust_texture: load_white_rust_texture().await,
             purple_texture: load_purple_texture().await,
             green_marble_texture: load_green_marble_texture().await,
             white_marble_texture: load_white_marble_texture().await,
+            black_marble_texture: load_black_marble_texture().await,
             gun_sound: load_gun_sound().await,
             clang: load_clang().await,
             deep_clang: load_deep_clang().await,
@@ -135,11 +135,6 @@ pub mod embedded_assets {
         Texture2D::from_file_with_format(blue_rust_bytes, None)
     }
 
-    pub async fn load_white_rust_texture() -> Texture2D {
-        let bytes = include_bytes!("../assets/images/rust-white.png");
-        Texture2D::from_file_with_format(bytes, None)
-    }
-
     pub async fn load_purple_texture() -> Texture2D {
         let bytes = include_bytes!("../assets/images/purple.png");
         Texture2D::from_file_with_format(bytes, None)
@@ -153,6 +148,11 @@ pub mod embedded_assets {
     pub async fn load_white_marble_texture() -> Texture2D {
         let marble_white_bytes = include_bytes!("../assets/images/marble-white.png");
         Texture2D::from_file_with_format(marble_white_bytes, None)
+    }
+
+    pub async fn load_black_marble_texture() -> Texture2D {
+        let bytes = include_bytes!("../assets/images/marble-black.png");
+        Texture2D::from_file_with_format(bytes, None)
     }
 
     pub async fn load_gun_sound() -> Sound {
@@ -311,13 +311,6 @@ mod file_assets {
             .expect("failed to load blue rust texture")
     }
 
-    pub async fn load_white_rust_texture() -> Texture2D {
-        let path = resource_path("images", "rust-white.png");
-        load_texture(path.to_string_lossy().as_ref())
-            .await
-            .expect("failed to load white rust texture")
-    }
-
     pub async fn load_green_marble_texture() -> Texture2D {
         let path = resource_path("images", "marble-green.png");
         load_texture(path.to_string_lossy().as_ref())
@@ -330,6 +323,13 @@ mod file_assets {
         load_texture(path.to_string_lossy().as_ref())
             .await
             .expect("failed to load white marble texture")
+    }
+
+    pub async fn load_black_marble_texture() -> Texture2D {
+        let path = resource_path("images", "marble-black.png");
+        load_texture(path.to_string_lossy().as_ref())
+            .await
+            .expect("failed to load black marble texture")
     }
 
     pub async fn load_squids_texture() -> Texture2D {
