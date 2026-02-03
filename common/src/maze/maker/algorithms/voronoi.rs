@@ -1,6 +1,8 @@
-use super::super::MazeMaker;
-use rand::Rng;
 use std::collections::{HashSet, VecDeque};
+
+use rand::Rng;
+
+use super::super::MazeMaker;
 
 #[derive(Clone, Copy)]
 pub enum GrowthStrategy {

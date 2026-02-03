@@ -54,6 +54,11 @@ pub fn handle_countdown_started(
             let wall_texture = &assets.procession_secondlast_texture;
             (wall_texture, sky_texture)
         }
+        9 => {
+            let sky_texture = Some(assets.white_marble_texture.clone());
+            let wall_texture = &assets.griffin_texture;
+            (wall_texture, sky_texture)
+        }
         _ => {
             let sky_texture = None;
             let wall_texture = &assets.griffin_texture;

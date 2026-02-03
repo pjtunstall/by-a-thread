@@ -246,6 +246,13 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_blobby_all_spaces_are_connected() {
+        for _ in 0..64 {
+            test_all_spaces_are_connected(Algorithm::Blobby);
+        }
+    }
+
     fn test_all_spaces_are_connected(generator: Algorithm) {
         let maze = Maze::new(generator);
         let grid = &maze.grid;

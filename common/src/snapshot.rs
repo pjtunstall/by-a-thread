@@ -44,9 +44,10 @@ impl InitialData {
             3 => Algorithm::BinaryTree,
             4 => Algorithm::Wilson,
             5 => Algorithm::Kruskal,
-            6 => Algorithm::VoronoiRandom,
-            7 => Algorithm::Prim,
-            8 => Algorithm::VoronoiQueue,
+            6 => Algorithm::Blobby,
+            7 => Algorithm::VoronoiRandom,
+            8 => Algorithm::Prim,
+            9 => Algorithm::VoronoiQueue,
             _ => Algorithm::Backtrack,
         };
         let mut maze = maze::Maze::new(generator);

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use rand::prelude::{IndexedRandom, Rng, ThreadRng};
 
 use algorithms::{
-    backtrack::Backtrack, binary_tree::BinaryTree, kruskal::Kruskal, prim::Prim,
+    backtrack::Backtrack, binary_tree::BinaryTree, blobby::Blobby, kruskal::Kruskal, prim::Prim,
     voronoi::GrowthStrategy, wilson::Wilson,
 };
 
@@ -14,8 +14,9 @@ pub enum Algorithm {
     VoronoiStack,  // Winding/snake-like (DFS).
     BinaryTree,    // Four quadrants: fewer long corridors.
     Wilson,        // Medium: unbiased.
-    VoronoiRandom, // Fractal/dendritic.
     Kruskal,       // Hard: more dead ends.
+    Blobby,        // Blobby recursive division.
+    VoronoiRandom, // Fractal/dendritic.
     Prim,          // Hard: more dead ends.
     VoronoiQueue,  // Geometric/round (BFS).
 }
@@ -99,8 +100,9 @@ impl MazeMaker {
             Algorithm::VoronoiStack => maze.voronoi(GrowthStrategy::Stack),
             Algorithm::BinaryTree => maze.binary_tree(),
             Algorithm::Wilson => maze.wilson(),
-            Algorithm::VoronoiRandom => maze.voronoi(GrowthStrategy::Random),
             Algorithm::Kruskal => maze.kruskal(),
+            Algorithm::Blobby => maze.blobby(),
+            Algorithm::VoronoiRandom => maze.voronoi(GrowthStrategy::Random),
             Algorithm::Prim => maze.prim(),
             Algorithm::VoronoiQueue => maze.voronoi(GrowthStrategy::Queue),
         }
