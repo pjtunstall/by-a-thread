@@ -54,10 +54,10 @@ I've chosen to rank my mazes in terms of actual ease of navigation rather than t
 | 5 | Prim | Kruskal (~38%) |
 | 6 | Kruskal | Prim (~48%) |
 | 7 | Voronoi Random | Voronoi Random (~50%) |
-| 8 | Backtracker | 4-Quadrants Binary Tree (50% Fixed) |
+| 8 | Randomized Backtracker | 4-Quadrants Binary Tree (50% Fixed) |
 | 9 | Wilson | Starburst / Voronoi Queue (50%+) |
 
-Percentages from Gemini, so take them with a pinch of salt.
+Percentages from Gemini, so take them with a pinch of salt. I haven't found a proof or experimental evidence for all of them yet. Gemini vacilates over whether recursive division or randomized backtracker has fewest dead ends, but rankings don't shuffle wildly between responses. Its figures are consistent with those that I have been able to check, e.g. Mane et al. report DFS (i.e. Backtracker): 10.0, Wilson: 30.0, Kruskal: 30.6, Prim: 35.5.[^1] Their ranking of these algorithms in terms of difficulty also matches Gemini's.
 
 ## How to play
 
@@ -103,3 +103,7 @@ My plan is to play test it first on a VPS, then make it public according to the 
 ### Netcode
 
 - Gabriel Giambetta: [Fast-Paced Multiplayer](https://gabrielgambetta.com/client-server-game-architecture.html).
+
+## Footnotes
+
+[^1]: Deepak Mane, Rajat Harne, Tanmay Pol, Rashmi Asthagi, Sandip Shine, Bhushan Zope: [An Extensive Comparative Analysis on Different MazeGeneration Algorithms](https://ijisae.org/index.php/IJISAE/article/view/3557). International Journal of Intelligent Systems and Applications in Engineering. IJISAE, 2024, 12(2s), 37–47
