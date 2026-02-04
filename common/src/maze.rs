@@ -483,7 +483,9 @@ mod tests {
 
         assert!(
             total_spaces == maze.spaces.len(),
-            "total spaces should be equal to `maze.spaces.len()`"
+            "total spaces should equal `maze.spaces.len()`, got {} and {}",
+            total_spaces,
+            maze.spaces.len()
         );
 
         let mut visited = vec![vec![false; width]; height];
