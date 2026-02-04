@@ -40,24 +40,7 @@ According to the 01 spec, the game is expected to include:
 - client-server architecture;
 - communication via the UDP networking protocol;
 - frames-per-second meter to monitor in-game performance;
-- three levels with mazes of increasing difficulty, defined as more dead ends.
-
-I've chosen to rank my mazes in terms of actual ease of navigation rather than tendency for dead ends, since the two are often at odds:
-
-| **Level** | **Navigational ease** | **Dead-end density (the project spec)** |
-| --- | --- | --- |
-| 0 | Four-Quadrants Binary Tree | Standard Recursive Division (~11%) |
-| 1 | Standard Recursive Division | Randomized Backtracker (~13%) |
-| 2 | Starburst / Voronoi Queue | Blobby Recursive Division (~18%) |
-| 3 | Blobby Recursive Division | Voronoi Stack (~22%) |
-| 4 | Voronoi Stack | Wilson (~28%) |
-| 5 | Prim | Kruskal (~38%) |
-| 6 | Kruskal | Prim (~48%) |
-| 7 | Voronoi Random | Voronoi Random (~50%) |
-| 8 | Randomized Backtracker | 4-Quadrants Binary Tree (50% Fixed) |
-| 9 | Wilson | Starburst / Voronoi Queue (50%+) |
-
-Percentages from Gemini, so take them with a pinch of salt. I haven't found a proof or experimental evidence for all of them yet. Gemini vacilates over whether recursive division or randomized backtracker has fewest dead ends, but rankings don't shuffle wildly between responses. Its figures are consistent with those that I have been able to check, e.g. Mane et al. report DFS (i.e. Backtracker): 10.0, Wilson: 30.0, Kruskal: 30.6, Prim: 35.5.[^1] Their ranking of these algorithms in terms of difficulty also matches Gemini's.
+- three levels with mazes of increasing difficulty, defined as more dead ends; see below, [Levels](#levels).
 
 ## How to play
 
@@ -92,6 +75,25 @@ The passcode will appear in the server terminal.
 Looking ahead to distribution of the client binary, see the [Build](docs/build.md) guide.
 
 My plan is to play test it first on a VPS, then make it public according to the scheme outlined in [Security](docs/security.md). See [Docker](#docs/docker.md) for an idea of how the server is being deployed for initial testing.
+
+## Levels
+
+I've chosen rank my mazes in terms of actual ease of navigation rather than tendency for dead ends (as per the spec), since the two are often at odds:
+
+| **Level** | **Navigational ease** | **Dead-end density (the project spec)** |
+| --- | --- | --- |
+| 0 | Four-Quadrants Binary Tree | Standard Recursive Division (~11%) |
+| 1 | Standard Recursive Division | Randomized Backtracker (~13%) |
+| 2 | Starburst / Voronoi Queue | Blobby Recursive Division (~18%) |
+| 3 | Blobby Recursive Division | Voronoi Stack (~22%) |
+| 4 | Voronoi Stack | Wilson (~28%) |
+| 5 | Prim | Kruskal (~38%) |
+| 6 | Kruskal | Prim (~48%) |
+| 7 | Voronoi Random | Voronoi Random (~50%) |
+| 8 | Randomized Backtracker | 4-Quadrants Binary Tree (50% Fixed) |
+| 9 | Wilson | Starburst / Voronoi Queue (50%+) |
+
+Percentages from Gemini, so take them with a pinch of salt. I haven't found a proof or experimental evidence for all of them yet. Gemini vacilates over whether recursive division or randomized backtracker has fewest dead ends, but rankings don't shuffle wildly between responses. Its figures are consistent with those that I have been able to check, e.g. Mane et al. report DFS (i.e. Backtracker): 10.0, Wilson: 30.0, Kruskal: 30.6, Prim: 35.5.[^1] Their ranking of these algorithms in terms of difficulty also matches Gemini's.
 
 ## Links
 
