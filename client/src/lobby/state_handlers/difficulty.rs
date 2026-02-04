@@ -72,25 +72,19 @@ pub fn handle(
     if !*prompt_printed && !*choice_sent {
         ui.show_message("Server: What manner of maze will it be?");
         ui.show_message(" ");
+        ui.show_message_with_color("  0. Four-Quadrants Binary Tree (trivial)", Color::GREEN);
+        ui.show_message_with_color("  1. Standard Recursive Division (easy)", Color::GREEN);
+        ui.show_message_with_color("  2. Starburst / Voronoi Queue (fair)", Color::CHARTREUSE);
         ui.show_message_with_color(
-            "  0. Standard Recursive Division (easy-peasy)",
-            Color::GREEN,
-        );
-        ui.show_message_with_color("  1. Backtracker (easy)", Color::GREEN);
-        ui.show_message_with_color("  2. Voronoi Stack (fair)", Color::CHARTREUSE);
-        ui.show_message_with_color(
-            "  3. Four-Quadrants Binary Tree (fair to middling)",
+            "  3. Blobby Recursive Division (fair to middling)",
             Color::CHARTREUSE,
         );
-        ui.show_message_with_color("  4. Wilson (middling)", Color::YELLOW);
-        ui.show_message_with_color("  5. Kruskal (middling hard)", Color::YELLOW);
-        ui.show_message_with_color(
-            "  6. Blobby Recursive Division (middling hard)",
-            Color::YELLOW,
-        );
-        ui.show_message_with_color("  7. Voronoi Random (hard)", Color::ORANGE);
-        ui.show_message_with_color("  8. Prim (hard)", Color::ORANGE);
-        ui.show_message_with_color("  9. Starburst (next level)", Color::RED);
+        ui.show_message_with_color("  4. Voronoi Stack (middling)", Color::CHARTREUSE);
+        ui.show_message_with_color("  5. Prim (hard)", Color::YELLOW);
+        ui.show_message_with_color("  6. Kruskal (hard)", Color::YELLOW);
+        ui.show_message_with_color("  7. Voronoi Random (Herculean)", Color::ORANGE);
+        ui.show_message_with_color("  8. Backtracker (Sisyphean)", Color::ORANGE);
+        ui.show_message_with_color("  9. Wilson (next level)", Color::RED);
         ui.show_message(" ");
 
         ui.show_prompt("Pick a number.");

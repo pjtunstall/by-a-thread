@@ -39,16 +39,16 @@ impl Default for InitialData {
 impl InitialData {
     pub fn new(usernames: &HashMap<u64, String>, colors: &HashMap<u64, Color>, level: u8) -> Self {
         let generator = match level {
-            0 => Algorithm::RecursiveDivision,
-            1 => Algorithm::Backtrack,
-            2 => Algorithm::VoronoiStack,
-            3 => Algorithm::BinaryTree,
-            4 => Algorithm::Wilson,
-            5 => Algorithm::Kruskal,
-            6 => Algorithm::Blobby,
+            0 => Algorithm::BinaryTree,
+            1 => Algorithm::RecursiveDivision,
+            2 => Algorithm::VoronoiQueue,
+            3 => Algorithm::Blobby,
+            4 => Algorithm::VoronoiStack,
+            5 => Algorithm::Prim,
+            6 => Algorithm::Kruskal,
             7 => Algorithm::VoronoiRandom,
-            8 => Algorithm::Prim,
-            9 => Algorithm::VoronoiQueue,
+            8 => Algorithm::Backtrack,
+            9 => Algorithm::Wilson,
             _ => Algorithm::Backtrack,
         };
         let mut maze = maze::Maze::new(generator);

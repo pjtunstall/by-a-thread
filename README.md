@@ -42,6 +42,23 @@ According to the 01 spec, the game is expected to include:
 - frames-per-second meter to monitor in-game performance;
 - three levels with mazes of increasing difficulty, defined as more dead ends.
 
+I've chosen to rank my mazes in terms of actual ease of navigation rather than tendency for dead ends, since the two are often at odds:
+
+| **Level** | **Navigational ease** | **Dead-end density (the project spec)** |
+| --- | --- | --- |
+| 0 | Four-Quadrants Binary Tree | Standard Recursive Division (~11%) |
+| 1 | Standard Recursive Division | Randomized Backtracker (~13%) |
+| 2 | Starburst / Voronoi Queue | Blobby Recursive Division (~18%) |
+| 3 | Blobby Recursive Division | Voronoi Stack (~22%) |
+| 4 | Voronoi Stack | Wilson (~28%) |
+| 5 | Prim | Kruskal (~38%) |
+| 6 | Kruskal | Prim (~48%) |
+| 7 | Voronoi Random | Voronoi Random (~50%) |
+| 8 | Backtracker | 4-Quadrants Binary Tree (50% Fixed) |
+| 9 | Wilson | Starburst / Voronoi Queue (50%+) |
+
+Percentages from Gemini, so take them with a pinch of salt.
+
 ## How to play
 
 ### Objective

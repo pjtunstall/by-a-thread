@@ -352,14 +352,13 @@ pub enum Color {
     CHARTREUSE,
 }
 
-pub const COLORS: [Color; 11] = [
+pub const COLORS: [Color; 10] = [
     Color::ORANGE,
     Color::BLUE,
     Color::LIME,
     Color::PINK,
     Color::SKYBLUE,
     Color::GREEN,
-    Color::CHARTREUSE,
     Color::MAROON,
     Color::PURPLE,
     Color::YELLOW,
