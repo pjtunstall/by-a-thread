@@ -111,11 +111,6 @@ impl Game {
 
         let is_solo_mode = players.len() == 1;
         let timer_start_time = common::time::now_as_secs_f64();
-        let exit_coords = if is_solo_mode {
-            Some(initial_data.exit_coords)
-        } else {
-            None
-        };
 
         Self {
             maze,
@@ -128,7 +123,7 @@ impl Game {
             after_game_chat_clients: HashSet::new(),
             leaderboard_sent: false,
             net_stats: NetStats::new(),
-            exit_coords,
+            exit_coords: initial_data.exit_coords,
             timer_duration,
             timer_start_time,
             timer_expiration_tick: None,

@@ -338,6 +338,10 @@ pub fn generate_floor_texture(difficulty: u8) -> Texture2D {
     let (base_color, alternate_color) = match difficulty {
         9 => (WHITE, BLACK),
         5 => (WHITE, BROWN),
+        3 => (
+            Color::new(0.4, 0.7, 0.5, 1.0), // Seafoam green.
+            Color::new(0.0, 0.5, 0.5, 1.0), // Teal.
+        ),
         _ => (BEIGE, BROWN),
     };
     let mut image = Image::gen_image_color(checks_per_cell, checks_per_cell, base_color);

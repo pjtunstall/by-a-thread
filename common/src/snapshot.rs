@@ -20,7 +20,7 @@ pub struct InitialData {
     pub maze: Maze,
     pub players: Vec<Player>,
     pub difficulty: u8,
-    pub exit_coords: (usize, usize),
+    pub exit_coords: Option<(usize, usize)>,
     pub timer_duration: f32,
 }
 
@@ -30,7 +30,7 @@ impl Default for InitialData {
             maze: Maze::new(Algorithm::Backtrack),
             players: Vec::new(),
             difficulty: 1,
-            exit_coords: (0, 0),
+            exit_coords: None,
             timer_duration: 360.0,
         }
     }
@@ -88,10 +88,10 @@ impl InitialData {
 
         let is_solo = player_count == 1;
         if is_solo {
-            exit_coords = maze.make_exit(solo_player_grid_coords);
+            exit_coords = Some(maze.make_exit(solo_player_grid_coords));
             timer_duration = SOLO_TIMER_DURATION
         } else {
-            exit_coords = (999, 999);
+            exit_coords = None;
             timer_duration = BATTLE_TIMER_DURATION;
         }
 

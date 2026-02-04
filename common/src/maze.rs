@@ -204,15 +204,15 @@ impl Maze {
             fallback
         };
 
-        let exit = if candidates.is_empty() {
-            fallback
+        if candidates.is_empty() {
+            self.punch_path_to_nearest_space_bfs(fallback)
         } else {
-            let idx = rand::random_range(0..candidates.len());
-            candidates[idx]
-        };
-
-        self.punch_path_to_nearest_space(exit);
-        exit
+            let i = rand::random_range(0..candidates.len());
+            let exit = candidates[i];
+            self.grid[exit.0][exit.1] = 0;
+            self.spaces.push(exit);
+            exit
+        }
     }
 
     fn distance_from_center(height: usize, width: usize, row: usize, col: usize) -> (usize, usize) {
@@ -298,63 +298,75 @@ impl Maze {
         }
     }
 
-    fn punch_path_to_nearest_space(&mut self, exit_coords: (usize, usize)) {
+    fn punch_path_to_nearest_space_bfs(&mut self, exit_coords: (usize, usize)) -> (usize, usize) {
         let height = self.grid.len();
         if height == 0 {
-            return;
+            return exit_coords;
         }
         let width = self.grid[0].len();
         if width == 0 {
-            return;
+            return exit_coords;
         }
 
-        let (mut z, mut x) = exit_coords;
-        if z >= height || x >= width {
-            return;
+        let (start_z, start_x) = exit_coords;
+        if start_z >= height || start_x >= width {
+            return exit_coords;
         }
 
-        if self.grid[z][x] != 0 {
-            self.grid[z][x] = 0;
-            self.spaces.push((z, x));
+        let mut visited = vec![vec![false; width]; height];
+        let mut prev = vec![vec![None; width]; height];
+        let mut queue = std::collections::VecDeque::new();
+
+        visited[start_z][start_x] = true;
+        queue.push_back((start_z, start_x));
+
+        let mut target = None;
+
+        while let Some((z, x)) = queue.pop_front() {
+            if self.grid[z][x] == 0 && (z, x) != exit_coords {
+                target = Some((z, x));
+                break;
+            }
+
+            let neighbors = [
+                (z.wrapping_add(1), x),
+                (z.wrapping_sub(1), x),
+                (z, x.wrapping_add(1)),
+                (z, x.wrapping_sub(1)),
+            ];
+
+            for (nz, nx) in neighbors {
+                if nz >= height || nx >= width {
+                    continue;
+                }
+                if visited[nz][nx] {
+                    continue;
+                }
+                visited[nz][nx] = true;
+                prev[nz][nx] = Some((z, x));
+                queue.push_back((nz, nx));
+            }
         }
 
-        if z == 0 {
-            while z + 1 < height {
-                z += 1;
-                if self.grid[z][x] == 0 {
-                    break;
-                }
+        let mut current = target.unwrap_or(exit_coords);
+
+        loop {
+            let (z, x) = current;
+            if self.grid[z][x] != 0 {
                 self.grid[z][x] = 0;
                 self.spaces.push((z, x));
             }
-        } else if z + 1 == height {
-            while z > 0 {
-                z -= 1;
-                if self.grid[z][x] == 0 {
-                    break;
-                }
-                self.grid[z][x] = 0;
-                self.spaces.push((z, x));
+            if current == exit_coords {
+                break;
             }
-        } else if x == 0 {
-            while x + 1 < width {
-                x += 1;
-                if self.grid[z][x] == 0 {
-                    break;
-                }
-                self.grid[z][x] = 0;
-                self.spaces.push((z, x));
-            }
-        } else if x + 1 == width {
-            while x > 0 {
-                x -= 1;
-                if self.grid[z][x] == 0 {
-                    break;
-                }
-                self.grid[z][x] = 0;
-                self.spaces.push((z, x));
+            if let Some(p) = prev[z][x] {
+                current = p;
+            } else {
+                break;
             }
         }
+
+        exit_coords
     }
 }
 
