@@ -53,6 +53,8 @@ impl InitialData {
         };
         let mut maze = maze::Maze::new(generator);
 
+        let mut solo_player_grid_coords = (0, 0);
+
         let mut spaces_remaining = maze.spaces.clone();
         let mut player_count: usize = 0;
         let players: Vec<Player> = usernames
@@ -61,6 +63,7 @@ impl InitialData {
             .map(|(client_id, username)| {
                 let space_index = rand::random_range(0..spaces_remaining.len());
                 let (z, x) = spaces_remaining.remove(space_index);
+                solo_player_grid_coords = (z, x);
                 let start_position = maze
                     .position_from_grid_coordinates(player::HEIGHT, z, x)
                     .expect("failed to get start position from maze");
@@ -80,16 +83,17 @@ impl InitialData {
             })
             .collect();
 
-        let exit_coords = maze.pick_exit_coords();
+        let exit_coords;
+        let timer_duration;
+
         let is_solo = player_count == 1;
-        let timer_duration = if is_solo {
-            let (exit_z, exit_x) = exit_coords;
-            maze.grid[exit_z][exit_x] = 0;
-            maze.spaces.push(exit_coords);
-            SOLO_TIMER_DURATION
+        if is_solo {
+            exit_coords = maze.make_exit(solo_player_grid_coords);
+            timer_duration = SOLO_TIMER_DURATION
         } else {
-            BATTLE_TIMER_DURATION
-        };
+            exit_coords = (999, 999);
+            timer_duration = BATTLE_TIMER_DURATION;
+        }
 
         Self {
             maze,

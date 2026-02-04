@@ -55,44 +55,6 @@ impl Maze {
         }
     }
 
-    pub fn pick_exit_coords(&self) -> (usize, usize) {
-        let grid = &self.grid;
-        let height = grid.len();
-        let width = if height > 0 { grid[0].len() } else { 0 };
-
-        let mut candidates = Vec::new();
-
-        let has_space_neighbor = |z: usize, x: usize| {
-            (z > 0 && grid[z - 1][x] == 0)
-                || (z + 1 < height && grid[z + 1][x] == 0)
-                || (x > 0 && grid[z][x - 1] == 0)
-                || (x + 1 < width && grid[z][x + 1] == 0)
-        };
-
-        let mut check_if_valid = |z, x| {
-            if has_space_neighbor(z, x) {
-                candidates.push((z, x));
-            }
-        };
-
-        for x in 1..(width - 1) {
-            check_if_valid(0, x);
-            check_if_valid(height - 1, x);
-        }
-
-        for z in 1..(height - 1) {
-            check_if_valid(z, 0);
-            check_if_valid(z, width - 1);
-        }
-
-        if candidates.is_empty() {
-            (0, 0) // This should never happen with a sensible maze.
-        } else {
-            let idx = rand::random_range(0..candidates.len());
-            candidates[idx]
-        }
-    }
-
     pub fn grid_coordinates_from_position(&self, position: &Vec3) -> Option<(u8, u8)> {
         let grid = &self.grid;
         let col = (position.x / CELL_SIZE).floor() as isize;
@@ -203,6 +165,195 @@ impl Maze {
         } else {
             // Outside corner.
             -Vec3::new(delta.x, 0.0, delta.z).normalize()
+        }
+    }
+
+    pub fn make_exit(&mut self, solo_player_grid_coords: (usize, usize)) -> (usize, usize) {
+        let grid = &self.grid;
+        let height = grid.len();
+        let width = if height > 0 { grid[0].len() } else { 0 };
+
+        let mut candidates = Vec::new();
+
+        let has_space_neighbor = |z: usize, x: usize| {
+            (z > 0 && grid[z - 1][x] == 0)
+                || (z + 1 < height && grid[z + 1][x] == 0)
+                || (x > 0 && grid[z][x - 1] == 0)
+                || (x + 1 < width && grid[z][x + 1] == 0)
+        };
+
+        let mut check_if_valid = |z, x| {
+            if has_space_neighbor(z, x) {
+                candidates.push((z, x));
+            }
+        };
+
+        let row = solo_player_grid_coords.0;
+        let col = solo_player_grid_coords.1;
+
+        let (vertical_dist, horizontal_dist) = Self::distance_from_center(height, width, row, col);
+        let is_player_more_vertical = vertical_dist > horizontal_dist;
+
+        let fallback = if is_player_more_vertical {
+            let fallback = Self::vertical_fallback(height, width, row, col);
+            self.collect_vertical_edge_candidates(fallback.0, width, &mut check_if_valid);
+            fallback
+        } else {
+            let fallback = Self::horizontal_fallback(height, width, row, col);
+            self.collect_horizontal_edge_candidates(height, fallback.1, &mut check_if_valid);
+            fallback
+        };
+
+        let exit = if candidates.is_empty() {
+            fallback
+        } else {
+            let idx = rand::random_range(0..candidates.len());
+            candidates[idx]
+        };
+
+        self.punch_path_to_nearest_space(exit);
+        exit
+    }
+
+    fn distance_from_center(height: usize, width: usize, row: usize, col: usize) -> (usize, usize) {
+        let center_row = height / 2;
+        let center_col = width / 2;
+
+        let vertical_dist = if row > center_row {
+            row - center_row
+        } else {
+            center_row - row
+        };
+
+        let horizontal_dist = if col > center_col {
+            col - center_col
+        } else {
+            center_col - col
+        };
+
+        (vertical_dist, horizontal_dist)
+    }
+
+    fn vertical_fallback(height: usize, width: usize, row: usize, col: usize) -> (usize, usize) {
+        let center_row = height / 2;
+        let player_in_top_half = row < center_row;
+        let edge_z = if player_in_top_half {
+            height.saturating_sub(1)
+        } else {
+            0
+        };
+
+        if width <= 2 {
+            return (edge_z, 0);
+        }
+
+        let fallback_x = col.min(width.saturating_sub(2)).max(1);
+        (edge_z, fallback_x)
+    }
+
+    fn horizontal_fallback(height: usize, width: usize, row: usize, col: usize) -> (usize, usize) {
+        let center_col = width / 2;
+        let player_in_left_half = col < center_col;
+        let edge_x = if player_in_left_half {
+            width.saturating_sub(1)
+        } else {
+            0
+        };
+
+        if height <= 2 {
+            return (0, edge_x);
+        }
+
+        let fallback_z = row.min(height.saturating_sub(2)).max(1);
+        (fallback_z, edge_x)
+    }
+
+    fn collect_vertical_edge_candidates(
+        &self,
+        edge_z: usize,
+        width: usize,
+        check_if_valid: &mut impl FnMut(usize, usize),
+    ) {
+        if width <= 2 {
+            return;
+        }
+
+        for x in 1..width.saturating_sub(1) {
+            check_if_valid(edge_z, x);
+        }
+    }
+
+    fn collect_horizontal_edge_candidates(
+        &self,
+        height: usize,
+        edge_x: usize,
+        check_if_valid: &mut impl FnMut(usize, usize),
+    ) {
+        if height <= 2 {
+            return;
+        }
+
+        for z in 1..height.saturating_sub(1) {
+            check_if_valid(z, edge_x);
+        }
+    }
+
+    fn punch_path_to_nearest_space(&mut self, exit_coords: (usize, usize)) {
+        let height = self.grid.len();
+        if height == 0 {
+            return;
+        }
+        let width = self.grid[0].len();
+        if width == 0 {
+            return;
+        }
+
+        let (mut z, mut x) = exit_coords;
+        if z >= height || x >= width {
+            return;
+        }
+
+        if self.grid[z][x] != 0 {
+            self.grid[z][x] = 0;
+            self.spaces.push((z, x));
+        }
+
+        if z == 0 {
+            while z + 1 < height {
+                z += 1;
+                if self.grid[z][x] == 0 {
+                    break;
+                }
+                self.grid[z][x] = 0;
+                self.spaces.push((z, x));
+            }
+        } else if z + 1 == height {
+            while z > 0 {
+                z -= 1;
+                if self.grid[z][x] == 0 {
+                    break;
+                }
+                self.grid[z][x] = 0;
+                self.spaces.push((z, x));
+            }
+        } else if x == 0 {
+            while x + 1 < width {
+                x += 1;
+                if self.grid[z][x] == 0 {
+                    break;
+                }
+                self.grid[z][x] = 0;
+                self.spaces.push((z, x));
+            }
+        } else if x + 1 == width {
+            while x > 0 {
+                x -= 1;
+                if self.grid[z][x] == 0 {
+                    break;
+                }
+                self.grid[z][x] = 0;
+                self.spaces.push((z, x));
+            }
         }
     }
 }
