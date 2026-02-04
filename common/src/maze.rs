@@ -404,6 +404,48 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_recursive_division_all_spaces_are_connected() {
+        for _ in 0..64 {
+            test_all_spaces_are_connected(Algorithm::RecursiveDivision);
+        }
+    }
+
+    #[test]
+    fn test_binary_tree_all_spaces_are_connected() {
+        for _ in 0..64 {
+            test_all_spaces_are_connected(Algorithm::BinaryTree);
+        }
+    }
+
+    #[test]
+    fn test_kruskal_all_spaces_are_connected() {
+        for _ in 0..64 {
+            test_all_spaces_are_connected(Algorithm::Kruskal);
+        }
+    }
+
+    #[test]
+    fn test_voronoi_stack_all_spaces_are_connected() {
+        for _ in 0..64 {
+            test_all_spaces_are_connected(Algorithm::VoronoiStack);
+        }
+    }
+
+    #[test]
+    fn test_voronoi_random_all_spaces_are_connected() {
+        for _ in 0..64 {
+            test_all_spaces_are_connected(Algorithm::VoronoiRandom);
+        }
+    }
+
+    #[test]
+    fn test_voronoi_queue_all_spaces_are_connected() {
+        for _ in 0..64 {
+            test_all_spaces_are_connected(Algorithm::VoronoiQueue);
+        }
+    }
+
     fn test_all_spaces_are_connected(generator: Algorithm) {
         let maze = Maze::new(generator);
         let grid = &maze.grid;
@@ -463,6 +505,66 @@ mod tests {
             "all spaces should be connected:\n{}",
             maze.log()
         );
+    }
+
+    #[test]
+    fn test_make_exit_chooses_edge_candidate_and_punches_path() {
+        let grid = vec![
+            vec![1, 1, 1, 1, 1],
+            vec![1, 1, 1, 1, 1],
+            vec![1, 1, 1, 1, 1],
+            vec![1, 1, 0, 1, 1],
+            vec![1, 1, 1, 1, 1],
+        ];
+
+        let mut spaces = Vec::new();
+        for (z, row) in grid.iter().enumerate() {
+            for (x, cell) in row.iter().enumerate() {
+                if *cell == 0 {
+                    spaces.push((z, x));
+                }
+            }
+        }
+
+        let mut maze = Maze { grid, spaces };
+
+        let solo_player_grid_coords = (0, 2);
+        let exit = maze.make_exit(solo_player_grid_coords);
+
+        assert_eq!(exit, (4, 2));
+        assert_eq!(maze.grid[4][2], 0);
+        assert_eq!(maze.grid[3][2], 0);
+    }
+
+    #[test]
+    fn test_make_exit_uses_fallback_when_no_edge_candidates() {
+        let grid = vec![
+            vec![1, 1, 1, 1, 1],
+            vec![1, 1, 0, 1, 1],
+            vec![1, 1, 1, 1, 1],
+            vec![1, 1, 1, 1, 1],
+            vec![1, 1, 1, 1, 1],
+        ];
+
+        let mut spaces = Vec::new();
+        for (z, row) in grid.iter().enumerate() {
+            for (x, cell) in row.iter().enumerate() {
+                if *cell == 0 {
+                    spaces.push((z, x));
+                }
+            }
+        }
+
+        let mut maze = Maze { grid, spaces };
+
+        let solo_player_grid_coords = (0, 2);
+        let exit = maze.make_exit(solo_player_grid_coords);
+
+        assert_eq!(exit, (4, 2));
+        assert_eq!(maze.grid[4][2], 0);
+        assert_eq!(maze.grid[3][2], 0);
+        assert_eq!(maze.grid[2][2], 0);
+        assert_eq!(maze.grid[1][2], 0);
     }
 
     #[test]
