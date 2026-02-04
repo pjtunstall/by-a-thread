@@ -93,7 +93,7 @@ I've chosen rank my mazes in terms of actual ease of navigation rather than tend
 | 8 | Randomized Backtracker | 4-Quadrants Binary Tree (50% Fixed) |
 | 9 | Wilson | Starburst / Voronoi Queue (50%+) |
 
-Percentages from Gemini, so take them with a pinch of salt. I haven't found a proof or experimental evidence for all of them yet. Gemini vacilates over whether recursive division or randomized backtracker has fewest dead ends, but rankings don't shuffle wildly between responses. Its figures are consistent with those that I have been able to check, e.g. Mane et al. report DFS (i.e. Backtracker): 10.0, Wilson: 30.0, Kruskal: 30.6, Prim: 35.5.[^1] Their ranking of these algorithms in terms of difficulty also matches Gemini's.
+Percentages from Gemini, so take them with a pinch of salt. I haven't found a proof or experimental evidence for all of them yet. Gemini vacilates over whether recursive division or randomized backtracker has fewest dead ends, but rankings don't shuffle wildly between responses. Its figures are roughly consistent with those that I have been able to check, e.g. Mane et al. report DFS (i.e. Backtracker): 10.0, Wilson: 30.0, Kruskal: 30.6, Prim: 35.5.[^1] Their ranking of these algorithms in terms of difficulty also matches Gemini's.
 
 ## Links
 
