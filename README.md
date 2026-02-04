@@ -26,6 +26,8 @@ For more on the structure of my project, see [Architecture](docs/architecture.md
 
 ## Status
 
+![demo](https://github.com/user-attachments/assets/efa90aaa-28e7-4757-8478-fbea9d58f869)
+
 Successfully tested on VPS; currently working on a matchmaking service to support concurrent sessions.
 
 ## Spec
