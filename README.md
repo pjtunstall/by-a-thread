@@ -18,9 +18,9 @@
 
 This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://github.com/01-edu/public/tree/master/subjects/multiplayer-fps) (commit bb1e883). The aim is to remake [Maze](<https://en.wikipedia.org/wiki/Maze_(1973_video_game)>), a multiplayer first-person shooter from 1973.
 
-I used Macroquad, a simple game framework, for window management, reading input, loading textures, rendering, and audio. I used the Renet library for some networking abstractions over UDP.
+I wrote my own collision and movement physics (drawing on what I learnt in an [earlier project on ray tracing](https://github.com/pjtunstall/a-ray-tracer-darkly)), generated my own mazes, and went to town with the networking. For more details on what that entails and how I did it, see the [Netcode](docs/netcode.md) document.
 
-On the other hand, I wrote my own collision and movement physics (drawing on what I learnt in an [earlier project on ray tracing](https://github.com/pjtunstall/a-ray-tracer-darkly)), generated my own mazes, and went to town with the networking. For more details on what that entails and how I did it, see the [Netcode](docs/netcode.md) document.
+I delegated window management, reading input, loading textures, rendering, and audio to Macroquad, a simple game framework. I used the Renet library for some networking abstractions over UDP.
 
 For more on the structure of my project, see [Architecture](docs/architecture.md).
 
