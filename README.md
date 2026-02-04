@@ -24,6 +24,10 @@ On the other hand, I wrote my own collision and movement physics (drawing on wha
 
 For more on the structure of my project, see [Architecture](docs/architecture.md).
 
+## Status
+
+Successfully tested on VPS; currently working on a matchmaking service to support concurrent sessions.
+
 ## Spec
 
 According to the 01 spec, the game is expected to include:

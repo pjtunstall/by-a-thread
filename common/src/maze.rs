@@ -379,75 +379,84 @@ mod tests {
     #[test]
     fn test_backtrack_all_spaces_are_connected() {
         for _ in 0..64 {
-            test_all_spaces_are_connected(Algorithm::Backtrack);
+            let maze = Maze::new(Algorithm::Backtrack);
+            assert_all_spaces_are_connected(&maze);
         }
     }
 
     #[test]
     fn test_prim_all_spaces_are_connected() {
         for _ in 0..64 {
-            test_all_spaces_are_connected(Algorithm::Prim);
+            let maze = Maze::new(Algorithm::Prim);
+            assert_all_spaces_are_connected(&maze);
         }
     }
 
     #[test]
     fn test_wilson_all_spaces_are_connected() {
         for _ in 0..64 {
-            test_all_spaces_are_connected(Algorithm::Wilson);
+            let maze = Maze::new(Algorithm::Wilson);
+            assert_all_spaces_are_connected(&maze);
         }
     }
 
     #[test]
     fn test_blobby_all_spaces_are_connected() {
         for _ in 0..64 {
-            test_all_spaces_are_connected(Algorithm::Blobby);
+            let maze = Maze::new(Algorithm::Blobby);
+            assert_all_spaces_are_connected(&maze);
         }
     }
 
     #[test]
     fn test_recursive_division_all_spaces_are_connected() {
         for _ in 0..64 {
-            test_all_spaces_are_connected(Algorithm::RecursiveDivision);
+            let maze = Maze::new(Algorithm::RecursiveDivision);
+            assert_all_spaces_are_connected(&maze);
         }
     }
 
     #[test]
     fn test_binary_tree_all_spaces_are_connected() {
         for _ in 0..64 {
-            test_all_spaces_are_connected(Algorithm::BinaryTree);
+            let maze = Maze::new(Algorithm::BinaryTree);
+            assert_all_spaces_are_connected(&maze);
         }
     }
 
     #[test]
     fn test_kruskal_all_spaces_are_connected() {
         for _ in 0..64 {
-            test_all_spaces_are_connected(Algorithm::Kruskal);
+            let maze = Maze::new(Algorithm::Kruskal);
+            assert_all_spaces_are_connected(&maze);
         }
     }
 
     #[test]
     fn test_voronoi_stack_all_spaces_are_connected() {
         for _ in 0..64 {
-            test_all_spaces_are_connected(Algorithm::VoronoiStack);
+            let maze = Maze::new(Algorithm::VoronoiStack);
+            assert_all_spaces_are_connected(&maze);
         }
     }
 
     #[test]
     fn test_voronoi_random_all_spaces_are_connected() {
         for _ in 0..64 {
-            test_all_spaces_are_connected(Algorithm::VoronoiRandom);
+            let maze = Maze::new(Algorithm::VoronoiRandom);
+            assert_all_spaces_are_connected(&maze);
         }
     }
 
     #[test]
     fn test_voronoi_queue_all_spaces_are_connected() {
         for _ in 0..64 {
-            test_all_spaces_are_connected(Algorithm::VoronoiQueue);
+            let maze = Maze::new(Algorithm::VoronoiQueue);
+            assert_all_spaces_are_connected(&maze);
         }
     }
 
-    fn test_all_spaces_are_connected(generator: Algorithm) {
-        let maze = Maze::new(generator);
+    fn assert_all_spaces_are_connected(maze: &Maze) {
         let grid = &maze.grid;
 
         let height = grid.len();
@@ -471,6 +480,11 @@ mod tests {
 
         let (start_r, start_c) = start_pos.expect("there should be at least one space");
         assert!(total_spaces > 1, "there should be more than one space");
+
+        assert!(
+            total_spaces == maze.spaces.len(),
+            "total spaces should be equal to `maze.spaces.len()`"
+        );
 
         let mut visited = vec![vec![false; width]; height];
         let mut queue: VecDeque<(usize, usize)> = VecDeque::new();
@@ -508,13 +522,15 @@ mod tests {
     }
 
     #[test]
-    fn test_make_exit_chooses_edge_candidate_and_punches_path() {
+    fn test_make_exit_picks_candidate_on_selected_edge_and_punches_to_interior_space() {
         let grid = vec![
-            vec![1, 1, 1, 1, 1],
-            vec![1, 1, 1, 1, 1],
-            vec![1, 1, 1, 1, 1],
-            vec![1, 1, 0, 1, 1],
-            vec![1, 1, 1, 1, 1],
+            vec![1, 1, 1, 1, 1, 1, 1],
+            vec![1, 1, 1, 0, 1, 1, 1], // Player at (1, 3).
+            vec![1, 1, 1, 0, 1, 1, 1],
+            vec![1, 1, 0, 0, 0, 1, 1],
+            vec![1, 1, 1, 0, 1, 1, 1],
+            vec![1, 1, 1, 0, 1, 1, 1],
+            vec![1, 1, 1, 1, 1, 1, 1],
         ];
 
         let mut spaces = Vec::new();
@@ -528,22 +544,25 @@ mod tests {
 
         let mut maze = Maze { grid, spaces };
 
-        let solo_player_grid_coords = (0, 2);
+        let solo_player_grid_coords = (1, 3);
         let exit = maze.make_exit(solo_player_grid_coords);
 
-        assert_eq!(exit, (4, 2));
-        assert_eq!(maze.grid[4][2], 0);
-        assert_eq!(maze.grid[3][2], 0);
+        assert_eq!(exit, (6, 3));
+        assert_eq!(maze.grid[6][3], 0);
+        assert_eq!(maze.grid[5][3], 0);
+        assert_all_spaces_are_connected(&maze);
     }
 
     #[test]
-    fn test_make_exit_uses_fallback_when_no_edge_candidates() {
+    fn test_make_exit_uses_fallback_when_only_other_edge_has_candidate() {
         let grid = vec![
-            vec![1, 1, 1, 1, 1],
-            vec![1, 1, 0, 1, 1],
-            vec![1, 1, 1, 1, 1],
-            vec![1, 1, 1, 1, 1],
-            vec![1, 1, 1, 1, 1],
+            vec![1, 1, 1, 1, 1, 1, 1],
+            vec![1, 1, 1, 0, 1, 1, 1], // Player at (1, 3).
+            vec![1, 1, 1, 0, 1, 1, 1],
+            vec![1, 0, 0, 0, 0, 1, 1],
+            vec![1, 1, 1, 0, 1, 1, 1],
+            vec![1, 1, 1, 1, 1, 1, 1],
+            vec![1, 1, 1, 1, 1, 1, 1],
         ];
 
         let mut spaces = Vec::new();
@@ -557,14 +576,13 @@ mod tests {
 
         let mut maze = Maze { grid, spaces };
 
-        let solo_player_grid_coords = (0, 2);
+        let solo_player_grid_coords = (1, 3);
         let exit = maze.make_exit(solo_player_grid_coords);
 
-        assert_eq!(exit, (4, 2));
-        assert_eq!(maze.grid[4][2], 0);
-        assert_eq!(maze.grid[3][2], 0);
-        assert_eq!(maze.grid[2][2], 0);
-        assert_eq!(maze.grid[1][2], 0);
+        assert_eq!(exit, (6, 3));
+        assert_eq!(maze.grid[6][3], 0);
+        assert_eq!(maze.grid[5][3], 0);
+        assert_all_spaces_are_connected(&maze);
     }
 
     #[test]
