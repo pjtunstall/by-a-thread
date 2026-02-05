@@ -10,11 +10,13 @@
 - [Where to play](#where-to-play)
   - [Locally](#locally)
   - [Online plan](#online-plan)
-- [Link](#links)
+- [Links](#links)
   - [Maze-generating algorithms](#maze-generating-algorithms)
   - [Netcode](#netcode)
 
 ## Overview
+
+![demo_octopus](https://github.com/user-attachments/assets/efa90aaa-28e7-4757-8478-fbea9d58f869)
 
 This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://github.com/01-edu/public/tree/master/subjects/multiplayer-fps) (commit bb1e883). The aim is to remake [Maze](<https://en.wikipedia.org/wiki/Maze_(1973_video_game)>), a multiplayer first-person shooter from 1973.
 
@@ -26,7 +28,7 @@ For more on the structure of my project, see [Architecture](docs/architecture.md
 
 ## Status
 
-![demo_octopus](https://github.com/user-attachments/assets/efa90aaa-28e7-4757-8478-fbea9d58f869)
+![demo_griffin](https://github.com/user-attachments/assets/8fed148d-2866-4326-b023-78205a68bcf6)
 
 Successfully tested on VPS; currently working on a matchmaking service to support concurrent sessions.
 
@@ -45,8 +47,6 @@ According to the 01 spec, the game is expected to include:
 - three levels with mazes of increasing difficulty, defined as more dead ends; see below, [Levels](#levels).
 
 ## How to play
-
-![demo_griffin](https://github.com/user-attachments/assets/8fed148d-2866-4326-b023-78205a68bcf6)
 
 ### Objective
 
