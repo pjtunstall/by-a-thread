@@ -25,21 +25,21 @@ pub enum Algorithm {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Cell {
     pub x: usize,
-    pub y: usize,
+    pub z: usize,
 }
 
 impl Cell {
-    pub fn new(grid: &[Vec<u8>], x: usize, y: usize) -> Cell {
+    pub fn new(grid: &[Vec<u8>], x: usize, z: usize) -> Cell {
         debug_assert!(
-            x < grid[0].len() || y < grid.len(),
+            x < grid[0].len() || z < grid.len(),
             "cell coordinates are out of bounds"
         );
 
-        Cell { x, y }
+        Cell { x, z }
     }
 
     pub fn is_equal(&self, other: &Cell) -> bool {
-        self.x == other.x && self.y == other.y
+        self.x == other.x && self.z == other.z
     }
 }
 
@@ -52,17 +52,17 @@ pub enum Orientation {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub struct Wall {
     pub x: usize,
-    pub y: usize,
+    pub z: usize,
     pub orientation: Orientation,
 }
 
 impl Wall {
     fn new(grid: &[Vec<u8>], cell_1: Cell, cell_2: Cell) -> Wall {
         let x = (cell_1.x + cell_2.x) / 2;
-        let y = (cell_1.y + cell_2.y) / 2;
+        let z = (cell_1.z + cell_2.z) / 2;
 
         debug_assert!(
-            x < grid[0].len() || y < grid.len(),
+            x < grid[0].len() || z < grid.len(),
             "wall coordinates are out of bounds"
         );
 
@@ -72,7 +72,7 @@ impl Wall {
             Orientation::Vertical
         };
 
-        Wall { x, y, orientation }
+        Wall { x, z, orientation }
     }
 }
 
@@ -124,17 +124,17 @@ impl MazeMaker {
         let mut valid_neighbors = Vec::new();
         let directions = [(0, 2), (2, 0), (0, -2), (-2, 0)];
 
-        for &(dx, dy) in &directions {
+        for &(dx, dz) in &directions {
             let nx = cell.x as isize + dx;
-            let ny = cell.y as isize + dy;
+            let nz = cell.z as isize + dz;
 
             let in_bounds =
-                nx > 0 && nx < self.width as isize - 1 && ny > 0 && ny < self.height as isize - 1;
+                nx > 0 && nx < self.width as isize - 1 && nz > 0 && nz < self.height as isize - 1;
             if !in_bounds {
                 continue;
             }
 
-            let neighbor = Cell::new(&self.grid, nx as usize, ny as usize);
+            let neighbor = Cell::new(&self.grid, nx as usize, nz as usize);
             let is_visited = self.is_visited(neighbor);
 
             if only_if_visited || !is_visited || !only_if_unvisited {
@@ -161,12 +161,12 @@ impl MazeMaker {
     }
 
     fn visit_cell(&mut self, cell: Cell) {
-        let Cell { x, y } = cell;
-        self.grid[y][x] = 0;
+        let Cell { x, z } = cell;
+        self.grid[z][x] = 0;
     }
 
     fn is_visited(&self, cell: Cell) -> bool {
-        self.grid[cell.y][cell.x] == 0
+        self.grid[cell.z][cell.x] == 0
     }
 
     fn pick_cell(&mut self) -> Cell {
@@ -196,34 +196,34 @@ impl MazeMaker {
         let mut i = 0;
         let mut room_to_index = HashMap::<[usize; 2], usize>::new();
 
-        for y in 0..self.height {
+        for z in 0..self.height {
             for x in 0..self.width {
-                if y % 2 == 1 && x % 2 == 1 {
-                    room_to_index.insert([x, y], i);
-                    rooms.push(Cell::new(&self.grid, x, y));
+                if z % 2 == 1 && x % 2 == 1 {
+                    room_to_index.insert([x, z], i);
+                    rooms.push(Cell::new(&self.grid, x, z));
                     i += 1;
                     continue;
                 }
 
-                if y % 2 == 0 && x % 2 == 0 {
-                    pillars.push(Cell::new(&self.grid, x, y));
+                if z % 2 == 0 && x % 2 == 0 {
+                    pillars.push(Cell::new(&self.grid, x, z));
                     continue;
                 }
 
-                if x == 0 || y == 0 || x == self.width - 1 || y == self.height - 1 {
+                if x == 0 || z == 0 || x == self.width - 1 || z == self.height - 1 {
                     continue;
                 }
 
-                if y % 2 == 0 {
+                if z % 2 == 0 {
                     walls.push(Wall {
                         x,
-                        y,
+                        z,
                         orientation: Orientation::Horizontal,
                     });
                 } else {
                     walls.push(Wall {
                         x,
-                        y,
+                        z,
                         orientation: Orientation::Vertical,
                     });
                 }
@@ -236,12 +236,12 @@ impl MazeMaker {
     fn get_cells(&self) -> Vec<Cell> {
         let mut cells = Vec::new();
 
-        for y in 0..self.height {
+        for z in 0..self.height {
             for x in 0..self.width {
-                if x % 2 == 0 || y % 2 == 0 {
+                if x % 2 == 0 || z % 2 == 0 {
                     continue;
                 }
-                cells.push(Cell::new(&self.grid, x, y))
+                cells.push(Cell::new(&self.grid, x, z))
             }
         }
 
@@ -250,20 +250,20 @@ impl MazeMaker {
 
     fn remove_wall_between(&mut self, cell_1: Cell, cell_2: Cell) {
         let x = (cell_1.x + cell_2.x) / 2;
-        let y = (cell_1.y + cell_2.y) / 2;
-        self.grid[y][x] = 0;
+        let z = (cell_1.z + cell_2.z) / 2;
+        self.grid[z][x] = 0;
     }
 
     fn get_flanking_cells(&self, wall: Wall) -> (Cell, Cell) {
         if wall.orientation == Orientation::Horizontal {
             (
-                Cell::new(&self.grid, wall.x, wall.y - 1),
-                Cell::new(&self.grid, wall.x, wall.y + 1),
+                Cell::new(&self.grid, wall.x, wall.z - 1),
+                Cell::new(&self.grid, wall.x, wall.z + 1),
             )
         } else {
             (
-                Cell::new(&self.grid, wall.x - 1, wall.y),
-                Cell::new(&self.grid, wall.x + 1, wall.y),
+                Cell::new(&self.grid, wall.x - 1, wall.z),
+                Cell::new(&self.grid, wall.x + 1, wall.z),
             )
         }
     }

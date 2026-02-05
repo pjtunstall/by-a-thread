@@ -11,16 +11,16 @@ impl BinaryTree for MazeMaker {
         // Calculate the spine coordinates, exnsuring that they're odd so that
         // they don't include pillars.
         let mid_x = (self.width / 2) | 1;
-        let mid_y = (self.height / 2) | 1;
+        let mid_z = (self.height / 2) | 1;
 
-        for y in (1..self.height - 1).rev() {
+        for z in (1..self.height - 1).rev() {
             for x in 1..self.width - 1 {
                 // Only consider rooms, not walls or pillars.
-                if x % 2 == 0 || y % 2 == 0 {
+                if x % 2 == 0 || z % 2 == 0 {
                     continue;
                 }
 
-                self.grid[y][x] = 0;
+                self.grid[z][x] = 0;
 
                 let mut directions = Vec::new();
 
@@ -33,20 +33,20 @@ impl BinaryTree for MazeMaker {
                     directions.push((0, -1)); // West
                 }
 
-                // Vertical bias: move towards `mid_y`. If we're at `mid_y`,
+                // Vertical bias: move towards `mid_z`. If we're at `mid_z`,
                 // don't add vertical options.
-                if y < mid_y {
+                if z < mid_z {
                     directions.push((1, 0)); // South
-                } else if y > mid_y {
+                } else if z > mid_z {
                     directions.push((-1, 0)); // North
                 }
 
                 if !directions.is_empty() {
                     let r = random_range(0..directions.len());
                     let (dy, dx) = directions[r];
-                    let wall_y = (y as isize + dy) as usize;
+                    let wall_z = (z as isize + dy) as usize;
                     let wall_x = (x as isize + dx) as usize;
-                    self.grid[wall_y][wall_x] = 0;
+                    self.grid[wall_z][wall_x] = 0;
                 }
             }
         }

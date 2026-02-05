@@ -39,8 +39,8 @@ fn is_there_a_wall_between(maze: &MazeMaker, cell_1: Cell, cell_2: Cell) -> (boo
 }
 
 fn is_wall_clear(maze: &MazeMaker, wall: Wall) -> bool {
-    let Wall { x, y, .. } = wall;
-    maze.grid[y][x] == 0
+    let Wall { x, z, .. } = wall;
+    maze.grid[z][x] == 0
 }
 
 fn visit_new_cell_and_add_its_walls(

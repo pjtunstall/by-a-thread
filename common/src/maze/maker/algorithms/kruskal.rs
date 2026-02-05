@@ -12,7 +12,7 @@ impl Kruskal for MazeMaker {
         let (rooms, mut walls, _pillars, room_to_index) = self.get_rooms_walls_pillars();
 
         for room in &rooms {
-            self.grid[room.y][room.x] = 0;
+            self.grid[room.z][room.x] = 0;
         }
 
         let mut rooms = DisjointSetVec::from(rooms);
@@ -20,17 +20,17 @@ impl Kruskal for MazeMaker {
         walls.shuffle(&mut rand::rng());
         for wall in walls {
             let (room_1, room_2) = self.get_flanking_cells(wall);
-            let i = room_to_index.get(&[room_1.x, room_1.y]).expect(&format!(
-                "room x={}, y={} not in `room_to_index` `HashMap`, flanking wall: x={}, y={}, {:#?}",
-                room_1.x, room_1.y, wall.x, wall.y, wall.orientation
+            let i = room_to_index.get(&[room_1.x, room_1.z]).expect(&format!(
+                "room x={}, z={} not in `room_to_index` `HashMap`, flanking wall: x={}, z={}, {:#?}",
+                room_1.x, room_1.z, wall.x, wall.z, wall.orientation
             ));
-            let j = room_to_index.get(&[room_2.x, room_2.y]).expect(&format!(
-                "room x={}, y={} not in `room_to_index` `HashMap`, flanking wall: x={}, y={}, {:#?}",
-                room_2.x, room_2.y, wall.x, wall.y, wall.orientation
+            let j = room_to_index.get(&[room_2.x, room_2.z]).expect(&format!(
+                "room x={}, z={} not in `room_to_index` `HashMap`, flanking wall: x={}, z={}, {:#?}",
+                room_2.x, room_2.z, wall.x, wall.z, wall.orientation
             ));
             if rooms.root_of(*i) != rooms.root_of(*j) {
                 rooms.join(*i, *j);
-                self.grid[wall.y][wall.x] = 0;
+                self.grid[wall.z][wall.x] = 0;
             }
         }
     }
