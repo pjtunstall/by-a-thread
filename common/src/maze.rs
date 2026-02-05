@@ -14,7 +14,8 @@ pub const RADIUS: usize = 16; // Double and add one to get the width of the maze
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Maze {
-    pub grid: Vec<Vec<u8>>, // TODO: Consider making this an array of arrays since its size is known and fixed.
+    // TODO: Consider making `grid` an array of arrays since its size is known and fixed.
+    pub grid: Vec<Vec<u8>>, // 0 is a space, 1 is a wall.
     pub spaces: Vec<(usize, usize)>,
 }
 

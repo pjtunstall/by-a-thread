@@ -21,9 +21,9 @@ impl MazeMaker {
         }
 
         let mut initial_space = Vec::new();
-        for y in (1..self.height).step_by(2) {
+        for z in (1..self.height).step_by(2) {
             for x in (1..self.width).step_by(2) {
-                initial_space.push((y, x));
+                initial_space.push((z, x));
             }
         }
 
@@ -33,8 +33,8 @@ impl MazeMaker {
     fn divide(&mut self, region: Vec<(usize, usize)>, strategy: GrowthStrategy) {
         // Base case: when we're down to 1 cell, carve out the room itself.
         if region.len() <= 1 {
-            for (y, x) in region {
-                self.grid[y][x] = 0;
+            for (z, x) in region {
+                self.grid[z][x] = 0;
             }
             return;
         }
@@ -82,21 +82,21 @@ impl MazeMaker {
                 GrowthStrategy::Stack => active_frontier.len() - 1,
             };
 
-            let (cy, cx) = active_frontier[index];
+            let (cz, cx) = active_frontier[index];
             let mut valid_neighbors = Vec::new();
 
-            for (dy, dx) in [(0, 2), (0, -2), (2, 0), (-2, 0)] {
-                let ny = (cy as isize + dy) as usize;
+            for (dz, dx) in [(0, 2), (0, -2), (2, 0), (-2, 0)] {
+                let nz = (cz as isize + dz) as usize;
                 let nx = (cx as isize + dx) as usize;
 
-                if region_set.contains(&(ny, nx)) {
-                    if !my_cells.contains(&(ny, nx)) && !rival_cells.contains(&(ny, nx)) {
-                        valid_neighbors.push((ny, nx));
-                    } else if rival_cells.contains(&(ny, nx)) {
+                if region_set.contains(&(nz, nx)) {
+                    if !my_cells.contains(&(nz, nx)) && !rival_cells.contains(&(nz, nx)) {
+                        valid_neighbors.push((nz, nx));
+                    } else if rival_cells.contains(&(nz, nx)) {
                         // We found the border; make a wall.
-                        let wy = (cy as isize + dy / 2) as usize;
+                        let wz = (cz as isize + dz / 2) as usize;
                         let wx = (cx as isize + dx / 2) as usize;
-                        border_walls.push((wy, wx));
+                        border_walls.push((wz, wx));
                     }
                 }
             }
@@ -104,16 +104,16 @@ impl MazeMaker {
             if valid_neighbors.is_empty() {
                 active_frontier.remove(index);
             } else {
-                let (ny, nx) = valid_neighbors[rng.random_range(0..valid_neighbors.len())];
-                my_cells.insert((ny, nx));
-                active_frontier.push_back((ny, nx));
+                let (nz, nx) = valid_neighbors[rng.random_range(0..valid_neighbors.len())];
+                my_cells.insert((nz, nx));
+                active_frontier.push_back((nz, nx));
             }
         }
 
         // Make a hole in the wall.
         if !border_walls.is_empty() {
-            let (wy, wx) = border_walls[rng.random_range(0..border_walls.len())];
-            self.grid[wy][wx] = 0;
+            let (wz, wx) = border_walls[rng.random_range(0..border_walls.len())];
+            self.grid[wz][wx] = 0;
         }
 
         let next_a: Vec<(usize, usize)> = team_a_cells.into_iter().collect();
@@ -145,17 +145,17 @@ impl MazeMaker {
             queue.push_back(start);
 
             // Flood fill to find all connected members.
-            while let Some((cy, cx)) = queue.pop_front() {
-                for (dy, dx) in [(0, 2), (0, -2), (2, 0), (-2, 0)] {
-                    let ny = (cy as isize + dy) as usize;
+            while let Some((cz, cx)) = queue.pop_front() {
+                for (dz, dx) in [(0, 2), (0, -2), (2, 0), (-2, 0)] {
+                    let nz = (cz as isize + dz) as usize;
                     let nx = (cx as isize + dx) as usize;
 
                     // If neighbor is in our unvisited set, it belongs to this
                     // enclave.
-                    if unvisited.contains(&(ny, nx)) {
-                        unvisited.remove(&(ny, nx));
-                        enclave.push((ny, nx));
-                        queue.push_back((ny, nx));
+                    if unvisited.contains(&(nz, nx)) {
+                        unvisited.remove(&(nz, nx));
+                        enclave.push((nz, nx));
+                        queue.push_back((nz, nx));
                     }
                 }
             }
