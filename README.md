@@ -28,8 +28,6 @@ For more on the structure of my project, see [Architecture](docs/architecture.md
 
 ## Status
 
-![demo_griffin](https://github.com/user-attachments/assets/8fed148d-2866-4326-b023-78205a68bcf6)
-
 Successfully tested on VPS; currently working on a matchmaking service to support concurrent sessions.
 
 ## Spec
@@ -47,6 +45,8 @@ According to the 01 spec, the game is expected to include:
 - three levels with mazes of increasing difficulty, defined as more dead ends; see below, [Levels](#levels).
 
 ## How to play
+
+![demo_griffin](https://github.com/user-attachments/assets/8fed148d-2866-4326-b023-78205a68bcf6)
 
 ### Objective
 
