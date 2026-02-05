@@ -386,7 +386,25 @@ impl fmt::Display for Maze {
 mod tests {
     use std::collections::VecDeque;
 
+    use rand;
+
     use super::*;
+
+    fn random_algorithm() -> Algorithm {
+        let i = rand::random_range(0..10);
+        match i {
+            0 => Algorithm::RecursiveDivision,
+            1 => Algorithm::Backtrack,
+            2 => Algorithm::VoronoiStack,
+            3 => Algorithm::BinaryTree,
+            4 => Algorithm::Wilson,
+            5 => Algorithm::Kruskal,
+            6 => Algorithm::Blobby,
+            7 => Algorithm::VoronoiRandom,
+            8 => Algorithm::Prim,
+            _ => Algorithm::VoronoiQueue,
+        }
+    }
 
     #[test]
     fn test_backtrack_all_spaces_are_connected() {
@@ -597,6 +615,99 @@ mod tests {
         assert_eq!(maze.grid[6][3], 0);
         assert_eq!(maze.grid[5][3], 0);
         assert_all_spaces_are_connected(&maze);
+    }
+
+    #[test]
+    fn test_make_exit_fuzz_has_exit_and_all_spaces_are_connected() {
+        for _ in 0..64 {
+            let algorithm = random_algorithm();
+            let mut maze = Maze::new(algorithm);
+
+            assert!(
+                !maze.spaces.is_empty(),
+                "maze should have at least one space"
+            );
+
+            let player_index = rand::random_range(0..maze.spaces.len());
+            let solo_player_grid_coords = maze.spaces[player_index];
+
+            let exit = maze.make_exit(solo_player_grid_coords);
+
+            let height = maze.grid.len();
+            assert!(height != 0, "maze should have some rows");
+            let width = maze.grid[0].len();
+            assert!(width != 0, "maze should have some columns");
+
+            assert!(
+                exit.0 == 0 || exit.0 == height - 1 || exit.1 == 0 || exit.1 == width - 1,
+                "exit should be on the outer edge, got {:?} in maze:\n{}",
+                exit,
+                maze.log()
+            );
+
+            assert_eq!(maze.grid[exit.0][exit.1], 0);
+            assert_all_spaces_are_connected(&maze);
+        }
+    }
+
+    #[test]
+    fn test_make_exit_fuzz_with_double_thickness_edge() {
+        for _ in 0..64 {
+            let algorithm = random_algorithm();
+            let mut maze = Maze::new(algorithm);
+
+            assert!(
+                !maze.spaces.is_empty(),
+                "maze should have at least one space"
+            );
+
+            let player_index = rand::random_range(0..maze.spaces.len());
+            let (player_z, player_x) = maze.spaces[player_index];
+
+            let old_height = maze.grid.len();
+            assert!(old_height != 0, "maze should have some rows");
+            let old_width = maze.grid[0].len();
+            assert!(old_width != 0, "maze should have some columns");
+
+            let mut new_grid = vec![vec![1; old_width + 2]; old_height + 2];
+
+            for z in 0..old_height {
+                for x in 0..old_width {
+                    new_grid[z + 1][x + 1] = maze.grid[z][x];
+                }
+            }
+
+            maze.grid = new_grid;
+
+            let mut new_spaces = Vec::new();
+            for z in 0..maze.grid.len() {
+                for x in 0..maze.grid[0].len() {
+                    if maze.grid[z][x] == 0 {
+                        new_spaces.push((z, x));
+                    }
+                }
+            }
+            maze.spaces = new_spaces;
+
+            let solo_player_grid_coords = (player_z + 1, player_x + 1);
+
+            let exit = maze.make_exit(solo_player_grid_coords);
+
+            let height = maze.grid.len();
+            assert!(height != 0, "maze should have some rows");
+            let width = maze.grid[0].len();
+            assert!(width != 0, "maze should have some columns");
+
+            assert!(
+                exit.0 == 0 || exit.0 == height - 1 || exit.1 == 0 || exit.1 == width - 1,
+                "exit should be on the outer edge, got {:?} in maze:\n{}",
+                exit,
+                maze.log()
+            );
+
+            assert_eq!(maze.grid[exit.0][exit.1], 0);
+            assert_all_spaces_are_connected(&maze);
+        }
     }
 
     #[test]
