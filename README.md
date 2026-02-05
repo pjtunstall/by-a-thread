@@ -32,8 +32,6 @@ Successfully tested on VPS; currently working on a matchmaking service to suppor
 
 ## Spec
 
-![demo_griffin](https://github.com/user-attachments/assets/8fed148d-2866-4326-b023-78205a68bcf6)
-
 According to the 01 spec, the game is expected to include:
 
 - all elements of the original game:
@@ -47,6 +45,8 @@ According to the 01 spec, the game is expected to include:
 - three levels with mazes of increasing difficulty, defined as more dead ends; see below, [Levels](#levels).
 
 ## How to play
+
+![demo_griffin](https://github.com/user-attachments/assets/8fed148d-2866-4326-b023-78205a68bcf6)
 
 ### Objective
 
