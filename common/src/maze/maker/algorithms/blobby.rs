@@ -6,6 +6,12 @@ use super::super::MazeMaker;
 
 const MIN_REGION_SIZE: usize = 1;
 
+#[derive(Clone, Copy, PartialEq)]
+enum Team {
+    A,
+    B,
+}
+
 pub trait Blobby {
     fn blobby(&mut self);
 }
@@ -30,8 +36,8 @@ impl Blobby for MazeMaker {
         }
 
         let mut region = Vec::new();
-        for y in (1..self.height).step_by(2) {
-            for x in (1..self.width).step_by(2) {
+        for y in (1..(self.height - 1)).step_by(2) {
+            for x in (1..(self.width - 1)).step_by(2) {
                 region.push((y, x));
             }
         }
@@ -47,30 +53,31 @@ impl MazeMaker {
         }
 
         let region_set: HashSet<(usize, usize)> = region.iter().copied().collect();
+        let rng = &mut self.rng;
 
-        let seed_index_a = self.rng.random_range(0..region.len());
-        let mut seed_index_b = self.rng.random_range(0..region.len());
+        let seed_index_a = rng.random_range(0..region.len());
+        let mut seed_index_b = rng.random_range(0..region.len());
         while seed_index_a == seed_index_b {
-            seed_index_b = self.rng.random_range(0..region.len());
+            seed_index_b = rng.random_range(0..region.len());
         }
 
         let seed_a = region[seed_index_a];
         let seed_b = region[seed_index_b];
 
-        let mut labels = HashMap::<(usize, usize), bool>::new();
+        let mut labels = HashMap::<(usize, usize), Team>::new();
         let mut unlabeled = region_set.clone();
         let mut frontier = Vec::new();
 
-        labels.insert(seed_a, true);
-        labels.insert(seed_b, false);
+        labels.insert(seed_a, Team::A);
+        labels.insert(seed_b, Team::B);
         unlabeled.remove(&seed_a);
         unlabeled.remove(&seed_b);
-        frontier.push((seed_a, true));
-        frontier.push((seed_b, false));
+        frontier.push((seed_a, Team::A));
+        frontier.push((seed_b, Team::B));
 
         while !unlabeled.is_empty() && !frontier.is_empty() {
-            let i = self.rng.random_range(0..frontier.len());
-            let ((cy, cx), is_a) = frontier.swap_remove(i);
+            let i = rng.random_range(0..frontier.len());
+            let ((cy, cx), team_label) = frontier.swap_remove(i);
 
             for (dy, dx) in [(0, 2), (0, -2), (2, 0), (-2, 0)] {
                 let ny = (cy as isize + dy) as usize;
@@ -80,15 +87,15 @@ impl MazeMaker {
                     continue;
                 }
 
-                labels.insert((ny, nx), is_a);
-                frontier.push(((ny, nx), is_a));
+                labels.insert((ny, nx), team_label);
+                frontier.push(((ny, nx), team_label));
             }
         }
 
         let mut border_walls = Vec::new();
 
         for (y, x) in &region {
-            let label = labels.get(&(*y, *x)).copied().unwrap_or(true);
+            let label = labels.get(&(*y, *x)).copied().unwrap_or(Team::A);
 
             for (dy, dx) in [(0, 2), (2, 0)] {
                 let ny = (*y as isize + dy) as usize;
@@ -98,7 +105,7 @@ impl MazeMaker {
                     continue;
                 }
 
-                let neighbor_label = labels.get(&(ny, nx)).copied().unwrap_or(true);
+                let neighbor_label = labels.get(&(ny, nx)).copied().unwrap_or(Team::A);
 
                 if label != neighbor_label {
                     let wy = (*y + ny) / 2;
@@ -112,7 +119,7 @@ impl MazeMaker {
         }
 
         if !border_walls.is_empty() {
-            let gap_index = self.rng.random_range(0..border_walls.len());
+            let gap_index = rng.random_range(0..border_walls.len());
             let (wy, wx) = border_walls[gap_index];
             self.grid[wy][wx] = 0;
         }
@@ -121,10 +128,10 @@ impl MazeMaker {
         let mut region_b = Vec::new();
 
         for (y, x) in region {
-            if labels.get(&(y, x)).copied().unwrap_or(true) {
-                region_a.push((y, x));
-            } else {
-                region_b.push((y, x));
+            let label = labels.get(&(y, x)).copied().unwrap_or(Team::A);
+            match label {
+                Team::A => region_a.push((y, x)),
+                Team::B => region_b.push((y, x)),
             }
         }
 
