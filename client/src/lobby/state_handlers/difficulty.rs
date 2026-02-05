@@ -80,7 +80,7 @@ pub fn handle(
             Color::CHARTREUSE,
         );
         ui.show_message_with_color("  4. Voronoi Stack (middling)", Color::CHARTREUSE);
-        ui.show_message_with_color("  5. Prim (hard)", Color::YELLOW);
+        ui.show_message_with_color("  5. Prim (middling hard)", Color::YELLOW);
         ui.show_message_with_color("  6. Kruskal (hard)", Color::YELLOW);
         ui.show_message_with_color("  7. Voronoi Random (Herculean)", Color::ORANGE);
         ui.show_message_with_color("  8. Backtracker (Sisyphean)", Color::ORANGE);
