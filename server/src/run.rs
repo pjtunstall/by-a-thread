@@ -113,7 +113,11 @@ pub fn update_server_state(
     passcode: &Passcode,
     last_activity: &mut Instant,
 ) {
-    if last_activity.elapsed() > INACTIVITY_TIMEOUT {
+    let check_inactivity = matches!(
+        state,
+        ServerState::Lobby(_) | ServerState::ChoosingDifficulty(_)
+    );
+    if check_inactivity && last_activity.elapsed() > INACTIVITY_TIMEOUT {
         println!(
             "No activity for {:#?}. Server exiting...",
             INACTIVITY_TIMEOUT
