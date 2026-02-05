@@ -1,6 +1,8 @@
 target/
 **/*.rs.bk
 
+.vs/
+
 dist/
 AppDir
 

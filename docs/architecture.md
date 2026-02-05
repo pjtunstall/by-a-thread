@@ -33,6 +33,9 @@ Lobby has various substates, as detailed [below](#lobby).
 
 ```
 ServerAddress -> Passcode -> Connecting -> Authenticating -> ChoosingUsername <-> AwaitingUsernameConfirmation -> Chat
+
+host: Chat -> ChoosingDifficulty -> Countdown -> Game
+non-host: Chat -> Countdown -> Game
 ```
 
 `ServerAddress` prompts for an IP address and port number; pressing Enter uses the local default.
@@ -50,8 +53,8 @@ Lobby -> ChoosingDifficulty -> Countdown -> Game
 ```
 
 - The host, in Lobby, triggers a move to `ChoosingDifficulty`; when the host starts the game, the server moves to `Countdown` and broadcasts to all clients.
-- The server enters the formal state `Exiting` only from `Game`: when the leaderboard has been sent to all clients in after-game chat (`leaderboard_sent`), the game handler returns `Exiting` and the run loop breaks, exiting the process.
-- If all clients disconnect during `Game`, `Lobby`, or `ChoosingDifficulty`, the server does not transition to `Exiting`; instead the given state's `remove_client` method calls `std::process::exit(0)` when the last client is removed, so the process exits. (This only runs when a client actually disconnects, so the server does not exit at startup when no one has connected.) If all clients disconnect during `Countdown`, the just waits for the game to start, and lets the disconnection logic there take care of it.
+- The server enters the formal state `Ending` only from `Game`: when the leaderboard has been sent to all clients in after-game chat (`leaderboard_sent`), the game handler returns `Ending` and the run loop breaks, exiting the process.
+- If all clients disconnect during `Game`, `Lobby`, or `ChoosingDifficulty`, the server does not transition to `Ending`; instead the given state's `remove_client` method calls `std::process::exit(0)` when the last client is removed, so the process exits. (This only runs when a client actually disconnects, so the server does not exit at startup when no one has connected.) If all clients disconnect during `Countdown`, the server just waits for the game to start, and lets the disconnection logic there take care of it.
 - The `Game` state also manages clients in after-game chat, since they arrive at different times.
 
 ## File structure
@@ -59,21 +62,24 @@ Lobby -> ChoosingDifficulty -> Countdown -> Game
 ### Server
 
 ```txt
-server/src/
-├── lib.rs
-├── main.rs
-├── input.rs
-├── net.rs
-├── player.rs
-├── run.rs
-├── state.rs
-├── state_handlers.rs
-├── state_handlers/
-│   ├── countdown.rs
-│   ├── difficulty.rs
-│   ├── game.rs
-│   └── lobby.rs
-└── test_helpers.rs
+server/
+├── src/
+│   ├── lib.rs
+│   ├── main.rs
+│   ├── input.rs
+│   ├── net.rs
+│   ├── player.rs
+│   ├── run.rs
+│   ├── state.rs
+│   ├── state_handlers.rs
+│   ├── state_handlers/
+│   │   ├── countdown.rs
+│   │   ├── difficulty.rs
+│   │   ├── game.rs
+│   │   └── lobby.rs
+│   └── test_helpers.rs
+└── tests/
+    └── chat.rs
 ```
 
 ### Client
@@ -148,11 +154,16 @@ common/src/
 │   ├── maker/
 │   │   ├── algorithms/
 │   │   │   ├── backtrack.rs
+│   │   │   ├── binary_tree.rs
+│   │   │   ├── blobby.rs
+│   │   │   ├── division.rs
+│   │   │   ├── kruskal.rs
 │   │   │   ├── prim.rs
-│   │   │   └── wilson.rs
-│   │   └── algorithms.rs
-│   └── maker.rs
-├── maze.rs
+│   │   │   ├── voronoi.rs
+│   │   │   ├── wilson.rs
+│   │   │   └── algorithms.rs
+│   │   └── maker.rs
+│   └── maze.rs
 ├── net.rs
 ├── player.rs
 ├── protocol.rs

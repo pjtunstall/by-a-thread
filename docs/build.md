@@ -38,7 +38,7 @@ The `.ico` file was built from the PNG using ImageMagick with:
 convert icon.png -define icon:auto-resize="256,128,96,64,48,32,24,16" icon.ico
 ```
 
-To test that it worked:
+To test that it was created correctly:
 
 ```sh
 file icon.ico
@@ -56,6 +56,8 @@ icon.ico[5] ICO 32x32 32x32+0+0 8-bit sRGB 0.000u 0:00.000
 icon.ico[6] ICO 24x24 24x24+0+0 8-bit sRGB 0.000u 0:00.000
 icon.ico[7] ICO 16x16 16x16+0+0 8-bit sRGB 163902B 0.000u 0:00.000
 ```
+
+That said, I've so far been unable to get the `.ico` image to show on the `.exe` except by building it on Windows.
 
 ### Building the executable
 

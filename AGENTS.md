@@ -25,7 +25,7 @@
 - Only use `//` comments, not `///`.
 - Comments should adhere to the conventions of standard English punctuation, inlcuding a trailing period.
 
-## Punctuation
+## Punctuation in comments and documentation
 
-- Use ' for a single quote or apostrophe, and " for a double quote, even in comments and documentation.
-- Use -- for an m-dash, thus: "Yet--never--in Extremity".
+- Use ' for a single quote or apostrophe, and " for a double quote.
+- Use -- for an m-dash.

@@ -9,9 +9,9 @@ Currently, as a shortcut during development, the client imports (what should be)
 
 ## Production
 
-Clearly this is not sufficient for a public game. In production, my plan is to have create a matchmaker that will be responsible for managing game sessions.[^1] It will launch game servers in response to HTTP requests and clean them up when they are no longer needed.
+Clearly this is not sufficient for a public game. In production, my plan is to create a matchmaker that will be responsible for managing game sessions.[^1] It will launch game servers in response to HTTPS requests and clean them up when they are no longer needed.
 
-A would-be host will request a game from the matchmaker via HTTPS. If a slot is available (i.e. not too many games or players are already playing), the matchmaker will create two ephereral (i.e. per game) random secrets for the game server: a private key and a reporting token. The private key is for the game server to decrypt messages from clients. The reporting token is for the game server to identify itself when it reports back to the matchmaker. The matchmaker will launch an instance of the game server in a dedicated container,[^2] passing these secrets to it privately on HTTP via a Docker bridge network.
+A would-be host will request a game from the matchmaker via HTTPS. If a slot is available (i.e. not too many games or players are already playing), the matchmaker will create two ephereral (i.e. per game) random secrets for the game server: a private key and a reporting token.[^2] The private key is for the game server to decrypt messages from clients. The reporting token is for the game server to identify itself when it reports back to the matchmaker. The matchmaker will launch an instance of the game server in a dedicated container,[^3] passing these secrets to it privately on HTTP via a Docker bridge network.
 
 Meanwhile, the matchmaker will generate a connect token from the private key and pass this, along with the game's port number and an ephemeral passcode, unique to the game, to the host.
 
@@ -23,4 +23,6 @@ When the host has chosen a difficulty level and sent it to the game server, latt
 
 [^1]: For the purposes of this document, the matchmaker is just a program for launching games to be played among groups of friends, rather than a matchmaker in the strict sense of matching strangers.
 
-[^2]: The matchmaker's access to Docker will be mediated by a Docker socket proxy. This is because an attacker who finds a vulnerability in the matchmaker could launch a privileged container and thereby gain root access to the host. The raw Docker socket will be mounted into the proxy, which can accept desired commands (like `start container`) and block dangerous ones (like `mount volume` or `delete system`).
+[^2]: While the matchmaker could infer the identity of the game server instance from its IP on the bridge network, that would tie the design to Docker's networking. A dedicated reporting token would allow for a proxy or a different topology. Alternatively, the game server could send the container ID, but that's more guessable than a secure random token.
+
+[^3]: The matchmaker's access to Docker will be mediated by a Docker socket proxy. This is because an attacker who finds a vulnerability in the matchmaker could launch a privileged container and thereby gain root access to the host. The raw Docker socket will be mounted into the proxy, which can accept desired commands (like `start container`) and block dangerous ones (like `mount volume` or `delete system`).
