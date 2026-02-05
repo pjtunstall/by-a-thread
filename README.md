@@ -26,11 +26,13 @@ For more on the structure of my project, see [Architecture](docs/architecture.md
 
 ## Status
 
-![demo](https://github.com/user-attachments/assets/efa90aaa-28e7-4757-8478-fbea9d58f869)
+![demo_octopus](https://github.com/user-attachments/assets/efa90aaa-28e7-4757-8478-fbea9d58f869)
 
 Successfully tested on VPS; currently working on a matchmaking service to support concurrent sessions.
 
 ## Spec
+
+![demo_griffin](https://github.com/user-attachments/assets/8fed148d-2866-4326-b023-78205a68bcf6)
 
 According to the 01 spec, the game is expected to include:
 
