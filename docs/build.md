@@ -17,6 +17,13 @@
 
 This document describes how to create executable files or packages for various systems. It assumes you're creating them on Ubuntu.
 
+Before building, add a `.env` file to the workspace root:
+
+```txt
+IP=<a default IPv4 address>
+PORT=<a default port>
+```
+
 From the workspace root you can run the full build with `make`. To build only one artifact, use e.g. `make windows`, `make deb`, `make rpm`, or `make appimage`. To push the server image to the Hetzner VPS and run the container, run `make deploy-hetzner` after a full build.
 
 For development, `client/src/main.rs` keeps `fullscreen: false,` by default. When you build via the Makefile, the client is compiled in fullscreen mode for packaged artifacts (Windows zip, macOS .app zips, Linux .deb/.rpm, and AppImage). The `unfullscreen` step after each compilation and at the end of the full `make` run restores that setting in the source.
