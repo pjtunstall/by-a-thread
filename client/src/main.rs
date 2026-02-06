@@ -12,6 +12,10 @@ fn window_conf() -> Conf {
         window_title: "By a Thread".to_owned(),
         window_width: WINDOW_WIDTH as i32,
         window_height: WINDOW_HEIGHT as i32,
+        // Although this is the default, the Makefile relies on it being explicitly set to
+        // false. It toggles it to true when building the executable for
+        // distribution and back to false afterwards.
+        fullscreen: false,
         ..Default::default()
     }
 }
