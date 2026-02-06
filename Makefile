@@ -234,10 +234,8 @@ $(ZIP_APPLE_SILICON): $(EXE_APPLE_SILICON)
 	rm -rf "$$STAGING"
 
 macos-intel: $(ZIP_APPLE_INTEL)
-	$(MAKE) unfullscreen
 
 macos-silicon: $(ZIP_APPLE_SILICON)
-	$(MAKE) unfullscreen
 
 clean:
 	rm -rf $(DIST) $(STAGING_WIN) $(STAGING_APPDIR) ByAThread.app
