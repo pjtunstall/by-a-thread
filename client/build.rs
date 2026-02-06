@@ -1,8 +1,9 @@
 use std::env;
 
 fn main() {
+    println!("cargo:rerun-if-changed=../.env");
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
-    
+
     // If we aren't compiling FOR Windows, skip everything.
     if target_os != "windows" {
         return;

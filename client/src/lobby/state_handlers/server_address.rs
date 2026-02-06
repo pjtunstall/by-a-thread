@@ -15,7 +15,7 @@ pub fn handle(
         unreachable!();
     };
 
-    let default_server_connectable_addr = common::net::get_connectable_address();
+    let default_server_connectable_addr = crate::env::default_server_address();
 
     if let Ok(Some(common::input::UiKey::Tab)) = ui.poll_single_key() {
         let localhost_addr = SocketAddr::new(
@@ -101,7 +101,7 @@ mod tests {
 
     #[test]
     fn returns_default_address_on_blank_input() {
-        let default_server_connectable_addr = common::net::get_connectable_address();
+        let default_server_connectable_addr = crate::env::default_server_address();
         let parsed = parse_server_address("   ", default_server_connectable_addr)
             .expect("expected default address");
         assert_eq!(parsed, default_server_connectable_addr);
@@ -109,7 +109,7 @@ mod tests {
 
     #[test]
     fn parses_ip_with_default_port() {
-        let default_server_connectable_addr = common::net::get_connectable_address();
+        let default_server_connectable_addr = crate::env::default_server_address();
         let parsed = parse_server_address("192.168.1.50", default_server_connectable_addr)
             .expect("expected address");
         assert_eq!(
@@ -123,7 +123,7 @@ mod tests {
 
     #[test]
     fn parses_ip_with_port() {
-        let default_server_connectable_addr = common::net::get_connectable_address();
+        let default_server_connectable_addr = crate::env::default_server_address();
         let parsed = parse_server_address("192.168.1.50:6000", default_server_connectable_addr)
             .expect("expected address");
         assert_eq!(

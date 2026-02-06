@@ -39,7 +39,7 @@ ZIP_APPLE_INTEL := $(DIST)/ByAThread-macos-intel.zip
 ZIP_APPLE_SILICON := $(DIST)/ByAThread-macos-silicon.zip
 
 SERVER_SOURCES := Cargo.toml Cargo.lock server/Cargo.toml common/Cargo.toml $(shell find server -name '*.rs') $(shell find common -name '*.rs')
-CLIENT_SOURCES := Cargo.toml Cargo.lock client/Cargo.toml client/build.rs $(shell find client/src -name '*.rs') common/Cargo.toml $(shell find common -name '*.rs')
+CLIENT_SOURCES := Cargo.toml Cargo.lock client/Cargo.toml client/build.rs $(shell find client/src -name '*.rs') common/Cargo.toml $(shell find common -name '*.rs') .env
 
 all: test server docker windows deb rpm appimage unfullscreen
 
@@ -99,6 +99,7 @@ docker: $(DOCKER_SENTINEL)
 deploy-hetzner: $(DOCKER_SENTINEL) | check-deploy
 	docker save server-image | gzip | ssh hetzner 'gunzip | docker load'
 	ssh hetzner 'docker stop server-container 2>/dev/null; docker rm server-container 2>/dev/null; docker run -d --name server-container --rm -e IP=$$(curl -s http://169.254.169.254/hetzner/v1/metadata/public-ipv4) -p 5000:5000/udp server-image'
+	ssh hetzner 'docker logs server-container'
 
 # --- Windows executable and zip ---
 #
@@ -125,7 +126,8 @@ windows: $(ZIP_WIN)
 #
 $(DIST)/.deb-built: $(EXE_HOST) | check-deb
 	mkdir -p $(DIST)
-	cd client && cargo build --release && cargo deb
+	@grep -q 'fullscreen: false,' client/src/main.rs && sed -i 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs || true
+	cargo deb -p client
 	cp target/debian/by-a-thread_*.deb $(DIST)/
 	touch $(DIST)/.deb-built
 
@@ -137,6 +139,7 @@ deb: $(DIST)/.deb-built
 #
 $(DIST)/.rpm-built: $(EXE_HOST) | check-rpm
 	mkdir -p $(DIST)
+	@grep -q 'fullscreen: false,' client/src/main.rs && sed -i 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs || true
 	cargo generate-rpm -p client --payload-compress gzip
 	cp target/generate-rpm/*.rpm $(DIST)/
 	touch $(DIST)/.rpm-built

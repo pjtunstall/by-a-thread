@@ -1,41 +1,11 @@
 use std::{
-    env, io,
-    net::{IpAddr, SocketAddr, UdpSocket},
+    io,
+    net::{SocketAddr, UdpSocket},
     time::Duration,
 };
 
-use dotenvy;
-
 use renet::{ChannelConfig, ConnectionConfig, SendType};
 use socket2::{Domain, Socket, Type};
-
-pub fn get_connectable_address() -> SocketAddr {
-    #[cfg(target_os = "windows")]
-    {
-        if let Some(config_dir) = dirs::config_dir() {
-            let env_path = config_dir.join("by-a-thread").join(".env");
-            if env_path.exists() {
-                dotenvy::from_path(&env_path).ok();
-            }
-        }
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        dotenvy::dotenv().ok();
-    }
-
-    let ip = env::var("IP")
-        .unwrap_or_else(|_| String::from("127.0.0.1"))
-        .parse::<IpAddr>()
-        .expect("invalid IP format");
-    let port = env::var("PORT")
-        .unwrap_or_else(|_| String::from("5000"))
-        .parse::<u16>()
-        .expect("invalid port format");
-
-    SocketAddr::new(ip, port)
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppChannel {
