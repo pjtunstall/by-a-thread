@@ -19,6 +19,8 @@ This document describes how to create executable files or packages for various s
 
 From the workspace root you can run the full build with `make`. To build only one artifact, use e.g. `make windows`, `make deb`, `make rpm`, or `make appimage`. To push the server image to the Hetzner VPS and run the container, run `make deploy-hetzner` after a full build.
 
+For development, `client/src/main.rs` keeps `fullscreen: false,` by default. When you build via the Makefile, the client is compiled in fullscreen mode for packaged artifacts (Windows zip, macOS .app zips, Linux .deb/.rpm, and AppImage). The `unfullscreen` step after each compilation and at the end of the full `make` run restores that setting in the source.
+
 ## Windows
 
 ### Build files
@@ -95,6 +97,7 @@ All three types of Linux package (.deb, .rpm, and AppImage) are built using thes
 - `icon.png` - Icon file for the application
 - `by-a-thread.desktop` - Desktop file for .deb and .rpm (points at the installed path under `/usr`)
 - `by-a-thread-appimage.desktop` - Desktop file used only when building the AppImage (different paths, since the AppImage is not installed under `/usr`)
+- `.env` (workspace root) - Embedded into the client binary at build time to supply the default server address
 - `Cargo.toml` sections:
   - `[package.metadata.deb]` and `[package.metadata.generate-rpm]` with package metadata and asset paths
   - `[[bin]]` section defining the `ByAThread` binary
@@ -133,6 +136,8 @@ If you encounter dependency issues, run:
 ```sh
 sudo apt-get install -f
 ```
+
+Desktop environments such as GNOME and KDE will typically show the launcher icon and sidebar entry created by the installed `.deb` (or `.rpm`), not by the AppImage. After rebuilding the `.deb` locally, reinstall it from `dist/` so the sidebar entry runs the newly built fullscreen client.
 
 ### .rpm
 

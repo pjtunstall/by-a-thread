@@ -119,6 +119,7 @@ $(ZIP_WIN): $(EXE_WIN)
 	rm -r $(STAGING_WIN)
 
 windows: $(ZIP_WIN)
+	$(MAKE) unfullscreen
 
 # --- Debian .deb package ---
 #
@@ -132,6 +133,7 @@ $(DIST)/.deb-built: $(EXE_HOST) | check-deb
 	touch $(DIST)/.deb-built
 
 deb: $(DIST)/.deb-built
+	$(MAKE) unfullscreen
 
 # --- RPM package ---
 #
@@ -145,6 +147,7 @@ $(DIST)/.rpm-built: $(EXE_HOST) | check-rpm
 	touch $(DIST)/.rpm-built
 
 rpm: $(DIST)/.rpm-built
+	$(MAKE) unfullscreen
 
 # --- AppImage ---
 #
@@ -207,8 +210,10 @@ $(ZIP_APPLE_SILICON): $(EXE_APPLE_SILICON)
 	@$(call macos_bundle_recipe,dist/ByAThread-macos-silicon,$(TARGET_APPLE_SILICON),ByAThread-macos-silicon.zip)
 
 macos-intel: $(ZIP_APPLE_INTEL)
+	$(MAKE) unfullscreen
 
 macos-silicon: $(ZIP_APPLE_SILICON)
+	$(MAKE) unfullscreen
 
 clean:
 	rm -rf $(DIST) $(STAGING_WIN) $(STAGING_APPDIR) ByAThread.app
