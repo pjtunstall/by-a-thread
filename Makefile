@@ -195,31 +195,43 @@ $(EXE_APPLE_SILICON): $(CLIENT_SOURCES)
 	rustup target add $(TARGET_APPLE_SILICON) 2>/dev/null || true
 	cargo build --release --target $(TARGET_APPLE_SILICON) -p client
 
-define macos_bundle_recipe
-BUNDLE=ByAThread.app; STAGING=$(1); TARGET=$(2); \
-rm -rf "$$BUNDLE" "$$STAGING"; \
-mkdir -p "$$BUNDLE/Contents/MacOS" "$$BUNDLE/Contents/Resources/fonts" "$$BUNDLE/Contents/Resources/images" "$$BUNDLE/Contents/Resources/sfx"; \
-cp target/$$TARGET/release/ByAThread "$$BUNDLE/Contents/MacOS/"; \
-cp "client/assets/fonts/PF Hellenica Serif Pro Bold.ttf" "client/assets/fonts/NotoSerifBold-MmDx.ttf" "$$BUNDLE/Contents/Resources/fonts/"; \
-cp client/assets/images/*.png "$$BUNDLE/Contents/Resources/images/"; \
-cp client/assets/sfx/*.wav "$$BUNDLE/Contents/Resources/sfx/"; \
-if [ -f client/icon.icns ]; then cp client/icon.icns "$$BUNDLE/Contents/Resources/"; fi; \
-{ printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' '<plist version="1.0">' '<dict>' '    <key>CFBundleExecutable</key>' '    <string>ByAThread</string>' '    <key>CFBundleIdentifier</key>' '    <string>com.byathread.client</string>' '    <key>CFBundleName</key>' '    <string>By A Thread</string>' '    <key>CFBundlePackageType</key>' '    <string>APPL</string>'; \
-  if [ -f client/icon.icns ]; then printf '%s\n' '    <key>CFBundleIconFile</key>' '    <string>icon</string>'; fi; \
-  printf '%s\n' '</dict>' '</plist>'; } > "$$BUNDLE/Contents/Info.plist"; \
-mkdir -p dist "$$STAGING"; \
-cp -R "$$BUNDLE" "$$STAGING/"; \
-cp LICENSE CREDITS.md "$$STAGING/"; \
-cp client/assets/fonts/LICENSE.txt "$$STAGING/NOTO_FONT_LICENSE.txt"; \
-(cd dist && zip -r "$(3)" "$$(basename "$$STAGING")"); \
-rm -rf "$$STAGING"
-endef
-
 $(ZIP_APPLE_INTEL): $(EXE_APPLE_INTEL)
-	@$(call macos_bundle_recipe,dist/ByAThread-macos-intel,$(TARGET_APPLE_INTEL),ByAThread-macos-intel.zip)
+	@BUNDLE=ByAThread.app; STAGING=dist/ByAThread-macos-intel; TARGET=$(TARGET_APPLE_INTEL); \
+	rm -rf "$$BUNDLE" "$$STAGING"; \
+	mkdir -p "$$BUNDLE/Contents/MacOS" "$$BUNDLE/Contents/Resources/fonts" "$$BUNDLE/Contents/Resources/images" "$$BUNDLE/Contents/Resources/sfx"; \
+	cp target/$$TARGET/release/ByAThread "$$BUNDLE/Contents/MacOS/"; \
+	cp "client/assets/fonts/PF Hellenica Serif Pro Bold.ttf" "client/assets/fonts/NotoSerifBold-MmDx.ttf" "$$BUNDLE/Contents/Resources/fonts/"; \
+	cp client/assets/images/*.png "$$BUNDLE/Contents/Resources/images/"; \
+	cp client/assets/sfx/*.wav "$$BUNDLE/Contents/Resources/sfx/"; \
+	if [ -f client/icon.icns ]; then cp client/icon.icns "$$BUNDLE/Contents/Resources/"; fi; \
+	{ printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' '<plist version="1.0">' '<dict>' '    <key>CFBundleExecutable</key>' '    <string>ByAThread</string>' '    <key>CFBundleIdentifier</key>' '    <string>com.byathread.client</string>' '    <key>CFBundleName</key>' '    <string>By A Thread</string>' '    <key>CFBundlePackageType</key>' '    <string>APPL</string>'; \
+	  if [ -f client/icon.icns ]; then printf '%s\n' '    <key>CFBundleIconFile</key>' '    <string>icon</string>'; fi; \
+	  printf '%s\n' '</dict>' '</plist>'; } > "$$BUNDLE/Contents/Info.plist"; \
+	mkdir -p dist "$$STAGING"; \
+	cp -R "$$BUNDLE" "$$STAGING/"; \
+	cp LICENSE CREDITS.md "$$STAGING/"; \
+	cp client/assets/fonts/LICENSE.txt "$$STAGING/NOTO_FONT_LICENSE.txt"; \
+	(cd dist && zip -r ByAThread-macos-intel.zip "$$(basename "$$STAGING")"); \
+	rm -rf "$$STAGING"
 
 $(ZIP_APPLE_SILICON): $(EXE_APPLE_SILICON)
-	@$(call macos_bundle_recipe,dist/ByAThread-macos-silicon,$(TARGET_APPLE_SILICON),ByAThread-macos-silicon.zip)
+	@BUNDLE=ByAThread.app; STAGING=dist/ByAThread-macos-silicon; TARGET=$(TARGET_APPLE_SILICON); \
+	rm -rf "$$BUNDLE" "$$STAGING"; \
+	mkdir -p "$$BUNDLE/Contents/MacOS" "$$BUNDLE/Contents/Resources/fonts" "$$BUNDLE/Contents/Resources/images" "$$BUNDLE/Contents/Resources/sfx"; \
+	cp target/$$TARGET/release/ByAThread "$$BUNDLE/Contents/MacOS/"; \
+	cp "client/assets/fonts/PF Hellenica Serif Pro Bold.ttf" "client/assets/fonts/NotoSerifBold-MmDx.ttf" "$$BUNDLE/Contents/Resources/fonts/"; \
+	cp client/assets/images/*.png "$$BUNDLE/Contents/Resources/images/"; \
+	cp client/assets/sfx/*.wav "$$BUNDLE/Contents/Resources/sfx/"; \
+	if [ -f client/icon.icns ]; then cp client/icon.icns "$$BUNDLE/Contents/Resources/"; fi; \
+	{ printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' '<plist version="1.0">' '<dict>' '    <key>CFBundleExecutable</key>' '    <string>ByAThread</string>' '    <key>CFBundleIdentifier</key>' '    <string>com.byathread.client</string>' '    <key>CFBundleName</key>' '    <string>By A Thread</string>' '    <key>CFBundlePackageType</key>' '    <string>APPL</string>'; \
+	  if [ -f client/icon.icns ]; then printf '%s\n' '    <key>CFBundleIconFile</key>' '    <string>icon</string>'; fi; \
+	  printf '%s\n' '</dict>' '</plist>'; } > "$$BUNDLE/Contents/Info.plist"; \
+	mkdir -p dist "$$STAGING"; \
+	cp -R "$$BUNDLE" "$$STAGING/"; \
+	cp LICENSE CREDITS.md "$$STAGING/"; \
+	cp client/assets/fonts/LICENSE.txt "$$STAGING/NOTO_FONT_LICENSE.txt"; \
+	(cd dist && zip -r ByAThread-macos-silicon.zip "$$(basename "$$STAGING")"); \
+	rm -rf "$$STAGING"
 
 macos-intel: $(ZIP_APPLE_INTEL)
 	$(MAKE) unfullscreen
