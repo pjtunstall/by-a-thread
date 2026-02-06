@@ -59,7 +59,7 @@ all: test server docker windows deb rpm appimage unfullscreen
 # this when building the client (inside those rules), not as a separate first step,
 # so the source is not touched when everything is already up to date.
 fullscreen:
-	@grep -q 'fullscreen: false,' client/src/main.rs && sed -i 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs || true
+	@grep -q 'fullscreen: false,' client/src/main.rs && sed 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs > client/src/main.rs.tmp && mv client/src/main.rs.tmp client/src/main.rs || true
 
 # --- Run tests ---
 test:
@@ -118,7 +118,7 @@ deploy-hetzner: $(DOCKER_SENTINEL) | check-deploy
 # Prerequisites: rustup target add x86_64-pc-windows-gnu; apt install mingw-w64 zip
 #
 $(EXE_WIN): $(CLIENT_SOURCES) | check-windows
-	@grep -q 'fullscreen: false,' client/src/main.rs && sed -i 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs || true
+	@grep -q 'fullscreen: false,' client/src/main.rs && sed 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs > client/src/main.rs.tmp && mv client/src/main.rs.tmp client/src/main.rs || true
 	cargo build --release --target x86_64-pc-windows-gnu -p client
 
 $(ZIP_WIN): $(EXE_WIN)
@@ -139,7 +139,7 @@ windows: $(ZIP_WIN)
 #
 $(DIST)/.deb-built: $(EXE_HOST) | check-deb
 	mkdir -p $(DIST)
-	@grep -q 'fullscreen: false,' client/src/main.rs && sed -i 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs || true
+	@grep -q 'fullscreen: false,' client/src/main.rs && sed 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs > client/src/main.rs.tmp && mv client/src/main.rs.tmp client/src/main.rs || true
 	cargo deb -p client
 	cp target/debian/by-a-thread_*.deb $(DIST)/
 	touch $(DIST)/.deb-built
@@ -153,7 +153,7 @@ deb: $(DIST)/.deb-built
 #
 $(DIST)/.rpm-built: $(EXE_HOST) | check-rpm
 	mkdir -p $(DIST)
-	@grep -q 'fullscreen: false,' client/src/main.rs && sed -i 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs || true
+	@grep -q 'fullscreen: false,' client/src/main.rs && sed 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs > client/src/main.rs.tmp && mv client/src/main.rs.tmp client/src/main.rs || true
 	cargo generate-rpm -p client --payload-compress gzip
 	cp target/generate-rpm/*.rpm $(DIST)/
 	touch $(DIST)/.rpm-built
@@ -166,7 +166,7 @@ rpm: $(DIST)/.rpm-built
 # Prerequisites: linuxdeploy (e.g. linuxdeploy-x86_64.AppImage) in PATH or set LINUXDEPLOY; appimagetool in PATH
 #
 $(EXE_HOST): $(CLIENT_SOURCES)
-	@grep -q 'fullscreen: false,' client/src/main.rs && sed -i 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs || true
+	@grep -q 'fullscreen: false,' client/src/main.rs && sed 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs > client/src/main.rs.tmp && mv client/src/main.rs.tmp client/src/main.rs || true
 	cargo build --release -p client
 
 $(APPIMAGE_FILE): $(EXE_HOST) | check-appimage
@@ -249,5 +249,5 @@ clean:
 # Must be last in the Makefile so it runs after all other targets.
 # This assumes `make` is not run in parallel, i.e., we should not run `make -j`.
 unfullscreen:
-	@grep -q 'fullscreen: true,' client/src/main.rs && sed -i 's|fullscreen: true,|fullscreen: false,|' client/src/main.rs || true
+	@grep -q 'fullscreen: true,' client/src/main.rs && sed 's|fullscreen: true,|fullscreen: false,|' client/src/main.rs > client/src/main.rs.tmp && mv client/src/main.rs.tmp client/src/main.rs || true
 	@for f in $(EXE_HOST) $(EXE_WIN) $(ZIP_WIN) $(DIST)/.deb-built $(DIST)/.rpm-built $(APPIMAGE_FILE); do [ -f "$$f" ] && touch "$$f"; done
