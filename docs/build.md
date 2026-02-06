@@ -17,12 +17,14 @@
 
 This document describes how to create executable files or packages for various systems. It assumes you're creating them on Ubuntu.
 
-Before building, add a `.env` file to the workspace root:
+Before building, add a `.env` file to the workspace root, of the form:
 
 ```txt
-IP=<a default IPv4 address>
-PORT=<a default port>
+IP=203.0.113.42
+PORT=5000
 ```
+
+Substitute the IP and port number of your default server.
 
 From the workspace root you can run the full build with `make`. To build only one artifact, use e.g. `make windows`, `make deb`, `make rpm`, or `make appimage`. To push the server image to the Hetzner VPS and run the container, run `make deploy-hetzner` after a full build.
 

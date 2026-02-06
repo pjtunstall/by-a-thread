@@ -3,11 +3,17 @@
 # Do not run with `make -j` (parallel builds).
 # See comment on unfullscreen at the end of the file.
 #
-# Prerequisites: see docs/build.md and target-specific notes below.
+# Prerequisites: see docs/build.md.
+#
+# If building after cloning the repo, add a `.env` file to the workspace root, of the form:
+#   IP=203.0.113.42
+#   PORT=5000
+#
+# Substitute the IP and port number of your default server.
 #
 # Usage:
 #   make              # full build (test, server, docker, windows, deb, rpm, appimage)
-#   make deploy-hetzner   # after 'make', push image to VPS and run container
+#   make deploy-hetzner   # after 'make', pushes image to VPS and runs container
 #   make macos-intel      # Intel Mac .app and dist/ByAThread-macos-intel.zip (macOS only)
 #   make macos-silicon    # Apple Silicon .app and dist/ByAThread-macos-silicon.zip (macOS only)
 #   make windows      # only Windows zip
@@ -39,6 +45,12 @@ ZIP_APPLE_INTEL := $(DIST)/ByAThread-macos-intel.zip
 ZIP_APPLE_SILICON := $(DIST)/ByAThread-macos-silicon.zip
 
 SERVER_SOURCES := Cargo.toml Cargo.lock server/Cargo.toml common/Cargo.toml $(shell find server -name '*.rs') $(shell find common -name '*.rs')
+# CLIENT_SOURCES includes .env in the workspace root. If building after cloning the repo, add a `.env` file to the workspace root, of the form:
+#   IP=203.0.113.42
+#   PORT=5000
+#
+# Substitute the IP and port number of your default server.
+#
 CLIENT_SOURCES := Cargo.toml Cargo.lock client/Cargo.toml client/build.rs $(shell find client/src -name '*.rs') common/Cargo.toml $(shell find common -name '*.rs') .env
 
 all: test server docker windows deb rpm appimage unfullscreen

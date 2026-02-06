@@ -1,6 +1,11 @@
 use std::net::SocketAddr;
 
 pub fn default_server_address() -> SocketAddr {
+    // Puts the contents of the `.env` file into the string `embedded`, assuming
+    // there's a `.env` is in the root directory. This will work on Windows too.
+    // The compiler substitutes backslashes as needed. The contents of the file
+    // should be two lines of the form `IP="203.0.113.42"` and `PORT="5000"`,
+    // plus optional comments and whitespace.
     let embedded = include_str!("../../.env");
     let mut ip = "127.0.0.1";
     let mut port = "5000";
