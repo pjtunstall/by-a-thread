@@ -111,10 +111,7 @@ deploy-hetzner: $(DOCKER_SENTINEL) | check-deploy
 #
 $(DIST)/.deb-built: $(EXE_HOST) | check-deb
 	mkdir -p $(DIST)
-	@grep -q 'fullscreen: false,' client/src/main.rs && sed 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs > client/src/main.rs.tmp && mv client/src/main.rs.tmp client/src/main.rs || true
-	cargo deb -p client
-	cp target/debian/by-a-thread_*.deb $(DIST)/
-	touch $(DIST)/.deb-built
+	./scripts/with-fullscreen.sh bash -c 'cargo deb -p client && cp target/debian/by-a-thread_*.deb $(DIST)/ && touch $(DIST)/.deb-built'
 
 deb: $(DIST)/.deb-built
 	$(MAKE) unfullscreen
@@ -125,10 +122,7 @@ deb: $(DIST)/.deb-built
 #
 $(DIST)/.rpm-built: $(EXE_HOST) | check-rpm
 	mkdir -p $(DIST)
-	@grep -q 'fullscreen: false,' client/src/main.rs && sed 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs > client/src/main.rs.tmp && mv client/src/main.rs.tmp client/src/main.rs || true
-	cargo generate-rpm -p client --payload-compress gzip
-	cp target/generate-rpm/*.rpm $(DIST)/
-	touch $(DIST)/.rpm-built
+	./scripts/with-fullscreen.sh bash -c 'cargo generate-rpm -p client --payload-compress gzip && cp target/generate-rpm/*.rpm $(DIST)/ && touch $(DIST)/.rpm-built'
 
 rpm: $(DIST)/.rpm-built
 	$(MAKE) unfullscreen
@@ -138,8 +132,7 @@ rpm: $(DIST)/.rpm-built
 # Prerequisites: linuxdeploy (e.g. linuxdeploy-x86_64.AppImage) in PATH or set LINUXDEPLOY; appimagetool in PATH
 #
 $(EXE_HOST): $(CLIENT_SOURCES)
-	@grep -q 'fullscreen: false,' client/src/main.rs && sed 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs > client/src/main.rs.tmp && mv client/src/main.rs.tmp client/src/main.rs || true
-	cargo build --release -p client
+	./scripts/with-fullscreen.sh cargo build --release -p client
 
 $(APPIMAGE_FILE): $(EXE_HOST) | check-appimage
 	mkdir -p $(DIST)
@@ -161,11 +154,11 @@ appimage: $(APPIMAGE_FILE)
 #
 $(EXE_APPLE_INTEL): $(CLIENT_SOURCES)
 	rustup target add $(TARGET_APPLE_INTEL) 2>/dev/null || true
-	cargo build --release --target $(TARGET_APPLE_INTEL) -p client
+	./scripts/with-fullscreen.sh cargo build --release --target $(TARGET_APPLE_INTEL) -p client
 
 $(EXE_APPLE_SILICON): $(CLIENT_SOURCES)
 	rustup target add $(TARGET_APPLE_SILICON) 2>/dev/null || true
-	cargo build --release --target $(TARGET_APPLE_SILICON) -p client
+	./scripts/with-fullscreen.sh cargo build --release --target $(TARGET_APPLE_SILICON) -p client
 
 $(ZIP_APPLE_INTEL): $(EXE_APPLE_INTEL)
 	@./scripts/bundle-macos.sh $(TARGET_APPLE_INTEL) ByAThread-macos-intel ByAThread-macos-intel.zip
