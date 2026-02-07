@@ -12,27 +12,23 @@
 # Substitute the IP and port number of your default server.
 #
 # Usage:
-#   make              # full build (test, server, docker, windows, deb, rpm, appimage)
+#   make              # full build (test, server, docker, deb, rpm, appimage)
 #   make deploy-hetzner   # after 'make', pushes image to VPS and runs container
 #   make macos-intel      # Intel Mac .app and dist/ByAThread-macos-intel.zip (macOS only)
 #   make macos-silicon    # Apple Silicon .app and dist/ByAThread-macos-silicon.zip (macOS only)
-#   make windows      # only Windows zip
 #   make deb          # only .deb package
 #   make clean        # remove dist/, temp dirs, and Docker image
 #   make fullscreen   # set fullscreen: true in client/src/main.rs (idempotent)
 #
 # Make checks that required tools exist before each step, and rebuilds artifacts
-# only when their dependencies have changed (e.g. Windows zip only if the exe changed).
+# only when their dependencies have changed.
 #
-.PHONY: all test server docker deploy-hetzner windows deb rpm appimage macos-intel macos-silicon clean fullscreen unfullscreen
-.PHONY: check-windows check-deb check-rpm check-appimage check-docker check-deploy
+.PHONY: all test server docker deploy-hetzner deb rpm appimage macos-intel macos-silicon clean fullscreen unfullscreen
+.PHONY: check-deb check-rpm check-appimage check-docker check-deploy
 
 DIST := dist
-STAGING_WIN := ByAThread-win64
 STAGING_APPDIR := ByAThread.AppDir
 LINUXDEPLOY ?= linuxdeploy
-EXE_WIN := target/x86_64-pc-windows-gnu/release/ByAThread.exe
-ZIP_WIN := $(DIST)/ByAThread-win64.zip
 EXE_HOST := target/release/ByAThread
 APPIMAGE_FILE := $(DIST)/ByAThread.AppImage
 SERVER_BIN := target/release/server
@@ -53,7 +49,7 @@ SERVER_SOURCES := Cargo.toml Cargo.lock server/Cargo.toml common/Cargo.toml $(sh
 #
 CLIENT_SOURCES := Cargo.toml Cargo.lock client/Cargo.toml client/build.rs $(shell find client/src -name '*.rs') common/Cargo.toml $(shell find common -name '*.rs') .env
 
-all: test server docker windows deb rpm appimage unfullscreen
+all: test server docker deb rpm appimage unfullscreen
 
 # Set fullscreen true in the client so the built game runs fullscreen. Only run
 # this when building the client (inside those rules), not as a separate first step,
@@ -72,10 +68,6 @@ $(SERVER_BIN): $(SERVER_SOURCES)
 server: $(SERVER_BIN)
 
 # --- Tool checks (run before steps that need them) ---
-check-windows:
-	@which x86_64-w64-mingw32-windres >/dev/null || (echo "Error: mingw-w64 not found (e.g. apt install mingw-w64)" && exit 1)
-	@which zip >/dev/null || (echo "Error: zip not found" && exit 1)
-
 check-deb:
 	@cargo deb --version >/dev/null 2>&1 || (echo "Error: cargo-deb not found (cargo install cargo-deb)" && exit 1)
 
@@ -112,26 +104,6 @@ deploy-hetzner: $(DOCKER_SENTINEL) | check-deploy
 	docker save server-image | gzip | ssh hetzner 'gunzip | docker load'
 	ssh hetzner 'docker stop server-container 2>/dev/null; docker rm server-container 2>/dev/null; docker run -d --name server-container --rm -e IP=$$(curl -s http://169.254.169.254/hetzner/v1/metadata/public-ipv4) -p 5000:5000/udp server-image'
 	ssh hetzner 'docker logs server-container'
-
-# --- Windows executable and zip ---
-#
-# Prerequisites: rustup target add x86_64-pc-windows-gnu; apt install mingw-w64 zip
-#
-$(EXE_WIN): $(CLIENT_SOURCES) | check-windows
-	@grep -q 'fullscreen: false,' client/src/main.rs && sed 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs > client/src/main.rs.tmp && mv client/src/main.rs.tmp client/src/main.rs || true
-	cargo build --release --target x86_64-pc-windows-gnu -p client
-
-$(ZIP_WIN): $(EXE_WIN)
-	mkdir -p $(DIST)
-	mkdir -p $(STAGING_WIN)
-	cp $(EXE_WIN) $(STAGING_WIN)/
-	cp LICENSE CREDITS.md $(STAGING_WIN)/
-	cp client/assets/fonts/LICENSE.txt $(STAGING_WIN)/NOTO_FONT_LICENSE.txt
-	zip -r $(ZIP_WIN) $(STAGING_WIN)
-	rm -r $(STAGING_WIN)
-
-windows: $(ZIP_WIN)
-	$(MAKE) unfullscreen
 
 # --- Debian .deb package ---
 #
@@ -206,7 +178,7 @@ macos-intel: $(ZIP_APPLE_INTEL)
 macos-silicon: $(ZIP_APPLE_SILICON)
 
 clean:
-	rm -rf $(DIST) $(STAGING_WIN) $(STAGING_APPDIR) ByAThread.app
+	rm -rf $(DIST) $(STAGING_APPDIR) ByAThread.app
 	-docker rmi server-image:latest $$(docker images -q server-image) 2>/dev/null || true
 
 # Set fullscreen false so the source is in development state after a release build.
@@ -216,4 +188,4 @@ clean:
 # This assumes `make` is not run in parallel, i.e., we should not run `make -j`.
 unfullscreen:
 	@grep -q 'fullscreen: true,' client/src/main.rs && sed 's|fullscreen: true,|fullscreen: false,|' client/src/main.rs > client/src/main.rs.tmp && mv client/src/main.rs.tmp client/src/main.rs || true
-	@for f in $(EXE_HOST) $(EXE_WIN) $(ZIP_WIN) $(DIST)/.deb-built $(DIST)/.rpm-built $(APPIMAGE_FILE); do [ -f "$$f" ] && touch "$$f"; done
+	@for f in $(EXE_HOST) $(DIST)/.deb-built $(DIST)/.rpm-built $(APPIMAGE_FILE); do [ -f "$$f" ] && touch "$$f"; done

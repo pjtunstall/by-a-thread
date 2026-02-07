@@ -15,7 +15,7 @@
 
 ## Overview
 
-This document describes how to create executable files or packages for various systems. It assumes you're creating the Linux versions on Ubuntu. The Windows version can be build on Ubuntu, but is best built on Windows as, currently, that's been the only way I've managed to get the icon image to display. The macOS versions should be built on Apple Intel and Apple Silicon respectively.
+This document describes how to create executable files or packages for various systems. It assumes you're creating the Linux versions on Ubuntu. The Windows version can be built on Ubuntu, but is best built on Windows as, currently, that's been the only way I've managed to get the icon image to display. The macOS versions should be built on Apple Intel and Apple Silicon respectively.
 
 Before building, add a `.env` file to the workspace root, of the form:
 
@@ -72,7 +72,13 @@ That said, I've so far been unable to get the `.ico` image to show on the `.exe`
 
 ### Building the executable
 
-When you run the full build (`make`), it produces a `.zip` file, containing a Windows executable file, credits, and licenses.
+From the project root:
+
+```sh
+.\scripts\Build-Windows.ps1
+```
+
+This produces a `.zip` file, containing a Windows executable file, credits, and licenses, and places it in the current working directory.
 
 ### Distribution
 

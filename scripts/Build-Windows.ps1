@@ -4,7 +4,6 @@ $ErrorActionPreference = "Stop"
 $DistDir = "dist"
 $StagingDir = "staging_win"
 $ZipName = "$DistDir\client_windows.zip"
-# CHANGE: Path is now standard release folder, not inside a target subfolder
 $ExePath = "target\release\ByAThread.exe" 
 $SourceFile = "client\src\main.rs"
 
