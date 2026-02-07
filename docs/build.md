@@ -15,7 +15,7 @@
 
 ## Overview
 
-This document describes how to create executable files or packages for various systems. It assumes you're creating them on Ubuntu.
+This document describes how to create executable files or packages for various systems. It assumes you're creating the Linux versions on Ubuntu. The Windows version can be build on Ubuntu, but is best built on Windows as, currently, that's been the only way I've managed to get the icon image to display. The macOS versions should be built on Apple Intel and Apple Silicon respectively.
 
 Before building, add a `.env` file to the workspace root, of the form:
 
@@ -82,10 +82,12 @@ Ignore virus warnings; that just means the file is from an unknown publisher. If
 
 Build on macOS using the Makefile:
 
-- `make macos-intel` – Intel Mac (x86_64), produces `ByAThread.app` and `dist/ByAThread-macos-intel.zip`
-- `make macos-silicon` – Apple Silicon (aarch64), produces `ByAThread.app` and `dist/ByAThread-macos-silicon.zip`
+- `make macos-intel` – Intel Mac (x86_64), produces `dist/ByAThread-macos-intel.zip`
+- `make macos-silicon` – Apple Silicon (aarch64), produces `dist/ByAThread-macos-silicon.zip`
 
-Each build creates a .app bundle so the app is double-clickable and shows in the Dock. For the app icon to appear, create `client/icon.icns` (e.g. from `client/icon.png` using `iconutil` on macOS).
+Each build compiles the client for the target architecture, then runs `scripts/macos-bundle.sh` to create a .app bundle and zip it. The script assembles `ByAThread.app` with the executable, fonts, images, sounds, and Info.plist; copies it into a staging directory with LICENSE and CREDITS; and zips the result. The .app is double-clickable and shows in the Dock. For the app icon to appear, create `client/icon.icns` (e.g. from `client/icon.png` using `iconutil` on macOS).
+
+macOS builds are done on Mac only (cross-compilation from Linux is not supported). The Makefile uses a shell script rather than inline commands so it works with the default BSD make on macOS.
 
 ## Linux
 
