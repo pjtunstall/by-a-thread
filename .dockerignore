@@ -3,6 +3,7 @@
 client/
 
 .vs/
+.vscode/
 
 dist/
 AppDir
