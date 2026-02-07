@@ -78,7 +78,7 @@ From the project root:
 .\scripts\Build-Windows.ps1
 ```
 
-This produces a `.zip` file, containing a Windows executable file, credits, and licenses, and places it in `.dist`.
+This produces a zip file called `ByAThread-windows.zip`, containing a Windows executable file, credits, and licenses, and places it in `.dist`.
 
 ### Distribution
 

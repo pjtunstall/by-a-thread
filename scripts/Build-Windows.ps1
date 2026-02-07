@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 # --- CONFIGURATION ---
 $DistDir = "dist"
 $StagingDir = "staging_win"
-$ZipName = "$DistDir\client_windows.zip"
+$ZipName = "$DistDir\ByAThread-windows.zip"
 $ExePath = "target\release\ByAThread.exe" 
 $SourceFile = "client\src\main.rs"
 
