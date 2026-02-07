@@ -6,8 +6,8 @@ pub fn default_server_address() -> SocketAddr {
     // The compiler substitutes backslashes as needed. The contents of the
     // `.env` file should be two lines of the form:
     //
-    //   IP=203.0.113.42
-    // PORT=5000
+    //   IP="203.0.113.42"
+    //   PORT="5000"
     //
     // plus optional comments and whitespace. Substitute the IP and port number
     // of your default server.

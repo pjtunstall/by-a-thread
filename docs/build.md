@@ -20,8 +20,8 @@ This document describes how to create executable files or packages for various s
 Before building, add a `.env` file to the workspace root, of the form:
 
 ```txt
-IP=203.0.113.42
-PORT=5000
+IP="203.0.113.42"
+PORT="5000"
 ```
 
 Substitute the IP and port number of your default server.
@@ -85,7 +85,7 @@ Build on macOS using the Makefile:
 - `make macos-intel` – Intel Mac (x86_64), produces `dist/ByAThread-macos-intel.zip`
 - `make macos-silicon` – Apple Silicon (aarch64), produces `dist/ByAThread-macos-silicon.zip`
 
-Each build compiles the client for the target architecture, then runs `scripts/macos-bundle.sh` to create a .app bundle and zip it. The script assembles `ByAThread.app` with the executable, fonts, images, sounds, and Info.plist; copies it into a staging directory with LICENSE and CREDITS; and zips the result. The .app is double-clickable and shows in the Dock. For the app icon to appear, create `client/icon.icns` (e.g. from `client/icon.png` using `iconutil` on macOS).
+Each build compiles the client for the target architecture, then runs `scripts/bundle-macos.sh` to create a .app bundle and zip it. The script assembles `ByAThread.app` with the executable, fonts, images, sounds, and Info.plist; copies it into a staging directory with LICENSE and CREDITS; and zips the result. The .app is double-clickable and shows in the Dock. For the app icon to appear, create `client/icon.icns` (e.g. from `client/icon.png` using `iconutil` on macOS).
 
 macOS builds are done on Mac only (cross-compilation from Linux is not supported). The Makefile uses a shell script rather than inline commands so it works with the default BSD make on macOS.
 
