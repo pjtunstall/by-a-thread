@@ -6,8 +6,8 @@
 # Prerequisites: see docs/build.md.
 #
 # If building after cloning the repo, add a `.env` file to the workspace root, of the form:
-#   IP="203.0.113.42"
-#   PORT="5000"
+#   IP=203.0.113.42
+#   PORT=5000
 #
 # Substitute the IP and port number of your default server.
 #
@@ -42,8 +42,8 @@ ZIP_APPLE_SILICON := $(DIST)/ByAThread-macos-silicon.zip
 
 SERVER_SOURCES := Cargo.toml Cargo.lock server/Cargo.toml common/Cargo.toml $(shell find server -name '*.rs') $(shell find common -name '*.rs')
 # CLIENT_SOURCES includes .env in the workspace root. If building after cloning the repo, add a `.env` file to the workspace root, of the form:
-#   IP="203.0.113.42"
-#   PORT="5000"
+#   IP=203.0.113.42
+#   PORT=5000
 #
 # Substitute the IP and port number of your default server.
 #

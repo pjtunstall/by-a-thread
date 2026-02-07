@@ -24,6 +24,7 @@
 - Don't introduce any new comments unless asked to.
 - Only use `//` comments, not `///`.
 - Comments should adhere to the conventions of standard English punctuation, inlcuding a trailing period.
+- Comments should be addressed to readers who are not privy to our conversations or previous steps in development.
 
 ## Punctuation in comments and documentation
 

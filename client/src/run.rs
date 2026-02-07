@@ -399,8 +399,10 @@ fn get_best_local_binding_ip() -> IpAddr {
         Err(_) => {}
     }
 
-    // Fallback to localhost if the dummy connection fails.
-    IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))
+    // Fallback to all interfaces when the dummy connection fails (e.g. firewall
+    // blocks 8.8.8.8, or no network). Binding to 127.0.0.1 would prevent receiving
+    // packets from remote servers.
+    IpAddr::V4(Ipv4Addr::UNSPECIFIED)
 }
 
 async fn prompt_for_server_address(

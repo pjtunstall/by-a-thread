@@ -31,7 +31,7 @@ use common::{
 
 // Server exits from `Lobby` and `ChoosingDifficulty` states if there's been no
 // activity (no messages from clients) for 5 minutes.
-const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(300);
+const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(3600); // 1 hour; TODO: revert after testing
 
 pub fn run_server(socket: UdpSocket, connectable_addr: SocketAddr, private_key: [u8; 32]) {
     let current_time = common::time::now();

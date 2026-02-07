@@ -20,8 +20,8 @@ This document describes how to create executable files or packages for various s
 Before building, add a `.env` file to the workspace root, of the form:
 
 ```txt
-IP="203.0.113.42"
-PORT="5000"
+IP=203.0.113.42
+PORT=5000
 ```
 
 Substitute the IP and port number of your default server.
