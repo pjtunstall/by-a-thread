@@ -5,21 +5,29 @@ use std::collections::HashMap;
 use rand::prelude::{IndexedRandom, Rng, ThreadRng};
 
 use algorithms::{
-    GrowthStrategy, backtrack::Backtrack, binary_tree::BinaryTree, blobby::Blobby,
+    GrowthStrategy, Mode, backtracker::Backtracker, binary_tree::BinaryTree, blobby::Blobby,
     division::RecursiveDivision, kruskal::Kruskal, prim::Prim, wilson::Wilson,
 };
 
 pub enum Algorithm {
-    RecursiveDivision, // Easiest: classic recursive division.
-    Backtrack,         // Easy: more long corridors.
-    TwiggyStack,       // Winding/snake-like (DFS).
-    BinaryTree,        // Four quadrants: fewer long corridors.
-    Wilson,            // Medium: unbiased.
-    Kruskal,           // Hard: more dead ends.
-    Blobby,            // Blobby recursive division.
-    TwiggyRandom,      // Fractal/dendritic.
-    Prim,              // Hard: more dead ends.
-    TwiggyQueue,       // Geometric/round (BFS).
+    RecursiveDivision,
+    Backtracker,
+    BinaryTree,
+    Wilson,
+    Kruskal,
+    Prim,
+    BlobbyDividerRandom,
+    BlobbyDividerStack,
+    BlobbyDividerQueue,
+    BlobbyCarverRandom, // = Prim.
+    BlobbyCarverStack,  // = Backtracker.
+    BlobbyCarverQueue,
+    TwiggyDividerStack,
+    TwiggyDividerRandom,
+    TwiggyDividerQueue,
+    TwiggyCarverStack,  // = Backtracker.
+    TwiggyCarverRandom, // = Prim.
+    TwiggyCarverQueue,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -98,15 +106,23 @@ impl MazeMaker {
         };
         match generator {
             Algorithm::RecursiveDivision => maze.recursive_division(),
-            Algorithm::Backtrack => maze.backtrack(),
-            Algorithm::TwiggyStack => maze.twiggy(GrowthStrategy::Stack),
+            Algorithm::Backtracker => maze.backtrack(),
             Algorithm::BinaryTree => maze.binary_tree(),
             Algorithm::Wilson => maze.wilson(),
             Algorithm::Kruskal => maze.kruskal(),
-            Algorithm::Blobby => maze.blobby(GrowthStrategy::Random),
-            Algorithm::TwiggyRandom => maze.twiggy(GrowthStrategy::Random),
             Algorithm::Prim => maze.prim(),
-            Algorithm::TwiggyQueue => maze.twiggy(GrowthStrategy::Queue),
+            Algorithm::BlobbyDividerRandom => maze.blobby(Mode::Divider, GrowthStrategy::Random),
+            Algorithm::BlobbyDividerStack => maze.blobby(Mode::Divider, GrowthStrategy::Stack),
+            Algorithm::BlobbyDividerQueue => maze.blobby(Mode::Divider, GrowthStrategy::Queue),
+            Algorithm::BlobbyCarverRandom => maze.blobby(Mode::Carver, GrowthStrategy::Random),
+            Algorithm::BlobbyCarverStack => maze.blobby(Mode::Carver, GrowthStrategy::Stack),
+            Algorithm::BlobbyCarverQueue => maze.blobby(Mode::Carver, GrowthStrategy::Queue),
+            Algorithm::TwiggyDividerStack => maze.twiggy(Mode::Divider, GrowthStrategy::Stack),
+            Algorithm::TwiggyDividerRandom => maze.twiggy(Mode::Divider, GrowthStrategy::Random),
+            Algorithm::TwiggyDividerQueue => maze.twiggy(Mode::Divider, GrowthStrategy::Queue),
+            Algorithm::TwiggyCarverStack => maze.twiggy(Mode::Carver, GrowthStrategy::Stack),
+            Algorithm::TwiggyCarverRandom => maze.twiggy(Mode::Carver, GrowthStrategy::Random),
+            Algorithm::TwiggyCarverQueue => maze.twiggy(Mode::Carver, GrowthStrategy::Queue),
         }
         maze
     }

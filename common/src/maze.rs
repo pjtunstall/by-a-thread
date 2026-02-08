@@ -395,22 +395,22 @@ mod tests {
         let i = rand::random_range(0..10);
         match i {
             0 => Algorithm::RecursiveDivision,
-            1 => Algorithm::Backtrack,
-            2 => Algorithm::TwiggyStack,
+            1 => Algorithm::Backtracker,
+            2 => Algorithm::TwiggyCarverStack,
             3 => Algorithm::BinaryTree,
             4 => Algorithm::Wilson,
             5 => Algorithm::Kruskal,
-            6 => Algorithm::Blobby,
-            7 => Algorithm::TwiggyRandom,
+            6 => Algorithm::BlobbyDividerRandom,
+            7 => Algorithm::TwiggyCarverRandom,
             8 => Algorithm::Prim,
-            _ => Algorithm::TwiggyQueue,
+            _ => Algorithm::TwiggyCarverQueue,
         }
     }
 
     #[test]
     fn test_backtrack_all_spaces_are_connected() {
         for _ in 0..64 {
-            let maze = Maze::new(Algorithm::Backtrack);
+            let maze = Maze::new(Algorithm::Backtracker);
             assert_all_spaces_are_connected(&maze);
         }
     }
@@ -432,9 +432,49 @@ mod tests {
     }
 
     #[test]
-    fn test_blobby_all_spaces_are_connected() {
+    fn test_blobby_divider_random_all_spaces_are_connected() {
         for _ in 0..64 {
-            let maze = Maze::new(Algorithm::Blobby);
+            let maze = Maze::new(Algorithm::BlobbyDividerRandom);
+            assert_all_spaces_are_connected(&maze);
+        }
+    }
+
+    #[test]
+    fn test_blobby_divider_stack_all_spaces_are_connected() {
+        for _ in 0..64 {
+            let maze = Maze::new(Algorithm::BlobbyDividerStack);
+            assert_all_spaces_are_connected(&maze);
+        }
+    }
+
+    #[test]
+    fn test_blobby_divider_queue_all_spaces_are_connected() {
+        for _ in 0..64 {
+            let maze = Maze::new(Algorithm::BlobbyDividerQueue);
+            assert_all_spaces_are_connected(&maze);
+        }
+    }
+
+    #[test]
+    fn test_blobby_carver_random_all_spaces_are_connected() {
+        for _ in 0..64 {
+            let maze = Maze::new(Algorithm::BlobbyCarverRandom);
+            assert_all_spaces_are_connected(&maze);
+        }
+    }
+
+    #[test]
+    fn test_blobby_carver_stack_all_spaces_are_connected() {
+        for _ in 0..64 {
+            let maze = Maze::new(Algorithm::BlobbyCarverStack);
+            assert_all_spaces_are_connected(&maze);
+        }
+    }
+
+    #[test]
+    fn test_blobby_carver_queue_all_spaces_are_connected() {
+        for _ in 0..64 {
+            let maze = Maze::new(Algorithm::BlobbyCarverQueue);
             assert_all_spaces_are_connected(&maze);
         }
     }
@@ -464,25 +504,49 @@ mod tests {
     }
 
     #[test]
-    fn test_twiggy_stack_all_spaces_are_connected() {
+    fn test_twiggy_divider_stack_all_spaces_are_connected() {
         for _ in 0..64 {
-            let maze = Maze::new(Algorithm::TwiggyStack);
+            let maze = Maze::new(Algorithm::TwiggyDividerStack);
             assert_all_spaces_are_connected(&maze);
         }
     }
 
     #[test]
-    fn test_twiggy_random_all_spaces_are_connected() {
+    fn test_twiggy_divider_random_all_spaces_are_connected() {
         for _ in 0..64 {
-            let maze = Maze::new(Algorithm::TwiggyRandom);
+            let maze = Maze::new(Algorithm::TwiggyDividerRandom);
             assert_all_spaces_are_connected(&maze);
         }
     }
 
     #[test]
-    fn test_twiggy_queue_all_spaces_are_connected() {
+    fn test_twiggy_divider_queue_all_spaces_are_connected() {
         for _ in 0..64 {
-            let maze = Maze::new(Algorithm::TwiggyQueue);
+            let maze = Maze::new(Algorithm::TwiggyDividerQueue);
+            assert_all_spaces_are_connected(&maze);
+        }
+    }
+
+    #[test]
+    fn test_twiggy_carver_stack_all_spaces_are_connected() {
+        for _ in 0..64 {
+            let maze = Maze::new(Algorithm::TwiggyCarverStack);
+            assert_all_spaces_are_connected(&maze);
+        }
+    }
+
+    #[test]
+    fn test_twiggy_carver_random_all_spaces_are_connected() {
+        for _ in 0..64 {
+            let maze = Maze::new(Algorithm::TwiggyCarverRandom);
+            assert_all_spaces_are_connected(&maze);
+        }
+    }
+
+    #[test]
+    fn test_twiggy_carver_queue_all_spaces_are_connected() {
+        for _ in 0..64 {
+            let maze = Maze::new(Algorithm::TwiggyCarverQueue);
             assert_all_spaces_are_connected(&maze);
         }
     }

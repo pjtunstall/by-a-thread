@@ -74,15 +74,15 @@ pub fn handle(
         ui.show_message(" ");
         ui.show_message_with_color("  0. Four-Quadrants Binary Tree (trivial)", Color::GREEN);
         ui.show_message_with_color("  1. Standard Recursive Division (easy)", Color::GREEN);
-        ui.show_message_with_color("  2. Starburst / Twiggy Queue (fair)", Color::CHARTREUSE);
+        ui.show_message_with_color("  2. Meander (fair)", Color::CHARTREUSE);
         ui.show_message_with_color(
-            "  3. Blobby Recursive Division (fair to middling)",
+            "  3. Territorial Recursive Division (fair to middling)",
             Color::CHARTREUSE,
         );
-        ui.show_message_with_color("  4. Twiggy Stack (middling)", Color::CHARTREUSE);
+        ui.show_message_with_color("  4. Hecate's Key (middling)", Color::CHARTREUSE);
         ui.show_message_with_color("  5. Prim (middling hard)", Color::YELLOW);
         ui.show_message_with_color("  6. Kruskal (hard)", Color::YELLOW);
-        ui.show_message_with_color("  7. Twiggy Random (Herculean)", Color::ORANGE);
+        ui.show_message_with_color("  7. Drunkard's Walk (Herculean)", Color::ORANGE);
         ui.show_message_with_color("  8. Backtracker (Sisyphean)", Color::ORANGE);
         ui.show_message_with_color("  9. Wilson (next level)", Color::RED);
         ui.show_message(" ");

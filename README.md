@@ -85,20 +85,22 @@ My plan is to play test it first on a VPS, then make it public according to the 
 
 I've chosen rank my mazes in terms of actual ease of navigation rather than tendency for dead ends (as per the spec), since the two are often at odds:
 
-| **Level** | **Navigational ease** | **Dead-end density (the project spec)** |
+| **Level** | **Navigational ease** | **Dead-end density** |
 | --- | --- | --- |
 | 0 | Four-Quadrants Binary Tree | Standard Recursive Division (~11%) |
-| 1 | Standard Recursive Division | Randomized Backtracker (~13%) |
-| 2 | Starburst / Twiggy Queue | Blobby Recursive Division (~18%) |
-| 3 | Blobby Recursive Division | Twiggy Stack (~22%) |
-| 4 | Twiggy Stack | Wilson (~28%) |
+| 1 | Standard Recursive Division | Backtracker (~13%) |
+| 2 | Meander[^1] | Territorial Recursive Division (~15%) |
+| 3 | Territorial Recursive Division | Hecate's Key (~20%) |
+| 4 | Hecate's Key | Wilson (~28%) |
 | 5 | Prim | Kruskal (~38%) |
 | 6 | Kruskal | Prim (~48%) |
-| 7 | Twiggy Random | Twiggy Random (~50%) |
-| 8 | Randomized Backtracker | Four-Quadrants Binary Tree (50% Fixed) |
-| 9 | Wilson | Starburst / Twiggy Queue (50%+) |
+| 7 | Drunkard's Walk | Drunkard's Walk (~50%) |
+| 8 | Backtracker | Four-Quadrants Binary Tree (50% Fixed) |
+| 9 | Wilson | Meander (50%+) |
 
-Percentages from Gemini, so take them with a pinch of salt. I haven't found a proof or experimental evidence for all of them yet. Gemini vacilates over whether recursive division or randomized backtracker has fewest dead ends, but rankings don't shuffle wildly between responses. Its figures are roughly consistent with those that I have found, e.g. Mane et al. report DFS (i.e. Backtracker): 10.0, Wilson: 30.0, Kruskal: 30.6, Prim: 35.5.[^1] Their ranking of these algorithms in terms of difficulty also matches Gemini's.
+My Territorial Recursive Division is Jamis Buck's [Better Recursive Division Algorithm](https://weblog.jamisbuck.org/2015/1/15/better-recursive-division-algorithm.html).
+
+Percentages from Gemini, so take them with a pinch of salt. I haven't found a proof or experimental evidence for all of them yet. Gemini vacilates over whether recursive division or randomized backtracker has fewest dead ends, but rankings don't shuffle wildly between responses. Its figures are roughly consistent with those that I have found, e.g. Mane et al. report DFS (i.e. Backtracker): 10.0, Wilson: 30.0, Kruskal: 30.6, Prim: 35.5.[^2] Their ranking of these algorithms in terms of difficulty also matches Gemini's.
 
 ## Links
 
@@ -113,4 +115,6 @@ Percentages from Gemini, so take them with a pinch of salt. I haven't found a pr
 
 ## Footnotes
 
-[^1]: Deepak Mane, Rajat Harne, Tanmay Pol, Rashmi Asthagi, Sandip Shine, Bhushan Zope: [An Extensive Comparative Analysis on Different MazeGeneration Algorithms](https://ijisae.org/index.php/IJISAE/article/view/3557). International Journal of Intelligent Systems and Applications in Engineering. IJISAE, 2024, 12(2s), 37–47
+[^1]: Some of these algorithms use different names internally: Meander is `TwiggyDividerQueue`, Hecate's Key is `BlobbyDividerQueue`, Drunkard's Walk is `TwiggyDividerRandom`, and Territorial Recursive Division is `BlobbyDividerRandom`.
+
+[^2]: Deepak Mane, Rajat Harne, Tanmay Pol, Rashmi Asthagi, Sandip Shine, Bhushan Zope: [An Extensive Comparative Analysis on Different MazeGeneration Algorithms](https://ijisae.org/index.php/IJISAE/article/view/3557). International Journal of Intelligent Systems and Applications in Engineering. IJISAE, 2024, 12(2s), 37–47

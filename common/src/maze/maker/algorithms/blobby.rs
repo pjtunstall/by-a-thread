@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 use rand::Rng;
 
-use super::{super::MazeMaker, GrowthStrategy};
+use super::{super::MazeMaker, GrowthStrategy, Mode};
 
 const MIN_REGION_SIZE: usize = 1;
 
@@ -13,14 +13,25 @@ enum Team {
 }
 
 pub trait Blobby {
-    fn blobby(&mut self, strategy: GrowthStrategy);
+    fn blobby(&mut self, mode: Mode, strategy: GrowthStrategy);
 }
 
 impl Blobby for MazeMaker {
-    fn blobby(&mut self, strategy: GrowthStrategy) {
-        for row in self.grid.iter_mut() {
-            for cell in row.iter_mut() {
-                *cell = 0;
+    fn blobby(&mut self, mode: Mode, strategy: GrowthStrategy) {
+        match mode {
+            Mode::Divider => {
+                for row in self.grid.iter_mut() {
+                    for cell in row.iter_mut() {
+                        *cell = 0;
+                    }
+                }
+            }
+            Mode::Carver => {
+                for row in self.grid.iter_mut() {
+                    for cell in row.iter_mut() {
+                        *cell = 1;
+                    }
+                }
             }
         }
 
@@ -42,13 +53,18 @@ impl Blobby for MazeMaker {
             }
         }
 
-        self.blobby_divide(region, strategy);
+        self.blobby_divide(region, mode, strategy);
     }
 }
 
 impl MazeMaker {
-    fn blobby_divide(&mut self, region: Vec<(usize, usize)>, strategy: GrowthStrategy) {
+    fn blobby_divide(&mut self, region: Vec<(usize, usize)>, mode: Mode, strategy: GrowthStrategy) {
         if region.len() <= MIN_REGION_SIZE {
+            if mode == Mode::Carver {
+                for (z, x) in region {
+                    self.grid[z][x] = 0;
+                }
+            }
             return;
         }
 
@@ -115,8 +131,9 @@ impl MazeMaker {
                     let wz = (*z + nz) / 2;
                     let wx = (*x + nx) / 2;
 
-                    self.grid[wz][wx] = 1;
-
+                    if mode == Mode::Divider {
+                        self.grid[wz][wx] = 1;
+                    }
                     border_walls.push((wz, wx));
                 }
             }
@@ -139,7 +156,7 @@ impl MazeMaker {
             }
         }
 
-        self.blobby_divide(region_a, strategy);
-        self.blobby_divide(region_b, strategy);
+        self.blobby_divide(region_a, mode, strategy);
+        self.blobby_divide(region_b, mode, strategy);
     }
 }

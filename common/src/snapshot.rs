@@ -27,7 +27,7 @@ pub struct InitialData {
 impl Default for InitialData {
     fn default() -> Self {
         Self {
-            maze: Maze::new(Algorithm::Backtrack),
+            maze: Maze::new(Algorithm::Backtracker),
             players: Vec::new(),
             difficulty: 1,
             exit_coords: None,
@@ -41,15 +41,15 @@ impl InitialData {
         let generator = match level {
             0 => Algorithm::BinaryTree,
             1 => Algorithm::RecursiveDivision,
-            2 => Algorithm::TwiggyQueue,
-            3 => Algorithm::Blobby,
-            4 => Algorithm::TwiggyStack,
+            2 => Algorithm::TwiggyDividerQueue,
+            3 => Algorithm::BlobbyDividerRandom,
+            4 => Algorithm::BlobbyDividerQueue,
             5 => Algorithm::Prim,
             6 => Algorithm::Kruskal,
-            7 => Algorithm::TwiggyRandom,
-            8 => Algorithm::Backtrack,
+            7 => Algorithm::TwiggyDividerRandom,
+            8 => Algorithm::Backtracker,
             9 => Algorithm::Wilson,
-            _ => Algorithm::Backtrack,
+            _ => Algorithm::Backtracker,
         };
         let mut maze = maze::Maze::new(generator);
 

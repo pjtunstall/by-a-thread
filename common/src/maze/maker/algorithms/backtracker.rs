@@ -1,10 +1,10 @@
 use super::super::MazeMaker;
 
-pub trait Backtrack {
+pub trait Backtracker {
     fn backtrack(&mut self);
 }
 
-impl Backtrack for MazeMaker {
+impl Backtracker for MazeMaker {
     fn backtrack(&mut self) {
         let mut stack = Vec::new();
         let mut cells = self.get_cells();

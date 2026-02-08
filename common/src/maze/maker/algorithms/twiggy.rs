@@ -2,32 +2,54 @@ use std::collections::{HashSet, VecDeque};
 
 use rand::Rng;
 
-use super::{super::MazeMaker, GrowthStrategy};
+use super::{super::MazeMaker, GrowthStrategy, Mode};
 
 impl MazeMaker {
-    pub fn twiggy(&mut self, strategy: GrowthStrategy) {
-        // Initialize grid cells as all walls.
-        for row in self.grid.iter_mut() {
-            for cell in row.iter_mut() {
-                *cell = 1;
+    pub fn twiggy(&mut self, mode: Mode, strategy: GrowthStrategy) {
+        match mode {
+            Mode::Divider => {
+                for row in self.grid.iter_mut() {
+                    for cell in row.iter_mut() {
+                        *cell = 0;
+                    }
+                }
+            }
+            Mode::Carver => {
+                for row in self.grid.iter_mut() {
+                    for cell in row.iter_mut() {
+                        *cell = 1;
+                    }
+                }
+            }
+        }
+
+        for z in 0..self.height {
+            for x in 0..self.width {
+                let is_border = z == 0 || z == self.height - 1 || x == 0 || x == self.width - 1;
+                let is_pillar = z % 2 == 0 && x % 2 == 0;
+
+                if is_border || is_pillar {
+                    self.grid[z][x] = 1;
+                }
             }
         }
 
         let mut initial_space = Vec::new();
-        for z in (1..self.height).step_by(2) {
-            for x in (1..self.width).step_by(2) {
+        for z in (1..(self.height - 1)).step_by(2) {
+            for x in (1..(self.width - 1)).step_by(2) {
                 initial_space.push((z, x));
             }
         }
 
-        self.divide(initial_space, strategy);
+        self.twiggy_divide(initial_space, mode, strategy);
     }
 
-    fn divide(&mut self, region: Vec<(usize, usize)>, strategy: GrowthStrategy) {
-        // Base case: when we're down to 1 cell, carve out the room itself.
+    fn twiggy_divide(&mut self, region: Vec<(usize, usize)>, mode: Mode, strategy: GrowthStrategy) {
         if region.len() <= 1 {
-            for (z, x) in region {
-                self.grid[z][x] = 0;
+            if mode == Mode::Carver {
+                for (z, x) in region {
+                    self.grid[z][x] = 0;
+                }
             }
             return;
         }
@@ -103,8 +125,12 @@ impl MazeMaker {
             }
         }
 
-        // Make a hole in the wall.
         if !border_walls.is_empty() {
+            if mode == Mode::Divider {
+                for (wz, wx) in &border_walls {
+                    self.grid[*wz][*wx] = 1;
+                }
+            }
             let (wz, wx) = border_walls[rng.random_range(0..border_walls.len())];
             self.grid[wz][wx] = 0;
         }
@@ -112,13 +138,11 @@ impl MazeMaker {
         let next_a: Vec<(usize, usize)> = team_a_cells.into_iter().collect();
         let next_b: Vec<(usize, usize)> = team_b_cells.into_iter().collect();
 
-        // We still need find_enclaves because the growth might have pinched off
-        // sections, but now we are guaranteed not to over-carve.
         for enclave in self.find_enclaves(next_a) {
-            self.divide(enclave, strategy);
+            self.twiggy_divide(enclave, mode, strategy);
         }
         for enclave in self.find_enclaves(next_b) {
-            self.divide(enclave, strategy);
+            self.twiggy_divide(enclave, mode, strategy);
         }
     }
 
