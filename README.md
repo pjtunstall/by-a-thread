@@ -28,7 +28,7 @@ For more on the structure of my project, see [Architecture](docs/architecture.md
 
 ## Status
 
-Successfully tested on VPS; currently working on a matchmaking service to support concurrent sessions.
+Successfully tested on VPS with the client on Ubuntu and on Windows; macOS (Intel and Apple Silicon) in the works. Currently designing a matchmaker to support concurrent sessions.
 
 ## Spec
 
