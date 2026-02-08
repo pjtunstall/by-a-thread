@@ -48,6 +48,7 @@ pub fn handle(
                 return Some(ClientState::Lobby(Lobby::ChoosingDifficulty {
                     prompt_printed: false,
                     choice_sent: false,
+                    selected_index: 0,
                 }));
             }
             Ok((ServerMessage::DenyDifficultySelection, _)) => {

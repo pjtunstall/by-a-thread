@@ -18,24 +18,60 @@ use common::{
     protocol::{ClientMessage, ServerMessage},
 };
 
-const INVALID_CHOICE_MESSAGE: &str = "Invalid choice. Please press 0 through 9.";
+const MENU_ITEMS: &[(&str, Color)] = &[
+    ("Four-Quadrants Binary Tree (trivial)", Color::GREEN),
+    ("Standard Recursive Division (easy)", Color::GREEN),
+    ("Meander (fair)", Color::CHARTREUSE),
+    (
+        "Territorial Recursive Division (fair to middling)",
+        Color::CHARTREUSE,
+    ),
+    ("Hecate's Key (middling)", Color::CHARTREUSE),
+    ("Prim (middling hard)", Color::YELLOW),
+    ("Kruskal (hard)", Color::YELLOW),
+    ("Drunkard's Walk (Herculean)", Color::ORANGE),
+    ("Backtracker (Sisyphean)", Color::ORANGE),
+    ("Wilson (next level)", Color::RED),
+];
 
-fn enqueue_difficulty_input(
+fn format_menu_lines(selected_index: u8) -> Vec<(String, Color)> {
+    let mut lines = Vec::with_capacity(12);
+    for (i, (label, color)) in MENU_ITEMS.iter().enumerate() {
+        let prefix = if i == selected_index as usize {
+            "  * "
+        } else {
+            "    "
+        };
+        lines.push((format!("{}{}", prefix, label), *color));
+    }
+    lines.push((" ".to_string(), Color::CHARTREUSE));
+    lines.push((
+        "Use up/down arrows to select, Enter to confirm.".to_string(),
+        Color::CHARTREUSE,
+    ));
+    lines
+}
+
+fn handle_difficulty_input(
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     choice_sent: bool,
+    selected_index: &mut u8,
 ) -> Option<ClientState> {
-    // Don't use session.input_mode() here because session.state has been extracted
-    // by std::mem::take in flow.rs. Instead, determine input mode from choice_sent.
     if choice_sent {
-        // Already sent, don't accept more input.
         return None;
     }
 
     match ui.poll_single_key() {
         Ok(key_result) => match key_result {
-            Some(UiKey::Char(c)) if matches!(c, '0'..='9') => {
-                session.add_input(c.to_string());
+            Some(UiKey::Up) => {
+                *selected_index = selected_index.saturating_add(9) % 10;
+            }
+            Some(UiKey::Down) => {
+                *selected_index = (*selected_index + 1) % 10;
+            }
+            Some(UiKey::Enter) => {
+                session.add_input(selected_index.to_string());
             }
             _ => {}
         },
@@ -60,35 +96,29 @@ pub fn handle(
     let Lobby::ChoosingDifficulty {
         prompt_printed,
         choice_sent,
+        selected_index,
     } = lobby_state
     else {
         unreachable!();
     };
 
-    if let Some(next_state) = enqueue_difficulty_input(session, ui, *choice_sent) {
+    if let Some(next_state) = handle_difficulty_input(session, ui, *choice_sent, selected_index) {
         return Some(next_state);
     }
 
     if !*prompt_printed && !*choice_sent {
         ui.show_message("Server: What manner of maze will it be?");
         ui.show_message(" ");
-        ui.show_message_with_color("  0. Four-Quadrants Binary Tree (trivial)", Color::GREEN);
-        ui.show_message_with_color("  1. Standard Recursive Division (easy)", Color::GREEN);
-        ui.show_message_with_color("  2. Meander (fair)", Color::CHARTREUSE);
-        ui.show_message_with_color(
-            "  3. Territorial Recursive Division (fair to middling)",
-            Color::CHARTREUSE,
-        );
-        ui.show_message_with_color("  4. Hecate's Key (middling)", Color::CHARTREUSE);
-        ui.show_message_with_color("  5. Prim (middling hard)", Color::YELLOW);
-        ui.show_message_with_color("  6. Kruskal (hard)", Color::YELLOW);
-        ui.show_message_with_color("  7. Drunkard's Walk (Herculean)", Color::ORANGE);
-        ui.show_message_with_color("  8. Backtracker (Sisyphean)", Color::ORANGE);
-        ui.show_message_with_color("  9. Wilson (next level)", Color::RED);
-        ui.show_message(" ");
-
-        ui.show_prompt("Pick a number.");
+        let menu_lines = format_menu_lines(*selected_index);
+        for (line, color) in &menu_lines {
+            ui.show_message_with_color(line, *color);
+        }
         *prompt_printed = true;
+    }
+
+    if *prompt_printed && !*choice_sent {
+        let menu_lines = format_menu_lines(*selected_index);
+        ui.replace_last_messages(12, menu_lines);
     }
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
@@ -107,6 +137,7 @@ pub fn handle(
                 return Some(ClientState::Lobby(Lobby::ChoosingDifficulty {
                     prompt_printed: false,
                     choice_sent: false,
+                    selected_index: 0,
                 }));
             }
             Ok((_, _)) => {}
@@ -117,31 +148,12 @@ pub fn handle(
         }
     }
 
-    // Check if choice was already sent via lobby_state.
     let choice_already_sent = *choice_sent;
 
     if !choice_already_sent {
         if let Some(input) = session.take_input() {
             let trimmed = input.trim();
-            let level = match trimmed {
-                "0" => Some(0),
-                "1" => Some(1),
-                "2" => Some(2),
-                "3" => Some(3),
-                "4" => Some(4),
-                "5" => Some(5),
-                "6" => Some(6),
-                "7" => Some(7),
-                "8" => Some(8),
-                "9" => Some(9),
-                _ => {
-                    ui.show_typed_error(
-                        UiErrorKind::DifficultyInvalidChoice,
-                        INVALID_CHOICE_MESSAGE,
-                    );
-                    None
-                }
-            };
+            let level = trimmed.parse::<u8>().ok().filter(|&l| l < 10);
 
             if let Some(level) = level {
                 let msg = ClientMessage::SetDifficulty(level);
@@ -152,6 +164,7 @@ pub fn handle(
                 return Some(ClientState::Lobby(Lobby::ChoosingDifficulty {
                     prompt_printed: *prompt_printed,
                     choice_sent: true,
+                    selected_index: *selected_index,
                 }));
             }
         } else {
@@ -192,6 +205,7 @@ mod tests {
         session.transition(ClientState::Lobby(Lobby::ChoosingDifficulty {
             prompt_printed: false,
             choice_sent: false,
+            selected_index: 0,
         }));
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
@@ -217,12 +231,13 @@ mod tests {
         session.transition(ClientState::Lobby(Lobby::ChoosingDifficulty {
             prompt_printed: true,
             choice_sent: true,
+            selected_index: 0,
         }));
 
         let mut ui = MockUi::default();
         let mut network = MockNetwork::new();
         network.queue_server_message(ServerMessage::ServerInfo {
-            message: INVALID_CHOICE_MESSAGE.to_string(),
+            message: "Invalid choice.".to_string(),
         });
 
         let _next_state = {
@@ -241,7 +256,8 @@ mod tests {
                 _next_state,
                 Some(ClientState::Lobby(Lobby::ChoosingDifficulty {
                     prompt_printed: false,
-                    choice_sent: false
+                    choice_sent: false,
+                    selected_index: 0
                 }))
             ),
             "state should reset prompt_printed and choice_sent to false"
@@ -260,10 +276,11 @@ mod tests {
         session.transition(ClientState::Lobby(Lobby::ChoosingDifficulty {
             prompt_printed: true,
             choice_sent: false,
+            selected_index: 2,
         }));
 
         let mut ui = MockUi::default();
-        ui.keys.push_back(Ok(Some(UiKey::Char('2'))));
+        ui.keys.push_back(Ok(Some(UiKey::Enter)));
         let mut network = MockNetwork::new();
 
         let _next_state = {
@@ -285,7 +302,7 @@ mod tests {
                     ..
                 }))
             ),
-            "choice should be marked as sent after pressing a key"
+            "choice should be marked as sent after pressing Enter"
         );
 
         let (channel, payload) = network
@@ -304,6 +321,7 @@ mod tests {
         session.transition(ClientState::Lobby(Lobby::ChoosingDifficulty {
             prompt_printed: true,
             choice_sent: false,
+            selected_index: 0,
         }));
 
         let mut ui = MockUi::default();

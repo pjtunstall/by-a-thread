@@ -36,6 +36,7 @@ pub enum Lobby {
     ChoosingDifficulty {
         prompt_printed: bool,
         choice_sent: bool,
+        selected_index: u8,
     },
 }
 
@@ -96,10 +97,12 @@ impl std::fmt::Debug for Lobby {
             Lobby::ChoosingDifficulty {
                 prompt_printed,
                 choice_sent,
+                selected_index,
             } => f
                 .debug_struct("ChoosingDifficulty")
                 .field("prompt_printed", prompt_printed)
                 .field("choice_sent", choice_sent)
+                .field("selected_index", selected_index)
                 .finish(),
         }
     }

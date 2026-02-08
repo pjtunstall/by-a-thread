@@ -5,6 +5,8 @@ pub enum UiKey {
     Backspace,
     Esc,
     Tab,
+    Up,
+    Down,
 }
 
 pub fn sanitize(input: &str) -> String {

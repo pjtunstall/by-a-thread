@@ -98,6 +98,23 @@ impl LobbyUi for MockUi {
         self.keys.pop_front().unwrap_or(Ok(None))
     }
 
+    fn replace_last_messages(
+        &mut self,
+        count: usize,
+        replacement: Vec<(String, common::player::Color)>,
+    ) {
+        let prompt_count = (count > 0 && !self.prompts.is_empty()) as usize;
+        let message_count = count.saturating_sub(prompt_count);
+        let truncate_len = self.messages.len().saturating_sub(message_count);
+        self.messages.truncate(truncate_len);
+        for _ in 0..prompt_count {
+            self.prompts.pop();
+        }
+        for (message, _color) in replacement {
+            self.messages.push(message);
+        }
+    }
+
     fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr) {
         self.messages.push(format!(
             "Client Banner: Protocol={}, Server={}",

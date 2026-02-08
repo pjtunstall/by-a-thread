@@ -429,6 +429,15 @@ impl LobbyUi for Gui {
         self.add_history(message, text_color);
     }
 
+    fn replace_last_messages(&mut self, count: usize, replacement: Vec<(String, PlayerColor)>) {
+        let truncate_len = self.message_history.len().saturating_sub(count);
+        self.message_history.truncate(truncate_len);
+        for (message, color) in replacement {
+            let text_color = player_color_to_text_color(color);
+            self.add_history(&message, text_color);
+        }
+    }
+
     fn set_local_player_color(&mut self, color: PlayerColor) {
         self.local_player_color = Some(color);
     }
@@ -631,6 +640,8 @@ impl LobbyUi for Gui {
                 KeyCode::Backspace => Some(UiKey::Backspace),
                 KeyCode::Escape => Some(UiKey::Esc),
                 KeyCode::Tab => Some(UiKey::Tab),
+                KeyCode::Up => Some(UiKey::Up),
+                KeyCode::Down => Some(UiKey::Down),
                 _ => {
                     if let Some(char_code) = get_char_pressed() {
                         Some(UiKey::Char(char_code as char))
