@@ -6,20 +6,20 @@ use rand::prelude::{IndexedRandom, Rng, ThreadRng};
 
 use algorithms::{
     backtrack::Backtrack, binary_tree::BinaryTree, blobby::Blobby, division::RecursiveDivision,
-    kruskal::Kruskal, prim::Prim, voronoi::GrowthStrategy, wilson::Wilson,
+    kruskal::Kruskal, prim::Prim, twiggy::GrowthStrategy, wilson::Wilson,
 };
 
 pub enum Algorithm {
     RecursiveDivision, // Easiest: classic recursive division.
     Backtrack,         // Easy: more long corridors.
-    VoronoiStack,      // Winding/snake-like (DFS).
+    TwiggyStack,       // Winding/snake-like (DFS).
     BinaryTree,        // Four quadrants: fewer long corridors.
     Wilson,            // Medium: unbiased.
     Kruskal,           // Hard: more dead ends.
     Blobby,            // Blobby recursive division.
-    VoronoiRandom,     // Fractal/dendritic.
+    TwiggyRandom,      // Fractal/dendritic.
     Prim,              // Hard: more dead ends.
-    VoronoiQueue,      // Geometric/round (BFS).
+    TwiggyQueue,       // Geometric/round (BFS).
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -99,14 +99,14 @@ impl MazeMaker {
         match generator {
             Algorithm::RecursiveDivision => maze.recursive_division(),
             Algorithm::Backtrack => maze.backtrack(),
-            Algorithm::VoronoiStack => maze.voronoi(GrowthStrategy::Stack),
+            Algorithm::TwiggyStack => maze.twiggy(GrowthStrategy::Stack),
             Algorithm::BinaryTree => maze.binary_tree(),
             Algorithm::Wilson => maze.wilson(),
             Algorithm::Kruskal => maze.kruskal(),
             Algorithm::Blobby => maze.blobby(),
-            Algorithm::VoronoiRandom => maze.voronoi(GrowthStrategy::Random),
+            Algorithm::TwiggyRandom => maze.twiggy(GrowthStrategy::Random),
             Algorithm::Prim => maze.prim(),
-            Algorithm::VoronoiQueue => maze.voronoi(GrowthStrategy::Queue),
+            Algorithm::TwiggyQueue => maze.twiggy(GrowthStrategy::Queue),
         }
         maze
     }

@@ -12,7 +12,7 @@ pub enum GrowthStrategy {
 }
 
 impl MazeMaker {
-    pub fn voronoi(&mut self, strategy: GrowthStrategy) {
+    pub fn twiggy(&mut self, strategy: GrowthStrategy) {
         // Initialize grid cells as all walls.
         for row in self.grid.iter_mut() {
             for cell in row.iter_mut() {

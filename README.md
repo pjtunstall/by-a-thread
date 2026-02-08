@@ -89,14 +89,14 @@ I've chosen rank my mazes in terms of actual ease of navigation rather than tend
 | --- | --- | --- |
 | 0 | Four-Quadrants Binary Tree | Standard Recursive Division (~11%) |
 | 1 | Standard Recursive Division | Randomized Backtracker (~13%) |
-| 2 | Starburst / Voronoi Queue | Blobby Recursive Division (~18%) |
-| 3 | Blobby Recursive Division | Voronoi Stack (~22%) |
-| 4 | Voronoi Stack | Wilson (~28%) |
+| 2 | Starburst / Twiggy Queue | Blobby Recursive Division (~18%) |
+| 3 | Blobby Recursive Division | Twiggy Stack (~22%) |
+| 4 | Twiggy Stack | Wilson (~28%) |
 | 5 | Prim | Kruskal (~38%) |
 | 6 | Kruskal | Prim (~48%) |
-| 7 | Voronoi Random | Voronoi Random (~50%) |
+| 7 | Twiggy Random | Twiggy Random (~50%) |
 | 8 | Randomized Backtracker | Four-Quadrants Binary Tree (50% Fixed) |
-| 9 | Wilson | Starburst / Voronoi Queue (50%+) |
+| 9 | Wilson | Starburst / Twiggy Queue (50%+) |
 
 Percentages from Gemini, so take them with a pinch of salt. I haven't found a proof or experimental evidence for all of them yet. Gemini vacilates over whether recursive division or randomized backtracker has fewest dead ends, but rankings don't shuffle wildly between responses. Its figures are roughly consistent with those that I have found, e.g. Mane et al. report DFS (i.e. Backtracker): 10.0, Wilson: 30.0, Kruskal: 30.6, Prim: 35.5.[^1] Their ranking of these algorithms in terms of difficulty also matches Gemini's.
 

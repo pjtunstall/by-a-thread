@@ -4,5 +4,5 @@ pub mod blobby;
 pub mod division;
 pub mod kruskal;
 pub mod prim;
-pub mod voronoi;
+pub mod twiggy;
 pub mod wilson;

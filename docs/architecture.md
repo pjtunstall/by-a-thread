@@ -159,7 +159,7 @@ common/src/
 │   │   │   ├── division.rs
 │   │   │   ├── kruskal.rs
 │   │   │   ├── prim.rs
-│   │   │   ├── voronoi.rs
+│   │   │   ├── twiggy.rs
 │   │   │   ├── wilson.rs
 │   │   │   └── algorithms.rs
 │   │   └── maker.rs

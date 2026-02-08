@@ -396,14 +396,14 @@ mod tests {
         match i {
             0 => Algorithm::RecursiveDivision,
             1 => Algorithm::Backtrack,
-            2 => Algorithm::VoronoiStack,
+            2 => Algorithm::TwiggyStack,
             3 => Algorithm::BinaryTree,
             4 => Algorithm::Wilson,
             5 => Algorithm::Kruskal,
             6 => Algorithm::Blobby,
-            7 => Algorithm::VoronoiRandom,
+            7 => Algorithm::TwiggyRandom,
             8 => Algorithm::Prim,
-            _ => Algorithm::VoronoiQueue,
+            _ => Algorithm::TwiggyQueue,
         }
     }
 
@@ -464,25 +464,25 @@ mod tests {
     }
 
     #[test]
-    fn test_voronoi_stack_all_spaces_are_connected() {
+    fn test_twiggy_stack_all_spaces_are_connected() {
         for _ in 0..64 {
-            let maze = Maze::new(Algorithm::VoronoiStack);
+            let maze = Maze::new(Algorithm::TwiggyStack);
             assert_all_spaces_are_connected(&maze);
         }
     }
 
     #[test]
-    fn test_voronoi_random_all_spaces_are_connected() {
+    fn test_twiggy_random_all_spaces_are_connected() {
         for _ in 0..64 {
-            let maze = Maze::new(Algorithm::VoronoiRandom);
+            let maze = Maze::new(Algorithm::TwiggyRandom);
             assert_all_spaces_are_connected(&maze);
         }
     }
 
     #[test]
-    fn test_voronoi_queue_all_spaces_are_connected() {
+    fn test_twiggy_queue_all_spaces_are_connected() {
         for _ in 0..64 {
-            let maze = Maze::new(Algorithm::VoronoiQueue);
+            let maze = Maze::new(Algorithm::TwiggyQueue);
             assert_all_spaces_are_connected(&maze);
         }
     }
