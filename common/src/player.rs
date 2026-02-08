@@ -351,6 +351,12 @@ pub enum Color {
     SKYBLUE,
     CHARTREUSE,
     WHITE,
+    PaleGreen,
+    PaleChartreuse,
+    PaleYellow,
+    PaleOrange,
+    PaleRed,
+    LightGray,
 }
 
 pub const COLORS: [Color; 10] = [

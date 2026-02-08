@@ -18,6 +18,17 @@ use common::{
     protocol::{ClientMessage, ServerMessage},
 };
 
+fn pale_for_difficulty(color: Color) -> Color {
+    match color {
+        Color::GREEN => Color::PaleGreen,
+        Color::CHARTREUSE => Color::PaleChartreuse,
+        Color::YELLOW => Color::PaleYellow,
+        Color::ORANGE => Color::PaleOrange,
+        Color::RED => Color::PaleRed,
+        _ => color,
+    }
+}
+
 const MENU_ITEMS: &[(&str, Color)] = &[
     ("Four-Quadrants Binary Tree (trivial)", Color::GREEN),
     ("Standard Recursive Division (easy)", Color::GREEN),
@@ -43,7 +54,7 @@ fn format_menu_lines(selected_index: u8) -> Vec<(String, Color)> {
             "    "
         };
         let line_color = if i == selected_index as usize {
-            Color::WHITE
+            pale_for_difficulty(*color)
         } else {
             *color
         };
@@ -52,7 +63,7 @@ fn format_menu_lines(selected_index: u8) -> Vec<(String, Color)> {
     lines.push((" ".to_string(), Color::CHARTREUSE));
     lines.push((
         "Use up/down arrows to select, Enter to confirm.".to_string(),
-        Color::CHARTREUSE,
+        Color::LightGray,
     ));
     lines
 }
