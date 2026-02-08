@@ -1,0 +1,10 @@
+---
+description: Modern Rust conventions
+globs: "**/*.rs"
+alwaysApply: false
+---
+
+# Rust
+
+- Use the 2024 edition.
+- Use modern module structure, i.e. no `mod.rs` files.

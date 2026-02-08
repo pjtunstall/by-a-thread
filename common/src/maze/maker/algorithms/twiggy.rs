@@ -2,14 +2,7 @@ use std::collections::{HashSet, VecDeque};
 
 use rand::Rng;
 
-use super::super::MazeMaker;
-
-#[derive(Clone, Copy)]
-pub enum GrowthStrategy {
-    Random,
-    Queue,
-    Stack,
-}
+use super::{super::MazeMaker, GrowthStrategy};
 
 impl MazeMaker {
     pub fn twiggy(&mut self, strategy: GrowthStrategy) {

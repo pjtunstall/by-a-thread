@@ -1,0 +1,9 @@
+---
+description: Markdown style
+globs: "**/*.md"
+alwaysApply: false
+---
+
+# Markdown
+
+- Headings: first letter of first word uppercase, other words not automatically capitalized.

@@ -6,3 +6,10 @@ pub mod kruskal;
 pub mod prim;
 pub mod twiggy;
 pub mod wilson;
+
+#[derive(Clone, Copy)]
+pub enum GrowthStrategy {
+    Random,
+    Queue,
+    Stack,
+}

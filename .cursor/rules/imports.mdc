@@ -1,0 +1,10 @@
+---
+description: Import grouping and ordering
+globs: "**/*.rs"
+alwaysApply: false
+---
+
+# Imports
+
+- Group imports in curly braces, e.g. `use std::{collections::HashMap, io::Result};`.
+- Group imports into paragraphs by category (standard library first, then external crates, then local modules) with an empty line between each paragraph.

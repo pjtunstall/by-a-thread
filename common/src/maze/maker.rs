@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use rand::prelude::{IndexedRandom, Rng, ThreadRng};
 
 use algorithms::{
-    backtrack::Backtrack, binary_tree::BinaryTree, blobby::Blobby, division::RecursiveDivision,
-    kruskal::Kruskal, prim::Prim, twiggy::GrowthStrategy, wilson::Wilson,
+    GrowthStrategy, backtrack::Backtrack, binary_tree::BinaryTree, blobby::Blobby,
+    division::RecursiveDivision, kruskal::Kruskal, prim::Prim, wilson::Wilson,
 };
 
 pub enum Algorithm {
@@ -103,7 +103,7 @@ impl MazeMaker {
             Algorithm::BinaryTree => maze.binary_tree(),
             Algorithm::Wilson => maze.wilson(),
             Algorithm::Kruskal => maze.kruskal(),
-            Algorithm::Blobby => maze.blobby(),
+            Algorithm::Blobby => maze.blobby(GrowthStrategy::Random),
             Algorithm::TwiggyRandom => maze.twiggy(GrowthStrategy::Random),
             Algorithm::Prim => maze.prim(),
             Algorithm::TwiggyQueue => maze.twiggy(GrowthStrategy::Queue),

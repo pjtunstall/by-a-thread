@@ -1,8 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use rand::Rng;
 
-use super::super::MazeMaker;
+use super::{super::MazeMaker, GrowthStrategy};
 
 const MIN_REGION_SIZE: usize = 1;
 
@@ -13,11 +13,11 @@ enum Team {
 }
 
 pub trait Blobby {
-    fn blobby(&mut self);
+    fn blobby(&mut self, strategy: GrowthStrategy);
 }
 
 impl Blobby for MazeMaker {
-    fn blobby(&mut self) {
+    fn blobby(&mut self, strategy: GrowthStrategy) {
         for row in self.grid.iter_mut() {
             for cell in row.iter_mut() {
                 *cell = 0;
@@ -42,12 +42,12 @@ impl Blobby for MazeMaker {
             }
         }
 
-        self.blobby_divide(region);
+        self.blobby_divide(region, strategy);
     }
 }
 
 impl MazeMaker {
-    fn blobby_divide(&mut self, region: Vec<(usize, usize)>) {
+    fn blobby_divide(&mut self, region: Vec<(usize, usize)>, strategy: GrowthStrategy) {
         if region.len() <= MIN_REGION_SIZE {
             return;
         }
@@ -66,18 +66,22 @@ impl MazeMaker {
 
         let mut labels = HashMap::<(usize, usize), Team>::new();
         let mut unlabeled = region_set.clone();
-        let mut frontier = Vec::new();
+        let mut frontier = VecDeque::new();
 
         labels.insert(seed_a, Team::A);
         labels.insert(seed_b, Team::B);
         unlabeled.remove(&seed_a);
         unlabeled.remove(&seed_b);
-        frontier.push((seed_a, Team::A));
-        frontier.push((seed_b, Team::B));
+        frontier.push_back((seed_a, Team::A));
+        frontier.push_back((seed_b, Team::B));
 
         while !unlabeled.is_empty() && !frontier.is_empty() {
-            let i = rng.random_range(0..frontier.len());
-            let ((cz, cx), team_label) = frontier.swap_remove(i);
+            let index = match strategy {
+                GrowthStrategy::Random => rng.random_range(0..frontier.len()),
+                GrowthStrategy::Queue => 0,
+                GrowthStrategy::Stack => frontier.len() - 1,
+            };
+            let ((cz, cx), team_label) = frontier.remove(index).unwrap();
 
             for (dz, dx) in [(0, 2), (0, -2), (2, 0), (-2, 0)] {
                 let nz = (cz as isize + dz) as usize;
@@ -88,7 +92,7 @@ impl MazeMaker {
                 }
 
                 labels.insert((nz, nx), team_label);
-                frontier.push(((nz, nx), team_label));
+                frontier.push_back(((nz, nx), team_label));
             }
         }
 
@@ -135,7 +139,7 @@ impl MazeMaker {
             }
         }
 
-        self.blobby_divide(region_a);
-        self.blobby_divide(region_b);
+        self.blobby_divide(region_a, strategy);
+        self.blobby_divide(region_b, strategy);
     }
 }
