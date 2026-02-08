@@ -35,6 +35,7 @@ fn player_color_to_text_color(color: PlayerColor) -> Color {
         PlayerColor::PURPLE => PURPLE,
         PlayerColor::SKYBLUE => SKYBLUE,
         PlayerColor::CHARTREUSE => Color::from_rgba(190, 220, 60, 255),
+        PlayerColor::WHITE => WHITE,
     }
 }
 

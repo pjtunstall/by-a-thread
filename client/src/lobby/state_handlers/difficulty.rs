@@ -42,7 +42,12 @@ fn format_menu_lines(selected_index: u8) -> Vec<(String, Color)> {
         } else {
             "    "
         };
-        lines.push((format!("{}{}", prefix, label), *color));
+        let line_color = if i == selected_index as usize {
+            Color::WHITE
+        } else {
+            *color
+        };
+        lines.push((format!("{}{}", prefix, label), line_color));
     }
     lines.push((" ".to_string(), Color::CHARTREUSE));
     lines.push((
