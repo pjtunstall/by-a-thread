@@ -5,24 +5,26 @@
 
 ## Development
 
-Currently, as a shortcut during development, the client imports (what should be) a private key from the `common` package and uses it to create the token needed to establish a Renet connection with the server. The server logs a random passcode to the terminal, different each game. This can be shared with any players who want to join the game. The first to join is designated the host, which just means they get to choose the difficulty level, triggering the start of the game itself.
+I've used a simplified security system as a placeholder during development. The client imports (what should be) a private key from the `common` package and uses it to create the token needed to establish a Renet connection with the server. The server logs a random passcode to the terminal, different each game. This can be shared with any players who want to join the game. The first to join is designated the host, which just means they get to choose the difficulty level, triggering the start of the game itself.
+
+While players are joining, the others can chat in a lobby.
+
+If the host disconnects, another player is promoted to host. The server exits if all players disconnect, there's been no activity in a lobby phase for five minutes, or the game has been played and ended naturally.
 
 ## Production
 
-Clearly this is not sufficient for a public game. In production, my plan is to create a matchmaker that will be responsible for managing game sessions.[^1] It will launch game servers in response to HTTPS requests and clean them up when they are no longer needed.
+For production, my plan is to create a matchmaker that will be responsible for managing game sessions. (By matchmaker, here, I just mean a program for launching games to be played among groups of friends, rather than a matchmaker in the strict sense of matching strangers.)
 
-A would-be host will request a game from the matchmaker via HTTPS. If a slot is available (i.e. not too many games or players are already playing), the matchmaker will create two ephereral (i.e. per game) random secrets for the game server: a private key and a reporting token.[^2] The private key is for the game server to decrypt messages from clients. The reporting token is for the game server to identify itself when it reports back to the matchmaker. The matchmaker will launch an instance of the game server in a dedicated container,[^3] passing these secrets to it privately on HTTP via a Docker bridge network.
-
-Meanwhile, the matchmaker will generate a connect token from the private key and pass this, along with the game's port number and an ephemeral passcode, unique to the game, to the host.
+A would-be host will request a game for _n_ players from the matchmaker via HTTPS. The matchmaker will check if it can grant the request based on limits on the number of existing players, games, and CPU-usage. If a slot is available, the matchmaker will launch a new game server in a Docker container, assigning it a port number from a pool.[^1] The matchmaker will generate a short, random passcode, and use the server's address and other data to generate a private key for encrypted and authenticated communication during the game. It will generate _n_ connect tokens from the private key and send one to the host along with the passcode and port number. Meanwhile, it will send the private key to the server by HTTP over a Docker bridge network.
 
 When the host receives this data, they will automatically connect to the game server using the connect token and port number. As this client is the first player to connect, the server will mark them as the host. The host can then share the passcode with friends.
 
-Now the other players can send the passcode to the matchmaker via HTTPS. If it's valid, the matchmaker will reply with the connect token and port. They'll use these to connect to the game server, which will admit them provided the token is valid, there's less than the maximum number of players, and the game has not begun yet.
+Now the other players can send the passcode to the matchmaker via HTTPS. If it's valid, and if there are still connect tokens left for this game, the matchmaker will reply with the connect token and port. They'll use these to connect to the game server, which will admit them provided the token is valid and the game has not begun yet.
 
-When the host has chosen a difficulty level and sent it to the game server, latter will report to the matchmaker via the Docker bridge network, identifying itself with the reporting token. This will allow the matchmaker to update the game's status to "in progress". Once the matchmaker has sent an acknowledgement back to the server, the latter can proceed with the game proper.
+The lobby phase of the game will have a time limit, after which the matchmaker will no longer hold onto unclaimed connect tokens. The timer will be shown to players in the GUI so that they know how long they have to start the game. The game proper will begin when the host initiates it or the timer expires.
 
-[^1]: For the purposes of this document, the matchmaker is just a program for launching games to be played among groups of friends, rather than a matchmaker in the strict sense of matching strangers.
+The game itself has a timer. Currently the server exits when it ends and the leaderboard has been shown. I might let it continue a few minutes more for players to chat in the after-game lobby.
 
-[^2]: While the matchmaker could infer the identity of the game server instance from its IP on the bridge network, that would tie the design to Docker's networking. A dedicated reporting token would allow for a proxy or a different topology. Alternatively, the game server could send the container ID, but that's more guessable than a secure random token.
+## Footnotes
 
-[^3]: The matchmaker's access to Docker will be mediated by a Docker socket proxy. This is because an attacker who finds a vulnerability in the matchmaker could launch a privileged container and thereby gain root access to the host. The raw Docker socket will be mounted into the proxy, which can accept desired commands (like `start container`) and block dangerous ones (like `mount volume` or `delete system`).
+[^1]: The matchmaker's access to Docker will be mediated by a Docker socket proxy. This is because an attacker who finds a vulnerability in the matchmaker could launch a privileged container and thereby gain root access to the host. The raw Docker socket will be mounted into the proxy, which can accept desired commands (like `start container`) and block dangerous ones (like `mount volume` or `delete system`).
