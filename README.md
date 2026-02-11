@@ -28,7 +28,7 @@ For more on the structure of my project, see [Architecture](docs/architecture.md
 
 ## Status
 
-Successfully tested on VPS with the client on Ubuntu and on Windows; macOS (Intel and Apple Silicon) in the works. Currently designing a matchmaker to support concurrent sessions.
+Successfully tested on VPS with the client on Ubuntu and on Windows; macOS (Intel and Apple Silicon) in the works. Currently designing a matchmaker to support concurrent sessions. See [Online plan](#online-plan).
 
 ## Spec
 
@@ -69,9 +69,18 @@ The game is not yet publicly online. Proper matches will have to wait till then.
 
 ### Locally
 
-Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/install/) and run `cargo run --release -p server` in one terminal. For each player, open another terminal and run `cargo run --release -p client`. Then follow the prompts.
+Clone this repo, `cd` into it. Create a file named `.env` in the workspace root of the form:
 
-As a shortcut, you can press Tab to connect to localhost. When connecting to a remote server, the client gets IP and PORT as environment variables from a `.env` file.
+```txt
+IP=203.0.113.42
+PORT=5000
+```
+
+where `203.0.113.42` is a placeholder for the IP address of a default server. When hosted, this will be the actual IP address of the server. If running locally, it won't be used, so can be any valid IPv4 address.
+
+Install [Rust](https://rust-lang.org/tools/install/) and run `cargo run --release -p server` in one terminal. For each player, open another terminal and run `cargo run --release -p client`. Then follow the prompts.
+
+As a shortcut, you can press Tab to connect to localhost.
 
 The passcode will appear in the server terminal.
 
@@ -100,7 +109,7 @@ I've chosen rank my mazes in terms of actual ease of navigation rather than tend
 
 My Territorial Recursive Division is Jamis Buck's [Better Recursive Division Algorithm](https://weblog.jamisbuck.org/2015/1/15/better-recursive-division-algorithm.html).
 
-Percentages from Gemini, so take them with a pinch of salt. I haven't found a proof or experimental evidence for all of them yet. Gemini vacilates over whether recursive division or randomized backtracker has fewest dead ends, but rankings don't shuffle wildly between responses. Its figures are roughly consistent with those that I have found, e.g. Mane et al. report DFS (i.e. Backtracker): 10.0, Wilson: 30.0, Kruskal: 30.6, Prim: 35.5.[^2] Their ranking of these algorithms in terms of difficulty also matches Gemini's.
+Percentages from Gemini, so take them with a pinch of salt. I haven't found a proof or experimental evidence for all of them yet. Gemini vacilates over whether recursive division or randomized backtracker has fewest dead ends, but the rankings don't shuffle wildly between responses. Its figures are roughly consistent with those that I have found, e.g. Mane et al. report DFS (i.e. Backtracker): 10.0, Wilson: 30.0, Kruskal: 30.6, Prim: 35.5.[^2] Their ranking of these algorithms in terms of difficulty also matches Gemini's.
 
 ## Links
 
