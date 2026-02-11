@@ -11,4 +11,4 @@ if grep -q 'fullscreen: false,' "$MAIN_RS"; then
     sed 's|fullscreen: false,|fullscreen: true,|' "$MAIN_RS" > "$MAIN_RS.tmp" && mv "$MAIN_RS.tmp" "$MAIN_RS"
 fi
 
-exec "$@"
+"$@"
