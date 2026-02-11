@@ -15,7 +15,7 @@ If the host disconnects, another player is promoted to host. The server exits if
 
 For production, my plan is to create a matchmaker that will be responsible for managing game sessions. (By matchmaker, here, I just mean a program for launching games to be played among groups of friends, rather than a matchmaker in the strict sense of matching strangers.)
 
-A would-be host will request a game for _n_ players from the matchmaker via HTTPS. The matchmaker will check if it can grant the request based on limits on the number of existing players, games, and CPU-usage. If a slot is available, the matchmaker will launch a new game server in a Docker container, assigning it a port number from a pool.[^1] The matchmaker will generate a short, random passcode, and use the server's address and other data to generate a private key for encrypted and authenticated communication during the game. It will generate _n_ connect tokens from the private key and send one to the host along with the passcode and port number. Meanwhile, it will send the private key to the server by HTTP over a Docker bridge network.
+A would-be host will request a game for _n_ players from the matchmaker via HTTPS.[^1] The matchmaker will check if it can grant the request based on limits on the number of existing players, games, and CPU-usage. If a slot is available, the matchmaker will launch a new game server in a Docker container, assigning it a port number from a pool.[^2] The matchmaker will generate a short, random passcode, and use the server's address and other data to generate a private key for encrypted and authenticated communication during the game. It will generate _n_ connect tokens from the private key and send one to the host along with the passcode and port number. Meanwhile, it will send the private key to the server by HTTP over a Docker bridge network.
 
 When the host receives this data, they will automatically connect to the game server using the connect token and port number. As this client is the first player to connect, the server will mark them as the host. The host can then share the passcode with friends.
 
@@ -27,4 +27,6 @@ The game itself has a timer. Currently the server exits when it ends and the lea
 
 ## Footnotes
 
-[^1]: The matchmaker's access to Docker will be mediated by a Docker socket proxy. This is because an attacker who finds a vulnerability in the matchmaker could launch a privileged container and thereby gain root access to the host. The raw Docker socket will be mounted into the proxy, which can accept desired commands (like `start container`) and block dangerous ones (like `mount volume` or `delete system`).
+[^1]: Via a reverse proxy, Caddy, which will also take care of TLS certificates.
+
+[^2]: The matchmaker's access to Docker will be mediated by a Docker socket proxy. This is because an attacker who finds a vulnerability in the matchmaker could launch a privileged container and thereby gain root access to the host. The raw Docker socket will be mounted into the proxy, which can accept desired commands (like `start container`) and block dangerous ones (like `mount volume` or `delete system`).
