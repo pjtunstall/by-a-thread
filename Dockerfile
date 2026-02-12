@@ -16,7 +16,12 @@ RUN cargo install --path ./server
 
 FROM debian:bookworm-slim
 
+RUN useradd -r -s /bin/false serveruser
+
 COPY --from=builder /usr/local/cargo/bin/server /usr/local/bin/server
+
+USER serveruser
+
 WORKDIR /usr/local/bin
 
 CMD ["server"]

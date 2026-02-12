@@ -63,6 +63,11 @@ And run the server container:
 docker run -d \
  --name server-container \
  --rm \
+ --read-only \
+ --cap-drop ALL \
+ --security-opt no-new-privileges \
+ --cpus 0.4 \
+ --pids-limit 256 \
  -e IP=$(curl -s http://169.254.169.254/hetzner/v1/metadata/public-ipv4) \
  -p 5000:5000/udp \
  server-image

@@ -110,7 +110,7 @@ docker: $(DOCKER_SENTINEL)
 #
 deploy-hetzner: $(DOCKER_SENTINEL) | check-deploy
 	docker save server-image | gzip | ssh hetzner 'gunzip | docker load'
-	ssh hetzner 'docker stop server-container 2>/dev/null; docker rm server-container 2>/dev/null; docker run -d --name server-container --rm -e IP=$$(curl -s http://169.254.169.254/hetzner/v1/metadata/public-ipv4) -p 5000:5000/udp server-image'
+	ssh hetzner 'docker stop server-container 2>/dev/null; docker rm server-container 2>/dev/null; docker run -d --name server-container --rm --read-only --cap-drop ALL --security-opt no-new-privileges --cpus 0.4 --pids-limit 256 -e IP=$$(curl -s http://169.254.169.254/hetzner/v1/metadata/public-ipv4) -p 5000:5000/udp server-image'
 	ssh hetzner 'docker logs server-container'
 
 # --- Windows executable and zip ---
