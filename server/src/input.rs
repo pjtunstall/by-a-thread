@@ -7,7 +7,7 @@ use bincode::{config::standard, serde::decode_from_slice};
 use rand::{rng, seq::SliceRandom};
 
 use crate::{net::ServerNetworkHandle, player::ServerPlayer, state::Game};
-use common::{net::AppChannel, protocol::ClientMessage};
+use common::{net::AppChannel, protocol::{ClientMessage, MAX_CLIENT_MESSAGE_BYTES}};
 
 const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
 const MAX_MESSAGES_PER_CLIENT_PER_TICK: u32 = 128;
@@ -85,7 +85,7 @@ pub fn receive_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
                     }
                 }
 
-                let message = match decode_message(&data) {
+                let message = match decode_message(&data, MAX_CLIENT_MESSAGE_BYTES) {
                     Ok(message) => message,
                     Err(error) => {
                         println!("{}", error.message(client_id, &player.name));
@@ -163,6 +163,7 @@ impl TimeBudgetEvent {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum InputError {
     Malformed,
+    Oversized,
     UnknownType,
 }
 
@@ -176,6 +177,7 @@ impl fmt::Display for InputError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             InputError::Malformed => formatter.write_str("sent malformed data"),
+            InputError::Oversized => formatter.write_str("sent an oversized message"),
             InputError::UnknownType => formatter.write_str("sent an unsupported message type"),
         }
     }
@@ -183,7 +185,10 @@ impl fmt::Display for InputError {
 
 impl std::error::Error for InputError {}
 
-fn decode_message(data: &[u8]) -> Result<ClientMessage, InputError> {
+fn decode_message(data: &[u8], max_bytes: usize) -> Result<ClientMessage, InputError> {
+    if data.len() > max_bytes {
+        return Err(InputError::Oversized);
+    }
     decode_from_slice::<ClientMessage, _>(data, standard())
         .map(|(message, _)| message)
         .map_err(|_| InputError::Malformed)

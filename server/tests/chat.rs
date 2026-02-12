@@ -9,7 +9,7 @@ use renet::{ChannelConfig, ClientNotFound, ConnectionConfig, RenetServer, SendTy
 use common::{
     auth::Passcode,
     net::AppChannel,
-    protocol::{ClientMessage, ServerMessage},
+    protocol::{ClientMessage, MAX_CLIENT_MESSAGE_BYTES, ServerMessage},
 };
 use server::{
     net::RenetServerNetworkHandle,
@@ -94,7 +94,12 @@ fn chat_messages_are_broadcast_to_other_clients() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        update_server_state(&mut network_handle, &mut state, &passcode, &mut last_activity);
+        update_server_state(
+            &mut network_handle,
+            &mut state,
+            &passcode,
+            &mut last_activity,
+        );
     }
 
     full_tick(&mut server, &mut alice, &mut bob);
@@ -118,7 +123,12 @@ fn chat_messages_are_broadcast_to_other_clients() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        update_server_state(&mut network_handle, &mut state, &passcode, &mut last_activity);
+        update_server_state(
+            &mut network_handle,
+            &mut state,
+            &passcode,
+            &mut last_activity,
+        );
     }
 
     server.update(Duration::from_millis(16));
@@ -176,7 +186,12 @@ fn players_are_notified_when_others_join_and_leave() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        update_server_state(&mut network_handle, &mut state, &passcode, &mut last_activity);
+        update_server_state(
+            &mut network_handle,
+            &mut state,
+            &passcode,
+            &mut last_activity,
+        );
     }
 
     full_tick(&mut server, &mut alice, &mut bob);
@@ -199,7 +214,12 @@ fn players_are_notified_when_others_join_and_leave() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        update_server_state(&mut network_handle, &mut state, &passcode, &mut last_activity);
+        update_server_state(
+            &mut network_handle,
+            &mut state,
+            &passcode,
+            &mut last_activity,
+        );
     }
 
     server.update(Duration::from_millis(16));
@@ -233,7 +253,12 @@ fn players_are_notified_when_others_join_and_leave() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        update_server_state(&mut network_handle, &mut state, &passcode, &mut last_activity);
+        update_server_state(
+            &mut network_handle,
+            &mut state,
+            &passcode,
+            &mut last_activity,
+        );
     }
 
     server.update(Duration::from_millis(16));
@@ -278,7 +303,12 @@ fn test_handle_messages_username_success_and_broadcast() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        update_server_state(&mut network_handle, &mut state, &passcode, &mut last_activity);
+        update_server_state(
+            &mut network_handle,
+            &mut state,
+            &passcode,
+            &mut last_activity,
+        );
     }
 
     full_tick(&mut server, &mut alice, &mut bob);
@@ -301,7 +331,12 @@ fn test_handle_messages_username_success_and_broadcast() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
-        update_server_state(&mut network_handle, &mut state, &passcode, &mut last_activity);
+        update_server_state(
+            &mut network_handle,
+            &mut state,
+            &passcode,
+            &mut last_activity,
+        );
     }
 
     server.update(Duration::from_millis(16));
@@ -371,4 +406,70 @@ fn test_handle_messages_username_success_and_broadcast() {
     } else {
         panic!("Alice expected UserJoined message, got {:?}", alice_msg);
     }
+}
+
+#[test]
+fn oversized_message_disconnects_client() {
+    let mut server = setup_test_server();
+    let mut state = ServerState::Lobby(Lobby::new());
+    let passcode = empty_passcode();
+    let mut last_activity = Instant::now();
+
+    let alice_id = 1;
+    let bob_id = 2;
+    let mut alice = server.new_local_client(alice_id);
+    let mut bob = server.new_local_client(bob_id);
+
+    full_tick(&mut server, &mut alice, &mut bob);
+
+    {
+        let mut network_handle = RenetServerNetworkHandle {
+            server: &mut server,
+        };
+        update_server_state(
+            &mut network_handle,
+            &mut state,
+            &passcode,
+            &mut last_activity,
+        );
+    }
+
+    full_tick(&mut server, &mut alice, &mut bob);
+
+    if let ServerState::Lobby(lobby) = &mut state {
+        lobby.mark_authenticated(alice_id);
+        lobby.register_username(alice_id, "alice");
+        lobby.mark_authenticated(bob_id);
+        lobby.register_username(bob_id, "bob");
+    } else {
+        panic!("state should be Lobby");
+    }
+
+    let oversize_content = "x".repeat(MAX_CLIENT_MESSAGE_BYTES);
+    let msg = ClientMessage::SendChat(oversize_content);
+    let payload = encode_to_vec(&msg, standard()).expect("failed to serialize message");
+    assert!(
+        payload.len() > MAX_CLIENT_MESSAGE_BYTES,
+        "test payload must exceed limit"
+    );
+    alice.send_message(AppChannel::ReliableOrdered, payload);
+
+    full_tick(&mut server, &mut alice, &mut bob);
+
+    {
+        let mut network_handle = RenetServerNetworkHandle {
+            server: &mut server,
+        };
+        update_server_state(
+            &mut network_handle,
+            &mut state,
+            &passcode,
+            &mut last_activity,
+        );
+    }
+
+    assert!(
+        !server.clients_id().contains(&alice_id),
+        "Alice should be disconnected for oversized message"
+    );
 }

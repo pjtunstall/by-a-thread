@@ -8,6 +8,8 @@ use crate::{
     snapshot::{InitialData, Snapshot},
 };
 
+pub const MAX_CLIENT_MESSAGE_BYTES: usize = 512;
+
 pub const AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE: &str =
     "Incorrect passcode. Disconnecting.";
 pub const AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE: &str = "Incorrect passcode. Try again.";

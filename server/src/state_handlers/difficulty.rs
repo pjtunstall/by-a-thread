@@ -13,7 +13,9 @@ use common::{
     self,
     chat::MAX_CHAT_MESSAGE_BYTES,
     net::AppChannel,
-    protocol::{ClientMessage, GAME_ALREADY_STARTED_MESSAGE, ServerMessage},
+    protocol::{
+        ClientMessage, GAME_ALREADY_STARTED_MESSAGE, MAX_CLIENT_MESSAGE_BYTES, ServerMessage,
+    },
     snapshot::InitialData,
 };
 
@@ -31,6 +33,14 @@ pub fn handle(
         while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
             *last_activity = Instant::now();
 
+            if data.len() > MAX_CLIENT_MESSAGE_BYTES {
+                eprintln!(
+                    "client {} sent oversized message; disconnecting them",
+                    client_id
+                );
+                network.disconnect(client_id);
+                continue;
+            }
             let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
                 eprintln!(
                     "client {} sent malformed data; disconnecting them",

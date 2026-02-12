@@ -10,7 +10,7 @@ use crate::{
     state::{ClientState, Lobby},
 };
 use common::{
-    auth::{MAX_ATTEMPTS, Passcode},
+    auth::{MAX_ATTEMPTS, MAX_PASSCODE_LENGTH, Passcode},
     input::sanitize,
     net::AppChannel,
     player::MAX_USERNAME_LENGTH,
@@ -144,8 +144,8 @@ pub fn passcode_prompt(remaining: u8) -> String {
 
 pub fn parse_passcode_input(input: &str) -> Option<Passcode> {
     let s = input.trim();
-    if s.len() == 6 && s.chars().all(|c| c.is_ascii_digit()) {
-        let mut bytes = vec![0u8; 6];
+    if s.len() == MAX_PASSCODE_LENGTH && s.chars().all(|c| c.is_ascii_digit()) {
+        let mut bytes = vec![0u8; MAX_PASSCODE_LENGTH];
         for (i, c) in s.chars().enumerate() {
             bytes[i] = c.to_digit(10).unwrap() as u8;
         }

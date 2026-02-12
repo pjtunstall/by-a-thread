@@ -10,6 +10,7 @@ pub fn private_key() -> [u8; 32] {
 }
 
 pub const MAX_ATTEMPTS: u8 = 3;
+pub const MAX_PASSCODE_LENGTH: usize = 6;
 
 #[derive(Debug, Clone)]
 pub struct Passcode {
@@ -54,7 +55,7 @@ mod tests {
 
     #[test]
     fn generate_produces_numeric_bytes_and_string_of_requested_length() {
-        let length = 6;
+        let length = MAX_PASSCODE_LENGTH;
         let passcode = Passcode::generate(length);
 
         assert_eq!(passcode.bytes.len(), length);

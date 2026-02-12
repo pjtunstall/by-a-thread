@@ -30,6 +30,8 @@ From the workspace root you can run the full build with `make`. To build only on
 
 For development, `client/src/main.rs` sets `fullscreen: false,` by default. When you build via the Makefile or the `Build-Windows.ps1` script, the client is compiled with `fullscreen: true` for packaged artifacts (Windows zip, macOS .app zips, Linux .deb/.rpm, and AppImage). The `unfullscreen` step after each compilation and at the end of the full `make` run restores that setting in the source.
 
+The Makefile uses `scripts/with-fullscreen.sh` as a wrapper rather than inline commands because the script must restore main.rs on both success and failure. A bash trap on EXIT handles that; in Make, each recipe line runs in a separate subshell, so a trap can't span the build. The script also keeps the logic in one place for all client build targets (windows, deb, rpm, appimage, macos).
+
 ## Windows
 
 ### Build files

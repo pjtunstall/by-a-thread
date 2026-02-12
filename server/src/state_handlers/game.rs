@@ -16,7 +16,7 @@ use common::{
     constants::TICKS_PER_BROADCAST,
     input::sanitize,
     net::AppChannel,
-    protocol::{BulletEvent, ClientMessage, ServerMessage},
+    protocol::{BulletEvent, ClientMessage, MAX_CLIENT_MESSAGE_BYTES, ServerMessage},
     ring::WireItem,
     snapshot::Snapshot,
     time,
@@ -165,6 +165,14 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
         let mut ingress_bytes = 0usize;
         while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
             ingress_bytes = ingress_bytes.saturating_add(data.len());
+            if data.len() > MAX_CLIENT_MESSAGE_BYTES {
+                eprintln!(
+                    "client {} sent oversized message during game; disconnecting them",
+                    client_id
+                );
+                network.disconnect(client_id);
+                continue;
+            }
             let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
                 eprintln!(
                     "client {} sent malformed data during game; disconnecting them",

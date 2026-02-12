@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Run from workspace root. Creates ByAThread.app and dist/ZIP_NAME.
+# Creates ByAThread.app and dist/ZIP_NAME. Called from the Makefile; not intended to be run alone.
+# Run from workspace root.
 # Usage: bundle-macos.sh TARGET STAGING_DIR ZIP_NAME
 # e.g.   bundle-macos.sh aarch64-apple-darwin ByAThread-macos-silicon ByAThread-macos-silicon.zip
 set -e
