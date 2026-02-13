@@ -37,7 +37,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/CreateGameResponse"
         "400":
-          description: Invalid request (e.g. version code rejected)
+          description: Bad request (malformed body, missing or invalid fields)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                invalid_player_count:
+                  value:
+                    code: BAD_REQUEST
+                    message: "player_count must be between 1 and 10."
+        "401":
+          description: Version code invalid or rejected (authentication failure)
           content:
             application/json:
               schema:
@@ -110,7 +121,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/JoinGameResponse"
         "400":
-          description: Invalid request (e.g. version code rejected)
+          description: Bad request (malformed body)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: BAD_REQUEST
+                message: "Invalid request body."
+        "401":
+          description: Version code invalid or rejected (authentication failure)
           content:
             application/json:
               schema:
@@ -215,6 +235,7 @@ components:
           type: string
           description: Machine-readable error code
           enum:
+            - BAD_REQUEST
             - VERSION_MISMATCH
             - RATE_LIMITED
             - LIMITS_EXCEEDED
