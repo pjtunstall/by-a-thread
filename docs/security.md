@@ -9,7 +9,7 @@ I've used a simplified security system as a placeholder during development. The 
 
 While players are joining, the others can chat in a lobby.
 
-If the host disconnects, another player is promoted to host. The server exits if all players disconnect, there's been no activity in a lobby phase for five minutes, or the game has been played and ended naturally.
+If the host disconnects, another player is promoted to host. The server exits if all players disconnect, the pre-game lobby timer expires (five minutes from when the host connects), or the game has been played and ended naturally. A fixed timer runs after the game ends for post-game chat (five minutes), after which the server disconnects and announces "That's your lot."
 
 ## Production
 

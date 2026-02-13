@@ -28,24 +28,35 @@ pub struct ClientSession {
     pub server_addr: Option<SocketAddr>,
     waiting_since: Option<Instant>,
     waiting_message_shown: bool,
+    pub lobby_timer_end: Option<f64>,
+    pub after_game_timer_end: Option<f64>,
 }
 
 impl ClientSession {
-    pub fn new(client_id: u64) -> Self {
+    pub fn new(client_id: u64, server_addr_result: Result<SocketAddr, String>) -> Self {
+        let (state, server_addr) = match server_addr_result {
+            Ok(addr) => (
+                ClientState::Lobby(Lobby::Passcode {
+                    prompt_printed: false,
+                }),
+                Some(addr),
+            ),
+            Err(message) => (ClientState::Disconnected { message }, None),
+        };
         Self {
             client_id,
             is_host: false,
-            state: ClientState::Lobby(Lobby::ServerAddress {
-                prompt_printed: false,
-            }),
+            state,
             clock: Clock::new(),
             input_queue: Vec::new(),
             local_player_index: None,
             disconnected_notified: false,
             pending_disconnect: None,
-            server_addr: None,
+            server_addr,
             waiting_since: None,
             waiting_message_shown: false,
+            lobby_timer_end: None,
+            after_game_timer_end: None,
         }
     }
 
@@ -59,6 +70,9 @@ impl ClientSession {
         }
         if matches!(new_state, ClientState::AfterGameChat { .. }) {
             self.input_queue.clear();
+        }
+        if matches!(new_state, ClientState::Lobby(Lobby::Countdown { .. })) {
+            self.lobby_timer_end = None;
         }
         self.state = new_state;
     }
@@ -188,7 +202,6 @@ impl ClientSession {
 
     pub fn input_mode(&self) -> InputMode {
         match &self.state {
-            ClientState::Lobby(Lobby::ServerAddress { .. }) => InputMode::Enabled,
             ClientState::Lobby(Lobby::Passcode { .. }) => InputMode::Enabled,
             ClientState::Lobby(Lobby::Connecting { .. }) => InputMode::Hidden,
             ClientState::Lobby(Lobby::Authenticating {
@@ -217,12 +230,10 @@ impl ClientSession {
             }
             ClientState::AfterGameChat(AfterGameChat {
                 waiting_for_server,
-                leaderboard_received,
+                leaderboard_received: _,
                 ..
             }) => {
-                if *leaderboard_received {
-                    InputMode::Hidden
-                } else if *waiting_for_server {
+                if *waiting_for_server {
                     InputMode::DisabledWaiting
                 } else {
                     InputMode::Enabled
@@ -340,19 +351,20 @@ mod tests {
     use common::player::UsernameError;
 
     #[test]
-    fn new_session_starts_in_server_address_state() {
-        let session = ClientSession::new(0);
+    fn new_session_starts_in_passcode_state() {
+        let session = ClientSession::new(0, crate::env::default_server_address());
         assert!(matches!(
             session.state,
-            ClientState::Lobby(Lobby::ServerAddress {
+            ClientState::Lobby(Lobby::Passcode {
                 prompt_printed: false
             })
         ));
+        assert!(session.server_addr.is_some());
     }
 
     #[test]
     fn transition_updates_state() {
-        let mut session = ClientSession::new(0);
+        let mut session = ClientSession::new(0, crate::env::default_server_address());
         session.transition(ClientState::Lobby(Lobby::Connecting {
             pending_passcode: None,
         }));
@@ -397,7 +409,7 @@ mod tests {
 
     #[test]
     fn input_queue_stores_and_retrieves_in_order() {
-        let mut session = ClientSession::new(0);
+        let mut session = ClientSession::new(0, crate::env::default_server_address());
 
         session.add_input("message one".to_string());
         session.add_input("message two".to_string());
@@ -409,7 +421,7 @@ mod tests {
 
     #[test]
     fn waiting_message_flags_after_delay() {
-        let mut session = ClientSession::new(0);
+        let mut session = ClientSession::new(0, crate::env::default_server_address());
         session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: false,
             waiting_for_server: false,
@@ -438,7 +450,7 @@ mod tests {
 
     #[test]
     fn waiting_message_triggers_during_connecting() {
-        let mut session = ClientSession::new(0);
+        let mut session = ClientSession::new(0, crate::env::default_server_address());
         session.transition(ClientState::Lobby(Lobby::Connecting {
             pending_passcode: None,
         }));

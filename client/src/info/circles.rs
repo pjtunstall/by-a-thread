@@ -6,6 +6,7 @@ use super::BG_COLOR;
 use crate::frame::FrameRate;
 use common::player::PlayerState;
 
+#[derive(Debug)]
 pub struct TimerMarkers {
     pub render_target: RenderTarget,
     pub radius: f32,
@@ -13,28 +14,33 @@ pub struct TimerMarkers {
 
 impl TimerMarkers {
     pub fn new(radius: f32) -> Self {
-        let render_target = Self::create_marker_render_target(radius);
+        Self::new_with_color(radius, BLACK)
+    }
+
+    pub fn new_with_color(radius: f32, color: Color) -> Self {
+        let render_target = Self::create_marker_render_target(radius, color);
         Self {
             render_target,
             radius,
         }
     }
 
-    fn create_marker_render_target(radius: f32) -> RenderTarget {
+    fn create_marker_render_target(radius: f32, color: Color) -> RenderTarget {
         // We generate the texture at 4x the required resolution.
         // When drawn down to the screen size, the linear filter will
         // average the pixels, effectively anti-aliasing them.
         const SUPERSAMPLE: f32 = 4.0;
 
-        let logical_size = radius * 1.84;
+        let scaled_radius = radius * SUPERSAMPLE;
+        let marker_thickness = 2.0 * SUPERSAMPLE;
+        let cap_radius = marker_thickness / 2.0;
+        let outer_extent = scaled_radius * 0.92 + cap_radius;
+        let logical_size = outer_extent * 2.0 / SUPERSAMPLE;
 
         let texture_size = (logical_size * SUPERSAMPLE).ceil() as u32;
         let w = texture_size as f32;
         let h = texture_size as f32;
         let center = w / 2.0;
-
-        let scaled_radius = radius * SUPERSAMPLE;
-        let marker_thickness = 2.0 * SUPERSAMPLE;
 
         let render_target = render_target(texture_size, texture_size);
         render_target.texture.set_filter(FilterMode::Linear);
@@ -67,12 +73,11 @@ impl TimerMarkers {
             let length = (dx * dx + dy * dy).sqrt();
 
             if length > 0.0 {
-                draw_line(inner_x, inner_y, outer_x, outer_y, marker_thickness, BLACK);
+                draw_line(inner_x, inner_y, outer_x, outer_y, marker_thickness, color);
 
-                // Cap ends of lines to be less abrupt.
                 let cap_radius = marker_thickness / 2.0;
-                draw_circle(inner_x, inner_y, cap_radius, BLACK);
-                draw_circle(outer_x, outer_y, cap_radius, BLACK);
+                draw_circle(inner_x, inner_y, cap_radius, color);
+                draw_circle(outer_x, outer_y, cap_radius, color);
             }
         }
 
@@ -87,6 +92,7 @@ const TIMER_FLASH_START_THRESHOLD: f32 = 0.9;
 const MIN_FLASH_SPEED: f32 = 4.0;
 const MAX_FLASH_SPEED: f32 = 10.0;
 
+#[derive(Debug)]
 pub struct NeedleTextures {
     pub compass_render_target: RenderTarget,
     pub clock_render_target: RenderTarget,
@@ -95,10 +101,14 @@ pub struct NeedleTextures {
 
 impl NeedleTextures {
     pub fn new(radius: f32) -> Self {
+        Self::new_with_clock_color(radius, BLACK)
+    }
+
+    pub fn new_with_clock_color(radius: f32, clock_color: Color) -> Self {
         let length = radius * 0.8;
 
         let compass = Self::create_compass_texture(length);
-        let clock = Self::create_clock_texture(length);
+        let clock = Self::create_clock_texture(length, clock_color);
 
         Self {
             compass_render_target: compass,
@@ -146,7 +156,7 @@ impl NeedleTextures {
         camera.render_target.take().unwrap()
     }
 
-    fn create_clock_texture(length: f32) -> RenderTarget {
+    fn create_clock_texture(length: f32, color: Color) -> RenderTarget {
         const SUPERSAMPLE: f32 = 4.0;
 
         let logical_size = length * 2.2;
@@ -174,8 +184,8 @@ impl NeedleTextures {
         let side_left = vec2(center - scaled_width, center);
         let side_right = vec2(center + scaled_width, center);
 
-        draw_triangle(side_left, side_right, tip, BLACK);
-        draw_circle(center, center, scaled_width * 0.5, BLACK);
+        draw_triangle(side_left, side_right, tip, color);
+        draw_circle(center, center, scaled_width * 0.5, color);
 
         set_default_camera();
         camera.render_target.take().unwrap()
@@ -296,6 +306,7 @@ pub fn draw_timer(
     radius: f32,
     markers: &TimerMarkers,
     needles: &NeedleTextures,
+    lobby_style: bool,
 ) {
     let total_duration = timer_duration;
     let elapsed_time = (estimated_server_time - start_time) as f32;
@@ -303,25 +314,33 @@ pub fn draw_timer(
     let rim_progress = (elapsed_time / total_duration).clamp(0.0, 1.0);
     let severity = rim_progress;
 
-    let (current_speed, should_flash) = get_flash_params(severity, TIMER_FLASH_START_THRESHOLD);
-    let time_flash_started = total_duration * TIMER_FLASH_START_THRESHOLD;
-    let time_in_zone = (elapsed_time - time_flash_started).max(0.0);
-    let average_speed = (MIN_FLASH_SPEED + current_speed) / 2.0;
-    let phase = time_in_zone * average_speed;
-    let flash_opacity = calculate_flash_opacity(phase, should_flash);
+    let flash_opacity = if lobby_style {
+        1.0
+    } else {
+        let (current_speed, should_flash) = get_flash_params(severity, TIMER_FLASH_START_THRESHOLD);
+        let time_flash_started = total_duration * TIMER_FLASH_START_THRESHOLD;
+        let time_in_zone = (elapsed_time - time_flash_started).max(0.0);
+        let average_speed = (MIN_FLASH_SPEED + current_speed) / 2.0;
+        let phase = time_in_zone * average_speed;
+        calculate_flash_opacity(phase, should_flash)
+    };
 
     let danger_color = Color::new(1.0, 0.0, 0.0, 1.0);
     let safety_color = Color::new(0.0, 1.0, 0.0, 1.0);
 
-    draw_severity_arcs(
-        x,
-        y,
-        radius,
-        danger_color,
-        safety_color,
-        severity,
-        flash_opacity,
-    );
+    if lobby_style {
+        draw_severity_arcs_lobby(x, y, radius, danger_color, severity, flash_opacity);
+    } else {
+        draw_severity_arcs(
+            x,
+            y,
+            radius,
+            danger_color,
+            safety_color,
+            severity,
+            flash_opacity,
+        );
+    }
 
     let texture_size = markers.radius * 1.84;
     let scale = radius / markers.radius;
@@ -410,6 +429,32 @@ fn draw_severity_arcs(
         360.0 - sweep,
         safety_color,
     );
+    draw_arc(
+        x,
+        y,
+        32,
+        radius - rim,
+        start_angle,
+        rim,
+        sweep,
+        danger_color,
+    );
+}
+
+fn draw_severity_arcs_lobby(
+    x: f32,
+    y: f32,
+    radius: f32,
+    mut danger_color: Color,
+    severity: f32,
+    flash_opacity: f32,
+) {
+    let rim = radius * 0.22;
+    danger_color.a = flash_opacity;
+
+    let start_angle = 270.0;
+    let sweep = 360.0 * severity;
+
     draw_arc(
         x,
         y,

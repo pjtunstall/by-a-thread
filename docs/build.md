@@ -17,15 +17,6 @@
 
 This document describes how to create executable files or packages for various systems. The full `make` build assumes you're creating the Linux versions on Ubuntu or a similar (Debian-based) distro. For other Linux distros, the commands for importing dependencies may vary according to your package manager. The Windows version can be built on Linux, but is best built on Windows as, currently, that's been the only way I've managed to get the icon image to display. To build on Windows, use the `Build-Windows.ps1` PowerShell script, and, on Ubuntu, `make windows`. The macOS versions should be built on Apple Intel and Apple Silicon by running `make macos-intel` and `make macos-silicon` respectively. (These last two have yet to be tested.)
 
-Before building, add a `.env` file to the workspace root, of the form:
-
-```txt
-IP=203.0.113.42
-PORT=5000
-```
-
-Substitute the IP and port number of your default server.
-
 From the workspace root you can run the full build with `make`. To build only one artifact, use e.g. `make windows`, `make deb`, `make rpm`, or `make appimage`. To push the server image to the Hetzner VPS and run the container, run `make deploy-hetzner` after a full build. After deploying, it will print the ephemeral passcode for the current game.
 
 For development, `client/src/main.rs` sets `fullscreen: false,` by default. When you build via the Makefile or the `Build-Windows.ps1` script, the client is compiled with `fullscreen: true` for packaged artifacts (Windows zip, macOS .app zips, Linux .deb/.rpm, and AppImage). The `unfullscreen` step after each compilation and at the end of the full `make` run restores that setting in the source.
@@ -112,7 +103,6 @@ All three types of Linux package (.deb, .rpm, and AppImage) are built using thes
 - `icon.png` - Icon file for the application
 - `by-a-thread.desktop` - Desktop file for .deb and .rpm (points at the installed path under `/usr`)
 - `by-a-thread-appimage.desktop` - Desktop file used only when building the AppImage (different paths, since the AppImage is not installed under `/usr`)
-- `.env` (workspace root) - Embedded into the client binary at build time to supply the default server address
 - `Cargo.toml` sections:
   - `[package.metadata.deb]` and `[package.metadata.generate-rpm]` with package metadata and asset paths
   - `[[bin]]` section defining the `ByAThread` binary

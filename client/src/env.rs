@@ -1,36 +1,35 @@
 use std::net::SocketAddr;
 
-pub fn default_server_address() -> SocketAddr {
-    // Puts the contents of the `.env` file into the string `embedded`, assuming
-    // there's a `.env` is in the root directory. This will work on Windows too.
-    // The compiler substitutes backslashes as needed. The contents of the
-    // `.env` file should be two lines of the form:
-    //
-    //   IP=203.0.113.42
-    //   PORT=5000
-    //
-    // plus optional comments and whitespace. Substitute the IP and port number
-    // of your default server.
-    let embedded = include_str!("../../.env");
-    let mut ip = "127.0.0.1";
-    let mut port = "5000";
-    for line in embedded.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        if let Some((key, value)) = line.split_once('=') {
-            let value = value.trim().trim_matches('"').trim_matches('\'');
-            if !value.is_empty() {
-                match key.trim() {
-                    "IP" => ip = value,
-                    "PORT" => port = value,
-                    _ => {}
-                }
-            }
+const SERVER_PORT: u16 = 5000;
+#[cfg(not(test))]
+const FALLBACK_SERVER_IP: &str = "46.225.7.153";
+
+pub fn default_server_address() -> Result<SocketAddr, String> {
+    #[cfg(test)]
+    return Ok(SocketAddr::new(
+        std::net::IpAddr::from([127, 0, 0, 1]),
+        SERVER_PORT,
+    ));
+
+    #[cfg(not(test))]
+    {
+        if let Ok(addr) = std::env::var("SERVER_ADDRESS") {
+            addr.parse()
+                .map_err(|_| "SERVER_ADDRESS must be host:port (e.g. 127.0.0.1:5000)".to_string())
+        } else {
+            use std::net::ToSocketAddrs;
+            ("by-a-thread.de", SERVER_PORT)
+                .to_socket_addrs()
+                .ok()
+                .and_then(|mut addrs| addrs.next())
+                .map(Ok)
+                .unwrap_or_else(|| {
+                    (FALLBACK_SERVER_IP, SERVER_PORT)
+                        .to_socket_addrs()
+                        .map_err(|e| format!("fallback address invalid: {}", e))?
+                        .next()
+                        .ok_or_else(|| "no addresses for fallback".to_string())
+                })
         }
     }
-    format!("{}:{}", ip, port)
-        .parse()
-        .expect("invalid IP or PORT in embedded .env")
 }

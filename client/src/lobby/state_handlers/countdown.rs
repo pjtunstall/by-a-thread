@@ -114,7 +114,7 @@ mod tests {
     #[test]
     fn test_countdown_waiting_for_time() {
         let client_id = 123;
-        let mut session = ClientSession::new(client_id);
+        let mut session = ClientSession::new(client_id, crate::env::default_server_address());
         let mut ui = MockUi::new();
         let mut network = MockNetwork::new();
 
@@ -148,7 +148,7 @@ mod tests {
     #[test]
     fn test_countdown_active() {
         let client_id = 123;
-        let mut session = ClientSession::new(client_id);
+        let mut session = ClientSession::new(client_id, crate::env::default_server_address());
         let mut ui = MockUi::new();
         let mut network = MockNetwork::new();
 
@@ -179,7 +179,7 @@ mod tests {
     #[test]
     fn test_countdown_active_one_second() {
         let client_id = 123;
-        let mut session = ClientSession::new(client_id);
+        let mut session = ClientSession::new(client_id, crate::env::default_server_address());
         let mut ui = MockUi::new();
         let mut network = MockNetwork::new();
 
@@ -208,7 +208,7 @@ mod tests {
         // to perform the transition. The handler itself simply updates
         // the view until that external event fires.
         let client_id = 123;
-        let mut session = ClientSession::new(client_id);
+        let mut session = ClientSession::new(client_id, crate::env::default_server_address());
         let mut ui = MockUi::new();
         let mut network = MockNetwork::new();
 
@@ -232,7 +232,7 @@ mod tests {
     #[test]
     fn test_countdown_disconnected() {
         let client_id = 123;
-        let mut session = ClientSession::new(client_id);
+        let mut session = ClientSession::new(client_id, crate::env::default_server_address());
         let mut ui = MockUi::new();
         let mut network = MockNetwork::new();
 

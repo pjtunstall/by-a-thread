@@ -85,6 +85,8 @@ pub struct Game {
     pub next_bullet_id: u32,
     pub after_game_chat_clients: HashSet<u64>,
     pub leaderboard_sent: bool,
+    pub after_game_chat_start_time: Option<f64>,
+    pub one_minute_warning_sent: bool,
     pub net_stats: NetStats,
     pub exit_coords: Option<(usize, usize)>,
     pub timer_duration: f32,
@@ -122,6 +124,8 @@ impl Game {
             next_bullet_id: 0,
             after_game_chat_clients: HashSet::new(),
             leaderboard_sent: false,
+            after_game_chat_start_time: None,
+            one_minute_warning_sent: false,
             net_stats: NetStats::new(),
             exit_coords: initial_data.exit_coords,
             timer_duration,
@@ -203,13 +207,27 @@ impl Game {
         let payload_len = payload.len();
         let mut egress_bytes = 0usize;
 
+        let timer_end_time = common::time::now_as_secs_f64()
+            + common::constants::POST_GAME_CHAT_DURATION.as_secs_f64();
+        let timer_message = ServerMessage::AfterGameTimer {
+            end_time: timer_end_time,
+        };
+        let timer_payload =
+            encode_to_vec(&timer_message, standard()).expect("failed to serialize AfterGameTimer");
+
         for client_id in &self.after_game_chat_clients {
             egress_bytes = egress_bytes.saturating_add(payload_len);
             network.send_message(*client_id, AppChannel::ReliableOrdered, payload.clone());
+            network.send_message(
+                *client_id,
+                AppChannel::ReliableOrdered,
+                timer_payload.clone(),
+            );
         }
 
         self.note_egress_bytes(egress_bytes);
         self.leaderboard_sent = true;
+        self.after_game_chat_start_time = Some(common::time::now_as_secs_f64());
     }
 
     fn build_leaderboard_entries(&self) -> Vec<AfterGameLeaderboardEntry> {
@@ -432,6 +450,7 @@ pub struct Lobby {
     auth_attempts: HashMap<u64, u8>,
     pending_usernames: HashSet<u64>,
     host_client_id: Option<u64>,
+    pub lobby_timer_end: Option<f64>,
 }
 
 fn notify_new_host(network: &mut dyn ServerNetworkHandle, id: u64) {
@@ -448,11 +467,18 @@ impl Lobby {
             usernames: HashMap::new(),
             player_colors: HashMap::new(),
             host_client_id: None,
+            lobby_timer_end: None,
         }
     }
 
     pub fn set_host(&mut self, id: u64, network: &mut dyn ServerNetworkHandle) {
         self.host_client_id = Some(id);
+        if self.lobby_timer_end.is_none() {
+            self.lobby_timer_end = Some(
+                common::time::now_as_secs_f64()
+                    + common::constants::PRE_GAME_LOBBY_DURATION.as_secs_f64(),
+            );
+        }
         notify_new_host(network, id);
     }
 

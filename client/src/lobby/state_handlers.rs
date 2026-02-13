@@ -4,7 +4,6 @@ pub mod connecting;
 pub mod countdown;
 pub mod difficulty;
 pub mod passcode;
-pub mod server_address;
 pub mod start_countdown;
 pub mod username;
 pub mod waiting;
@@ -53,7 +52,7 @@ mod tests {
     fn client_banner_is_printed_correctly() {
         let mut ui = MockUi::default();
         let protocol_id = 12345;
-        let server_addr = crate::env::default_server_address();
+        let server_addr = crate::env::default_server_address().expect("test env");
 
         let expected_banner = format!(
             "Client Banner: Protocol={}, Server={}",
@@ -72,7 +71,7 @@ mod tests {
         let bell = '\x07';
         let esc = '\x1B';
 
-        let mut session_chat = ClientSession::new(0);
+        let mut session_chat = ClientSession::new(0, crate::env::default_server_address());
         session_chat.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: true,
             waiting_for_server: false,
@@ -116,7 +115,7 @@ mod tests {
             "chat message was not sanitized"
         );
 
-        let mut session_auth = ClientSession::new(0);
+        let mut session_auth = ClientSession::new(0, crate::env::default_server_address());
         session_auth.transition(ClientState::Lobby(Lobby::Authenticating {
             waiting_for_input: false,
             waiting_for_server: false,

@@ -69,18 +69,7 @@ The game is not yet publicly online. Proper matches will have to wait till then.
 
 ### Locally
 
-Clone this repo, `cd` into it. Create a file named `.env` in the workspace root of the form:
-
-```txt
-IP=203.0.113.42
-PORT=5000
-```
-
-where `203.0.113.42` is a placeholder for the IP address of a default server. When hosted, this will be the actual IP address of the server. If running locally, it won't be used, so can be any valid IPv4 address.
-
-Install [Rust](https://rust-lang.org/tools/install/) and run `cargo run --release -p server` in one terminal. For each player, open another terminal and run `cargo run --release -p client`. Then follow the prompts.
-
-As a shortcut, you can press Tab to connect to localhost.
+Clone this repo, `cd` into it. Install [Rust](https://rust-lang.org/tools/install/) and run `cargo run --release -p server` in one terminal. For each player, open another terminal and run `SERVER_ADDRESS=127.0.0.1:5000 cargo run --release -p client`. (Without `SERVER_ADDRESS`, the client tries to connect to by-a-thread.de; if it can't resolve or connect, it shows an error instead of crashing.) Follow the prompts to enter the passcode.
 
 The passcode will appear in the server terminal.
 

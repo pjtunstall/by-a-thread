@@ -57,7 +57,7 @@ mod tests {
 
         #[test]
         fn passcode_does_not_panic_in_passcode_state() {
-            let mut session = ClientSession::new(0);
+            let mut session = ClientSession::new(0, crate::env::default_server_address());
             session.transition(ClientState::Lobby(Lobby::Passcode {
                 prompt_printed: false,
             }));
@@ -75,7 +75,7 @@ mod tests {
 
     #[test]
     fn transitions_to_connecting_after_first_prompt() {
-        let mut session = ClientSession::new(0);
+        let mut session = ClientSession::new(0, crate::env::default_server_address());
         session.transition(ClientState::Lobby(Lobby::Passcode {
             prompt_printed: false,
         }));
@@ -105,7 +105,7 @@ mod tests {
 
     #[test]
     fn handles_invalid_input_and_reprompts() {
-        let mut session = ClientSession::new(0);
+        let mut session = ClientSession::new(0, crate::env::default_server_address());
         session.transition(ClientState::Lobby(Lobby::Passcode {
             prompt_printed: false,
         }));

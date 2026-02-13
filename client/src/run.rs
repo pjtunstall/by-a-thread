@@ -19,7 +19,7 @@ use crate::{
     },
     net::{self, DisconnectKind, RenetNetworkHandle},
     session::{ClientSession, Clock},
-    state::{ClientState, InputMode, Lobby},
+    state::{ClientState, Lobby},
 };
 use common::{self, constants::TICK_SECS};
 
@@ -150,7 +150,7 @@ impl ClientRunner {
             self.session.disconnected_notified = true;
         }
 
-        self.ui.draw(false, false, Some(&self.assets.font));
+        self.ui.draw(false, false, Some(&self.assets.font), None::<crate::lobby::ui::LobbyTimerInfo>);
     }
 
     fn update_client_state(&mut self) {
@@ -168,7 +168,7 @@ impl ClientRunner {
             return;
         }
         if matches!(&self.session.state, ClientState::EndAfterLeaderboard) {
-            self.ui.draw(false, false, Some(&self.assets.font));
+            self.ui.draw(false, false, Some(&self.assets.font), None::<crate::lobby::ui::LobbyTimerInfo>);
             return;
         }
 
@@ -318,15 +318,20 @@ impl ClientRunner {
     }
 }
 
-pub async fn run_client_loop(private_key: [u8; 32], mut ui: Gui) {
+pub async fn run_client_loop(private_key: [u8; 32], ui: Gui) {
     let client_id = ::rand::random::<u64>();
-    let mut session = ClientSession::new(client_id);
-    let assets = Assets::load().await;
-    let Some(server_addr) =
-        prompt_for_server_address(&mut session, &mut ui, Some(&assets.font)).await
-    else {
+    let server_addr_result = crate::env::default_server_address();
+    let session = ClientSession::new(client_id, server_addr_result);
+
+    if session.state.is_disconnected() {
+        run_connection_error_loop(session, ui).await;
         return;
-    };
+    }
+
+    let server_addr = session
+        .server_addr
+        .expect("session should have server address when not disconnected");
+    let assets = Assets::load().await;
 
     println!("Connecting to server: {}", server_addr);
 
@@ -381,6 +386,31 @@ fn should_quit() -> bool {
     is_quit_requested() || is_key_pressed(KeyCode::Escape)
 }
 
+async fn run_connection_error_loop(session: ClientSession, mut ui: Gui) {
+    let message = match &session.state {
+        ClientState::Disconnected { message } => message.clone(),
+        _ => return,
+    };
+    let assets = Assets::load().await;
+    let separator = if message.chars().last().is_some_and(|c| ['.', '!', '?'].contains(&c)) {
+        ""
+    } else {
+        "."
+    };
+    ui.show_sanitized_error(&format!("Disconnected: {}{}", message, separator));
+    eprintln!("Disconnected: {}{}", message, separator);
+
+    while !should_quit() {
+        ui.draw(
+            false,
+            false,
+            Some(&assets.font),
+            None::<crate::lobby::ui::LobbyTimerInfo>,
+        );
+        next_frame().await;
+    }
+}
+
 #[cfg(target_os = "windows")]
 fn get_best_local_binding_ip() -> IpAddr {
     // Try to connect to Google's DNS server (8.8.8.8) on port 53.
@@ -402,63 +432,6 @@ fn get_best_local_binding_ip() -> IpAddr {
     IpAddr::V4(Ipv4Addr::UNSPECIFIED)
 }
 
-async fn prompt_for_server_address(
-    session: &mut ClientSession,
-    ui: &mut dyn LobbyUi,
-    font: Option<&Font>,
-) -> Option<SocketAddr> {
-    loop {
-        if should_quit() {
-            return None;
-        }
-
-        if matches!(session.input_mode(), InputMode::Enabled) {
-            match ui.poll_input(common::chat::MAX_CHAT_MESSAGE_BYTES, false) {
-                Ok(Some(input)) => session.add_input(input),
-                Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
-                    ui.show_sanitized_error(&format!("No connection: {}.", e));
-                    return None;
-                }
-                Ok(None) => {}
-            }
-        }
-
-        let state = std::mem::take(&mut session.state);
-        let result = match state {
-            ClientState::Lobby(mut lobby_state) => {
-                let result =
-                    lobby::state_handlers::server_address::handle(&mut lobby_state, session, ui);
-                session.state = ClientState::Lobby(lobby_state);
-                result
-            }
-            other_state => {
-                session.state = other_state;
-                None
-            }
-        };
-
-        if let Some(next_state) = result {
-            session.transition(next_state);
-        }
-
-        if let Some(server_addr) = session.server_addr {
-            ui.flush_input();
-            return Some(server_addr);
-        }
-
-        let ui_state = session.prepare_ui_state();
-        if ui_state.show_waiting_message {
-            ui.show_warning("Waiting for server...");
-        }
-
-        let should_show_input = matches!(ui_state.mode, InputMode::Enabled);
-        let show_cursor = should_show_input;
-        ui.draw(should_show_input, show_cursor, font);
-
-        next_frame().await;
-    }
-}
-
 fn disconnect_message(state: &ClientState, error: &str, kind: DisconnectKind) -> String {
     match state {
         ClientState::Lobby(lobby_state) => match lobby_state {
@@ -471,14 +444,6 @@ fn disconnect_message(state: &ClientState, error: &str, kind: DisconnectKind) ->
                 return common::protocol::GAME_ALREADY_STARTED_MESSAGE.to_string();
             }
             Lobby::Passcode { .. }
-                if matches!(
-                    kind,
-                    DisconnectKind::DisconnectedByServer | DisconnectKind::ConnectionDenied
-                ) =>
-            {
-                return common::protocol::GAME_ALREADY_STARTED_MESSAGE.to_string();
-            }
-            Lobby::ServerAddress { .. }
                 if matches!(
                     kind,
                     DisconnectKind::DisconnectedByServer | DisconnectKind::ConnectionDenied

@@ -51,8 +51,13 @@ impl MockUi {
 }
 
 impl LobbyUi for MockUi {
-    fn draw(&self, _should_show_input: bool, _show_cursor: bool, _font: Option<&Font>) {
-        // No-op for tests.
+    fn draw(
+        &self,
+        _should_show_input: bool,
+        _show_cursor: bool,
+        _font: Option<&Font>,
+        _lobby_timer: Option<crate::lobby::ui::LobbyTimerInfo>,
+    ) {
     }
     fn show_message(&mut self, message: &str) {
         self.messages.push(message.to_string());

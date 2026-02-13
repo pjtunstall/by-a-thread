@@ -102,6 +102,9 @@ pub fn handle(
                     "Server: You have been appointed host. Press TAB to begin.",
                 );
             }
+            Ok((ServerMessage::LobbyTimer { end_time }, _)) => {
+                session.lobby_timer_end = Some(end_time);
+            }
             Ok((_, _)) => {}
             Err(e) => ui.show_typed_error(
                 UiErrorKind::Deserialization,
@@ -163,7 +166,7 @@ mod tests {
 
     #[test]
     fn enforces_max_message_length() {
-        let mut session = ClientSession::new(0);
+        let mut session = ClientSession::new(0, crate::env::default_server_address());
         session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: true,
             waiting_for_server: false,
@@ -225,7 +228,7 @@ mod tests {
         let red = "\x1B[31m";
         let reset = "\x1B[0m";
 
-        let mut session = ClientSession::new(0);
+        let mut session = ClientSession::new(0, crate::env::default_server_address());
         session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: true,
             waiting_for_server: false,
@@ -261,7 +264,7 @@ mod tests {
 
     #[test]
     fn sends_start_game_request_on_tab_input() {
-        let mut session = ClientSession::new(0);
+        let mut session = ClientSession::new(0, crate::env::default_server_address());
         session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: true,
             waiting_for_server: false,

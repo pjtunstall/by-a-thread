@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use bincode::{
     config::standard,
@@ -8,12 +8,14 @@ use bincode::{
 use crate::{
     net::ServerNetworkHandle,
     state::{
-        AuthAttemptOutcome, ChoosingDifficulty, Lobby, ServerState, evaluate_passcode_attempt,
+        AuthAttemptOutcome, ChoosingDifficulty, Countdown, Lobby, ServerState,
+        evaluate_passcode_attempt,
     },
 };
 use common::{
     self,
     auth::{MAX_ATTEMPTS, MAX_PASSCODE_LENGTH, Passcode},
+    constants::DEFAULT_LOBBY_TIMEOUT_DIFFICULTY,
     chat::MAX_CHAT_MESSAGE_BYTES,
     net::AppChannel,
     player::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username},
@@ -21,6 +23,7 @@ use common::{
         AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE, AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE,
         ClientMessage, MAX_CLIENT_MESSAGE_BYTES, ServerMessage, auth_success_message,
     },
+    snapshot::InitialData,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,11 +35,16 @@ pub fn handle(
     network: &mut dyn ServerNetworkHandle,
     state: &mut Lobby,
     passcode: &Passcode,
-    last_activity: &mut Instant,
 ) -> Option<ServerState> {
+    if let Some(end_time) = state.lobby_timer_end {
+        if common::time::now_as_secs_f64() >= end_time {
+            println!("Lobby timer expired. Starting game with default difficulty.");
+            return Some(transition_to_countdown_with_default_difficulty(state));
+        }
+    }
+
     for client_id in network.clients_id() {
         while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
-            *last_activity = Instant::now();
             if data.len() > MAX_CLIENT_MESSAGE_BYTES {
                 eprintln!(
                     "client {} sent oversized message; disconnecting them",
@@ -163,6 +171,26 @@ pub fn handle(
 
                             if state.usernames_except(client_id).is_empty() {
                                 state.set_host(client_id, network);
+                                if let Some(end_time) = state.lobby_timer_end {
+                                    let timer_msg =
+                                        ServerMessage::LobbyTimer { end_time };
+                                    let timer_payload = encode_to_vec(&timer_msg, standard())
+                                        .expect("failed to serialize LobbyTimer");
+                                    network.broadcast_message(
+                                        AppChannel::ReliableOrdered,
+                                        timer_payload,
+                                    );
+                                }
+                            } else if let Some(end_time) = state.lobby_timer_end {
+                                let timer_msg = ServerMessage::LobbyTimer { end_time };
+                                let timer_payload =
+                                    encode_to_vec(&timer_msg, standard())
+                                        .expect("failed to serialize LobbyTimer");
+                                network.send_message(
+                                    client_id,
+                                    AppChannel::ReliableOrdered,
+                                    timer_payload,
+                                );
                             }
 
                             let message = ServerMessage::UserJoined {
@@ -265,6 +293,19 @@ pub fn handle(
     None
 }
 
+fn transition_to_countdown_with_default_difficulty(lobby: &Lobby) -> ServerState {
+    let mut choosing = ChoosingDifficulty::new(lobby);
+    choosing.set_difficulty(DEFAULT_LOBBY_TIMEOUT_DIFFICULTY);
+    let game_data = InitialData::new(
+        &choosing.lobby.usernames,
+        choosing.lobby.colors(),
+        DEFAULT_LOBBY_TIMEOUT_DIFFICULTY,
+    );
+    let countdown_duration = Duration::from_secs(11);
+    let end_time_instant = Instant::now() + countdown_duration;
+    ServerState::Countdown(Countdown::new(&choosing, end_time_instant, game_data))
+}
+
 fn send_username_error(
     network: &mut dyn ServerNetworkHandle,
     client_id: u64,
@@ -281,8 +322,6 @@ fn send_username_error(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Instant;
-
     use crate::state::Lobby;
     use crate::test_helpers::MockServerNetwork;
     use bincode::config::standard;
@@ -311,13 +350,7 @@ mod tests {
         let oversized_payload = vec![0u8; MAX_CLIENT_MESSAGE_BYTES + 1];
         network.queue_raw_message(1, oversized_payload);
 
-        let mut last_activity = Instant::now();
-        handle(
-            &mut network,
-            &mut lobby_state,
-            &passcode,
-            &mut last_activity,
-        );
+        handle(&mut network, &mut lobby_state, &passcode);
 
         assert!(
             network.disconnected_clients.contains(&1),
@@ -339,13 +372,7 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let mut last_activity = Instant::now();
-        handle(
-            &mut network,
-            &mut lobby_state,
-            &passcode,
-            &mut last_activity,
-        );
+        handle(&mut network, &mut lobby_state, &passcode);
 
         assert!(
             network.disconnected_clients.contains(&1),
@@ -367,13 +394,7 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let mut last_activity = Instant::now();
-        let next_state = handle(
-            &mut network,
-            &mut lobby_state,
-            &passcode,
-            &mut last_activity,
-        );
+        let next_state = handle(&mut network, &mut lobby_state, &passcode);
 
         assert!(lobby_state.needs_username(1));
         assert!(next_state.is_none());
@@ -406,13 +427,7 @@ mod tests {
             network.queue_raw_message(1, payload);
         }
 
-        let mut last_activity = Instant::now();
-        let next_state = handle(
-            &mut network,
-            &mut lobby_state,
-            &passcode,
-            &mut last_activity,
-        );
+        let next_state = handle(&mut network, &mut lobby_state, &passcode);
 
         assert_eq!(lobby_state.username(1), None);
         assert!(next_state.is_none());
@@ -450,13 +465,7 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(2, payload);
 
-        let mut last_activity = Instant::now();
-        let next_state = handle(
-            &mut network,
-            &mut lobby_state,
-            &passcode,
-            &mut last_activity,
-        );
+        let next_state = handle(&mut network, &mut lobby_state, &passcode);
 
         assert_eq!(lobby_state.username(2), Some("bob"));
         assert!(next_state.is_none());
@@ -520,13 +529,7 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let mut last_activity = Instant::now();
-        let next_state = handle(
-            &mut network,
-            &mut lobby_state,
-            &passcode,
-            &mut last_activity,
-        );
+        let next_state = handle(&mut network, &mut lobby_state, &passcode);
 
         assert!(next_state.is_none());
 
@@ -567,13 +570,7 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let mut last_activity = Instant::now();
-        let next_state = handle(
-            &mut network,
-            &mut lobby_state,
-            &passcode,
-            &mut last_activity,
-        );
+        let next_state = handle(&mut network, &mut lobby_state, &passcode);
 
         assert!(next_state.is_none());
 
@@ -609,13 +606,7 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let mut last_activity = Instant::now();
-        let next_state = handle(
-            &mut network,
-            &mut lobby_state,
-            &passcode,
-            &mut last_activity,
-        );
+        let next_state = handle(&mut network, &mut lobby_state, &passcode);
 
         assert!(next_state.is_none());
 
@@ -658,13 +649,7 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let mut last_activity = Instant::now();
-        let next_state = handle(
-            &mut network,
-            &mut lobby_state,
-            &passcode,
-            &mut last_activity,
-        );
+        let next_state = handle(&mut network, &mut lobby_state, &passcode);
 
         assert!(next_state.is_none());
         assert_eq!(lobby_state.username(1), None);

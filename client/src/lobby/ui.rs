@@ -36,12 +36,25 @@ impl fmt::Display for UiInputError {
 
 impl std::error::Error for UiInputError {}
 
+#[derive(Clone, Copy)]
+pub struct LobbyTimerInfo {
+    pub end_time: f64,
+    pub duration_secs: f32,
+    pub estimated_server_time: f64,
+}
+
 pub trait LobbyUi {
     fn show_message(&mut self, message: &str);
     fn show_error(&mut self, message: &str);
     fn show_warning(&mut self, message: &str);
     fn show_prompt(&mut self, prompt: &str);
-    fn draw(&self, should_show_input: bool, show_cursor: bool, font: Option<&Font>);
+    fn draw(
+        &self,
+        should_show_input: bool,
+        show_cursor: bool,
+        font: Option<&Font>,
+        lobby_timer: Option<LobbyTimerInfo>,
+    );
     fn poll_input(&mut self, limit: usize, is_host: bool) -> Result<Option<String>, UiInputError>;
     fn poll_single_key(&mut self) -> Result<Option<UiKey>, UiInputError>;
     fn replace_last_messages(&mut self, count: usize, replacement: Vec<(String, Color)>);

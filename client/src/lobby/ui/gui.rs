@@ -5,7 +5,11 @@ use std::{
 
 use macroquad::prelude::*;
 
-use crate::lobby::ui::{LobbyUi, UiInputError};
+use crate::{
+    info,
+    info::circles,
+    lobby::ui::{LobbyTimerInfo, LobbyUi, UiInputError},
+};
 use common::{input::UiKey, player::Color as PlayerColor};
 
 const PROMPT: &str = "> ";
@@ -45,6 +49,8 @@ fn player_color_to_text_color(color: PlayerColor) -> Color {
     }
 }
 
+const LOBBY_TIMER_DIAL_FRACTION_OF_SCREEN_HEIGHT: f32 = 54.0 / 720.0;
+
 #[derive(Debug)]
 pub struct Gui {
     pub message_history: Vec<(String, Color)>,
@@ -58,6 +64,8 @@ pub struct Gui {
     scroll_offset: usize,
     up_arrow_last_pressed: Option<Instant>,
     down_arrow_last_pressed: Option<Instant>,
+    timer_markers: circles::TimerMarkers,
+    needle_textures: circles::NeedleTextures,
 }
 
 impl Gui {
@@ -74,6 +82,11 @@ impl Gui {
             scroll_offset: 0,
             up_arrow_last_pressed: None,
             down_arrow_last_pressed: None,
+            timer_markers: circles::TimerMarkers::new_with_color(info::BASE_CIRCLE_RADIUS, YELLOW),
+            needle_textures: circles::NeedleTextures::new_with_clock_color(
+                info::BASE_CIRCLE_RADIUS,
+                YELLOW,
+            ),
         }
     }
 
@@ -88,11 +101,21 @@ impl Gui {
         self.scroll_offset = 0;
     }
 
-    pub fn draw(&self, should_show_input: bool, show_cursor: bool, font: Option<&Font>) {
+    pub fn draw(
+        &self,
+        should_show_input: bool,
+        show_cursor: bool,
+        font: Option<&Font>,
+        lobby_timer: Option<LobbyTimerInfo>,
+    ) {
         push_camera_state();
         set_default_camera();
 
         clear_background(BACKGROUND_COLOR);
+
+        if let Some(timer) = lobby_timer {
+            self.draw_lobby_timer_dial(timer);
+        }
 
         let line_height = FONT_SIZE * 1.2;
         let max_width = screen_width() - 2.0 * SIDE_PAD; // of a line of text.
@@ -112,6 +135,24 @@ impl Gui {
         self.draw_chat_history(current_baseline, line_height, max_width, font);
 
         pop_camera_state();
+    }
+
+    fn draw_lobby_timer_dial(&self, timer: LobbyTimerInfo) {
+        let radius = screen_height() * LOBBY_TIMER_DIAL_FRACTION_OF_SCREEN_HEIGHT;
+        let start_time = timer.end_time - timer.duration_secs as f64;
+        let x = screen_width() - SIDE_PAD - radius;
+        let y = BOTTOM_PAD + radius;
+        circles::draw_timer(
+            timer.estimated_server_time,
+            start_time,
+            timer.duration_secs,
+            x,
+            y,
+            radius,
+            &self.timer_markers,
+            &self.needle_textures,
+            true,
+        );
     }
 
     fn draw_input(
@@ -472,6 +513,14 @@ impl LobbyUi for Gui {
     }
 
     fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr) {
+        self.show_message("@@@@@ BY A THREAD @@@@@");
+        self.show_message(" ");
+        self.show_warning("  WASD to move.");
+        self.show_warning("  Arrow keys to turn.");
+        self.show_warning("  Space to fire.");
+        self.show_warning("  Left shift for sniper mode.");
+        self.show_message(" ");
+        self.show_warning("  Escape to quit/exit.");
         self.add_history(" ", WHITE);
         self.show_banner_message(&format!("Game version:\t{}", protocol_id));
         self.show_banner_message(&format!("Connecting to:\t{}", server_addr));
@@ -482,8 +531,14 @@ impl LobbyUi for Gui {
         self.add_history(&format!("  {}", message), BANNER_COLOR);
     }
 
-    fn draw(&self, should_show_input: bool, show_cursor: bool, font: Option<&Font>) {
-        Gui::draw(self, should_show_input, show_cursor, font);
+    fn draw(
+        &self,
+        should_show_input: bool,
+        show_cursor: bool,
+        font: Option<&Font>,
+        lobby_timer: Option<LobbyTimerInfo>,
+    ) {
+        Gui::draw(self, should_show_input, show_cursor, font, lobby_timer);
     }
 
     fn flush_input(&mut self) {

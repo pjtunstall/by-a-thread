@@ -32,15 +32,13 @@ Lobby has various substates, as detailed [below](#lobby).
 #### Lobby
 
 ```
-ServerAddress -> Passcode -> Connecting -> Authenticating -> ChoosingUsername <-> AwaitingUsernameConfirmation -> Chat
+Passcode -> Connecting -> Authenticating -> ChoosingUsername <-> AwaitingUsernameConfirmation -> Chat
 
 host: Chat -> ChoosingDifficulty -> Countdown -> Game
 non-host: Chat -> Countdown -> Game
 ```
 
-`ServerAddress` prompts for an IP address and port number; pressing Enter uses the local default.
-
-If the player is the host: `Chat -> ChoosingDifficulty`, then the host starts the countdown and everyone (including the host) receives `CountdownStarted` and enters `Countdown`. Non-hosts: `Chat -> Countdown` when the server broadcasts that the countdown has started. In either case,
+The client connects to by-a-thread.de by default. If the player is the host: `Chat -> ChoosingDifficulty`, then the host starts the countdown and everyone (including the host) receives `CountdownStarted` and enters `Countdown`. Non-hosts: `Chat -> Countdown` when the server broadcasts that the countdown has started. In either case,
 
 ```txt
 Countdown -> Game
@@ -122,7 +120,6 @@ client/src/
 │   │   ├── countdown.rs
 │   │   ├── difficulty.rs
 │   │   ├── passcode.rs
-│   │   ├── server_address.rs
 │   │   ├── start_countdown.rs
 │   │   ├── username.rs
 │   │   └── waiting.rs

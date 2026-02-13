@@ -54,7 +54,15 @@ pub fn update(
         let should_show_input = matches!(ui_state.mode, crate::state::InputMode::Enabled);
         let show_cursor = should_show_input;
         let font = assets.map(|assets| &assets.font);
-        ui.draw(should_show_input, show_cursor, font);
+        let lobby_timer = (session.clock.estimated_server_time > 0.0)
+            .then(|| session.lobby_timer_end)
+            .flatten()
+            .map(|end_time| crate::lobby::ui::LobbyTimerInfo {
+                end_time,
+                duration_secs: common::constants::PRE_GAME_LOBBY_DURATION.as_secs_f32(),
+                estimated_server_time: session.clock.estimated_server_time,
+            });
+        ui.draw(should_show_input, show_cursor, font, lobby_timer);
     }
 
     LobbyStep::Continue
@@ -71,9 +79,6 @@ fn transition(
     let result = match state {
         ClientState::Lobby(mut lobby_state) => {
             let result = match lobby_state {
-                Lobby::ServerAddress { .. } => {
-                    state_handlers::server_address::handle(&mut lobby_state, session, ui)
-                }
                 Lobby::Passcode { .. } => {
                     state_handlers::passcode::handle(&mut lobby_state, session, ui)
                 }

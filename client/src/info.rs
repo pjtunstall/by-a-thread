@@ -135,6 +135,7 @@ pub fn draw(game_state: &Game, assets: &Assets, fps: &FrameRate, estimated_serve
         circle_radius,
         &game_state.timer_markers,
         &game_state.needle_textures,
+        false,
     );
 
     pop_camera_state();

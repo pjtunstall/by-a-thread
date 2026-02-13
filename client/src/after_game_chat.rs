@@ -17,7 +17,7 @@ use common::{
     chat::MAX_CHAT_MESSAGE_BYTES,
     constants::TICK_SECS,
     net::AppChannel,
-    player::{self, Color, Color::YELLOW},
+    player::{self, Color},
     protocol::{ClientMessage, ServerMessage},
     snapshot::Snapshot,
 };
@@ -54,6 +54,19 @@ pub fn update(
         return result;
     }
 
+    if let ClientState::AfterGameChat(ref chat) = session.state {
+        if chat.leaderboard_received {
+            if let Some(end_time) = session.after_game_timer_end {
+                if session.clock.estimated_server_time >= end_time {
+                    ui.show_sanitized_message("Server: That's your lot.");
+                    ui.show_message(" ");
+                    ui.show_warning("Escape to exit.");
+                    return Some(ClientState::EndAfterLeaderboard);
+                }
+            }
+        }
+    }
+
     let ui_state = session.prepare_ui_state();
     if ui_state.show_waiting_message {
         ui.show_warning("Waiting for server...");
@@ -62,7 +75,15 @@ pub fn update(
     let should_show_input = matches!(ui_state.mode, InputMode::Enabled);
     let show_cursor = should_show_input;
     let font = assets.map(|assets| &assets.font);
-    ui.draw(should_show_input, show_cursor, font);
+    let after_game_timer = (session.clock.estimated_server_time > 0.0)
+        .then(|| session.after_game_timer_end)
+        .flatten()
+        .map(|end_time| crate::lobby::ui::LobbyTimerInfo {
+            end_time,
+            duration_secs: common::constants::POST_GAME_CHAT_DURATION.as_secs_f32(),
+            estimated_server_time: session.clock.estimated_server_time,
+        });
+    ui.draw(should_show_input, show_cursor, font, after_game_timer);
 
     if let (Some(assets), ClientState::AfterGameChat(chat)) = (assets, &session.state) {
         if let Some(data) = &chat.map_for_after_game {
@@ -98,7 +119,7 @@ fn handle(
         map_for_after_game,
     } = chat_state;
 
-    let input_enabled = !*leaderboard_received && !*waiting_for_server;
+    let input_enabled = !*waiting_for_server;
     if input_enabled {
         match ui.poll_input(MAX_CHAT_MESSAGE_BYTES, session.is_host) {
             Ok(Some(input)) => session.add_input(input),
@@ -165,6 +186,9 @@ fn handle(
                 }
                 *awaiting_initial_roster = false;
             }
+            Ok((ServerMessage::AfterGameTimer { end_time }, _)) => {
+                session.after_game_timer_end = Some(end_time);
+            }
             Ok((ServerMessage::AfterGameLeaderboard { entries }, _)) => {
                 *leaderboard_received = true;
                 *map_for_after_game = None;
@@ -190,10 +214,15 @@ fn handle(
                     );
                 }
                 ui.show_message(" ");
-                ui.show_message_with_color("That's your lot. Press escape to exit.", YELLOW);
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));
+            }
+            Ok((ServerMessage::SessionEnded { message }, _)) => {
+                ui.show_sanitized_message(&format!("Server: {}", message));
+                ui.show_message(" ");
+                ui.show_warning("Escape to exit.");
+                return Some(ClientState::EndAfterLeaderboard);
             }
             Ok((_, _)) => {}
             Err(error) => ui.show_typed_error(
@@ -203,21 +232,19 @@ fn handle(
         }
     }
 
-    if !*leaderboard_received {
-        while let Some(input) = session.take_input() {
-            let trimmed_input = input.trim();
+    while let Some(input) = session.take_input() {
+        let trimmed_input = input.trim();
 
-            if trimmed_input.is_empty() {
-                continue;
-            }
-
-            let message = ClientMessage::SendChat(trimmed_input.to_string());
-
-            let payload = encode_to_vec(&message, standard()).expect("failed to serialize chat");
-            network.send_message(AppChannel::ReliableOrdered, payload);
-
-            *waiting_for_server = true;
+        if trimmed_input.is_empty() {
+            continue;
         }
+
+        let message = ClientMessage::SendChat(trimmed_input.to_string());
+
+        let payload = encode_to_vec(&message, standard()).expect("failed to serialize chat");
+        network.send_message(AppChannel::ReliableOrdered, payload);
+
+        *waiting_for_server = true;
     }
 
     if network.is_disconnected() {
@@ -236,6 +263,9 @@ fn handle(
                 ),
             })
         } else {
+            ui.show_sanitized_message("Server: That's your lot.");
+            ui.show_message(" ");
+            ui.show_warning("Escape to exit.");
             Some(ClientState::EndAfterLeaderboard)
         }
     } else {

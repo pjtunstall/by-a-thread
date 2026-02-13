@@ -84,7 +84,16 @@ pub enum ServerMessage {
     AfterGameLeaderboard {
         entries: Vec<AfterGameLeaderboardEntry>,
     },
+    AfterGameTimer {
+        end_time: f64,
+    },
     ServerInfo {
+        message: String,
+    },
+    LobbyTimer {
+        end_time: f64,
+    },
+    SessionEnded {
         message: String,
     },
     BeginDifficultySelection, // Allow host to move to phase where they choose a difficulty.
@@ -110,7 +119,10 @@ impl ServerMessage {
             Self::ChatMessage { .. } => "ChatMessage",
             Self::AfterGameRoster { .. } => "AfterGameRoster",
             Self::AfterGameLeaderboard { .. } => "AfterGameLeaderboard",
+            Self::AfterGameTimer { .. } => "AfterGameTimer",
             Self::ServerInfo { .. } => "ServerInfo",
+            Self::LobbyTimer { .. } => "LobbyTimer",
+            Self::SessionEnded { .. } => "SessionEnded",
             Self::BeginDifficultySelection => "BeginDifficultySelection",
             Self::DenyDifficultySelection => "DenyDifficultySelection",
             Self::Victory { .. } => "Victory",

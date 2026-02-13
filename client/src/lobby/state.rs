@@ -4,9 +4,6 @@ use crate::{game::world::maze::MazeMeshes, info::map::MapOverlay};
 use common::{auth::Passcode, snapshot::InitialData};
 
 pub enum Lobby {
-    ServerAddress {
-        prompt_printed: bool,
-    },
     Passcode {
         prompt_printed: bool,
     },
@@ -43,10 +40,6 @@ pub enum Lobby {
 impl std::fmt::Debug for Lobby {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Lobby::ServerAddress { prompt_printed } => f
-                .debug_struct("ServerAddress")
-                .field("prompt_printed", prompt_printed)
-                .finish(),
             Lobby::Passcode { prompt_printed } => f
                 .debug_struct("Passcode")
                 .field("prompt_printed", prompt_printed)

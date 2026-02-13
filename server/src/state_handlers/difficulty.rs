@@ -11,6 +11,7 @@ use crate::{
 };
 use common::{
     self,
+    constants::DEFAULT_LOBBY_TIMEOUT_DIFFICULTY,
     chat::MAX_CHAT_MESSAGE_BYTES,
     net::AppChannel,
     protocol::{
@@ -22,8 +23,27 @@ use common::{
 pub fn handle(
     network: &mut dyn ServerNetworkHandle,
     state: &mut ChoosingDifficulty,
-    last_activity: &mut Instant,
 ) -> Option<ServerState> {
+    if let Some(end_time) = state.lobby.lobby_timer_end {
+        if common::time::now_as_secs_f64() >= end_time {
+            println!("Lobby timer expired during difficulty selection. Starting game.");
+            let mut choosing = ChoosingDifficulty::new(&state.lobby);
+            choosing.set_difficulty(DEFAULT_LOBBY_TIMEOUT_DIFFICULTY);
+            let game_data = InitialData::new(
+                &choosing.lobby.usernames,
+                choosing.lobby.colors(),
+                DEFAULT_LOBBY_TIMEOUT_DIFFICULTY,
+            );
+            let countdown_duration = Duration::from_secs(11);
+            let end_time_instant = Instant::now() + countdown_duration;
+            return Some(ServerState::Countdown(Countdown::new(
+                &choosing,
+                end_time_instant,
+                game_data,
+            )));
+        }
+    }
+
     let Some(host_id) = state.host_id() else {
         eprintln!("difficulty selection has no host; ignoring inputs");
         return None;
@@ -31,8 +51,6 @@ pub fn handle(
 
     for client_id in network.clients_id() {
         while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
-            *last_activity = Instant::now();
-
             if data.len() > MAX_CLIENT_MESSAGE_BYTES {
                 eprintln!(
                     "client {} sent oversized message; disconnecting them",
@@ -184,8 +202,7 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(user_id, payload);
 
-        let mut last_activity = Instant::now();
-        let next_state = handle(&mut network, &mut choosing_state, &mut last_activity);
+        let next_state = handle(&mut network, &mut choosing_state);
 
         assert!(next_state.is_none());
 
