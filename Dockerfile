@@ -16,10 +16,8 @@ RUN cargo install --path ./server
 
 FROM debian:bookworm-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /usr/bin/apt* /usr/bin/dpkg usr/bin/sh usr/bin/bash /usr/bin/dash
+RUN rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/bin/apt* /usr/bin/dpkg /usr/bin/dash /usr/bin/bash
     
 RUN useradd -r -s /bin/false serveruser
 
