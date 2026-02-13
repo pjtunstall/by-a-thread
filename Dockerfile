@@ -17,9 +17,8 @@ RUN cargo install --path ./server
 FROM debian:bookworm-slim
 
 RUN rm -rf /var/lib/apt/lists/* \
-    && rm -rf /usr/bin/apt* /usr/bin/dpkg /usr/bin/dash /usr/bin/bash
-    
-RUN useradd -r -s /bin/false serveruser
+    && rm -rf /usr/bin/apt* /usr/bin/dpkg /usr/bin/dash /usr/bin/bash \
+    && useradd -r -s /bin/false serveruser
 
 COPY --from=builder /usr/local/cargo/bin/server /usr/local/bin/server
 
