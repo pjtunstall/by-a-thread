@@ -124,15 +124,21 @@ paths:
               example:
                 code: GAME_NOT_FOUND
                 message: "No game with that passcode."
-        "410":
-          description: Game no longer accepting joins (lobby timer elapsed or no tokens left)
+        "409":
+          description: Game exists but cannot accept joins (no tokens left or lobby timer expired)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-              example:
-                code: LOBBY_CLOSED
-                message: "The lobby has closed. No more players can join."
+              examples:
+                lobby_full:
+                  value:
+                    code: LOBBY_FULL
+                    message: "No slots left. All connect tokens have been claimed."
+                game_already_started:
+                  value:
+                    code: GAME_ALREADY_STARTED
+                    message: "The game has already started."
 
 components:
   parameters:
@@ -214,7 +220,8 @@ components:
             - LIMITS_EXCEEDED
             - SERVER_ERROR
             - GAME_NOT_FOUND
-            - LOBBY_CLOSED
+            - LOBBY_FULL
+            - GAME_ALREADY_STARTED
         message:
           type: string
           description: Human-readable error message
