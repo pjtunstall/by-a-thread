@@ -27,6 +27,6 @@ The game itself has a timer. Currently the server exits when it ends and the lea
 
 ## Footnotes
 
-[^1]: Via a reverse proxy, Caddy, which will also take care of TLS certificates.
+[^1]: Via a reverse proxy, Caddy, which will also take care of TLS certificates. In addition to the other security measures mentioned, a cryptographically random code will be baked into the client binary. The client will send this with all HTTPS requests to prove that it is indeed a valid client. The matchmaker will validate this against a hash.
 
 [^2]: The matchmaker's access to Docker will be mediated by a Docker socket proxy. This is because an attacker who finds a vulnerability in the matchmaker could launch a privileged container and thereby gain root access to the host. The raw Docker socket will be mounted into the proxy, which can accept desired commands (like `start container`) and block dangerous ones (like `mount volume` or `delete system`).
