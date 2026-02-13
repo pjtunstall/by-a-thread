@@ -1,0 +1,232 @@
+openapi: 3.2.0
+info:
+  title: By a Thread Matchmaker API
+  description: |
+    API for creating and joining game sessions. All requests must include the
+    version code header to prove the client is legitimate. The matchmaker
+    enforces rate limiting on create-game requests.
+  version: 0.1.0
+
+servers:
+  - url: https://api.by-a-thread.de
+    description: Production
+
+paths:
+  /games:
+    post:
+      summary: Create a new game
+      description: |
+        Request a new game session. The matchmaker checks limits (games, players,
+        CPU), allocates a port, generates a passcode and private key, launches a
+        game server in Docker, and returns the connection details. Rate limited
+        to one request per 30 seconds per client.
+      operationId: createGame
+      parameters:
+        - $ref: "#/components/parameters/VersionCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGameRequest"
+      responses:
+        "200":
+          description: Game created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateGameResponse"
+        "400":
+          description: Invalid request (e.g. version code rejected)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                version_mismatch:
+                  value:
+                    code: VERSION_MISMATCH
+                    message: "Client version is not supported."
+        "429":
+          description: Rate limit exceeded
+          headers:
+            Retry-After:
+              description: Seconds until the client may retry
+              schema:
+                type: integer
+                examples: [25]
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: RATE_LIMITED
+                message: "Too many requests. Try again later."
+        "503":
+          description: Service unavailable (limits exceeded or Docker failure)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                limits_exceeded:
+                  value:
+                    code: LIMITS_EXCEEDED
+                    message: "No capacity for new games at the moment."
+                server_error:
+                  value:
+                    code: SERVER_ERROR
+                    message: "Failed to start game server. Please try again."
+
+  /games/{passcode}/join:
+    post:
+      summary: Join an existing game
+      description: |
+        Request a connect token to join a game by passcode. Valid only if the
+        passcode is correct, the lobby timer has not elapsed, and connect
+        tokens remain available.
+      operationId: joinGame
+      parameters:
+        - $ref: "#/components/parameters/VersionCode"
+        - name: passcode
+          in: path
+          required: true
+          description: Six-digit passcode shared by the host
+          schema:
+            type: string
+            pattern: '^\d{6}$'
+            examples: ["123456"]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinGameRequest"
+      responses:
+        "200":
+          description: Join successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinGameResponse"
+        "400":
+          description: Invalid request (e.g. version code rejected)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Game not found (invalid passcode)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: GAME_NOT_FOUND
+                message: "No game with that passcode."
+        "410":
+          description: Game no longer accepting joins (lobby timer elapsed or no tokens left)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: LOBBY_CLOSED
+                message: "The lobby has closed. No more players can join."
+
+components:
+  parameters:
+    VersionCode:
+      name: X-Version-Code
+      in: header
+      required: true
+      description: Baked-in code proving the client is legitimate and identifying its version
+      schema:
+        type: string
+
+  schemas:
+    CreateGameRequest:
+      type: object
+      required:
+        - username
+        - player_count
+      properties:
+        username:
+          type: string
+          description: Host's display name
+          minLength: 1
+          maxLength: 16
+        player_count:
+          type: integer
+          description: Number of players who will join (including host)
+          minimum: 1
+          maximum: 10
+
+    CreateGameResponse:
+      type: object
+      required:
+        - port
+        - connect_token
+        - passcode
+      properties:
+        port:
+          type: integer
+          description: UDP port on the game server (host)
+          minimum: 7777
+          maximum: 7782
+          example: 7777
+        connect_token:
+          type: string
+          description: Serialized Renet connect token (JSON). The client deserializes and uses it to connect.
+        passcode:
+          type: string
+          description: Six-digit passcode to share with other players
+          pattern: '^\d{6}$'
+          example: "123456"
+
+    JoinGameRequest:
+      type: object
+      required:
+        - username
+      properties:
+        username:
+          type: string
+          description: Player's display name
+          minLength: 1
+          maxLength: 16
+
+    JoinGameResponse:
+      type: object
+      required:
+        - port
+        - connect_token
+      properties:
+        port:
+          type: integer
+          description: UDP port on the game server (host)
+          minimum: 7777
+          maximum: 7782
+          examples: [7777]
+        connect_token:
+          type: string
+          description: Serialized Renet connect token (JSON). The client deserializes and uses it to connect.
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code
+          enum:
+            - VERSION_MISMATCH
+            - RATE_LIMITED
+            - LIMITS_EXCEEDED
+            - SERVER_ERROR
+            - GAME_NOT_FOUND
+            - LOBBY_CLOSED
+        message:
+          type: string
+          description: Human-readable error message
