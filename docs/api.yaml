@@ -148,14 +148,8 @@ components:
     CreateGameRequest:
       type: object
       required:
-        - username
         - player_count
       properties:
-        username:
-          type: string
-          description: Host's display name
-          minLength: 1
-          maxLength: 16
         player_count:
           type: integer
           description: Number of players who will join (including host)
@@ -186,14 +180,8 @@ components:
 
     JoinGameRequest:
       type: object
-      required:
-        - username
-      properties:
-        username:
-          type: string
-          description: Player's display name
-          minLength: 1
-          maxLength: 16
+      description: Empty body. Username is sent to the game server after connecting.
+      additionalProperties: false
 
     JoinGameResponse:
       type: object
