@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
 pub struct PortPool {
     ports: Vec<u16>,
 }
@@ -17,3 +20,5 @@ impl PortPool {
         self.ports.push(port);
     }
 }
+
+pub type PortPoolState = Arc<Mutex<PortPool>>;

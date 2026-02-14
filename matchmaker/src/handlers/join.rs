@@ -1,12 +1,11 @@
-use axum::{
-    Json, Router,
-    extract::{Path, State},
-    http::StatusCode,
-    routing::post,
-};
-use tokio::sync::Mutex;
+use axum::extract::{Path, State};
 
-pub async fn join_game(Path(passcode): Path<String>) -> &'static str {
+use crate::ports::PortPoolState;
+
+pub async fn join_game(
+    State(_port_pool): State<PortPoolState>,
+    Path(passcode): Path<String>,
+) -> &'static str {
     println!("Joining game with passcode: {}", passcode);
     ""
 }

@@ -1,11 +1,8 @@
-use std::sync::Arc;
-
 use axum::{Json, extract::State, http::StatusCode};
 use serde::Serialize;
-use tokio::sync::Mutex;
 
 use super::ErrorBody;
-use crate::ports::PortPool;
+use crate::ports::PortPoolState;
 
 pub async fn create_game(State(port_pool): State<PortPoolState>) -> CreateGameResult {
     let port = port_pool.lock().await.get().ok_or_else(limits_exceeded)?;
@@ -13,8 +10,6 @@ pub async fn create_game(State(port_pool): State<PortPoolState>) -> CreateGameRe
 
     Ok((StatusCode::OK, Json(body)))
 }
-
-type PortPoolState = Arc<Mutex<PortPool>>;
 
 #[derive(Serialize)]
 pub struct CreateGameSuccessBody {
