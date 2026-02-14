@@ -12,6 +12,11 @@ RUN mkdir -p client/src && \
     echo '[package]\nname = "client"\nversion = "0.0.0"\n[dependencies]' > client/Cargo.toml && \
     echo 'fn main() {}' > client/src/main.rs
 
+# Create a dummy matchmaker to satisfy `cargo install`.
+RUN mkdir -p matchmaker/src && \
+    echo '[package]\nname = "matchmaker"\nversion = "0.0.0"\n[dependencies]' > matchmaker/Cargo.toml && \
+    echo 'fn main() {}' > matchmaker/src/main.rs
+
 RUN cargo install --path ./server
 
 FROM debian:bookworm-slim
