@@ -26,9 +26,9 @@ pub fn create_connect_token(
     ConnectToken::generate(
         current_time,
         protocol_id,
-        3600,
+        1020, // Valid for 17 minutes.
         client_id,
-        15,
+        15, // Timeout after 15 seconds.
         vec![server_addr],
         None,
         private_key,
