@@ -15,8 +15,8 @@ use crate::{
 use common::{
     self,
     auth::{MAX_ATTEMPTS, MAX_PASSCODE_LENGTH, Passcode},
-    constants::DEFAULT_LOBBY_TIMEOUT_DIFFICULTY,
     chat::MAX_CHAT_MESSAGE_BYTES,
+    constants::DEFAULT_LOBBY_TIMEOUT_DIFFICULTY,
     net::AppChannel,
     player::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username},
     protocol::{
@@ -172,8 +172,7 @@ pub fn handle(
                             if state.usernames_except(client_id).is_empty() {
                                 state.set_host(client_id, network);
                                 if let Some(end_time) = state.lobby_timer_end {
-                                    let timer_msg =
-                                        ServerMessage::LobbyTimer { end_time };
+                                    let timer_msg = ServerMessage::LobbyTimer { end_time };
                                     let timer_payload = encode_to_vec(&timer_msg, standard())
                                         .expect("failed to serialize LobbyTimer");
                                     network.broadcast_message(
@@ -183,9 +182,8 @@ pub fn handle(
                                 }
                             } else if let Some(end_time) = state.lobby_timer_end {
                                 let timer_msg = ServerMessage::LobbyTimer { end_time };
-                                let timer_payload =
-                                    encode_to_vec(&timer_msg, standard())
-                                        .expect("failed to serialize LobbyTimer");
+                                let timer_payload = encode_to_vec(&timer_msg, standard())
+                                    .expect("failed to serialize LobbyTimer");
                                 network.send_message(
                                     client_id,
                                     AppChannel::ReliableOrdered,
@@ -277,9 +275,9 @@ pub fn handle(
                         client_id
                     );
                 }
-                ClientMessage::EnterAfterGameChat => {
+                ClientMessage::EnterPostGameChat => {
                     eprintln!(
-                        "client {} sent EnterAfterGameChat in lobby state; ignoring",
+                        "client {} sent EnterPostGameChat in lobby state; ignoring",
                         client_id
                     );
                 }

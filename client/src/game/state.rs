@@ -13,7 +13,6 @@ use macroquad::{
 };
 
 use crate::{
-    after_game_chat::AfterGameChat,
     assets::Assets,
     fade::{self, Fade},
     frame::FrameRate,
@@ -28,8 +27,9 @@ use crate::{
             sky::Sky,
         },
     },
-    info::{self, map::after_game::AfterGameMap},
+    info::{self, map::post_game::PostGameMap},
     net::NetworkHandle,
+    post_game_chat::PostGameChat,
     session::Clock,
     state::ClientState,
     time::INTERPOLATION_DELAY_SECS,
@@ -76,7 +76,7 @@ pub struct Game {
     last_fire_tick: Option<u64>,
     last_sim_tick: u64,
     pending_bullet_events: Vec<BulletEvent>,
-    after_game_chat_sent: bool,
+    post_game_chat_sent: bool,
     victory_in_progress: bool,
     obe_effect: Option<ObeEffect>,
     victory_effect: Option<VictoryEffect>,
@@ -133,7 +133,7 @@ impl Game {
             last_fire_tick: None,
             last_sim_tick: sim_tick,
             pending_bullet_events: Vec::new(),
-            after_game_chat_sent: false,
+            post_game_chat_sent: false,
             victory_in_progress: false,
             obe_effect: None,
             victory_effect: None,
@@ -152,18 +152,18 @@ impl Game {
         network: &mut dyn NetworkHandle,
         assets: &Assets,
     ) -> Option<ClientState> {
-        if self.fade_to_black_finished && !self.after_game_chat_sent {
-            self.after_game_chat_sent = true;
-            let message = ClientMessage::EnterAfterGameChat;
+        if self.fade_to_black_finished && !self.post_game_chat_sent {
+            self.post_game_chat_sent = true;
+            let message = ClientMessage::EnterPostGameChat;
             let payload =
                 encode_to_vec(&message, standard()).expect("failed to encode after-game chat");
             network.send_message(AppChannel::ReliableOrdered, payload);
 
-            return Some(ClientState::AfterGameChat(AfterGameChat {
+            return Some(ClientState::PostGameChat(PostGameChat {
                 awaiting_initial_roster: true,
                 waiting_for_server: false,
                 leaderboard_received: false,
-                map_for_after_game: None,
+                map_for_post_game: None,
             }));
         }
 
@@ -179,20 +179,20 @@ impl Game {
         None
     }
 
-    pub fn consume_for_after_game(self, chat_state: AfterGameChat) -> AfterGameChat {
+    pub fn consume_for_post_game(self, chat_state: PostGameChat) -> PostGameChat {
         let positions = self
             .players
             .iter()
             .filter(|p| p.is_alive() && p.index != self.local_player_index)
             .map(|p| (p.state.position, p.color))
             .collect();
-        let map_for_after_game = Some(AfterGameMap {
+        let map_for_post_game = Some(PostGameMap {
             map_overlay: self.map_overlay,
             maze: self.maze,
             positions,
         });
-        AfterGameChat {
-            map_for_after_game,
+        PostGameChat {
+            map_for_post_game,
             ..chat_state
         }
     }

@@ -1,10 +1,10 @@
-pub use crate::{after_game_chat::AfterGameChat, game::state::Game, lobby::state::Lobby};
+pub use crate::{game::state::Game, lobby::state::Lobby, post_game_chat::PostGameChat};
 
 #[derive(Debug)]
 pub enum ClientState {
     Lobby(Lobby),
     Game(Game),
-    AfterGameChat(AfterGameChat),
+    PostGameChat(PostGameChat),
     Disconnected { message: String },
     EndAfterLeaderboard,
     Transitioning,

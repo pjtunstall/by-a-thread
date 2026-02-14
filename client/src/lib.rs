@@ -1,13 +1,13 @@
-pub mod after_game_chat;
 pub mod assets;
-pub mod server_address;
 pub mod fade;
 pub mod frame;
 pub mod game;
 pub mod info;
 pub mod lobby;
 pub mod net;
+pub mod post_game_chat;
 pub mod run;
+pub mod server_address;
 pub mod session;
 pub mod state;
 pub mod test_helpers;

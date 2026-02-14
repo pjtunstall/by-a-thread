@@ -5,8 +5,8 @@ pub const SOLO_TIMER_DURATION: f32 = 120.0; // Single player has 2 minutes to es
 pub const BATTLE_TIMER_DURATION: f32 = 600.0; // Multiplayer gets 10 minutes.
 
 // Lobby and after-game timers.
-pub const PRE_GAME_LOBBY_DURATION: Duration = Duration::from_secs(300);
-pub const POST_GAME_CHAT_DURATION: Duration = Duration::from_secs(180);
+pub const PRE_GAME_TIMER_DURATION: Duration = Duration::from_secs(300);
+pub const POST_GAME_TIMER_DURATION: Duration = Duration::from_secs(180);
 pub const DEFAULT_LOBBY_TIMEOUT_DIFFICULTY: u8 = 5;
 
 // Client:

@@ -7,7 +7,10 @@ use bincode::{config::standard, serde::decode_from_slice};
 use rand::{rng, seq::SliceRandom};
 
 use crate::{net::ServerNetworkHandle, player::ServerPlayer, state::Game};
-use common::{net::AppChannel, protocol::{ClientMessage, MAX_CLIENT_MESSAGE_BYTES}};
+use common::{
+    net::AppChannel,
+    protocol::{ClientMessage, MAX_CLIENT_MESSAGE_BYTES},
+};
 
 const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
 const MAX_MESSAGES_PER_CLIENT_PER_TICK: u32 = 128;
@@ -26,7 +29,7 @@ pub fn receive_inputs(network: &mut dyn ServerNetworkHandle, state: &mut Game) {
     client_ids.shuffle(&mut rng());
 
     for client_id in client_ids {
-        if state.after_game_chat_clients.contains(&client_id) {
+        if state.post_game_chat_clients.contains(&client_id) {
             let mut ingress_bytes = 0usize;
             while let Some(data) = network.receive_message(client_id, AppChannel::Unreliable) {
                 ingress_bytes = ingress_bytes.saturating_add(data.len());
@@ -200,7 +203,7 @@ fn handle_message(player: &mut ServerPlayer, message: ClientMessage) -> Result<(
             player.input_buffer.insert(input);
             Ok(())
         }
-        ClientMessage::EnterAfterGameChat | ClientMessage::SendChat(_) => Ok(()),
+        ClientMessage::EnterPostGameChat | ClientMessage::SendChat(_) => Ok(()),
         _ => Err(InputError::UnknownType),
     }
 }

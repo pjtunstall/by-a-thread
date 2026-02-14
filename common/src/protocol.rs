@@ -25,7 +25,7 @@ pub fn auth_success_message(max_username_length: usize) -> String {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Display)]
 #[strum(serialize_all = "lowercase")]
-pub enum AfterGameExitReason {
+pub enum PostGameExitReason {
     Disconnected,
     Shot,
     Winner,
@@ -34,11 +34,11 @@ pub enum AfterGameExitReason {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AfterGameLeaderboardEntry {
+pub struct PostGameLeaderboardEntry {
     pub username: String,
     pub color: Color,
     pub ticks_survived: u64,
-    pub exit_reason: AfterGameExitReason,
+    pub exit_reason: PostGameExitReason,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -78,13 +78,13 @@ pub enum ServerMessage {
         color: Color,
         content: String,
     },
-    AfterGameRoster {
+    PostGameRoster {
         hades_shades: Vec<PlayerRosterEntry>,
     },
-    AfterGameLeaderboard {
-        entries: Vec<AfterGameLeaderboardEntry>,
+    PostGameLeaderboard {
+        entries: Vec<PostGameLeaderboardEntry>,
     },
-    AfterGameTimer {
+    PostGameTimer {
         end_time: f64,
     },
     ServerInfo {
@@ -117,9 +117,9 @@ impl ServerMessage {
             Self::UserJoined { .. } => "UserJoined",
             Self::UserLeft { .. } => "UserLeft",
             Self::ChatMessage { .. } => "ChatMessage",
-            Self::AfterGameRoster { .. } => "AfterGameRoster",
-            Self::AfterGameLeaderboard { .. } => "AfterGameLeaderboard",
-            Self::AfterGameTimer { .. } => "AfterGameTimer",
+            Self::PostGameRoster { .. } => "PostGameRoster",
+            Self::PostGameLeaderboard { .. } => "PostGameLeaderboard",
+            Self::PostGameTimer { .. } => "PostGameTimer",
             Self::ServerInfo { .. } => "ServerInfo",
             Self::LobbyTimer { .. } => "LobbyTimer",
             Self::SessionEnded { .. } => "SessionEnded",
@@ -169,7 +169,7 @@ pub enum ClientMessage {
     SendChat(String),
     RequestStartGame,
     SetDifficulty(u8),
-    EnterAfterGameChat,
+    EnterPostGameChat,
     Input(WireItem<PlayerInput>),
 }
 

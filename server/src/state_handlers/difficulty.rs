@@ -11,8 +11,8 @@ use crate::{
 };
 use common::{
     self,
-    constants::DEFAULT_LOBBY_TIMEOUT_DIFFICULTY,
     chat::MAX_CHAT_MESSAGE_BYTES,
+    constants::DEFAULT_LOBBY_TIMEOUT_DIFFICULTY,
     net::AppChannel,
     protocol::{
         ClientMessage, GAME_ALREADY_STARTED_MESSAGE, MAX_CLIENT_MESSAGE_BYTES, ServerMessage,
@@ -148,9 +148,9 @@ pub fn handle(
                         client_id
                     );
                 }
-                ClientMessage::EnterAfterGameChat => {
+                ClientMessage::EnterPostGameChat => {
                     eprintln!(
-                        "client {} sent EnterAfterGameChat while choosing difficulty; ignoring",
+                        "client {} sent EnterPostGameChat while choosing difficulty; ignoring",
                         client_id
                     );
                 }

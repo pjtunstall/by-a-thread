@@ -13,7 +13,7 @@ use crate::{
 use common::{
     bullets::{self, Bullet, check_player_collision, update_bullet_position},
     chat::MAX_CHAT_MESSAGE_BYTES,
-    constants::{POST_GAME_CHAT_DURATION, TICKS_PER_BROADCAST},
+    constants::{POST_GAME_TIMER_DURATION, TICKS_PER_BROADCAST},
     input::sanitize,
     net::AppChannel,
     protocol::{BulletEvent, ClientMessage, MAX_CLIENT_MESSAGE_BYTES, ServerMessage},
@@ -120,7 +120,7 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
                 .client_id_to_index
                 .keys()
                 .copied()
-                .filter(|client_id| !state.after_game_chat_clients.contains(client_id))
+                .filter(|client_id| !state.post_game_chat_clients.contains(client_id))
                 .collect();
             let recipients_count = recipients.len();
             for client_id in recipients {
@@ -154,9 +154,9 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
     // state.net_stats.log_if_ready();
 
     if state.leaderboard_sent {
-        if let Some(start_time) = state.after_game_chat_start_time {
+        if let Some(start_time) = state.post_game_chat_start_time {
             let elapsed = common::time::now_as_secs_f64() - start_time;
-            let duration_secs = POST_GAME_CHAT_DURATION.as_secs_f64();
+            let duration_secs = POST_GAME_TIMER_DURATION.as_secs_f64();
             if !state.one_minute_warning_sent && elapsed >= duration_secs - 60.0 {
                 state.one_minute_warning_sent = true;
                 let message = ServerMessage::ServerInfo {
@@ -208,7 +208,7 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
             };
 
             match message {
-                ClientMessage::EnterAfterGameChat => {
+                ClientMessage::EnterPostGameChat => {
                     let Some(&player_index) = state.client_id_to_index.get(&client_id) else {
                         eprintln!(
                             "client {} entered after-game chat but was not in the game state",
@@ -217,7 +217,7 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                         continue;
                     };
 
-                    if !state.after_game_chat_clients.insert(client_id) {
+                    if !state.post_game_chat_clients.insert(client_id) {
                         continue;
                     }
 
@@ -230,14 +230,14 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                         .players
                         .iter()
                         .filter(|player| player.client_id != client_id)
-                        .filter(|player| state.after_game_chat_clients.contains(&player.client_id))
+                        .filter(|player| state.post_game_chat_clients.contains(&player.client_id))
                         .map(|player| common::protocol::PlayerRosterEntry {
                             username: player.name.clone(),
                             color: player.color,
                         })
                         .collect::<Vec<_>>();
 
-                    let message = ServerMessage::AfterGameRoster {
+                    let message = ServerMessage::PostGameRoster {
                         hades_shades: online,
                     };
                     let payload =
@@ -253,7 +253,7 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                     let payload_len = payload.len();
                     let mut egress_bytes = 0usize;
 
-                    for other_id in &state.after_game_chat_clients {
+                    for other_id in &state.post_game_chat_clients {
                         if *other_id == client_id {
                             continue;
                         }
@@ -269,7 +269,7 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                     state.send_leaderboard_if_ready(network);
                 }
                 ClientMessage::SendChat(content) => {
-                    if !state.after_game_chat_clients.contains(&client_id) {
+                    if !state.post_game_chat_clients.contains(&client_id) {
                         eprintln!(
                             "client {} sent chat message during game; ignoring",
                             client_id
@@ -304,7 +304,7 @@ fn handle_reliable_messages(network: &mut dyn ServerNetworkHandle, state: &mut G
                     let payload = encode_to_vec(&message, standard())
                         .expect("failed to serialize ChatMessage");
                     let mut egress_bytes = 0usize;
-                    for other_id in &state.after_game_chat_clients {
+                    for other_id in &state.post_game_chat_clients {
                         egress_bytes = egress_bytes.saturating_add(payload.len());
                         network.send_message(
                             *other_id,
@@ -438,7 +438,7 @@ fn check_multiplayer_winner(network: &mut dyn ServerNetworkHandle, state: &mut G
         .client_id_to_index
         .keys()
         .copied()
-        .filter(|client_id| !state.after_game_chat_clients.contains(client_id))
+        .filter(|client_id| !state.post_game_chat_clients.contains(client_id))
         .collect();
     let recipients_count = recipients.len();
     for client_id in recipients {
@@ -493,7 +493,7 @@ fn check_timer_expiration(network: &mut dyn ServerNetworkHandle, state: &mut Gam
                 .client_id_to_index
                 .keys()
                 .copied()
-                .filter(|client_id| !state.after_game_chat_clients.contains(client_id))
+                .filter(|client_id| !state.post_game_chat_clients.contains(client_id))
                 .collect();
             let recipients_count = recipients.len();
             for client_id in recipients {
@@ -529,7 +529,7 @@ fn check_timer_expiration(network: &mut dyn ServerNetworkHandle, state: &mut Gam
             .client_id_to_index
             .keys()
             .copied()
-            .filter(|client_id| !state.after_game_chat_clients.contains(client_id))
+            .filter(|client_id| !state.post_game_chat_clients.contains(client_id))
             .collect();
         let recipients_count = recipients.len();
         for client_id in recipients {

@@ -7,7 +7,7 @@ use macroquad::prelude::*;
 
 use crate::{
     assets::Assets,
-    info::map::{self, after_game::AfterGameMap},
+    info::map::{self, post_game::PostGameMap},
     lobby::ui::{LobbyUi, UiErrorKind, UiInputError},
     net::NetworkHandle,
     session::ClientSession,
@@ -23,11 +23,11 @@ use common::{
 };
 
 #[derive(Debug)]
-pub struct AfterGameChat {
+pub struct PostGameChat {
     pub awaiting_initial_roster: bool,
     pub waiting_for_server: bool,
     pub leaderboard_received: bool,
-    pub map_for_after_game: Option<AfterGameMap>,
+    pub map_for_post_game: Option<PostGameMap>,
 }
 
 pub fn update(
@@ -39,9 +39,9 @@ pub fn update(
     let state = std::mem::take(&mut session.state);
 
     let result = match state {
-        ClientState::AfterGameChat(mut chat_state) => {
+        ClientState::PostGameChat(mut chat_state) => {
             let result = handle(&mut chat_state, session, ui, network);
-            session.state = ClientState::AfterGameChat(chat_state);
+            session.state = ClientState::PostGameChat(chat_state);
             result
         }
         other_state => {
@@ -54,9 +54,9 @@ pub fn update(
         return result;
     }
 
-    if let ClientState::AfterGameChat(ref chat) = session.state {
+    if let ClientState::PostGameChat(ref chat) = session.state {
         if chat.leaderboard_received {
-            if let Some(end_time) = session.after_game_timer_end {
+            if let Some(end_time) = session.post_game_timer_end {
                 if session.clock.estimated_server_time >= end_time {
                     ui.show_sanitized_message("Server: That's your lot.");
                     ui.show_message(" ");
@@ -68,8 +68,8 @@ pub fn update(
     }
 
     let ui_state = session.prepare_ui_state();
-    let timer_expired = matches!(&session.state, ClientState::AfterGameChat(chat) if chat.leaderboard_received)
-        && session.after_game_timer_end.map_or(false, |end_time| {
+    let timer_expired = matches!(&session.state, ClientState::PostGameChat(chat) if chat.leaderboard_received)
+        && session.post_game_timer_end.map_or(false, |end_time| {
             session.clock.estimated_server_time >= end_time
         });
     if ui_state.show_waiting_message && !timer_expired {
@@ -79,20 +79,20 @@ pub fn update(
     let should_show_input = matches!(ui_state.mode, InputMode::Enabled);
     let show_cursor = should_show_input;
     let font = assets.map(|assets| &assets.font);
-    let after_game_timer = (session.clock.estimated_server_time > 0.0)
-        .then(|| session.after_game_timer_end)
+    let post_game_timer = (session.clock.estimated_server_time > 0.0)
+        .then(|| session.post_game_timer_end)
         .flatten()
         .map(|end_time| crate::lobby::ui::LobbyTimerInfo {
             end_time,
-            duration_secs: common::constants::POST_GAME_CHAT_DURATION.as_secs_f32(),
+            duration_secs: common::constants::POST_GAME_TIMER_DURATION.as_secs_f32(),
             estimated_server_time: session.clock.estimated_server_time,
         });
-    ui.draw(should_show_input, show_cursor, font, after_game_timer);
+    ui.draw(should_show_input, show_cursor, font, post_game_timer);
 
-    if let (Some(assets), ClientState::AfterGameChat(chat)) = (assets, &session.state) {
-        if let Some(data) = &chat.map_for_after_game {
+    if let (Some(assets), ClientState::PostGameChat(chat)) = (assets, &session.state) {
+        if let Some(data) = &chat.map_for_post_game {
             if !chat.leaderboard_received && !data.positions.is_empty() {
-                map::after_game::draw_after_game_map(data, assets);
+                map::post_game::draw_post_game_map(data, assets);
             }
         }
     }
@@ -111,16 +111,16 @@ fn apply_snapshot_to_positions(positions: &mut [(Vec3, Color)], snapshot: &Snaps
 }
 
 fn handle(
-    chat_state: &mut AfterGameChat,
+    chat_state: &mut PostGameChat,
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    let AfterGameChat {
+    let PostGameChat {
         awaiting_initial_roster,
         waiting_for_server,
         leaderboard_received,
-        map_for_after_game,
+        map_for_post_game,
     } = chat_state;
 
     let input_enabled = !*waiting_for_server;
@@ -138,7 +138,7 @@ fn handle(
     }
 
     while let Some(data) = network.receive_message(AppChannel::Unreliable) {
-        if let Some(map_data) = map_for_after_game {
+        if let Some(map_data) = map_for_post_game {
             if let Ok((ServerMessage::Snapshot(wire), _)) =
                 decode_from_slice::<ServerMessage, _>(&data, standard())
             {
@@ -176,7 +176,7 @@ fn handle(
                 }
                 ui.show_sanitized_message(&format!("Server: {} left the chat.", username));
             }
-            Ok((ServerMessage::AfterGameRoster { hades_shades }, _)) => {
+            Ok((ServerMessage::PostGameRoster { hades_shades }, _)) => {
                 if hades_shades.is_empty() {
                     ui.show_sanitized_message("Server: You are the only shade in Hades.");
                 } else {
@@ -190,12 +190,12 @@ fn handle(
                 }
                 *awaiting_initial_roster = false;
             }
-            Ok((ServerMessage::AfterGameTimer { end_time }, _)) => {
-                session.after_game_timer_end = Some(end_time);
+            Ok((ServerMessage::PostGameTimer { end_time }, _)) => {
+                session.post_game_timer_end = Some(end_time);
             }
-            Ok((ServerMessage::AfterGameLeaderboard { entries }, _)) => {
+            Ok((ServerMessage::PostGameLeaderboard { entries }, _)) => {
                 *leaderboard_received = true;
-                *map_for_after_game = None;
+                *map_for_post_game = None;
                 ui.show_message(" ");
                 ui.show_sanitized_message("Leaderboard:");
                 let mut current_rank = 1;
@@ -255,7 +255,7 @@ fn handle(
 
     if network.is_disconnected() {
         let is_natural_end = *leaderboard_received
-            && session.after_game_timer_end.map_or(false, |end_time| {
+            && session.post_game_timer_end.map_or(false, |end_time| {
                 session.clock.estimated_server_time >= end_time
             });
         if is_natural_end {

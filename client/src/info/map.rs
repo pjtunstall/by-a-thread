@@ -1,5 +1,5 @@
-pub mod after_game;
 pub mod initialize;
+pub mod post_game;
 pub mod update;
 
 pub use initialize::{MapOverlay, initialize_map};

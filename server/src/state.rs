@@ -18,8 +18,8 @@ use common::{
     net::AppChannel,
     player::{COLORS, Color, WirePlayerLocal, WirePlayerRemote},
     protocol::{
-        AfterGameExitReason, AfterGameLeaderboardEntry, GAME_ALREADY_STARTED_MESSAGE,
-        PlayerRosterEntry, ServerMessage,
+        GAME_ALREADY_STARTED_MESSAGE, PlayerRosterEntry, PostGameExitReason,
+        PostGameLeaderboardEntry, ServerMessage,
     },
     snapshot::{InitialData, Snapshot},
 };
@@ -83,9 +83,9 @@ pub struct Game {
     pub game_start_tick: u64,
     pub bullets: Vec<Bullet>,
     pub next_bullet_id: u32,
-    pub after_game_chat_clients: HashSet<u64>,
+    pub post_game_chat_clients: HashSet<u64>,
     pub leaderboard_sent: bool,
-    pub after_game_chat_start_time: Option<f64>,
+    pub post_game_chat_start_time: Option<f64>,
     pub one_minute_warning_sent: bool,
     pub net_stats: NetStats,
     pub exit_coords: Option<(usize, usize)>,
@@ -122,9 +122,9 @@ impl Game {
             game_start_tick: current_tick,
             bullets: Vec::new(),
             next_bullet_id: 0,
-            after_game_chat_clients: HashSet::new(),
+            post_game_chat_clients: HashSet::new(),
             leaderboard_sent: false,
-            after_game_chat_start_time: None,
+            post_game_chat_start_time: None,
             one_minute_warning_sent: false,
             net_stats: NetStats::new(),
             exit_coords: initial_data.exit_coords,
@@ -157,7 +157,7 @@ impl Game {
 
             // If there are no connected players left, exit.
             self.client_id_to_index.remove(&client_id);
-            self.after_game_chat_clients.remove(&client_id);
+            self.post_game_chat_clients.remove(&client_id);
             if self.client_id_to_index.is_empty() {
                 println!("All players have disconnected. Server exiting...");
                 std::process::exit(0);
@@ -196,26 +196,26 @@ impl Game {
             return;
         }
 
-        if self.after_game_chat_clients.len() != self.client_id_to_index.len() {
+        if self.post_game_chat_clients.len() != self.client_id_to_index.len() {
             return;
         }
 
         let entries = self.build_leaderboard_entries();
-        let message = ServerMessage::AfterGameLeaderboard { entries };
+        let message = ServerMessage::PostGameLeaderboard { entries };
         let payload =
-            encode_to_vec(&message, standard()).expect("failed to serialize AfterGameLeaderboard");
+            encode_to_vec(&message, standard()).expect("failed to serialize PostGameLeaderboard");
         let payload_len = payload.len();
         let mut egress_bytes = 0usize;
 
         let now = common::time::now_as_secs_f64();
-        let timer_end_time = now + common::constants::POST_GAME_CHAT_DURATION.as_secs_f64();
-        let timer_message = ServerMessage::AfterGameTimer {
+        let timer_end_time = now + common::constants::POST_GAME_TIMER_DURATION.as_secs_f64();
+        let timer_message = ServerMessage::PostGameTimer {
             end_time: timer_end_time,
         };
         let timer_payload =
-            encode_to_vec(&timer_message, standard()).expect("failed to serialize AfterGameTimer");
+            encode_to_vec(&timer_message, standard()).expect("failed to serialize PostGameTimer");
 
-        for client_id in &self.after_game_chat_clients {
+        for client_id in &self.post_game_chat_clients {
             egress_bytes = egress_bytes.saturating_add(payload_len);
             network.send_message(*client_id, AppChannel::ReliableOrdered, payload.clone());
             network.send_message(
@@ -227,10 +227,10 @@ impl Game {
 
         self.note_egress_bytes(egress_bytes);
         self.leaderboard_sent = true;
-        self.after_game_chat_start_time = Some(now);
+        self.post_game_chat_start_time = Some(now);
     }
 
-    fn build_leaderboard_entries(&self) -> Vec<AfterGameLeaderboardEntry> {
+    fn build_leaderboard_entries(&self) -> Vec<PostGameLeaderboardEntry> {
         let mut entries = self
             .players
             .iter()
@@ -238,10 +238,10 @@ impl Game {
                 let end_tick = player.exit_tick.unwrap_or(self.current_tick);
                 let ticks_survived = end_tick.saturating_sub(self.game_start_tick);
                 let exit_reason = match player.status {
-                    Status::Disconnected => AfterGameExitReason::Disconnected,
-                    Status::Dead | Status::Alive => AfterGameExitReason::Shot,
+                    Status::Disconnected => PostGameExitReason::Disconnected,
+                    Status::Dead | Status::Alive => PostGameExitReason::Shot,
                 };
-                AfterGameLeaderboardEntry {
+                PostGameLeaderboardEntry {
                     username: player.name.clone(),
                     color: player.color,
                     ticks_survived,
@@ -262,12 +262,12 @@ impl Game {
                                 .maze
                                 .is_outside(player.state.position.x, player.state.position.z);
                             entry.exit_reason = if escaped {
-                                AfterGameExitReason::Escaped
+                                PostGameExitReason::Escaped
                             } else {
-                                AfterGameExitReason::Minotaured
+                                PostGameExitReason::Minotaured
                             };
                         } else {
-                            entry.exit_reason = AfterGameExitReason::Minotaured;
+                            entry.exit_reason = PostGameExitReason::Minotaured;
                         }
                     }
                 }
@@ -281,15 +281,15 @@ impl Game {
                     .iter_mut()
                     .find(|e| e.username == winner_player.name)
                 {
-                    winner_entry.exit_reason = AfterGameExitReason::Winner;
+                    winner_entry.exit_reason = PostGameExitReason::Winner;
                 }
             }
         }
 
         // Re-sort to ensure the winner is always first.
         entries.sort_by(|a, b| {
-            let a_is_winner = matches!(a.exit_reason, AfterGameExitReason::Winner);
-            let b_is_winner = matches!(b.exit_reason, AfterGameExitReason::Winner);
+            let a_is_winner = matches!(a.exit_reason, PostGameExitReason::Winner);
+            let b_is_winner = matches!(b.exit_reason, PostGameExitReason::Winner);
             match (a_is_winner, b_is_winner) {
                 (true, false) => std::cmp::Ordering::Less,
                 (false, true) => std::cmp::Ordering::Greater,
@@ -476,7 +476,7 @@ impl Lobby {
         if self.lobby_timer_end.is_none() {
             self.lobby_timer_end = Some(
                 common::time::now_as_secs_f64()
-                    + common::constants::PRE_GAME_LOBBY_DURATION.as_secs_f64(),
+                    + common::constants::PRE_GAME_TIMER_DURATION.as_secs_f64(),
             );
         }
         notify_new_host(network, id);

@@ -20,11 +20,11 @@ Both client and server use the state pattern to organize flow. Each has its own 
 Top-level states:
 
 ```txt
-Lobby -> Game -> AfterGameChat -> EndAfterLeaderboard
+Lobby -> Game -> PostGameChat -> EndAfterLeaderboard
 ```
 
-- `Transitioning` is a formal state used only during the transition from `Game` to `AfterGameChat`. The run loop replaces the current state with `Transitioning` (via `ClientState::default()`) so it can consume the `Game` state to build the full `AfterGameChat` value, then immediately sets the state to `AfterGameChat`. The client is in `Transitioning` only for that brief moment; the run loop does nothing while in this state.
-- `Disconnected` can be entered from the Lobby substate `Connecting` onwards (and from Game/AfterGameChat on connection loss).
+- `Transitioning` is a formal state used only during the transition from `Game` to `PostGameChat`. The run loop replaces the current state with `Transitioning` (via `ClientState::default()`) so it can consume the `Game` state to build the full `PostGameChat` value, then immediately sets the state to `PostGameChat`. The client is in `Transitioning` only for that brief moment; the run loop does nothing while in this state.
+- `Disconnected` can be entered from the Lobby substate `Connecting` onwards (and from Game/PostGameChat on connection loss).
 - `EndAfterLeaderboard` is terminal: the client displays the post-game leaderboard and waits for the player to exit.
 
 Lobby has various substates, as detailed [below](#lobby).
@@ -86,7 +86,7 @@ server/
 client/src/
 ├── lib.rs
 ├── main.rs
-├── after_game_chat.rs
+├── post_game_chat.rs
 ├── assets.rs
 ├── fade.rs
 ├── frame.rs
@@ -106,7 +106,7 @@ client/src/
 │   ├── circles.rs
 │   ├── crosshairs.rs
 │   ├── map/
-│   │   ├── after_game.rs
+│   │   ├── post_game.rs
 │   │   ├── initialize.rs
 │   │   └── update.rs
 │   └── map.rs

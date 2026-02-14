@@ -1,9 +1,9 @@
 use std::{collections::VecDeque, net::SocketAddr, time::Instant};
 
 use crate::{
-    after_game_chat::AfterGameChat,
     frame::FrameRate,
     lobby::state::Lobby,
+    post_game_chat::PostGameChat,
     state::{ClientState, InputMode},
 };
 use common::player::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username};
@@ -29,7 +29,7 @@ pub struct ClientSession {
     waiting_since: Option<Instant>,
     waiting_message_shown: bool,
     pub lobby_timer_end: Option<f64>,
-    pub after_game_timer_end: Option<f64>,
+    pub post_game_timer_end: Option<f64>,
 }
 
 impl ClientSession {
@@ -56,7 +56,7 @@ impl ClientSession {
             waiting_since: None,
             waiting_message_shown: false,
             lobby_timer_end: None,
-            after_game_timer_end: None,
+            post_game_timer_end: None,
         }
     }
 
@@ -68,7 +68,7 @@ impl ClientSession {
             self.disconnected_notified = false;
             self.pending_disconnect = None;
         }
-        if matches!(new_state, ClientState::AfterGameChat { .. }) {
+        if matches!(new_state, ClientState::PostGameChat { .. }) {
             self.input_queue.clear();
         }
         if matches!(new_state, ClientState::Lobby(Lobby::Countdown { .. })) {
@@ -114,7 +114,7 @@ impl ClientSession {
             ClientState::Lobby(Lobby::Chat {
                 waiting_for_server, ..
             })
-            | ClientState::AfterGameChat(AfterGameChat {
+            | ClientState::PostGameChat(PostGameChat {
                 waiting_for_server, ..
             }) => {
                 *waiting_for_server = waiting;
@@ -129,7 +129,7 @@ impl ClientSession {
             ClientState::Lobby(Lobby::Chat {
                 waiting_for_server: true,
                 ..
-            }) | ClientState::AfterGameChat(AfterGameChat {
+            }) | ClientState::PostGameChat(PostGameChat {
                 waiting_for_server: true,
                 ..
             })
@@ -161,7 +161,7 @@ impl ClientSession {
                 awaiting_initial_roster,
                 ..
             })
-            | ClientState::AfterGameChat(AfterGameChat {
+            | ClientState::PostGameChat(PostGameChat {
                 awaiting_initial_roster,
                 ..
             }) => {
@@ -177,7 +177,7 @@ impl ClientSession {
             ClientState::Lobby(Lobby::Chat {
                 awaiting_initial_roster: true,
                 ..
-            }) | ClientState::AfterGameChat(AfterGameChat {
+            }) | ClientState::PostGameChat(PostGameChat {
                 awaiting_initial_roster: true,
                 ..
             })
@@ -190,7 +190,7 @@ impl ClientSession {
                 awaiting_initial_roster,
                 ..
             })
-            | ClientState::AfterGameChat(AfterGameChat {
+            | ClientState::PostGameChat(PostGameChat {
                 awaiting_initial_roster,
                 ..
             }) => {
@@ -228,7 +228,7 @@ impl ClientSession {
                     InputMode::Enabled
                 }
             }
-            ClientState::AfterGameChat(AfterGameChat {
+            ClientState::PostGameChat(PostGameChat {
                 waiting_for_server,
                 leaderboard_received: _,
                 ..

@@ -8,7 +8,6 @@ use renet::RenetClient;
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
 use crate::{
-    after_game_chat,
     assets::Assets,
     game,
     game::world::sky,
@@ -18,7 +17,7 @@ use crate::{
         ui::{Gui, LobbyUi},
     },
     net::{self, DisconnectKind, RenetNetworkHandle},
-    server_address,
+    post_game_chat, server_address,
     session::{ClientSession, Clock},
     state::{ClientState, Lobby},
 };
@@ -197,15 +196,15 @@ impl ClientRunner {
                     &self.assets,
                 );
                 match next_state {
-                    Some(ClientState::AfterGameChat(chat_state)) => {
+                    Some(ClientState::PostGameChat(chat_state)) => {
                         self.ui.flush_input();
                         let old =
                             std::mem::replace(&mut self.session.state, ClientState::default());
                         if let ClientState::Game(game) = old {
-                            let full_chat = game.consume_for_after_game(chat_state);
-                            self.session.state = ClientState::AfterGameChat(full_chat);
+                            let full_chat = game.consume_for_post_game(chat_state);
+                            self.session.state = ClientState::PostGameChat(full_chat);
                         } else {
-                            unreachable!("transition to AfterGameChat only happens from Game");
+                            unreachable!("transition to PostGameChat only happens from Game");
                         }
                     }
                     Some(other) => {
@@ -224,9 +223,9 @@ impl ClientRunner {
                 }
             }
             ClientState::Lobby(_) => lobby::state_handlers::update(self),
-            ClientState::AfterGameChat { .. } => {
+            ClientState::PostGameChat { .. } => {
                 let mut network = RenetNetworkHandle::new(&mut self.client, &mut self.transport);
-                if let Some(next_state) = after_game_chat::update(
+                if let Some(next_state) = post_game_chat::update(
                     &mut self.session,
                     &mut self.ui,
                     &mut network,
@@ -243,10 +242,10 @@ impl ClientRunner {
         if !self.session.state.is_disconnected() {
             if let Some(msg) = self.session.take_pending_disconnect() {
                 let next_state = match &self.session.state {
-                    ClientState::AfterGameChat(crate::after_game_chat::AfterGameChat {
+                    ClientState::PostGameChat(crate::post_game_chat::PostGameChat {
                         leaderboard_received: true,
                         ..
-                    }) if self.session.after_game_timer_end.map_or(false, |end_time| {
+                    }) if self.session.post_game_timer_end.map_or(false, |end_time| {
                         self.session.clock.estimated_server_time >= end_time
                     }) =>
                     {
@@ -494,7 +493,7 @@ fn disconnect_message(state: &ClientState, error: &str, kind: DisconnectKind) ->
             }
             _ => {}
         },
-        ClientState::AfterGameChat { .. }
+        ClientState::PostGameChat { .. }
             if matches!(kind, DisconnectKind::DisconnectedByServer) =>
         {
             return "disconnected from chat: server closed the connection".to_string();
