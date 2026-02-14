@@ -4,7 +4,10 @@ info:
   description: |
     API for creating and joining game sessions. All requests must include the
     version code header to prove the client is legitimate. The matchmaker
-    enforces rate limiting on create-game requests.
+    enforces rate limiting on both create-game and join requests. Clients may
+    encounter 502 or 504 from the reverse proxy if the matchmaker is
+    unreachable or slow to respond; create-game in particular involves Docker
+    startup and may take several seconds.
   version: 0.1.0
 
 servers:
@@ -88,6 +91,18 @@ paths:
                   value:
                     code: SERVER_ERROR
                     message: "Failed to start game server. Please try again."
+        "502":
+          description: Bad gateway (reverse proxy could not reach the matchmaker)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "504":
+          description: Gateway timeout (matchmaker did not respond in time)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /games/{passcode}/join:
     post:
@@ -95,7 +110,7 @@ paths:
       description: |
         Request a connect token to join a game by passcode. Valid only if the
         passcode is correct, the lobby timer has not elapsed, and connect
-        tokens remain available.
+        tokens remain available. Rate limited to prevent passcode enumeration.
       operationId: joinGame
       parameters:
         - $ref: "#/components/parameters/VersionCode"
@@ -121,14 +136,20 @@ paths:
               schema:
                 $ref: "#/components/schemas/JoinGameResponse"
         "400":
-          description: Bad request (malformed body)
+          description: Bad request (malformed body or invalid passcode format)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-              example:
-                code: BAD_REQUEST
-                message: "Invalid request body."
+              examples:
+                invalid_body:
+                  value:
+                    code: BAD_REQUEST
+                    message: "Invalid request body."
+                invalid_passcode_format:
+                  value:
+                    code: BAD_REQUEST
+                    message: "Passcode must be a six-digit number."
         "401":
           description: Version code invalid or rejected (authentication failure)
           content:
@@ -145,7 +166,11 @@ paths:
                 code: GAME_NOT_FOUND
                 message: "No game with that passcode."
         "409":
-          description: Game exists but cannot accept joins (no tokens left or lobby timer expired)
+          description: |
+            Game exists but cannot accept joins (no tokens left or game already
+            started). Game already started covers both the host starting early
+            and the lobby timer expiring (the server auto-starts when the
+            timer runs out).
           content:
             application/json:
               schema:
@@ -159,6 +184,32 @@ paths:
                   value:
                     code: GAME_ALREADY_STARTED
                     message: "The game has already started."
+        "429":
+          description: Rate limit exceeded
+          headers:
+            Retry-After:
+              description: Seconds until the client may retry
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: RATE_LIMITED
+                message: "Too many requests. Try again later."
+        "502":
+          description: Bad gateway (reverse proxy could not reach the matchmaker)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "504":
+          description: Gateway timeout (matchmaker did not respond in time)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
 components:
   parameters:
@@ -191,7 +242,7 @@ components:
       properties:
         port:
           type: integer
-          description: UDP port on the game server (host)
+          description: UDP port for this game's container on the host
           minimum: 7777
           maximum: 7782
           example: 7777
@@ -217,7 +268,7 @@ components:
       properties:
         port:
           type: integer
-          description: UDP port on the game server (host)
+          description: UDP port for this game's container on the host
           minimum: 7777
           maximum: 7782
           examples: [7777]
