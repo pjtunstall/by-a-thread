@@ -5,5 +5,10 @@ edition.workspace = true
 
 [dependencies]
 axum = "0.8.8"
+base64 = "0.22.1"
+common = { workspace = true }
+rand = { workspace = true }
+renet = { workspace = true }
+renet_netcode = { workspace = true }
 serde = { version = "1.0.228", features = ["derive"] }
 tokio = { version = "1.49.0", features = ["full"] }

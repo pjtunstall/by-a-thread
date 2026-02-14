@@ -1,12 +1,24 @@
+use std::{net::SocketAddr, time::SystemTime, time::UNIX_EPOCH};
+
+use base64::Engine;
+
 use axum::{Json, extract::State, http::StatusCode};
+use rand::TryRngCore;
+use renet_netcode::ConnectToken;
 use serde::Serialize;
 
 use super::ErrorBody;
-use crate::ports::PortPoolState;
+use crate::ports::AppState;
+use common::constants::PRE_GAME_TIMER_SECS;
 
-pub async fn create_game(State(port_pool): State<PortPoolState>) -> CreateGameResult {
-    let port = port_pool.lock().await.get().ok_or_else(limits_exceeded)?;
-    let body = new_game_data(port);
+pub async fn create_game(State(state): State<AppState>) -> CreateGameResult {
+    let port = state
+        .port_pool
+        .lock()
+        .await
+        .get()
+        .ok_or_else(limits_exceeded)?;
+    let body = new_game_data(state.server_host, port);
 
     Ok((StatusCode::OK, Json(body)))
 }
@@ -31,10 +43,49 @@ fn limits_exceeded() -> (StatusCode, Json<ErrorBody>) {
     )
 }
 
-fn new_game_data(port: u16) -> CreateGameSuccessBody {
+fn new_game_data(server_host: std::net::IpAddr, port: u16) -> CreateGameSuccessBody {
+    let private_key = private_key();
+    let connect_token = create_connect_token(server_host, port, &private_key);
+    let mut bytes = Vec::new();
+    connect_token
+        .write(&mut bytes)
+        .expect("failed to write token");
+    let connect_token_str = base64::engine::general_purpose::STANDARD.encode(&bytes);
     CreateGameSuccessBody {
         port,
-        connect_token: r#"{"client_id":1,"protocol_id":0}"#.to_string(),
+        connect_token: connect_token_str,
         passcode: "123456".to_string(),
     }
+}
+
+fn private_key() -> [u8; 32] {
+    let mut bytes = [0u8; 32];
+    rand::rngs::OsRng
+        .try_fill_bytes(&mut bytes)
+        .expect("`getrandom` failed; failed to generate private key");
+    bytes
+}
+
+fn create_connect_token(
+    server_host: std::net::IpAddr,
+    port: u16,
+    private_key: &[u8; 32],
+) -> ConnectToken {
+    let current_time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time is before unix epoch");
+    let protocol_id = common::protocol::version();
+    let server_addr = SocketAddr::new(server_host, port);
+
+    ConnectToken::generate(
+        current_time,
+        protocol_id,
+        PRE_GAME_TIMER_SECS,
+        1,
+        15, // Timeout after 15 seconds.
+        vec![server_addr],
+        None,
+        private_key,
+    )
+    .expect("failed to generate token")
 }
