@@ -37,7 +37,7 @@ We'll refer to the player who initiated the game as the host. They share the pas
 
 If a player receives the passcode, they can choose "join game", which sends a HTTPS request, `POST /games/{passcode}/join` to `api.by-a-thread.de`, including the version code. If the passcode is valid and the lobby timer has not elapsed, the matchmaker responds with a connect token and the port number. Players send their usernames to the game server after connecting; the server checks uniqueness. The client uses these to connect automatically to the game server.
 
-When the lobby timer has run out, the matchmaker will no longer issue connect tokens. Existing tokens remain valid until they expire. The timer will be shown to players in the GUI so that they know how long they have to start the game. They wait in a chat room. The game proper will begin when the host initiates it or the timer expires.
+When the lobby timer has run out, the matchmaker will no longer issue connect tokens. Existing tokens remain valid until they expire. The game server validates connect tokens and rejects connections that use expired tokens. The timer is shown to players in the GUI so that they know how long they have to start the game. They wait in a chat room. The game proper begins when the host initiates it or the timer expires.
 
 The game itself has a timer of ten minutes for multiplayer games, and two for single-player games.
 

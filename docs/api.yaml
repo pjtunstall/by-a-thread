@@ -248,7 +248,10 @@ components:
           example: 7777
         connect_token:
           type: string
-          description: Serialized Renet connect token (JSON). The client deserializes and uses it to connect.
+          description: |
+            Serialized Renet connect token (JSON). The client deserializes and uses
+            it to connect. Tokens expire after 5 minutes; the game server rejects
+            expired tokens.
         passcode:
           type: string
           description: Six-digit passcode to share with other players
@@ -274,7 +277,10 @@ components:
           examples: [7777]
         connect_token:
           type: string
-          description: Serialized Renet connect token (JSON). The client deserializes and uses it to connect.
+          description: |
+            Serialized Renet connect token (JSON). The client deserializes and uses
+            it to connect. Tokens expire after 5 minutes; the game server rejects
+            expired tokens.
 
     Error:
       type: object
