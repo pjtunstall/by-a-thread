@@ -9,7 +9,7 @@ use serde::Serialize;
 
 use super::ErrorBody;
 use crate::ports::AppState;
-use common::constants::PRE_GAME_TIMER_SECS;
+use common::{auth::Passcode, constants::PRE_GAME_TIMER_SECS};
 
 pub async fn create_game(State(state): State<AppState>) -> CreateGameResult {
     let port = state
@@ -45,16 +45,20 @@ fn limits_exceeded() -> (StatusCode, Json<ErrorBody>) {
 
 fn new_game_data(server_host: std::net::IpAddr, port: u16) -> CreateGameSuccessBody {
     let private_key = private_key();
+
     let connect_token = create_connect_token(server_host, port, &private_key);
     let mut bytes = Vec::new();
     connect_token
         .write(&mut bytes)
         .expect("failed to write token");
     let connect_token_str = base64::engine::general_purpose::STANDARD.encode(&bytes);
+
+    let passcode = Passcode::generate(6).string;
+
     CreateGameSuccessBody {
         port,
         connect_token: connect_token_str,
-        passcode: "123456".to_string(),
+        passcode,
     }
 }
 
