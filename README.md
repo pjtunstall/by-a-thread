@@ -81,7 +81,7 @@ My plan is to play test it first on a VPS, then make it public according to the 
 
 ## Levels
 
-I've chosen rank my mazes in terms of actual ease of navigation rather than tendency for dead ends (as per the spec), since the two are often at odds:
+I've chosen to rank my mazes in terms of actual ease of navigation rather than tendency for dead ends (as per the spec), since the two are often at odds:
 
 | **Level** | **Navigational ease** | **Dead-end density** |
 | --- | --- | --- |

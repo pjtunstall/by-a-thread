@@ -8,6 +8,7 @@
 # Usage:
 #   make              # full build (test, server, docker, windows, deb, rpm, appimage)
 #   make deploy-hetzner   # after 'make', pushes image to VPS and runs container
+#   make run-hetzner     # run server container on VPS (image must already be there)
 #   make windows      # Windows zip (Ubuntu: cross-compile; Windows: use scripts/Build-Windows.ps1)
 #   make macos-intel      # Intel Mac .app and dist/ByAThread-macos-intel.zip (macOS only)
 #   make macos-silicon    # Apple Silicon .app and dist/ByAThread-macos-silicon.zip (macOS only)
@@ -18,7 +19,7 @@
 # Make checks that required tools exist before each step, and rebuilds artifacts
 # only when their dependencies have changed.
 #
-.PHONY: all test server docker deploy-hetzner windows deb rpm appimage macos-intel macos-silicon clean fullscreen unfullscreen
+.PHONY: all test server docker deploy-hetzner run-hetzner windows deb rpm appimage macos-intel macos-silicon clean fullscreen unfullscreen
 .PHONY: check-windows check-deb check-rpm check-appimage check-docker check-deploy
 
 DIST := dist
@@ -98,6 +99,10 @@ docker: $(DOCKER_SENTINEL)
 #
 deploy-hetzner: $(DOCKER_SENTINEL) | check-deploy
 	docker save server-image | gzip | ssh hetzner 'gunzip | docker load'
+	ssh hetzner 'docker stop server-container 2>/dev/null; docker rm server-container 2>/dev/null; docker run -d --name server-container --rm --read-only --cap-drop ALL --security-opt no-new-privileges --cpus 0.4 --pids-limit 256 -e IP=$$(curl -s http://169.254.169.254/hetzner/v1/metadata/public-ipv4) -p 5000:5000/udp server-image'
+	ssh hetzner 'docker logs server-container'
+
+run-hetzner: | check-deploy
 	ssh hetzner 'docker stop server-container 2>/dev/null; docker rm server-container 2>/dev/null; docker run -d --name server-container --rm --read-only --cap-drop ALL --security-opt no-new-privileges --cpus 0.4 --pids-limit 256 -e IP=$$(curl -s http://169.254.169.254/hetzner/v1/metadata/public-ipv4) -p 5000:5000/udp server-image'
 	ssh hetzner 'docker logs server-container'
 
