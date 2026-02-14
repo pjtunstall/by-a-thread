@@ -18,6 +18,7 @@ use crate::{
         ui::{Gui, LobbyUi},
     },
     net::{self, DisconnectKind, RenetNetworkHandle},
+    server_address,
     session::{ClientSession, Clock},
     state::{ClientState, Lobby},
 };
@@ -146,11 +147,18 @@ impl ClientRunner {
                 "Disconnected: {}{}",
                 &disconnect_message, separator
             ));
+            self.ui.show_message(" ");
+            self.ui.show_warning("Press Escape to exit.");
             eprintln!("disconnected: {}{}", disconnect_message, separator);
             self.session.disconnected_notified = true;
         }
 
-        self.ui.draw(false, false, Some(&self.assets.font), None::<crate::lobby::ui::LobbyTimerInfo>);
+        self.ui.draw(
+            false,
+            false,
+            Some(&self.assets.font),
+            None::<crate::lobby::ui::LobbyTimerInfo>,
+        );
     }
 
     fn update_client_state(&mut self) {
@@ -168,7 +176,12 @@ impl ClientRunner {
             return;
         }
         if matches!(&self.session.state, ClientState::EndAfterLeaderboard) {
-            self.ui.draw(false, false, Some(&self.assets.font), None::<crate::lobby::ui::LobbyTimerInfo>);
+            self.ui.draw(
+                false,
+                false,
+                Some(&self.assets.font),
+                None::<crate::lobby::ui::LobbyTimerInfo>,
+            );
             return;
         }
 
@@ -228,13 +241,21 @@ impl ClientRunner {
         }
 
         if !self.session.state.is_disconnected() {
-            if let Some(message) = self.session.take_pending_disconnect() {
+            if let Some(msg) = self.session.take_pending_disconnect() {
                 let next_state = match &self.session.state {
                     ClientState::AfterGameChat(crate::after_game_chat::AfterGameChat {
                         leaderboard_received: true,
                         ..
-                    }) => ClientState::EndAfterLeaderboard,
-                    _ => ClientState::Disconnected { message },
+                    }) if self.session.after_game_timer_end.map_or(false, |end_time| {
+                        self.session.clock.estimated_server_time >= end_time
+                    }) =>
+                    {
+                        self.ui.show_sanitized_message("Server: That's your lot.");
+                        self.ui.show_message(" ");
+                        self.ui.show_warning("Press Escape to exit.");
+                        ClientState::EndAfterLeaderboard
+                    }
+                    _ => ClientState::Disconnected { message: msg },
                 };
                 self.session.transition(next_state);
             }
@@ -320,7 +341,7 @@ impl ClientRunner {
 
 pub async fn run_client_loop(private_key: [u8; 32], ui: Gui) {
     let client_id = ::rand::random::<u64>();
-    let server_addr_result = crate::env::default_server_address();
+    let server_addr_result = server_address::default_server_address();
     let session = ClientSession::new(client_id, server_addr_result);
 
     if session.state.is_disconnected() {
@@ -392,12 +413,18 @@ async fn run_connection_error_loop(session: ClientSession, mut ui: Gui) {
         _ => return,
     };
     let assets = Assets::load().await;
-    let separator = if message.chars().last().is_some_and(|c| ['.', '!', '?'].contains(&c)) {
+    let separator = if message
+        .chars()
+        .last()
+        .is_some_and(|c| ['.', '!', '?'].contains(&c))
+    {
         ""
     } else {
         "."
     };
     ui.show_sanitized_error(&format!("Disconnected: {}{}", message, separator));
+    ui.show_message(" ");
+    ui.show_warning("Press Escape to exit.");
     eprintln!("Disconnected: {}{}", message, separator);
 
     while !should_quit() {

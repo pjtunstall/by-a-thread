@@ -70,7 +70,10 @@ pub fn handle(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::{MockNetwork, MockUi};
+    use crate::{
+        server_address,
+        test_helpers::{MockNetwork, MockUi},
+    };
     use common::player::Color;
     use common::protocol::{GAME_ALREADY_STARTED_MESSAGE, ServerMessage};
 
@@ -80,7 +83,7 @@ mod tests {
 
     #[test]
     fn handles_server_welcome() {
-        let mut session = ClientSession::new(0, crate::env::default_server_address());
+        let mut session = ClientSession::new(0, server_address::default_server_address());
         set_awaiting_state(&mut session);
 
         let mut ui = MockUi::default();
@@ -114,7 +117,7 @@ mod tests {
 
     #[test]
     fn handles_username_error() {
-        let mut session = ClientSession::new(0, crate::env::default_server_address());
+        let mut session = ClientSession::new(0, server_address::default_server_address());
         set_awaiting_state(&mut session);
 
         let mut ui = MockUi::default();
@@ -148,7 +151,7 @@ mod tests {
 
     #[test]
     fn handles_server_info_disconnecting() {
-        let mut session = ClientSession::new(0, crate::env::default_server_address());
+        let mut session = ClientSession::new(0, server_address::default_server_address());
         set_awaiting_state(&mut session);
 
         let mut ui = MockUi::default();

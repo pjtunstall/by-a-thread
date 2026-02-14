@@ -207,8 +207,8 @@ impl Game {
         let payload_len = payload.len();
         let mut egress_bytes = 0usize;
 
-        let timer_end_time = common::time::now_as_secs_f64()
-            + common::constants::POST_GAME_CHAT_DURATION.as_secs_f64();
+        let now = common::time::now_as_secs_f64();
+        let timer_end_time = now + common::constants::POST_GAME_CHAT_DURATION.as_secs_f64();
         let timer_message = ServerMessage::AfterGameTimer {
             end_time: timer_end_time,
         };
@@ -227,7 +227,7 @@ impl Game {
 
         self.note_egress_bytes(egress_bytes);
         self.leaderboard_sent = true;
-        self.after_game_chat_start_time = Some(common::time::now_as_secs_f64());
+        self.after_game_chat_start_time = Some(now);
     }
 
     fn build_leaderboard_entries(&self) -> Vec<AfterGameLeaderboardEntry> {

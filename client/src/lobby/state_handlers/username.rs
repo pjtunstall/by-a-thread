@@ -128,7 +128,7 @@ mod tests {
 
         #[test]
         fn choosing_username_does_not_panic_in_choosing_username_state() {
-            let mut session = ClientSession::new(0, crate::env::default_server_address());
+            let mut session = ClientSession::new(0, crate::server_address::default_server_address());
             set_choosing_username(&mut session);
             let mut ui = MockUi::default();
             let mut network = MockNetwork::new();
@@ -151,7 +151,7 @@ mod tests {
 
     #[test]
     fn enforces_max_username_length() {
-        let mut session = ClientSession::new(0, crate::env::default_server_address());
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address());
         set_choosing_username(&mut session);
 
         let long_name = "A".repeat(MAX_USERNAME_LENGTH as usize + 1);
@@ -189,7 +189,7 @@ mod tests {
 
     #[test]
     fn handles_local_validation_error() {
-        let mut session = ClientSession::new(0, crate::env::default_server_address());
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address());
         session.transition(ClientState::Lobby(Lobby::ChoosingUsername {
             prompt_printed: true,
         }));
@@ -238,7 +238,7 @@ mod tests {
 
     #[test]
     fn sanitizes_server_username_error() {
-        let mut session = ClientSession::new(0, crate::env::default_server_address());
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address());
         session.transition(ClientState::Lobby(Lobby::AwaitingUsernameConfirmation));
         let mut ui = MockUi::new();
         let bell = '\x07';

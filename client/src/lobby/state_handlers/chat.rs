@@ -161,12 +161,12 @@ pub fn handle(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{test_helpers::MockNetwork, test_helpers::MockUi};
+    use crate::{server_address, test_helpers::MockNetwork, test_helpers::MockUi};
     use common::chat::MAX_CHAT_MESSAGE_BYTES;
 
     #[test]
     fn enforces_max_message_length() {
-        let mut session = ClientSession::new(0, crate::env::default_server_address());
+        let mut session = ClientSession::new(0, server_address::default_server_address());
         session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: true,
             waiting_for_server: false,
@@ -228,7 +228,7 @@ mod tests {
         let red = "\x1B[31m";
         let reset = "\x1B[0m";
 
-        let mut session = ClientSession::new(0, crate::env::default_server_address());
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address());
         session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: true,
             waiting_for_server: false,
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn sends_start_game_request_on_tab_input() {
-        let mut session = ClientSession::new(0, crate::env::default_server_address());
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address());
         session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: true,
             waiting_for_server: false,

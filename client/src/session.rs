@@ -352,7 +352,7 @@ mod tests {
 
     #[test]
     fn new_session_starts_in_passcode_state() {
-        let session = ClientSession::new(0, crate::env::default_server_address());
+        let session = ClientSession::new(0, crate::server_address::default_server_address());
         assert!(matches!(
             session.state,
             ClientState::Lobby(Lobby::Passcode {
@@ -364,7 +364,7 @@ mod tests {
 
     #[test]
     fn transition_updates_state() {
-        let mut session = ClientSession::new(0, crate::env::default_server_address());
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address());
         session.transition(ClientState::Lobby(Lobby::Connecting {
             pending_passcode: None,
         }));
@@ -409,7 +409,7 @@ mod tests {
 
     #[test]
     fn input_queue_stores_and_retrieves_in_order() {
-        let mut session = ClientSession::new(0, crate::env::default_server_address());
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address());
 
         session.add_input("message one".to_string());
         session.add_input("message two".to_string());
@@ -421,7 +421,7 @@ mod tests {
 
     #[test]
     fn waiting_message_flags_after_delay() {
-        let mut session = ClientSession::new(0, crate::env::default_server_address());
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address());
         session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: false,
             waiting_for_server: false,
@@ -450,7 +450,7 @@ mod tests {
 
     #[test]
     fn waiting_message_triggers_during_connecting() {
-        let mut session = ClientSession::new(0, crate::env::default_server_address());
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address());
         session.transition(ClientState::Lobby(Lobby::Connecting {
             pending_passcode: None,
         }));

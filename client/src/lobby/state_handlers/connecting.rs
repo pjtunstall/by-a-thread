@@ -83,6 +83,7 @@ mod tests {
     use super::*;
     use crate::{
         net::DisconnectKind,
+        server_address,
         test_helpers::{MockNetwork, MockUi},
     };
     use common::protocol::{GAME_ALREADY_STARTED_MESSAGE, ServerMessage};
@@ -93,7 +94,7 @@ mod tests {
 
         #[test]
         fn connecting_does_not_panic_in_connecting_state() {
-            let mut session = ClientSession::new(0, crate::env::default_server_address());
+            let mut session = ClientSession::new(0, server_address::default_server_address());
             session.transition(ClientState::Lobby(Lobby::Connecting {
                 pending_passcode: None,
             }));
@@ -118,7 +119,7 @@ mod tests {
 
     #[test]
     fn server_info_disconnects_during_connecting() {
-        let mut session = ClientSession::new(0, crate::env::default_server_address());
+        let mut session = ClientSession::new(0, server_address::default_server_address());
         session.transition(ClientState::Lobby(Lobby::Connecting {
             pending_passcode: None,
         }));
@@ -151,7 +152,7 @@ mod tests {
 
     #[test]
     fn disconnect_reason_mapping_game_already_started_on_disconnect() {
-        let mut session = ClientSession::new(0, crate::env::default_server_address());
+        let mut session = ClientSession::new(0, server_address::default_server_address());
         session.transition(ClientState::Lobby(Lobby::Connecting {
             pending_passcode: None,
         }));
@@ -180,7 +181,7 @@ mod tests {
 
     #[test]
     fn disconnect_reason_mapping_other_reasons_remain_generic() {
-        let mut session = ClientSession::new(0, crate::env::default_server_address());
+        let mut session = ClientSession::new(0, server_address::default_server_address());
         session.transition(ClientState::Lobby(Lobby::Connecting {
             pending_passcode: None,
         }));

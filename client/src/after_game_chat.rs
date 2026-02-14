@@ -60,7 +60,7 @@ pub fn update(
                 if session.clock.estimated_server_time >= end_time {
                     ui.show_sanitized_message("Server: That's your lot.");
                     ui.show_message(" ");
-                    ui.show_warning("Escape to exit.");
+                    ui.show_warning("Press Escape to exit.");
                     return Some(ClientState::EndAfterLeaderboard);
                 }
             }
@@ -68,7 +68,11 @@ pub fn update(
     }
 
     let ui_state = session.prepare_ui_state();
-    if ui_state.show_waiting_message {
+    let timer_expired = matches!(&session.state, ClientState::AfterGameChat(chat) if chat.leaderboard_received)
+        && session.after_game_timer_end.map_or(false, |end_time| {
+            session.clock.estimated_server_time >= end_time
+        });
+    if ui_state.show_waiting_message && !timer_expired {
         ui.show_warning("Waiting for server...");
     }
 
@@ -214,6 +218,8 @@ fn handle(
                     );
                 }
                 ui.show_message(" ");
+                ui.show_warning("Press Escape to exit.");
+                ui.show_message(" ");
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));
@@ -221,7 +227,7 @@ fn handle(
             Ok((ServerMessage::SessionEnded { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));
                 ui.show_message(" ");
-                ui.show_warning("Escape to exit.");
+                ui.show_warning("Press Escape to exit.");
                 return Some(ClientState::EndAfterLeaderboard);
             }
             Ok((_, _)) => {}
@@ -248,25 +254,22 @@ fn handle(
     }
 
     if network.is_disconnected() {
-        if !*leaderboard_received {
-            ui.show_typed_error(
-                UiErrorKind::NetworkDisconnect,
-                &format!(
-                    "Disconnected from chat: {}.",
-                    network.get_disconnect_reason()
-                ),
-            );
+        let is_natural_end = *leaderboard_received
+            && session.after_game_timer_end.map_or(false, |end_time| {
+                session.clock.estimated_server_time >= end_time
+            });
+        if is_natural_end {
+            ui.show_sanitized_message("Server: That's your lot.");
+            ui.show_message(" ");
+            ui.show_warning("Press Escape to exit.");
+            Some(ClientState::EndAfterLeaderboard)
+        } else {
             Some(ClientState::Disconnected {
                 message: format!(
                     "Disconnected from chat: {}.",
                     network.get_disconnect_reason()
                 ),
             })
-        } else {
-            ui.show_sanitized_message("Server: That's your lot.");
-            ui.show_message(" ");
-            ui.show_warning("Escape to exit.");
-            Some(ClientState::EndAfterLeaderboard)
         }
     } else {
         None
