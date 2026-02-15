@@ -42,7 +42,7 @@ pub fn run_server(socket: UdpSocket, connectable_addr: SocketAddr, private_key: 
         NetcodeServerTransport::new(server_config, socket).expect("failed to create transport");
     let connection_config = common::net::connection_config();
     let mut server = RenetServer::new(connection_config);
-    let passcode = Passcode::generate(6);
+    let passcode = Passcode::generate();
     let mut state = ServerState::Lobby(Lobby::new());
 
     print_server_banner(protocol_id, &passcode, server_connectable_addr);

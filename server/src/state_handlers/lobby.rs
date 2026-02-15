@@ -14,7 +14,7 @@ use crate::{
 };
 use common::{
     self,
-    auth::{MAX_ATTEMPTS, MAX_PASSCODE_LENGTH, Passcode},
+    auth::{MAX_ATTEMPTS, Passcode},
     chat::MAX_CHAT_MESSAGE_BYTES,
     constants::DEFAULT_LOBBY_TIMEOUT_DIFFICULTY,
     net::AppChannel,
@@ -64,14 +64,6 @@ pub fn handle(
 
             match message {
                 ClientMessage::SendPasscode(guess_bytes) => {
-                    if guess_bytes.len() > MAX_PASSCODE_LENGTH {
-                        eprintln!(
-                            "client {} sent oversized passcode; disconnecting them",
-                            client_id
-                        );
-                        network.disconnect(client_id);
-                        continue;
-                    }
                     if !state.is_authenticating(client_id) {
                         eprintln!("client {} sent passcode in wrong state", client_id);
                         continue;
@@ -82,7 +74,7 @@ pub fn handle(
                             .authentication_attempts(client_id)
                             .expect("expected authentication state for client");
                         let outcome = evaluate_passcode_attempt(
-                            passcode.bytes.as_slice(),
+                            &passcode.bytes,
                             attempts_entry,
                             &guess_bytes,
                             MAX_ATTEMPTS,
@@ -326,7 +318,7 @@ mod tests {
     use bincode::serde::decode_from_slice;
     use bincode::serde::encode_to_vec;
     use common::{
-        auth::{MAX_ATTEMPTS, MAX_PASSCODE_LENGTH, Passcode},
+        auth::{MAX_ATTEMPTS, Passcode},
         protocol::{
             AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE, ClientMessage, MAX_CLIENT_MESSAGE_BYTES,
             ServerMessage, auth_success_message,
@@ -357,28 +349,6 @@ mod tests {
     }
 
     #[test]
-    fn oversized_passcode_disconnects_client() {
-        let mut network = MockServerNetwork::new();
-        let mut lobby_state = Lobby::new();
-        let passcode =
-            Passcode::from_string("123456").expect("failed to create passcode from string");
-
-        network.add_client(1);
-        lobby_state.register_connection(1);
-
-        let msg = ClientMessage::SendPasscode(vec![0u8; MAX_PASSCODE_LENGTH + 1]);
-        let payload = encode_to_vec(&msg, standard()).unwrap();
-        network.queue_raw_message(1, payload);
-
-        handle(&mut network, &mut lobby_state, &passcode);
-
-        assert!(
-            network.disconnected_clients.contains(&1),
-            "client should be disconnected for oversized passcode"
-        );
-    }
-
-    #[test]
     fn auth_success() {
         let mut network = MockServerNetwork::new();
         let mut lobby_state = Lobby::new();
@@ -388,7 +358,7 @@ mod tests {
         network.add_client(1);
         lobby_state.register_connection(1);
 
-        let msg = ClientMessage::SendPasscode(vec![1, 2, 3, 4, 5, 6]);
+        let msg = ClientMessage::SendPasscode([1, 2, 3, 4, 5, 6]);
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
@@ -420,7 +390,7 @@ mod tests {
         lobby_state.register_connection(1);
 
         for _ in 0..MAX_ATTEMPTS {
-            let msg = ClientMessage::SendPasscode(vec![0, 0, 0, 0, 0, 0]);
+            let msg = ClientMessage::SendPasscode([0, 0, 0, 0, 0, 0]);
             let payload = encode_to_vec(&msg, standard()).unwrap();
             network.queue_raw_message(1, payload);
         }

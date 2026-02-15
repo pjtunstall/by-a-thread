@@ -15,33 +15,32 @@ pub const MAX_PASSCODE_LENGTH: usize = 6;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Passcode {
-    pub bytes: Vec<u8>,
+    pub bytes: [u8; 6],
     pub string: String,
 }
 
 impl Passcode {
-    pub fn generate(length: usize) -> Self {
+    pub fn generate() -> Self {
         let mut rng = rand::rng();
-        let bytes: Vec<u8> = (0..length).map(|_| rng.random_range(0..10)).collect();
+        let bytes: [u8; 6] = std::array::from_fn(|_| rng.random_range(0..10));
 
         let string = bytes.iter().map(|d| d.to_string()).collect();
 
         Self { bytes, string }
     }
 
-    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+    pub fn from_bytes(bytes: [u8; 6]) -> Self {
         let string = bytes.iter().map(|d| d.to_string()).collect();
         Self { bytes, string }
     }
 
     pub fn from_string(string: &str) -> Option<Self> {
-        let mut bytes = Vec::with_capacity(string.len());
-        for ch in string.chars() {
-            if let Some(digit) = ch.to_digit(10) {
-                bytes.push(digit as u8);
-            } else {
-                return None;
-            }
+        if !Self::is_valid_format(string) {
+            return None;
+        }
+        let mut bytes = [0u8; 6];
+        for (i, ch) in string.chars().enumerate() {
+            bytes[i] = ch.to_digit(10).unwrap() as u8;
         }
         Some(Self {
             bytes,
@@ -60,11 +59,10 @@ mod tests {
 
     #[test]
     fn generate_produces_numeric_bytes_and_string_of_requested_length() {
-        let length = MAX_PASSCODE_LENGTH;
-        let passcode = Passcode::generate(length);
+        let passcode = Passcode::generate();
 
-        assert_eq!(passcode.bytes.len(), length);
-        assert_eq!(passcode.string.len(), length);
+        assert_eq!(passcode.bytes.len(), MAX_PASSCODE_LENGTH);
+        assert_eq!(passcode.string.len(), MAX_PASSCODE_LENGTH);
         assert!(passcode.string.chars().all(|c| c.is_ascii_digit()));
 
         for (index, ch) in passcode.string.chars().enumerate() {
@@ -72,13 +70,5 @@ mod tests {
             assert_eq!(passcode.bytes[index], digit);
             assert!(digit < 10);
         }
-    }
-
-    #[test]
-    fn generate_supports_zero_length_passcodes() {
-        let passcode = Passcode::generate(0);
-
-        assert!(passcode.bytes.is_empty());
-        assert!(passcode.string.is_empty());
     }
 }

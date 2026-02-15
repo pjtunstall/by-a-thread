@@ -19,7 +19,7 @@ use server::{
 
 fn empty_passcode() -> Passcode {
     Passcode {
-        bytes: Vec::new(),
+        bytes: [0, 0, 0, 0, 0, 0],
         string: String::new(),
     }
 }

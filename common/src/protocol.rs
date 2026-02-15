@@ -164,7 +164,7 @@ pub enum BulletEvent {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum ClientMessage {
-    SendPasscode(Vec<u8>),
+    SendPasscode([u8; 6]),
     SetUsername(String),
     SendChat(String),
     RequestStartGame,
