@@ -148,7 +148,7 @@ paths:
                     message: "Invalid request body."
                 invalid_passcode_format:
                   value:
-                    code: BAD_REQUEST
+                    code: INVALID_PASSCODE_FORMAT
                     message: "Passcode must be a six-digit number."
         "401":
           description: Version code invalid or rejected (authentication failure)
@@ -293,6 +293,7 @@ components:
           description: Machine-readable error code
           enum:
             - BAD_REQUEST
+            - INVALID_PASSCODE_FORMAT
             - VERSION_MISMATCH
             - RATE_LIMITED
             - LIMITS_EXCEEDED

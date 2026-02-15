@@ -1,4 +1,4 @@
-use axum::{http::StatusCode, response::IntoResponse, Json};
+use axum::{Json, http::StatusCode, response::IntoResponse};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -13,6 +13,8 @@ pub enum HttpError {
     LimitsExceeded,
     InvalidVersionCode,
     VersionMismatch,
+    InvalidPassCode,
+    GameNotFound,
 }
 
 impl IntoResponse for HttpError {
@@ -44,6 +46,20 @@ impl IntoResponse for HttpError {
                 ErrorBody {
                     kind: "VERSION_MISMATCH",
                     message: "Client version is not supported.",
+                },
+            ),
+            HttpError::InvalidPassCode => (
+                StatusCode::BAD_REQUEST,
+                ErrorBody {
+                    kind: "INVALID_PASSCODE_FORMAT",
+                    message: "Passcode must be a six-digit number.",
+                },
+            ),
+            HttpError::GameNotFound => (
+                StatusCode::NOT_FOUND,
+                ErrorBody {
+                    kind: "GAME_NOT_FOUND",
+                    message: "No game with that passcode.",
                 },
             ),
         };
