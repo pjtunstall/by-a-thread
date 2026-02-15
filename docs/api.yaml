@@ -261,7 +261,7 @@ components:
             it to connect. The token must remain valid for the entire session (lobby,
             countdown, and game), not just during the initial handshake; the netcode
             layer validates it continuously. Tokens are issued with an expiry that
-            exceeds the maximum session length (currently 30 minutes).
+            exceeds the maximum session length.
         passcode:
           type: string
           description: Six-digit passcode to share with other players

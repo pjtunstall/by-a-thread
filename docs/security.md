@@ -37,11 +37,11 @@ We'll refer to the player who initiated the game as the host. They share the pas
 
 If a player receives the passcode, they can choose "join game", which sends a HTTPS request, `POST /games/{passcode}/join` to `api.by-a-thread.de`, including the version code. If the passcode is valid and no more than five minutes has passed since the game server started, the matchmaker responds with a connect token and the port number. Players send their usernames to the game server after connecting; the server checks uniqueness. The client uses these to connect automatically to the game server.
 
-After five minutes, the matchmaker will no longer issue connect tokens. The lobby timer is shown to players in the GUI so that they know how long they have to start the game. They wait in a chat room. The game proper begins when the host initiates it or five minutes have elapsed. Connect tokens are issued with an expiry (currently 30 minutes) that exceeds the maximum possible session length (lobby + countdown + full game), so that tokens remain valid for the entire time clients are connected.
+After five minutes, the matchmaker will no longer issue connect tokens. The lobby timer is shown to players in the GUI so that they know how long they have to start the game. They wait in a chat room. The game proper begins when the host initiates it or five minutes have elapsed. Connect tokens are issued with an expiry that exceeds the maximum possible session length (lobby + countdown + full game), so that tokens remain valid for the entire time clients are connected.
 
 The game itself has a timer of ten minutes for multiplayer games, and two for single-player games.
 
-When players die, they return to the chat room. Likewise when the in-game timer expires or the game is over. When the game is over, the server sends a leaderboard, which is displayed to everyone. The server then exits. Players are shown a final message and a reminder that they can press escape to exit the window.
+When players die, they return to the chat room. Likewise when the in-game timer expires or the game is over. When the game is over, the server sends a leaderboard to all clients. The server then exits. Players are shown a final message after the leaderboard, and a reminder that they can press escape to exit the window.
 
 ## Footnotes
 
