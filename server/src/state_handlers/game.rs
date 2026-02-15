@@ -13,7 +13,7 @@ use crate::{
 use common::{
     bullets::{self, Bullet, check_player_collision, update_bullet_position},
     chat::MAX_CHAT_MESSAGE_BYTES,
-    constants::{POST_GAME_TIMER_DURATION, TICKS_PER_BROADCAST},
+    constants::TICKS_PER_BROADCAST,
     input::sanitize,
     net::AppChannel,
     protocol::{BulletEvent, ClientMessage, MAX_CLIENT_MESSAGE_BYTES, ServerMessage},
@@ -152,35 +152,6 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
     state.current_tick += 1;
     // // Uncomment to log ingress and egress rates.
     // state.net_stats.log_if_ready();
-
-    if state.leaderboard_sent {
-        if let Some(start_time) = state.post_game_chat_start_time {
-            let elapsed = common::time::now_as_secs_f64() - start_time;
-            let duration_secs = POST_GAME_TIMER_DURATION.as_secs_f64();
-            if !state.one_minute_warning_sent && elapsed >= duration_secs - 60.0 {
-                state.one_minute_warning_sent = true;
-                let message = ServerMessage::ServerInfo {
-                    message: "One minute remaining.".to_string(),
-                };
-                let payload =
-                    encode_to_vec(&message, standard()).expect("failed to serialize ServerInfo");
-                network.broadcast_message(AppChannel::ReliableOrdered, payload);
-            }
-            if elapsed >= duration_secs {
-                println!("Post-game chat timer expired. Server exiting.");
-                let message = ServerMessage::SessionEnded {
-                    message: "That's your lot.".to_string(),
-                };
-                let payload =
-                    encode_to_vec(&message, standard()).expect("failed to serialize SessionEnded");
-                network.broadcast_message(AppChannel::ReliableOrdered, payload);
-                for client_id in network.clients_id() {
-                    network.disconnect(client_id);
-                }
-                std::process::exit(0);
-            }
-        }
-    }
 
     None
 }

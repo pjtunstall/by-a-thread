@@ -29,7 +29,6 @@ pub struct ClientSession {
     waiting_since: Option<Instant>,
     waiting_message_shown: bool,
     pub lobby_timer_end: Option<f64>,
-    pub post_game_timer_end: Option<f64>,
 }
 
 impl ClientSession {
@@ -56,7 +55,6 @@ impl ClientSession {
             waiting_since: None,
             waiting_message_shown: false,
             lobby_timer_end: None,
-            post_game_timer_end: None,
         }
     }
 
@@ -230,10 +228,12 @@ impl ClientSession {
             }
             ClientState::PostGameChat(PostGameChat {
                 waiting_for_server,
-                leaderboard_received: _,
+                leaderboard_received,
                 ..
             }) => {
-                if *waiting_for_server {
+                if *leaderboard_received {
+                    InputMode::Hidden
+                } else if *waiting_for_server {
                     InputMode::DisabledWaiting
                 } else {
                     InputMode::Enabled

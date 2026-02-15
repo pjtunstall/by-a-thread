@@ -84,9 +84,6 @@ pub enum ServerMessage {
     PostGameLeaderboard {
         entries: Vec<PostGameLeaderboardEntry>,
     },
-    PostGameTimer {
-        end_time: f64,
-    },
     ServerInfo {
         message: String,
     },
@@ -119,7 +116,6 @@ impl ServerMessage {
             Self::ChatMessage { .. } => "ChatMessage",
             Self::PostGameRoster { .. } => "PostGameRoster",
             Self::PostGameLeaderboard { .. } => "PostGameLeaderboard",
-            Self::PostGameTimer { .. } => "PostGameTimer",
             Self::ServerInfo { .. } => "ServerInfo",
             Self::LobbyTimer { .. } => "LobbyTimer",
             Self::SessionEnded { .. } => "SessionEnded",

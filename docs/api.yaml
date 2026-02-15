@@ -258,8 +258,10 @@ components:
           type: string
           description: |
             Serialized Renet connect token (JSON). The client deserializes and uses
-            it to connect. Tokens expire after 5 minutes; the game server rejects
-            expired tokens.
+            it to connect. The token must remain valid for the entire session (lobby,
+            countdown, and game), not just during the initial handshake; the netcode
+            layer validates it continuously. Tokens are issued with an expiry that
+            exceeds the maximum session length (currently 30 minutes).
         passcode:
           type: string
           description: Six-digit passcode to share with other players
@@ -287,8 +289,10 @@ components:
           type: string
           description: |
             Serialized Renet connect token (JSON). The client deserializes and uses
-            it to connect. Tokens expire after 5 minutes; the game server rejects
-            expired tokens.
+            it to connect. The token must remain valid for the entire session (lobby,
+            countdown, and game), not just during the initial handshake; the netcode
+            layer validates it continuously. Tokens are issued with an expiry that
+            exceeds the maximum session length (currently 30 minutes).
 
     Error:
       type: object

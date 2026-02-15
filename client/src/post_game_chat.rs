@@ -54,40 +54,20 @@ pub fn update(
         return result;
     }
 
-    if let ClientState::PostGameChat(ref chat) = session.state {
-        if chat.leaderboard_received {
-            if let Some(end_time) = session.post_game_timer_end {
-                if session.clock.estimated_server_time >= end_time {
-                    ui.show_sanitized_message("Server: That's your lot.");
-                    ui.show_message(" ");
-                    ui.show_warning("Press Escape to exit.");
-                    return Some(ClientState::EndAfterLeaderboard);
-                }
-            }
-        }
-    }
-
     let ui_state = session.prepare_ui_state();
-    let timer_expired = matches!(&session.state, ClientState::PostGameChat(chat) if chat.leaderboard_received)
-        && session.post_game_timer_end.map_or(false, |end_time| {
-            session.clock.estimated_server_time >= end_time
-        });
-    if ui_state.show_waiting_message && !timer_expired {
+    if ui_state.show_waiting_message {
         ui.show_warning("Waiting for server...");
     }
 
     let should_show_input = matches!(ui_state.mode, InputMode::Enabled);
     let show_cursor = should_show_input;
     let font = assets.map(|assets| &assets.font);
-    let post_game_timer = (session.clock.estimated_server_time > 0.0)
-        .then(|| session.post_game_timer_end)
-        .flatten()
-        .map(|end_time| crate::lobby::ui::LobbyTimerInfo {
-            end_time,
-            duration_secs: common::constants::POST_GAME_TIMER_DURATION.as_secs_f32(),
-            estimated_server_time: session.clock.estimated_server_time,
-        });
-    ui.draw(should_show_input, show_cursor, font, post_game_timer);
+    ui.draw(
+        should_show_input,
+        show_cursor,
+        font,
+        None::<crate::lobby::ui::LobbyTimerInfo>,
+    );
 
     if let (Some(assets), ClientState::PostGameChat(chat)) = (assets, &session.state) {
         if let Some(data) = &chat.map_for_post_game {
@@ -190,11 +170,9 @@ fn handle(
                 }
                 *awaiting_initial_roster = false;
             }
-            Ok((ServerMessage::PostGameTimer { end_time }, _)) => {
-                session.post_game_timer_end = Some(end_time);
-            }
             Ok((ServerMessage::PostGameLeaderboard { entries }, _)) => {
                 *leaderboard_received = true;
+                *waiting_for_server = true;
                 *map_for_post_game = None;
                 ui.show_message(" ");
                 ui.show_sanitized_message("Leaderboard:");
@@ -218,8 +196,9 @@ fn handle(
                     );
                 }
                 ui.show_message(" ");
-                ui.show_warning("Press Escape to exit.");
+                ui.show_sanitized_message("Server: That's your lot.");
                 ui.show_message(" ");
+                ui.show_warning("Press Escape to exit.");
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));
@@ -254,24 +233,16 @@ fn handle(
     }
 
     if network.is_disconnected() {
-        let is_natural_end = *leaderboard_received
-            && session.post_game_timer_end.map_or(false, |end_time| {
-                session.clock.estimated_server_time >= end_time
-            });
-        if is_natural_end {
-            ui.show_sanitized_message("Server: That's your lot.");
-            ui.show_message(" ");
-            ui.show_warning("Press Escape to exit.");
-            Some(ClientState::EndAfterLeaderboard)
-        } else {
-            Some(ClientState::Disconnected {
-                message: format!(
-                    "Disconnected from chat: {}.",
-                    network.get_disconnect_reason()
-                ),
-            })
+        if *leaderboard_received {
+            return Some(ClientState::EndAfterLeaderboard);
         }
-    } else {
-        None
+        return Some(ClientState::Disconnected {
+            message: format!(
+                "Disconnected from chat: {}.",
+                network.get_disconnect_reason()
+            ),
+        });
     }
+
+    None
 }

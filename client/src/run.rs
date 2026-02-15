@@ -245,15 +245,7 @@ impl ClientRunner {
                     ClientState::PostGameChat(crate::post_game_chat::PostGameChat {
                         leaderboard_received: true,
                         ..
-                    }) if self.session.post_game_timer_end.map_or(false, |end_time| {
-                        self.session.clock.estimated_server_time >= end_time
-                    }) =>
-                    {
-                        self.ui.show_sanitized_message("Server: That's your lot.");
-                        self.ui.show_message(" ");
-                        self.ui.show_warning("Press Escape to exit.");
-                        ClientState::EndAfterLeaderboard
-                    }
+                    }) => ClientState::EndAfterLeaderboard,
                     _ => ClientState::Disconnected { message: msg },
                 };
                 self.session.transition(next_state);

@@ -12,11 +12,13 @@ use crate::{
         evaluate_passcode_attempt,
     },
 };
+use rand::Rng as _;
+
 use common::{
     self,
     auth::{MAX_ATTEMPTS, Passcode},
     chat::MAX_CHAT_MESSAGE_BYTES,
-    constants::DEFAULT_LOBBY_TIMEOUT_DIFFICULTY,
+    constants::NUM_DIFFICULTY_LEVELS,
     net::AppChannel,
     player::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username},
     protocol::{
@@ -37,11 +39,22 @@ pub fn handle(
     passcode: &Passcode,
 ) -> Option<ServerState> {
     if let Some(end_time) = state.lobby_timer_end {
-        if common::time::now_as_secs_f64() >= end_time {
+        let now = common::time::now_as_secs_f64();
+        if now >= end_time {
             println!("Lobby timer expired. Starting game with default difficulty.");
-            return Some(transition_to_countdown_with_default_difficulty(state));
+            return Some(transition_to_countdown_with_random_difficulty(state));
+        }
+        if !state.one_minute_warning_sent && now >= end_time - 60.0 {
+            state.one_minute_warning_sent = true;
+            let message = ServerMessage::ServerInfo {
+                message: "Game starting in one minute...".to_string(),
+            };
+            let payload =
+                encode_to_vec(&message, standard()).expect("failed to serialize ServerInfo");
+            network.broadcast_message(AppChannel::ReliableOrdered, payload);
         }
     }
+
 
     for client_id in network.clients_id() {
         while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
@@ -283,13 +296,14 @@ pub fn handle(
     None
 }
 
-fn transition_to_countdown_with_default_difficulty(lobby: &Lobby) -> ServerState {
+fn transition_to_countdown_with_random_difficulty(lobby: &Lobby) -> ServerState {
+    let difficulty = rand::rng().random_range(0..=NUM_DIFFICULTY_LEVELS - 1);
     let mut choosing = ChoosingDifficulty::new(lobby);
-    choosing.set_difficulty(DEFAULT_LOBBY_TIMEOUT_DIFFICULTY);
+    choosing.set_difficulty(difficulty);
     let game_data = InitialData::new(
         &choosing.lobby.usernames,
         choosing.lobby.colors(),
-        DEFAULT_LOBBY_TIMEOUT_DIFFICULTY,
+        difficulty,
     );
     let countdown_duration = Duration::from_secs(11);
     let end_time_instant = Instant::now() + countdown_duration;

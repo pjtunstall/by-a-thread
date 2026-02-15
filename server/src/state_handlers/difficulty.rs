@@ -5,6 +5,8 @@ use bincode::{
     serde::{decode_from_slice, encode_to_vec},
 };
 
+use rand::Rng as _;
+
 use crate::{
     net::ServerNetworkHandle,
     state::{ChoosingDifficulty, Countdown, ServerState},
@@ -12,7 +14,7 @@ use crate::{
 use common::{
     self,
     chat::MAX_CHAT_MESSAGE_BYTES,
-    constants::DEFAULT_LOBBY_TIMEOUT_DIFFICULTY,
+    constants::NUM_DIFFICULTY_LEVELS,
     net::AppChannel,
     protocol::{
         ClientMessage, GAME_ALREADY_STARTED_MESSAGE, MAX_CLIENT_MESSAGE_BYTES, ServerMessage,
@@ -25,14 +27,28 @@ pub fn handle(
     state: &mut ChoosingDifficulty,
 ) -> Option<ServerState> {
     if let Some(end_time) = state.lobby.lobby_timer_end {
-        if common::time::now_as_secs_f64() >= end_time {
-            println!("Lobby timer expired during difficulty selection. Starting game.");
+        let now = common::time::now_as_secs_f64();
+        if !state.lobby.one_minute_warning_sent && now >= end_time - 60.0 {
+            state.lobby.one_minute_warning_sent = true;
+            let message = ServerMessage::ServerInfo {
+                message: "Game starting in one minute...".to_string(),
+            };
+            let payload =
+                encode_to_vec(&message, standard()).expect("failed to serialize ServerInfo");
+            network.broadcast_message(AppChannel::ReliableOrdered, payload);
+        }
+        if now >= end_time {
+            let difficulty = rand::rng().random_range(0..NUM_DIFFICULTY_LEVELS);
+            println!(
+                "Lobby timer expired during difficulty selection. Starting game with random difficulty {}.",
+                difficulty
+            );
             let mut choosing = ChoosingDifficulty::new(&state.lobby);
-            choosing.set_difficulty(DEFAULT_LOBBY_TIMEOUT_DIFFICULTY);
+            choosing.set_difficulty(difficulty);
             let game_data = InitialData::new(
                 &choosing.lobby.usernames,
                 choosing.lobby.colors(),
-                DEFAULT_LOBBY_TIMEOUT_DIFFICULTY,
+                difficulty,
             );
             let countdown_duration = Duration::from_secs(11);
             let end_time_instant = Instant::now() + countdown_duration;
@@ -73,16 +89,6 @@ pub fn handle(
                     if client_id != host_id {
                         eprintln!("non-host {} tried to set difficulty", client_id);
                         continue;
-                    }
-
-                    if !(0..=9).contains(&level) {
-                        eprintln!("host {} sent invalid difficulty level: {}", host_id, level);
-                        let msg = ServerMessage::ServerInfo {
-                            message: "Invalid choice. Please press 0 through 9.".to_string(),
-                        };
-                        let payload = encode_to_vec(&msg, standard()).expect("failed to serialize");
-                        network.send_message(host_id, AppChannel::ReliableOrdered, payload);
-                        return None;
                     }
 
                     println!("Host selected difficulty {}.", level);

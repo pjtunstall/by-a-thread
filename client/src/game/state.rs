@@ -180,13 +180,13 @@ impl Game {
     }
 
     pub fn consume_for_post_game(self, chat_state: PostGameChat) -> PostGameChat {
-        let positions = self
+        let positions: Vec<_> = self
             .players
             .iter()
             .filter(|p| p.is_alive() && p.index != self.local_player_index)
             .map(|p| (p.state.position, p.color))
             .collect();
-        let map_for_post_game = Some(PostGameMap {
+        let map_for_post_game = (positions.len() >= 2).then(|| PostGameMap {
             map_overlay: self.map_overlay,
             maze: self.maze,
             positions,
@@ -543,7 +543,13 @@ impl Game {
         fps: &FrameRate,
         estimated_server_time: f64,
     ) {
-        clear_background(if self.difficulty == 9 { BLACK } else { BEIGE });
+        clear_background(
+            if self.difficulty == common::constants::NUM_DIFFICULTY_LEVELS - 1 {
+                BLACK
+            } else {
+                BEIGE
+            },
+        );
         self.set_camera(tick_fraction);
 
         self.sky.draw();

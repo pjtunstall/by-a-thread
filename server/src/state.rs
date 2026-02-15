@@ -67,7 +67,7 @@ impl ServerState {
     pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
         match self {
             ServerState::Lobby(lobby) => lobby.remove_client(client_id, network),
-            ServerState::ChoosingDifficulty(state) => state.lobby.remove_client(client_id, network),
+            ServerState::ChoosingDifficulty(state) => state.remove_client(client_id, network),
             ServerState::Countdown(countdown) => countdown.remove_client(client_id, network),
             ServerState::Game(game) => game.remove_client(client_id, network),
             ServerState::Ending => {}
@@ -85,8 +85,6 @@ pub struct Game {
     pub next_bullet_id: u32,
     pub post_game_chat_clients: HashSet<u64>,
     pub leaderboard_sent: bool,
-    pub post_game_chat_start_time: Option<f64>,
-    pub one_minute_warning_sent: bool,
     pub net_stats: NetStats,
     pub exit_coords: Option<(usize, usize)>,
     pub timer_duration: f32,
@@ -124,8 +122,6 @@ impl Game {
             next_bullet_id: 0,
             post_game_chat_clients: HashSet::new(),
             leaderboard_sent: false,
-            post_game_chat_start_time: None,
-            one_minute_warning_sent: false,
             net_stats: NetStats::new(),
             exit_coords: initial_data.exit_coords,
             timer_duration,
@@ -207,27 +203,13 @@ impl Game {
         let payload_len = payload.len();
         let mut egress_bytes = 0usize;
 
-        let now = common::time::now_as_secs_f64();
-        let timer_end_time = now + common::constants::POST_GAME_TIMER_DURATION.as_secs_f64();
-        let timer_message = ServerMessage::PostGameTimer {
-            end_time: timer_end_time,
-        };
-        let timer_payload =
-            encode_to_vec(&timer_message, standard()).expect("failed to serialize PostGameTimer");
-
         for client_id in &self.post_game_chat_clients {
             egress_bytes = egress_bytes.saturating_add(payload_len);
             network.send_message(*client_id, AppChannel::ReliableOrdered, payload.clone());
-            network.send_message(
-                *client_id,
-                AppChannel::ReliableOrdered,
-                timer_payload.clone(),
-            );
         }
 
         self.note_egress_bytes(egress_bytes);
         self.leaderboard_sent = true;
-        self.post_game_chat_start_time = Some(now);
     }
 
     fn build_leaderboard_entries(&self) -> Vec<PostGameLeaderboardEntry> {
@@ -373,7 +355,23 @@ impl ChoosingDifficulty {
         }
     }
     pub fn host_id(&self) -> Option<u64> {
-        self.host_id
+        self.lobby.host_client_id.or(self.host_id)
+    }
+    pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
+        let was_host = self.host_id() == Some(client_id);
+        self.lobby.remove_client(client_id, network);
+        if was_host {
+            if let Some(new_host_id) = self.lobby.host_client_id {
+                let message = ServerMessage::BeginDifficultySelection;
+                let payload =
+                    encode_to_vec(&message, standard()).expect("failed to serialize BeginDifficultySelection");
+                network.send_message(new_host_id, AppChannel::ReliableOrdered, payload);
+                println!(
+                    "Host disconnected during difficulty selection. Client {} promoted.",
+                    new_host_id
+                );
+            }
+        }
     }
     pub fn username(&self, client_id: u64) -> Option<&str> {
         self.lobby.username(client_id)
@@ -451,6 +449,7 @@ pub struct Lobby {
     pending_usernames: HashSet<u64>,
     host_client_id: Option<u64>,
     pub lobby_timer_end: Option<f64>,
+    pub one_minute_warning_sent: bool,
 }
 
 fn notify_new_host(network: &mut dyn ServerNetworkHandle, id: u64) {
@@ -468,6 +467,7 @@ impl Lobby {
             player_colors: HashMap::new(),
             host_client_id: None,
             lobby_timer_end: None,
+            one_minute_warning_sent: false,
         }
     }
 

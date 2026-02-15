@@ -16,7 +16,7 @@ Codes:
 - Version code
 - Passcode
 - Private key
-- Connect token
+- Connect token (must remain valid for the entire session: lobby, countdown, and game)
 
 Matchmaker and game server run in Docker containers on my VPS, likewise Caddy and the Docker socket proxy.[^2]
 
@@ -29,7 +29,7 @@ If the player picks new game, they're asked how many players will play. The clie
 
 The matchmaker checks the version code against a hash. If the hashes match, it checks how many games are in progress, how many players have been assigned to each game, and current CPU usage. If all are within the set limits, the matchmaker creates a new game.[^4] It picks a port number from a pool (7777–7782), then generates a passcode, consisting of six random digits, and a longer private key, consisting of 32 random bytes.
 
-The private key is required by the Renet networking library to allow secure communication via the UDP protocol between clients and game servers. The matchmaker uses the private key to generate a unique connect token for every player. It then launches a game server in a new Docker container via the Docker socket proxy, passing the private key to the game server as an environment variable. If that succeeds, the matchmaker responds to the client with the port number, connect token, and passcode. The matchmaker tracks active games along with a record of when each one started. If Docker fails to start the game server, the matchmaker responds to the client with an appropriate error. See the [API spec](api.yaml) for request and response formats and error codes.
+The private key is required by the Renet networking library to allow secure communication via the UDP protocol between clients and game servers. The matchmaker uses the private key to generate a unique connect token for every player. The connect token must remain valid for the entire duration of the client's connection--not just during the initial handshake--because the netcode layer validates it continuously. If a token expires mid-game, the client is disconnected. It then launches a game server in a new Docker container via the Docker socket proxy, passing the private key to the game server as an environment variable. If that succeeds, the matchmaker responds to the client with the port number, connect token, and passcode. The matchmaker tracks active games along with a record of when each one started. If Docker fails to start the game server, the matchmaker responds to the client with an appropriate error. See the [API spec](api.yaml) for request and response formats and error codes.
 
 The matchmaker will also rate limit new-game requests. (This can be turned off while testing.)
 
@@ -37,7 +37,7 @@ We'll refer to the player who initiated the game as the host. They share the pas
 
 If a player receives the passcode, they can choose "join game", which sends a HTTPS request, `POST /games/{passcode}/join` to `api.by-a-thread.de`, including the version code. If the passcode is valid and no more than five minutes has passed since the game server started, the matchmaker responds with a connect token and the port number. Players send their usernames to the game server after connecting; the server checks uniqueness. The client uses these to connect automatically to the game server.
 
-After fine minutes, the matchmaker will no longer issue connect tokens. Existing tokens exire at more-or-less the same time. If a token expires first, that's fine: it will fail to connect to the server. A timer is shown to players in the GUI so that they know how long they have to start the game. They wait in a chat room. The game proper begins when the host initiates it or five minutes have elapsed.
+After five minutes, the matchmaker will no longer issue connect tokens. The lobby timer is shown to players in the GUI so that they know how long they have to start the game. They wait in a chat room. The game proper begins when the host initiates it or five minutes have elapsed. Connect tokens are issued with an expiry (currently 30 minutes) that exceeds the maximum possible session length (lobby + countdown + full game), so that tokens remain valid for the entire time clients are connected.
 
 The game itself has a timer of ten minutes for multiplayer games, and two for single-player games.
 

@@ -12,6 +12,7 @@ use crate::{
     state::{ClientState, Lobby},
 };
 use common::{
+    constants::NUM_DIFFICULTY_LEVELS,
     input::UiKey,
     net::AppChannel,
     player::Color,
@@ -45,8 +46,13 @@ const MENU_ITEMS: &[(&str, Color)] = &[
     ("Wilson (next level)", Color::RED),
 ];
 
+const _: () = assert!(
+    MENU_ITEMS.len() == NUM_DIFFICULTY_LEVELS as usize,
+    "MENU_ITEMS must have NUM_DIFFICULTY_LEVELS entries"
+);
+
 fn format_menu_lines(selected_index: u8) -> Vec<(String, Color)> {
-    let mut lines = Vec::with_capacity(12);
+    let mut lines = Vec::with_capacity(NUM_DIFFICULTY_LEVELS as usize + 2);
     for (i, (label, color)) in MENU_ITEMS.iter().enumerate() {
         let prefix = if i == selected_index as usize {
             "  * "
@@ -81,10 +87,11 @@ fn handle_difficulty_input(
     match ui.poll_single_key() {
         Ok(key_result) => match key_result {
             Some(UiKey::Up) => {
-                *selected_index = selected_index.saturating_add(9) % 10;
+                *selected_index = (selected_index.saturating_add(NUM_DIFFICULTY_LEVELS - 1))
+                    % NUM_DIFFICULTY_LEVELS;
             }
             Some(UiKey::Down) => {
-                *selected_index = (*selected_index + 1) % 10;
+                *selected_index = (*selected_index + 1) % NUM_DIFFICULTY_LEVELS;
             }
             Some(UiKey::Enter) => {
                 session.add_input(selected_index.to_string());
@@ -134,7 +141,7 @@ pub fn handle(
 
     if *prompt_printed && !*choice_sent {
         let menu_lines = format_menu_lines(*selected_index);
-        ui.replace_last_messages(12, menu_lines);
+        ui.replace_last_messages(NUM_DIFFICULTY_LEVELS as usize + 2, menu_lines);
     }
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
@@ -172,7 +179,10 @@ pub fn handle(
     if !choice_already_sent {
         if let Some(input) = session.take_input() {
             let trimmed = input.trim();
-            let level = trimmed.parse::<u8>().ok().filter(|&l| l < 10);
+            let level = trimmed
+                .parse::<u8>()
+                .ok()
+                .filter(|&l| l < NUM_DIFFICULTY_LEVELS);
 
             if let Some(level) = level {
                 let msg = ClientMessage::SetDifficulty(level);

@@ -91,6 +91,12 @@ fn server_loop(
             break;
         }
 
+        if let ServerState::Game(game) = state {
+            if game.leaderboard_sent {
+                break;
+            }
+        }
+
         next_tick_time += IDEAL_TICK_DURATION;
 
         let current_time = Instant::now();

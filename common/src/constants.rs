@@ -4,11 +4,15 @@ use std::time::Duration;
 pub const SOLO_TIMER_DURATION: f32 = 120.0; // Single player has 2 minutes to escape.
 pub const BATTLE_TIMER_DURATION: f32 = 600.0; // Multiplayer gets 10 minutes.
 
-// Lobby and after-game timers.
+// Lobby timer.
 pub const PRE_GAME_TIMER_SECS: u64 = 300; // 5 minutes.
 pub const PRE_GAME_TIMER_DURATION: Duration = Duration::from_secs(PRE_GAME_TIMER_SECS);
-pub const POST_GAME_TIMER_DURATION: Duration = Duration::from_secs(180); // 3 minutes.
-pub const DEFAULT_LOBBY_TIMEOUT_DIFFICULTY: u8 = 5;
+
+// Connect token expiry. Must exceed lobby + countdown + full game (e.g. 5 + 0.2 + 10 min).
+pub const CONNECT_TOKEN_EXPIRY_SECS: u64 = PRE_GAME_TIMER_SECS + BATTLE_TIMER_DURATION as u64 + 60;
+
+// Difficulty selection: 0 through NUM_DIFFICULTY_LEVELS - 1.
+pub const NUM_DIFFICULTY_LEVELS: u8 = 10;
 
 // Client:
 pub const JITTER_SAFETY_MARGIN: f64 = 50.0; // Milliseconds.
