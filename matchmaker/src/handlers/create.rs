@@ -9,11 +9,21 @@ pub struct CreateGameRequest {
 }
 
 #[derive(serde::Serialize)]
-pub struct CreateGameSuccessBody {
+pub struct CreateGameOkBody {
     port: u16,
     connect_token: String,
     passcode: String,
 }
+
+impl CreateGameOkBody {
+    fn to_resonse(self) -> CreateGameOk {
+        (StatusCode::OK, Json(self))
+    }
+}
+
+type CreateGameOk = (StatusCode, Json<CreateGameOkBody>);
+
+type CreateGameResult = Result<(StatusCode, Json<CreateGameOkBody>), HttpError>;
 
 pub async fn create_game(
     State(state): State<AppState>,
@@ -36,16 +46,14 @@ pub async fn create_game(
     let connect_token = new_game.get_token().ok_or(HttpError::LimitsExceeded)?;
     state.games.lock().await.insert(passcode.bytes, new_game);
 
-    let response_body = CreateGameSuccessBody {
+    let response_body = CreateGameOkBody {
         port,
         connect_token,
         passcode: passcode.string,
     };
 
-    Ok((StatusCode::OK, Json(response_body)))
+    Ok(response_body.to_resonse())
 }
-
-type CreateGameResult = Result<(StatusCode, Json<CreateGameSuccessBody>), HttpError>;
 
 fn check_player_count(player_count: u8) -> Result<(), HttpError> {
     if player_count < 1 || player_count > 10 {
