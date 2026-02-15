@@ -11,7 +11,7 @@ pub fn private_key() -> [u8; 32] {
 }
 
 pub const MAX_ATTEMPTS: u8 = 3;
-pub const MAX_PASSCODE_LENGTH: usize = 6;
+pub const PASSCODE_LENGTH: usize = 6;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Passcode {
@@ -49,7 +49,7 @@ impl Passcode {
     }
 
     pub fn is_valid_format(s: &str) -> bool {
-        s.len() == MAX_PASSCODE_LENGTH && s.chars().all(|c| c.is_ascii_digit())
+        s.len() == PASSCODE_LENGTH && s.chars().all(|c| c.is_ascii_digit())
     }
 }
 
@@ -61,8 +61,8 @@ mod tests {
     fn generate_produces_numeric_bytes_and_string_of_requested_length() {
         let passcode = Passcode::generate();
 
-        assert_eq!(passcode.bytes.len(), MAX_PASSCODE_LENGTH);
-        assert_eq!(passcode.string.len(), MAX_PASSCODE_LENGTH);
+        assert_eq!(passcode.bytes.len(), PASSCODE_LENGTH);
+        assert_eq!(passcode.string.len(), PASSCODE_LENGTH);
         assert!(passcode.string.chars().all(|c| c.is_ascii_digit()));
 
         for (index, ch) in passcode.string.chars().enumerate() {
