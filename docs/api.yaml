@@ -40,7 +40,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/CreateGameResponse"
         "400":
-          description: Bad request (malformed body, missing or invalid fields)
+          description: Bad request (missing or invalid fields)
           content:
             application/json:
               schema:
@@ -48,8 +48,14 @@ paths:
               examples:
                 invalid_player_count:
                   value:
-                    code: BAD_REQUEST
+                    code: INVALID_PLAYER_COUNT
                     message: "player_count must be between 1 and 10."
+        "422":
+          description: |
+            Unprocessable entity. Returned when the request body is missing, not
+            valid JSON, or fails schema validation (e.g. unknown fields). Axum's
+            Json extractor handles this before the handler runs; response body
+            format is Axum's default.
         "401":
           description: Version code invalid or rejected (authentication failure)
           content:
@@ -136,20 +142,22 @@ paths:
               schema:
                 $ref: "#/components/schemas/JoinGameResponse"
         "400":
-          description: Bad request (malformed body or invalid passcode format)
+          description: Bad request (invalid passcode format)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
               examples:
-                invalid_body:
-                  value:
-                    code: BAD_REQUEST
-                    message: "Invalid request body."
                 invalid_passcode_format:
                   value:
                     code: INVALID_PASSCODE_FORMAT
                     message: "Passcode must be a six-digit number."
+        "422":
+          description: |
+            Unprocessable entity. Returned when the request body is missing, not
+            valid JSON, or fails schema validation (e.g. unknown fields). Axum's
+            Json extractor handles this before the handler runs; response body
+            format is Axum's default.
         "401":
           description: Version code invalid or rejected (authentication failure)
           content:
@@ -294,6 +302,7 @@ components:
           enum:
             - BAD_REQUEST
             - INVALID_PASSCODE_FORMAT
+            - INVALID_PLAYER_COUNT
             - VERSION_MISMATCH
             - RATE_LIMITED
             - LIMITS_EXCEEDED

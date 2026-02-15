@@ -26,7 +26,7 @@ impl IntoResponse for HttpError {
                 StatusCode::BAD_REQUEST,
                 ErrorBody {
                     code: "INVALID_PLAYER_COUNT",
-                    message: "Player count must be between 1 and 10.",
+                    message: "player_count must be between 1 and 10.",
                 },
             ),
             HttpError::LimitsExceeded => (
@@ -37,10 +37,10 @@ impl IntoResponse for HttpError {
                 },
             ),
             HttpError::InvalidVersionCode => (
-                StatusCode::BAD_REQUEST,
+                StatusCode::UNAUTHORIZED,
                 ErrorBody {
-                    code: "INVALID_VERSION_CODE",
-                    message: "Version code header is missing or invalid.",
+                    code: "VERSION_MISMATCH",
+                    message: "Client version is not supported.",
                 },
             ),
             HttpError::VersionMismatch => (
@@ -54,7 +54,7 @@ impl IntoResponse for HttpError {
                 StatusCode::BAD_REQUEST,
                 ErrorBody {
                     code: "INVALID_PASSCODE_FORMAT",
-                    message: "Passcode must be a six-digit number.",
+                    message: "passcode must be a six-digit number.",
                 },
             ),
             HttpError::GameNotFound => (
