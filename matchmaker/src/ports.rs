@@ -1,11 +1,5 @@
-use std::{net::IpAddr, net::ToSocketAddrs, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::Mutex;
-
-#[derive(Clone)]
-pub struct AppState {
-    pub port_pool: Arc<Mutex<PortPool>>,
-    pub server_host: IpAddr,
-}
 
 pub struct PortPool {
     ports: Vec<u16>,
@@ -14,7 +8,7 @@ pub struct PortPool {
 impl PortPool {
     pub fn new() -> Self {
         Self {
-            ports: (7777..=7782).collect(),
+            ports: (7777..=7786).collect(),
         }
     }
 
@@ -28,12 +22,3 @@ impl PortPool {
 }
 
 pub type PortPoolState = Arc<Mutex<PortPool>>;
-
-pub fn resolve_server_host(host: &str) -> std::net::IpAddr {
-    (host, 0u16)
-        .to_socket_addrs()
-        .expect("failed to resolve server host")
-        .next()
-        .expect("server host resolved to no addresses")
-        .ip()
-}

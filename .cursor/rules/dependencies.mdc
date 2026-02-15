@@ -1,0 +1,10 @@
+---
+description: Version numbers
+globs: "**/*.rs"
+alwaysApply: false
+---
+
+# Dependencies
+
+- Use full, 3-part version numbers
+- Check that they're the latest version

@@ -51,4 +51,4 @@ When players die, they return to the chat room. When the game is over for everyo
 
 [^3]: See the [API spec](api.yaml) for details.
 
-[^4]: For now, I'm just allowing five games of ten players each, but I may fine-tune that in the future to restrict new games if CPU usage is high, or allow more games if they have fewer players.
+[^4]: For now, I'm just allowing ten games of ten players each, but I may fine-tune that in the future to restrict new games if CPU usage is high, or allow more games if they have fewer players.

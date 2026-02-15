@@ -17,4 +17,4 @@ AppDir
 Dockerfile
 .dockerignore
 
-.env
+.env.*

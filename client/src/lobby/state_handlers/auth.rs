@@ -144,7 +144,7 @@ pub fn passcode_prompt(remaining: u8) -> String {
 
 pub fn parse_passcode_input(input: &str) -> Option<Passcode> {
     let s = input.trim();
-    if s.len() == MAX_PASSCODE_LENGTH && s.chars().all(|c| c.is_ascii_digit()) {
+    if Passcode::is_valid_format(s) {
         let mut bytes = vec![0u8; MAX_PASSCODE_LENGTH];
         for (i, c) in s.chars().enumerate() {
             bytes[i] = c.to_digit(10).unwrap() as u8;

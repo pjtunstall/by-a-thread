@@ -244,7 +244,7 @@ components:
           type: integer
           description: UDP port for this game's container on the host
           minimum: 7777
-          maximum: 7782
+          maximum: 7786
           example: 7777
         connect_token:
           type: string
@@ -273,7 +273,7 @@ components:
           type: integer
           description: UDP port for this game's container on the host
           minimum: 7777
-          maximum: 7782
+          maximum: 7786
           examples: [7777]
         connect_token:
           type: string

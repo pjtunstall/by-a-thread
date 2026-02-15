@@ -1,4 +1,5 @@
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
 const DEFAULT_PRIVATE_KEY: [u8; 32] = [
     211, 120, 2, 54, 202, 170, 80, 236, 225, 33, 220, 193, 223, 199, 20, 80, 202, 88, 77, 123, 88,
@@ -12,7 +13,7 @@ pub fn private_key() -> [u8; 32] {
 pub const MAX_ATTEMPTS: u8 = 3;
 pub const MAX_PASSCODE_LENGTH: usize = 6;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Passcode {
     pub bytes: Vec<u8>,
     pub string: String,
@@ -46,6 +47,10 @@ impl Passcode {
             bytes,
             string: string.to_string(),
         })
+    }
+
+    pub fn is_valid_format(s: &str) -> bool {
+        s.len() == MAX_PASSCODE_LENGTH && s.chars().all(|c| c.is_ascii_digit())
     }
 }
 
