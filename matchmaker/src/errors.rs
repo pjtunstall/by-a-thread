@@ -3,7 +3,7 @@ use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct ErrorBody {
-    pub kind: &'static str,
+    pub code: &'static str,
     pub message: &'static str,
 }
 
@@ -15,6 +15,8 @@ pub enum HttpError {
     VersionMismatch,
     InvalidPassCode,
     GameNotFound,
+    LobbyFull,
+    GameAlreadyStarted,
 }
 
 impl IntoResponse for HttpError {
@@ -23,43 +25,57 @@ impl IntoResponse for HttpError {
             HttpError::InvalidPlayerCount => (
                 StatusCode::BAD_REQUEST,
                 ErrorBody {
-                    kind: "INVALID_PLAYER_COUNT",
+                    code: "INVALID_PLAYER_COUNT",
                     message: "Player count must be between 1 and 10.",
                 },
             ),
             HttpError::LimitsExceeded => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 ErrorBody {
-                    kind: "LIMITS_EXCEEDED",
+                    code: "LIMITS_EXCEEDED",
                     message: "No capacity for new games at the moment.",
                 },
             ),
             HttpError::InvalidVersionCode => (
                 StatusCode::BAD_REQUEST,
                 ErrorBody {
-                    kind: "INVALID_VERSION_CODE",
+                    code: "INVALID_VERSION_CODE",
                     message: "Version code header is missing or invalid.",
                 },
             ),
             HttpError::VersionMismatch => (
                 StatusCode::UNAUTHORIZED,
                 ErrorBody {
-                    kind: "VERSION_MISMATCH",
+                    code: "VERSION_MISMATCH",
                     message: "Client version is not supported.",
                 },
             ),
             HttpError::InvalidPassCode => (
                 StatusCode::BAD_REQUEST,
                 ErrorBody {
-                    kind: "INVALID_PASSCODE_FORMAT",
+                    code: "INVALID_PASSCODE_FORMAT",
                     message: "Passcode must be a six-digit number.",
                 },
             ),
             HttpError::GameNotFound => (
                 StatusCode::NOT_FOUND,
                 ErrorBody {
-                    kind: "GAME_NOT_FOUND",
+                    code: "GAME_NOT_FOUND",
                     message: "No game with that passcode.",
+                },
+            ),
+            HttpError::LobbyFull => (
+                StatusCode::CONFLICT,
+                ErrorBody {
+                    code: "LOBBY_FULL",
+                    message: "No slots left. All connect tokens have been claimed.",
+                },
+            ),
+            HttpError::GameAlreadyStarted => (
+                StatusCode::CONFLICT,
+                ErrorBody {
+                    code: "GAME_ALREADY_STARTED",
+                    message: "The game has already started.",
                 },
             ),
         };
