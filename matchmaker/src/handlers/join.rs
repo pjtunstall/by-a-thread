@@ -1,5 +1,8 @@
-use axum::extract::{Path, State};
-use axum::{Json, http::StatusCode};
+use axum::{
+    Json,
+    extract::{Path, State},
+    http::StatusCode,
+};
 
 use crate::{errors::HttpError, extractors::VersionCode, state::AppState};
 use common::{auth::Passcode, constants::PRE_GAME_TIMER_DURATION};
