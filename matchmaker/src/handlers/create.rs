@@ -1,7 +1,13 @@
 use axum::{Json, extract::State, http::StatusCode};
 
-use crate::{auth, errors::HttpError, extractors::VersionCode, game::Game, state::AppState};
 use common::auth::Passcode;
+use crate::{
+    auth,
+    errors::HttpError,
+    extractors::{RateLimitCreate, VersionCode},
+    game::Game,
+    state::AppState,
+};
 
 #[derive(serde::Deserialize)]
 pub struct CreateGameRequest {
@@ -27,6 +33,7 @@ type CreateGameResult = Result<(StatusCode, Json<CreateGameOkBody>), HttpError>;
 
 pub async fn create_game(
     State(state): State<AppState>,
+    _rate_limit: RateLimitCreate,
     _version_code: VersionCode,
     Json(request_body): Json<CreateGameRequest>,
 ) -> CreateGameResult {
@@ -35,9 +42,8 @@ pub async fn create_game(
 
     let port = state
         .port_pool
-        .lock()
-        .await
         .get()
+        .await
         .ok_or(HttpError::LimitsExceeded)?;
     let passcode = Passcode::generate();
     let private_key = auth::private_key();
@@ -50,7 +56,7 @@ pub async fn create_game(
         .await?;
 
     println!("New game created: {:?}", new_game);
-    state.games.lock().await.insert(passcode.bytes, new_game);
+    state.games.insert(passcode.bytes, new_game).await;
 
     let response_body = CreateGameOkBody {
         port,

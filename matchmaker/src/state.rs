@@ -1,13 +1,12 @@
-use std::{collections::HashMap, net::IpAddr, sync::Arc};
+use std::{net::IpAddr, sync::Arc};
 
-use tokio::sync::Mutex;
-
-use crate::{game::Game, ports::PortPool};
+use crate::{games::Games, ports::PortPool, rate_limiter::RateLimiter};
 
 #[derive(Clone)]
 pub struct AppState {
-    pub port_pool: Arc<Mutex<PortPool>>,
+    pub port_pool: Arc<PortPool>,
     pub server_host: IpAddr,
-    pub games: Arc<Mutex<HashMap<[u8; 6], Game>>>,
+    pub games: Arc<Games>,
     pub version_hash: [u8; 32],
+    pub rate_limiter: Arc<RateLimiter>,
 }

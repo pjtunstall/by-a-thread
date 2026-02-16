@@ -1,6 +1,8 @@
 pub mod addressing;
 pub mod auth;
 pub mod cleanup;
+pub mod games;
+pub mod rate_limiter;
 pub mod errors;
 pub mod extractors;
 pub mod game;

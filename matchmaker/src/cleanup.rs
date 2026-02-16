@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use bollard::Docker;
 
-use crate::state::AppState;
 use common::constants::MAX_SESSION_DURATION;
+use crate::state::AppState;
 
 const CLEANUP_INTERVAL_SECS: u64 = 300;
 
@@ -24,20 +24,10 @@ pub fn spawn_cleanup_task(state: AppState) {
 async fn run_cleanup(state: AppState) -> Result<(), String> {
     let session_duration_with_buffer = Duration::from_secs(MAX_SESSION_DURATION + 60);
 
-    let to_clean: Vec<([u8; 6], String, u16)> = {
-        let games = state.games.lock().await;
-        games
-            .iter()
-            .filter_map(|(passcode, game)| {
-                let container_name = game.container_name.as_ref()?;
-                if game.start_time.elapsed() > session_duration_with_buffer {
-                    Some((*passcode, container_name.clone(), game.port))
-                } else {
-                    None
-                }
-            })
-            .collect()
-    };
+    let to_clean = state
+        .games
+        .get_stale_for_cleanup(session_duration_with_buffer)
+        .await;
 
     if to_clean.is_empty() {
         return Ok(());
@@ -54,11 +44,9 @@ async fn run_cleanup(state: AppState) -> Result<(), String> {
         }
     }
 
-    let mut games = state.games.lock().await;
-    let mut port_pool = state.port_pool.lock().await;
     for (passcode, _, port) in to_clean {
-        games.remove(&passcode);
-        port_pool.release(port);
+        state.games.remove(passcode).await;
+        state.port_pool.release(port).await;
         eprintln!("cleaned up a stale container and released port {}", port);
     }
 

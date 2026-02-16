@@ -1,24 +1,21 @@
-use std::sync::Arc;
 use tokio::sync::Mutex;
 
 pub struct PortPool {
-    ports: Vec<u16>,
+    ports: Mutex<Vec<u16>>,
 }
 
 impl PortPool {
     pub fn new() -> Self {
         Self {
-            ports: (7777..=7786).collect(),
+            ports: Mutex::new((7777..=7786).collect()),
         }
     }
 
-    pub fn get(&mut self) -> Option<u16> {
-        self.ports.pop()
+    pub async fn get(&self) -> Option<u16> {
+        self.ports.lock().await.pop()
     }
 
-    pub fn release(&mut self, port: u16) {
-        self.ports.push(port);
+    pub async fn release(&self, port: u16) {
+        self.ports.lock().await.push(port);
     }
 }
-
-pub type PortPoolState = Arc<Mutex<PortPool>>;

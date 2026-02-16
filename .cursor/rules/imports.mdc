@@ -7,4 +7,7 @@ alwaysApply: false
 # Imports
 
 - Group imports in curly braces, e.g. `use std::{collections::HashMap, io::Result};`.
-- Group imports into paragraphs by category (standard library first, then external crates, then local modules) with an empty line between each paragraph.
+- Group imports into paragraphs by category with an empty line between each paragraph:
+  1. Standard library (`std`)
+  2. External crates (third-party dependencies from crates.io)
+  3. Internal (workspace packages, including `crate` and other members like `common`)

@@ -1,11 +1,11 @@
-use axum::{
-    Json,
-    extract::{Path, State},
-    http::StatusCode,
-};
+use axum::{Json, extract::{Path, State}, http::StatusCode};
 
-use crate::{errors::HttpError, extractors::VersionCode, state::AppState};
-use common::{auth::Passcode, constants::PRE_GAME_TIMER_DURATION};
+use common::auth::Passcode;
+use crate::{
+    errors::HttpError,
+    extractors::{RateLimitJoin, VersionCode},
+    state::AppState,
+};
 
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -29,25 +29,17 @@ type JoinGameResult = Result<(StatusCode, Json<JoinGameOkBody>), HttpError>;
 
 pub async fn join_game(
     State(state): State<AppState>,
+    _rate_limit: RateLimitJoin,
     _version_code: VersionCode,
     Path(passcode): Path<String>,
     Json(_body): Json<JoinGameRequest>,
 ) -> JoinGameResult {
     let passcode = Passcode::from_string(&passcode).ok_or(HttpError::InvalidPassCode)?;
 
-    let mut games = state.games.lock().await;
-    let game = games
-        .get_mut(&passcode.bytes)
-        .ok_or(HttpError::GameNotFound)?;
-
-    if game.start_time.elapsed() > PRE_GAME_TIMER_DURATION {
-        return Err(HttpError::GameAlreadyStarted);
-    }
-
-    let connect_token = game.get_token().ok_or(HttpError::LobbyFull)?;
+    let (port, connect_token) = state.games.try_join(passcode.bytes).await?;
 
     let response_body = JoinGameOkBody {
-        port: game.port,
+        port,
         connect_token,
     };
 

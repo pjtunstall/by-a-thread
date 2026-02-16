@@ -22,7 +22,7 @@ paths:
         Request a new game session. The matchmaker checks limits (games, players,
         CPU), allocates a port, generates a passcode and private key, launches a
         game server in Docker, and returns the connection details. Rate limited
-        to one request per 30 seconds per client.
+        to four requests per minute per client.
       operationId: createGame
       parameters:
         - $ref: "#/components/parameters/VersionCode"
@@ -74,7 +74,7 @@ paths:
               description: Seconds until the client may retry
               schema:
                 type: integer
-                examples: [25]
+                examples: [12]
           content:
             application/json:
               schema:
