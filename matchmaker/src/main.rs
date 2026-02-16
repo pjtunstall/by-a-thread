@@ -26,11 +26,11 @@ async fn main() {
     };
 
     let version_hash = hex::decode(
-        std::env::var("VERSION_HASH").expect("VERSION_HASH must be set in .env.matchmaker"),
+        std::env::var("VERSION_HASH").expect("`VERSION_HASH` must be set in .env.matchmaker"),
     )
     .ok()
     .and_then(|v| v.try_into().ok())
-    .expect("VERSION_HASH must be a 64-character hex string (32 bytes)");
+    .expect("`VERSION_HASH` must be a 64-character hex string (32 bytes)");
 
     let state = AppState {
         port_pool: Arc::new(Mutex::new(PortPool::new())),
