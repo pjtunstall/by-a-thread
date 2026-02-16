@@ -83,7 +83,7 @@ mod tests {
 
     #[test]
     fn handles_server_welcome() {
-        let mut session = ClientSession::new(0, server_address::default_server_address());
+        let mut session = ClientSession::new(0, server_address::default_server_address().ok());
         set_awaiting_state(&mut session);
 
         let mut ui = MockUi::default();
@@ -117,7 +117,7 @@ mod tests {
 
     #[test]
     fn handles_username_error() {
-        let mut session = ClientSession::new(0, server_address::default_server_address());
+        let mut session = ClientSession::new(0, server_address::default_server_address().ok());
         set_awaiting_state(&mut session);
 
         let mut ui = MockUi::default();
@@ -151,7 +151,7 @@ mod tests {
 
     #[test]
     fn handles_server_info_disconnecting() {
-        let mut session = ClientSession::new(0, server_address::default_server_address());
+        let mut session = ClientSession::new(0, server_address::default_server_address().ok());
         set_awaiting_state(&mut session);
 
         let mut ui = MockUi::default();

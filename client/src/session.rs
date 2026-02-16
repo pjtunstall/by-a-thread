@@ -32,15 +32,20 @@ pub struct ClientSession {
 }
 
 impl ClientSession {
-    pub fn new(client_id: u64, server_addr_result: Result<SocketAddr, String>) -> Self {
-        let (state, server_addr) = match server_addr_result {
-            Ok(addr) => (
+    pub fn new(client_id: u64, server_addr: Option<SocketAddr>) -> Self {
+        let (state, server_addr) = match server_addr {
+            Some(addr) => (
                 ClientState::Lobby(Lobby::Passcode {
                     prompt_printed: false,
                 }),
                 Some(addr),
             ),
-            Err(message) => (ClientState::Disconnected { message }, None),
+            None => (
+                ClientState::Lobby(Lobby::ServerAddress {
+                    prompt_printed: false,
+                }),
+                None,
+            ),
         };
         Self {
             client_id,
@@ -200,6 +205,7 @@ impl ClientSession {
 
     pub fn input_mode(&self) -> InputMode {
         match &self.state {
+            ClientState::Lobby(Lobby::ServerAddress { .. }) => InputMode::Enabled,
             ClientState::Lobby(Lobby::Passcode { .. }) => InputMode::Enabled,
             ClientState::Lobby(Lobby::Connecting { .. }) => InputMode::Hidden,
             ClientState::Lobby(Lobby::Authenticating {
@@ -352,7 +358,7 @@ mod tests {
 
     #[test]
     fn new_session_starts_in_passcode_state() {
-        let session = ClientSession::new(0, crate::server_address::default_server_address());
+        let session = ClientSession::new(0, crate::server_address::default_server_address().ok());
         assert!(matches!(
             session.state,
             ClientState::Lobby(Lobby::Passcode {
@@ -364,7 +370,7 @@ mod tests {
 
     #[test]
     fn transition_updates_state() {
-        let mut session = ClientSession::new(0, crate::server_address::default_server_address());
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address().ok());
         session.transition(ClientState::Lobby(Lobby::Connecting {
             pending_passcode: None,
         }));
@@ -409,7 +415,7 @@ mod tests {
 
     #[test]
     fn input_queue_stores_and_retrieves_in_order() {
-        let mut session = ClientSession::new(0, crate::server_address::default_server_address());
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address().ok());
 
         session.add_input("message one".to_string());
         session.add_input("message two".to_string());
@@ -421,7 +427,7 @@ mod tests {
 
     #[test]
     fn waiting_message_flags_after_delay() {
-        let mut session = ClientSession::new(0, crate::server_address::default_server_address());
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address().ok());
         session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: false,
             waiting_for_server: false,
@@ -450,7 +456,7 @@ mod tests {
 
     #[test]
     fn waiting_message_triggers_during_connecting() {
-        let mut session = ClientSession::new(0, crate::server_address::default_server_address());
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address().ok());
         session.transition(ClientState::Lobby(Lobby::Connecting {
             pending_passcode: None,
         }));

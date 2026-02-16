@@ -513,6 +513,8 @@ impl LobbyUi for Gui {
     }
 
     fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr) {
+        self.message_history.clear();
+        self.scroll_offset = 0;
         self.show_message("@@@@@ BY A THREAD @@@@@");
         self.show_message(" ");
         self.show_warning("  WASD to move.");

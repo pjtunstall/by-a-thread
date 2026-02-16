@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn guards_does_not_panic_in_correct_state() {
-        let mut session = ClientSession::new(0, server_address::default_server_address());
+        let mut session = ClientSession::new(0, server_address::default_server_address().ok());
         session.transition(ClientState::Lobby(Lobby::ChoosingDifficulty {
             prompt_printed: false,
             choice_sent: false,
@@ -256,7 +256,7 @@ mod tests {
 
     #[test]
     fn re_enables_input_after_server_info() {
-        let mut session = ClientSession::new(0, server_address::default_server_address());
+        let mut session = ClientSession::new(0, server_address::default_server_address().ok());
         session.transition(ClientState::Lobby(Lobby::ChoosingDifficulty {
             prompt_printed: true,
             choice_sent: true,
@@ -301,7 +301,7 @@ mod tests {
 
     #[test]
     fn polls_single_key_for_choice() {
-        let mut session = ClientSession::new(0, server_address::default_server_address());
+        let mut session = ClientSession::new(0, server_address::default_server_address().ok());
         session.transition(ClientState::Lobby(Lobby::ChoosingDifficulty {
             prompt_printed: true,
             choice_sent: false,
@@ -346,7 +346,7 @@ mod tests {
 
     #[test]
     fn returns_disconnect_on_input_source_drop() {
-        let mut session = ClientSession::new(0, server_address::default_server_address());
+        let mut session = ClientSession::new(0, server_address::default_server_address().ok());
         session.transition(ClientState::Lobby(Lobby::ChoosingDifficulty {
             prompt_printed: true,
             choice_sent: false,

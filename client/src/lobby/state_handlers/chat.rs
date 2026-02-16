@@ -166,7 +166,7 @@ mod tests {
 
     #[test]
     fn enforces_max_message_length() {
-        let mut session = ClientSession::new(0, server_address::default_server_address());
+        let mut session = ClientSession::new(0, server_address::default_server_address().ok());
         session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: true,
             waiting_for_server: false,
@@ -228,7 +228,7 @@ mod tests {
         let red = "\x1B[31m";
         let reset = "\x1B[0m";
 
-        let mut session = ClientSession::new(0, crate::server_address::default_server_address());
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address().ok());
         session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: true,
             waiting_for_server: false,
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn sends_start_game_request_on_tab_input() {
-        let mut session = ClientSession::new(0, crate::server_address::default_server_address());
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address().ok());
         session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: true,
             waiting_for_server: false,
