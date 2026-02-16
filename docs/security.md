@@ -41,7 +41,7 @@ After five minutes, the matchmaker will no longer issue connect tokens. The lobb
 
 The game itself has a timer of ten minutes for multiplayer games, and two for single-player games.
 
-When players die, they return to the chat room. Likewise when the in-game timer expires or the game is over. When the game is over, the server sends a leaderboard to all clients. The server then exits. Players are shown a final message after the leaderboard, and a reminder that they can press escape to exit the window.
+When players die, they return to the chat room. Likewise when the in-game timer expires or the game is over. When the game is over, the server sends a leaderboard to all clients as a `Reliable` Renet message. The server then exits. Players are shown a final message after the leaderboard, and a reminder that they can press escape to exit the window.
 
 ## Footnotes
 
