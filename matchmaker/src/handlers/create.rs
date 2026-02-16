@@ -1,6 +1,5 @@
 use axum::{Json, extract::State, http::StatusCode};
 
-use common::auth::Passcode;
 use crate::{
     auth,
     errors::HttpError,
@@ -8,6 +7,7 @@ use crate::{
     game::Game,
     state::AppState,
 };
+use common::auth::Passcode;
 
 #[derive(serde::Deserialize)]
 pub struct CreateGameRequest {
@@ -55,7 +55,7 @@ pub async fn create_game(
         .start_server_container(private_key, state.server_host)
         .await?;
 
-    println!("New game created: {:?}", new_game);
+    println!("New game {} created on port: {}", new_game.id, port);
     state.games.insert(passcode.bytes, new_game).await;
 
     let response_body = CreateGameOkBody {

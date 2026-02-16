@@ -416,7 +416,7 @@ async fn run_connection_error_loop(session: ClientSession, mut ui: Gui) {
     ui.show_sanitized_error(&format!("Disconnected: {}{}", message, separator));
     ui.show_message(" ");
     ui.show_warning("Press Escape to exit.");
-    eprintln!("Disconnected: {}{}", message, separator);
+    eprintln!("disconnected: {}{}", message, separator);
 
     while !should_quit() {
         ui.draw(
