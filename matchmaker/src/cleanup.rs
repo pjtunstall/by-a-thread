@@ -3,7 +3,7 @@ use std::time::Duration;
 use bollard::Docker;
 
 use crate::state::AppState;
-use common::constants::SESSION_DURATION;
+use common::constants::MAX_SESSION_DURATION;
 
 const CLEANUP_INTERVAL_SECS: u64 = 300;
 
@@ -22,7 +22,7 @@ pub fn spawn_cleanup_task(state: AppState) {
 }
 
 async fn run_cleanup(state: AppState) -> Result<(), String> {
-    let session_duration_with_buffer = Duration::from_secs(SESSION_DURATION + 60);
+    let session_duration_with_buffer = Duration::from_secs(MAX_SESSION_DURATION + 60);
 
     let to_clean: Vec<([u8; 6], String, u16)> = {
         let games = state.games.lock().await;

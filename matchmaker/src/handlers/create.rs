@@ -16,7 +16,7 @@ pub struct CreateGameOkBody {
 }
 
 impl CreateGameOkBody {
-    fn to_resonse(self) -> CreateGameOk {
+    fn to_response(self) -> CreateGameOk {
         (StatusCode::OK, Json(self))
     }
 }
@@ -58,7 +58,7 @@ pub async fn create_game(
         passcode: passcode.string,
     };
 
-    Ok(response_body.to_resonse())
+    Ok(response_body.to_response())
 }
 
 fn check_player_count(player_count: u8) -> Result<(), HttpError> {

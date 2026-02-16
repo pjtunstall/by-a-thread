@@ -3,7 +3,7 @@ use std::{net::SocketAddr, time::Duration};
 use renet::RenetClient;
 use renet_netcode::{ConnectToken, NetcodeClientTransport, NetcodeDisconnectReason};
 
-use common::{constants::SESSION_DURATION, net::AppChannel};
+use common::{constants::MAX_SESSION_DURATION, net::AppChannel};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DisconnectKind {
@@ -26,7 +26,7 @@ pub fn create_connect_token(
     ConnectToken::generate(
         current_time,
         protocol_id,
-        SESSION_DURATION,
+        MAX_SESSION_DURATION,
         client_id,
         15, // Timeout after 15 seconds.
         vec![server_addr],

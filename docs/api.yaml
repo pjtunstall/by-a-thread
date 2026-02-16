@@ -151,7 +151,7 @@ paths:
                 invalid_passcode_format:
                   value:
                     code: INVALID_PASSCODE_FORMAT
-                    message: "Passcode must be a six-digit number."
+                    message: "passcode must be a six-digit number."
         "422":
           description: |
             Unprocessable entity. Returned when the request body is missing, not
@@ -257,8 +257,7 @@ components:
         connect_token:
           type: string
           description: |
-            Serialized Renet connect token (JSON). The client deserializes and uses
-            it to connect. The token must remain valid for the entire session (lobby,
+            Base64-encoded Renet connect token (returned as a string in the JSON response). The client decodes from base64 and deserializes the binary to connect. The token must remain valid for the entire session (lobby,
             countdown, and game), not just during the initial handshake; the netcode
             layer validates it continuously. Tokens are issued with an expiry that
             exceeds the maximum session length.
@@ -292,7 +291,7 @@ components:
             it to connect. The token must remain valid for the entire session (lobby,
             countdown, and game), not just during the initial handshake; the netcode
             layer validates it continuously. Tokens are issued with an expiry that
-            exceeds the maximum session length (currently 30 minutes).
+            exceeds the maximum session length.
 
     Error:
       type: object

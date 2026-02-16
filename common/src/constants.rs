@@ -9,7 +9,7 @@ pub const PRE_GAME_TIMER_SECS: u64 = 300; // 5 minutes.
 pub const PRE_GAME_TIMER_DURATION: Duration = Duration::from_secs(PRE_GAME_TIMER_SECS);
 
 // Connect token expiry. Must exceed lobby + countdown + full game (e.g. 5 + 0.2 + 10 min).
-pub const SESSION_DURATION: u64 = PRE_GAME_TIMER_SECS + BATTLE_TIMER_DURATION as u64 + 60;
+pub const MAX_SESSION_DURATION: u64 = PRE_GAME_TIMER_SECS + BATTLE_TIMER_DURATION as u64 + 60;
 
 // Difficulty selection: 0 through NUM_DIFFICULTY_LEVELS - 1.
 pub const NUM_DIFFICULTY_LEVELS: u8 = 10;

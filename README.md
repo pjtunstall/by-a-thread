@@ -65,7 +65,7 @@ According to the 01 spec, the game is expected to include:
 
 ## Where to play
 
-The game is not yet publicly online. Proper matches will have to wait till then. For now, you can get a taste of it by running server and client locally (on one machine).
+The game is not yet publicly online. Proper matches will have to wait till then...
 
 ### Locally
 

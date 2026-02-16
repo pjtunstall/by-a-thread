@@ -30,7 +30,7 @@ services:
     build: ./matchmaker
     container_name: matchmaker
     restart: unless-stopped
-    env_file: .env
+    env_file: .env.matchmaker
     environment:
       - DOCKER_HOST=tcp://socket-proxy:2375
       - GAME_IMAGE=serveruser/server-image:latest

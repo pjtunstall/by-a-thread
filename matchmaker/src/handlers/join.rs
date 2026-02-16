@@ -18,7 +18,7 @@ pub struct JoinGameOkBody {
 }
 
 impl JoinGameOkBody {
-    fn to_resonse(self) -> JoinGameOk {
+    fn to_response(self) -> JoinGameOk {
         (StatusCode::OK, Json(self))
     }
 }
@@ -51,5 +51,5 @@ pub async fn join_game(
         connect_token,
     };
 
-    Ok(response_body.to_resonse())
+    Ok(response_body.to_response())
 }
