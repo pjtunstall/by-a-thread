@@ -39,7 +39,9 @@ async fn main() {
         games: Arc::new(Mutex::new(HashMap::new())),
         version_hash,
     };
+
     cleanup::spawn_cleanup_task(state.clone());
+
     let app = Router::new()
         .route("/games", post(create_game))
         .route("/games/{passcode}/join", post(join_game))

@@ -5,7 +5,7 @@ use bollard::Docker;
 use crate::state::AppState;
 use common::constants::SESSION_DURATION;
 
-const CLEANUP_INTERVAL_SECS: u64 = 360;
+const CLEANUP_INTERVAL_SECS: u64 = 300;
 
 pub fn spawn_cleanup_task(state: AppState) {
     tokio::spawn(async move {
@@ -22,7 +22,7 @@ pub fn spawn_cleanup_task(state: AppState) {
 }
 
 async fn run_cleanup(state: AppState) -> Result<(), String> {
-    let session_duration = Duration::from_secs(SESSION_DURATION);
+    let session_duration_with_buffer = Duration::from_secs(SESSION_DURATION + 60);
 
     let to_clean: Vec<([u8; 6], String, u16)> = {
         let games = state.games.lock().await;
@@ -30,7 +30,7 @@ async fn run_cleanup(state: AppState) -> Result<(), String> {
             .iter()
             .filter_map(|(passcode, game)| {
                 let container_name = game.container_name.as_ref()?;
-                if game.start_time.elapsed() > session_duration {
+                if game.start_time.elapsed() > session_duration_with_buffer {
                     Some((*passcode, container_name.clone(), game.port))
                 } else {
                     None
