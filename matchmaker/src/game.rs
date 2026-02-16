@@ -11,6 +11,7 @@ use bollard::{
 use uuid::Uuid;
 
 use crate::{auth, errors::HttpError};
+use common::constants::SERVER_PORT;
 
 #[derive(Debug)]
 pub struct Game {
@@ -69,7 +70,7 @@ impl Game {
 
         let mut port_bindings = HashMap::new();
         port_bindings.insert(
-            "5000/udp".to_string(),
+            format!("{SERVER_PORT}/udp"),
             Some(vec![PortBinding {
                 host_ip: None,
                 host_port: Some(self.port.to_string()),

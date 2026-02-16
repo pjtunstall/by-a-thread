@@ -6,9 +6,14 @@ use std::{
 use renet::{RenetServer, ServerEvent};
 use renet_netcode::{ServerAuthentication, ServerConfig};
 
-use common::{self, constants::MAX_PLAYERS, net::AppChannel};
+use common::{
+    self,
+    constants::{MAX_PLAYERS, SERVER_PORT},
+    net::AppChannel,
+};
 
-pub const BINDING_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 5000);
+pub const BINDING_ADDRESS: SocketAddr =
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), SERVER_PORT);
 
 pub enum ServerNetworkEvent {
     ClientConnected { client_id: u64 },

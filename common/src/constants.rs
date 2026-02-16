@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+pub const SERVER_PORT: u16 = 5000;
+
 // Timer durations based on game mode.
 pub const SOLO_TIMER_DURATION: f32 = 120.0; // Single player has 2 minutes to escape.
 pub const BATTLE_TIMER_DURATION: f32 = 600.0; // Multiplayer gets 10 minutes.

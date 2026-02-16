@@ -4,6 +4,7 @@ use crate::{
     session::ClientSession,
     state::{ClientState, Lobby},
 };
+use common::constants::SERVER_PORT;
 
 pub fn handle(
     lobby_state: &mut Lobby,
@@ -23,7 +24,7 @@ pub fn handle(
     }
 
     if let Some(input_string) = session.take_input() {
-        match server_address::parse_server_address(&input_string, server_address::SERVER_PORT) {
+        match server_address::parse_server_address(&input_string, SERVER_PORT) {
             Ok(parsed_server_addr) => {
                 session.input_queue.clear();
                 session.server_addr = Some(parsed_server_addr);

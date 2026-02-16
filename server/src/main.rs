@@ -12,7 +12,7 @@ use crossterm::{
     terminal::{Clear, ClearType},
 };
 
-use common;
+use common::{self, constants::SERVER_PORT};
 use server::{self, net::BINDING_ADDRESS};
 
 pub struct Defer;
@@ -56,7 +56,7 @@ fn main() {
     let public_ip: std::net::IpAddr = public_host
         .parse()
         .expect("`IP` is not a valid IP address.");
-    let connectable_addr = SocketAddr::new(public_ip, 5000);
+    let connectable_addr = SocketAddr::new(public_ip, SERVER_PORT);
 
     let socket = match common::net::bind_socket(BINDING_ADDRESS) {
         Ok(socket) => {

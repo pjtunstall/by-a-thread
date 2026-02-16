@@ -1,6 +1,6 @@
 use std::net::{IpAddr, SocketAddr};
 
-pub const SERVER_PORT: u16 = 5000;
+use common::constants::SERVER_PORT;
 
 pub fn default_server_address() -> Result<SocketAddr, String> {
     #[cfg(not(test))]
