@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 axum = "0.8.8"
 base64 = "0.22.1"
+bollard = "0.20.1"
 common = { workspace = true }
 dotenvy = "0.15.7"
 hex = "0.4.3"

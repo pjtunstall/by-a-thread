@@ -1,6 +1,6 @@
 use std::{net::SocketAddr, time::SystemTime, time::UNIX_EPOCH};
 
-use common::constants::CONNECT_TOKEN_EXPIRY_SECS;
+use common::constants::SESSION_DURATION;
 use rand::TryRngCore;
 use renet_netcode::ConnectToken;
 
@@ -26,7 +26,7 @@ pub fn create_connect_token(
     ConnectToken::generate(
         current_time,
         protocol_id,
-        CONNECT_TOKEN_EXPIRY_SECS,
+        SESSION_DURATION,
         1,
         15, // Timeout after 15 seconds.
         vec![server_addr],

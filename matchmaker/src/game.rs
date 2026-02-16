@@ -1,16 +1,25 @@
+use std::collections::HashMap;
+
 use std::time::Instant;
 
 use base64::Engine;
+use bollard::{
+    Docker,
+    models::{ContainerCreateBody, HostConfig, PortBinding},
+    query_parameters::CreateContainerOptions,
+};
 use uuid::Uuid;
 
-use crate::auth;
+use crate::{auth, errors::HttpError};
 
+#[derive(Debug)]
 pub struct Game {
     pub id: Uuid,
     pub port: u16,
     pub player_count: u8,
     pub connect_tokens: Vec<String>,
     pub start_time: Instant,
+    pub container_name: Option<String>,
 }
 
 impl Game {
@@ -38,10 +47,72 @@ impl Game {
             player_count,
             connect_tokens,
             start_time: Instant::now(),
+            container_name: None,
         }
     }
 
     pub fn get_token(&mut self) -> Option<String> {
         self.connect_tokens.pop()
+    }
+
+    pub async fn start_server_container(
+        &mut self,
+        private_key: [u8; 32],
+        server_host: std::net::IpAddr,
+    ) -> Result<(), HttpError> {
+        let docker = Docker::connect_with_http_defaults().map_err(|e| {
+            eprintln!("docker connect failed: {}", e);
+            HttpError::ServerError
+        })?;
+        let container_name = format!("game-{}", uuid::Uuid::new_v4());
+        let private_key_b64 = base64::engine::general_purpose::STANDARD.encode(&private_key);
+
+        let mut port_bindings = HashMap::new();
+        port_bindings.insert(
+            "5000/tcp".to_string(),
+            Some(vec![PortBinding {
+                host_ip: None,
+                host_port: Some(self.port.to_string()),
+            }]),
+        );
+
+        let config = ContainerCreateBody {
+            image: Some(
+                std::env::var("GAME_IMAGE").unwrap_or_else(|_| "server-image:latest".to_string()),
+            ),
+            env: Some(vec![
+                format!("PRIVATE_KEY={}", private_key_b64),
+                format!("IP={}", server_host),
+                format!("PORT={}", self.port),
+            ]),
+            host_config: Some(HostConfig {
+                port_bindings: Some(port_bindings),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        let options = CreateContainerOptions {
+            name: Some(container_name.clone()),
+            ..Default::default()
+        };
+        docker
+            .create_container(Some(options), config)
+            .await
+            .map_err(|e| {
+                eprintln!("docker create_container failed: {}", e);
+                HttpError::ServerError
+            })?;
+
+        docker
+            .start_container(&container_name, None)
+            .await
+            .map_err(|e| {
+                eprintln!("docker start_container failed: {}", e);
+                HttpError::ServerError
+            })?;
+
+        self.container_name = Some(container_name);
+        Ok(())
     }
 }

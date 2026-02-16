@@ -9,6 +9,7 @@ use tokio::sync::Mutex;
 
 use matchmaker::{
     addressing::resolve_server_host,
+    cleanup,
     handlers::{create_game, join_game},
     ports::PortPool,
     state::AppState,
@@ -38,6 +39,7 @@ async fn main() {
         games: Arc::new(Mutex::new(HashMap::new())),
         version_hash,
     };
+    cleanup::spawn_cleanup_task(state.clone());
     let app = Router::new()
         .route("/games", post(create_game))
         .route("/games/{passcode}/join", post(join_game))

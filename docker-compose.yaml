@@ -33,7 +33,7 @@ services:
     env_file: .env
     environment:
       - DOCKER_HOST=tcp://socket-proxy:2375
-      - GAME_IMAGE=your-username/game-server:latest
+      - GAME_IMAGE=serveruser/server-image:latest
     depends_on:
       - socket-proxy
     networks:

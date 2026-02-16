@@ -17,6 +17,7 @@ pub enum HttpError {
     GameNotFound,
     LobbyFull,
     GameAlreadyStarted,
+    ServerError,
 }
 
 impl IntoResponse for HttpError {
@@ -76,6 +77,13 @@ impl IntoResponse for HttpError {
                 ErrorBody {
                     code: "GAME_ALREADY_STARTED",
                     message: "The game has already started.",
+                },
+            ),
+            HttpError::ServerError => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorBody {
+                    code: "SERVER_ERROR",
+                    message: "Failed to start game server. Please try again.",
                 },
             ),
         };
