@@ -69,7 +69,7 @@ impl Game {
 
         let mut port_bindings = HashMap::new();
         port_bindings.insert(
-            "5000/tcp".to_string(),
+            "5000/udp".to_string(),
             Some(vec![PortBinding {
                 host_ip: None,
                 host_port: Some(self.port.to_string()),
