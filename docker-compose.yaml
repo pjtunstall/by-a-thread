@@ -27,13 +27,16 @@ services:
       - backend
 
   matchmaker:
-    build: ./matchmaker
-    container_name: matchmaker
+    image: matchmaker-image:latest
+    build:
+      context: .
+      dockerfile: matchmaker/Dockerfile
+    container_name: matchmaker-container
     restart: unless-stopped
     env_file: .env.matchmaker
     environment:
       - DOCKER_HOST=tcp://socket-proxy:2375
-      - GAME_IMAGE=serveruser/server-image:latest
+      - GAME_IMAGE=server-image:latest
     depends_on:
       - socket-proxy
     networks:

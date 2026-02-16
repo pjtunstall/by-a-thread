@@ -14,7 +14,7 @@ AppDir
 .git
 .gitignore
 
-Dockerfile
+**/Dockerfile
 .dockerignore
 
 .env.*

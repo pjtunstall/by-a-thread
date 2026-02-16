@@ -10,15 +10,11 @@ The [docker-compose.yaml](../docker-compose.yaml) stack runs the matchmaker, Cad
 - `VERSION_HASH` (required): a 64-character hex string (32 bytes) that the matchmaker uses to validate client version codes.
 - `DOMAIN` (optional): used to resolve the server host for connect tokens (defaults to 127.0.0.1).
 
-The compose file sets `DOCKER_HOST` and `GAME_IMAGE` directly; override them in the `environment` block if needed.
+The compose file sets `DOCKER_HOST` and `GAME_IMAGE` directly; override them in the `environment` block if needed. The matchmaker image is built and tagged as `matchmaker-image:latest`; the container runs as `matchmaker-container`. To stop the matchmaker stack, run `docker stop matchmaker-container` (and stop the other services as needed).
 
-Then run the client as usual.
+## A curiosity: The dummy package trick
 
-(A container stops when its main process exits. In this case, the main process is the server. The server will exit shortly after the last client leaves. In case you want to stop it immediately, `stop server-container`.)
-
-## A curiosity: The dummy client trick
-
-As I containerized the server using Docker, I came across a handy trick. The server consists of one package: `server`. It depends on another package, called `common`. Both belong to the same workspace, and that workspace contains a third package: `client`. I wanted to keep this structure without polluting the Docker build context with the client source code and assets. The solution I found was to include, in my [Dockerfile](Dockerfile), commands to create a dummy client, i.e. the minimal file structure required to satisfy `cargo install`.
+The server consists of one package: `server`. It depends on another package, called `common`. Both belong to the same workspace, and that workspace contains a third package: `client`. I wanted to keep this structure without polluting the Docker build context with the client source code and assets. The solution I found was to include, in my [Dockerfile](../server/Dockerfile), commands to create a dummy client, i.e. the minimal file structure required to satisfy `cargo install`.
 
 ```sh
 RUN mkdir -p client/src && \
@@ -27,3 +23,5 @@ RUN mkdir -p client/src && \
 ```
 
 In this way, I could omit/ignore the real client.
+
+The same technique is used in the matchmaker's [Dockerfile](../matchmaker/Dockerfile), with a dummy server and client.

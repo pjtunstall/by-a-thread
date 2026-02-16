@@ -85,10 +85,10 @@ check-deploy: check-docker
 #
 # Prerequisites: Docker (https://docs.docker.com/engine/install)
 #
-$(DOCKER_SENTINEL): $(SERVER_BIN) Dockerfile | check-docker
+$(DOCKER_SENTINEL): $(SERVER_BIN) server/Dockerfile | check-docker
 	mkdir -p $(DIST)
 	VERSION=$$(cargo pkgid -p server | cut -d# -f2 | cut -d: -f2); \
-	docker build -t server-image:$$VERSION -t server-image:latest .
+	docker build -f server/Dockerfile -t server-image:$$VERSION -t server-image:latest .
 	touch $(DOCKER_SENTINEL)
 
 docker: $(DOCKER_SENTINEL)
