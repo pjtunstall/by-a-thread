@@ -303,7 +303,6 @@ components:
           type: string
           description: Machine-readable error code
           enum:
-            - BAD_REQUEST
             - INVALID_PASSCODE_FORMAT
             - INVALID_PLAYER_COUNT
             - VERSION_MISMATCH
