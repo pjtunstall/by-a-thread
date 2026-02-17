@@ -8,3 +8,4 @@ alwaysApply: false
 
 - In error messages, follow Rust convention and use lowercase initial letter and no trailing period.
 - An exception, in this project, is that the outermost error message displayed to the user in the GUI should follow normal English convention, i.e. start with a capital letter and end with a period.
+- Don't prefix `eprintln!` or panic/expect messages with "error: ".

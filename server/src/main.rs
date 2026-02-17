@@ -5,6 +5,7 @@ use std::{
     process,
 };
 
+use base64::{Engine, engine::general_purpose::STANDARD};
 use crossterm::{
     cursor::{MoveToColumn, Show},
     execute,
@@ -51,8 +52,23 @@ fn main() {
     })
     .ok();
 
-    let private_key = common::auth::private_key();
-    let public_host = env::var("IP").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let private_key = {
+        let s = env::var("PRIVATE_KEY").expect("could not find `PRIVATE_KEY` environment variable");
+        let bytes = STANDARD.decode(s.trim()).unwrap_or_else(|e| {
+            eprintln!("`PRIVATE_KEY` is not valid base64: {}", e);
+            process::exit(1);
+        });
+        if bytes.len() != 32 {
+            panic!(
+                "`PRIVATE_KEY` must decode to exactly 32 bytes, got {}.",
+                bytes.len()
+            );
+        }
+        let mut key = [0u8; 32];
+        key.copy_from_slice(&bytes);
+        key
+    };
+    let public_host = env::var("IP").expect("could not find `IP` environment variable");
     let public_ip: std::net::IpAddr = public_host
         .parse()
         .expect("`IP` is not a valid IP address.");
@@ -64,8 +80,7 @@ fn main() {
             socket
         }
         Err(e) => {
-            eprintln!("error: failed to bind socket");
-            eprintln!("details: {}", e);
+            eprintln!("failed to bind socket: {}", e);
             if e.kind() == io::ErrorKind::AddrInUse {
                 eprintln!("Is another instance of the server already running?");
             }
@@ -73,5 +88,17 @@ fn main() {
         }
     };
 
-    server::run::run_server(socket, connectable_addr, private_key);
+    let passcode_str = env::var("PASSCODE").unwrap_or_else(|_| {
+        eprintln!("failed to find `PASSCODE` environment variable");
+        process::exit(1);
+    });
+    let passcode = common::auth::Passcode::from_string(&passcode_str).unwrap_or_else(|| {
+        eprintln!(
+            "`PASSCODE` must be a six-digit number, got \"{}\".",
+            passcode_str
+        );
+        process::exit(1);
+    });
+
+    server::run::run_server(socket, connectable_addr, private_key, passcode);
 }

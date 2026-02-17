@@ -5,13 +5,13 @@ use std::time::Instant;
 use base64::Engine;
 use bollard::{
     Docker,
-    models::{ContainerCreateBody, HostConfig, PortBinding},
+    models::{ContainerCreateBody, ContainerStateStatusEnum, HostConfig, PortBinding},
     query_parameters::CreateContainerOptions,
 };
 use uuid::Uuid;
 
 use crate::{auth, errors::HttpError};
-use common::constants::SERVER_PORT;
+use common::{auth::Passcode, constants::SERVER_PORT};
 
 #[derive(Debug)]
 pub struct Game {
@@ -21,6 +21,7 @@ pub struct Game {
     pub connect_tokens: Vec<String>,
     pub start_time: Instant,
     pub container_name: Option<String>,
+    pub passcode: Passcode,
 }
 
 impl Game {
@@ -29,6 +30,7 @@ impl Game {
         port: u16,
         player_count: u8,
         private_key: [u8; 32],
+        passcode: Passcode,
     ) -> Self {
         let mut connect_tokens = Vec::new();
 
@@ -49,6 +51,7 @@ impl Game {
             connect_tokens,
             start_time: Instant::now(),
             container_name: None,
+            passcode,
         }
     }
 
@@ -85,6 +88,7 @@ impl Game {
                 format!("PRIVATE_KEY={}", private_key_b64),
                 format!("IP={}", server_host),
                 format!("PORT={}", self.port),
+                format!("PASSCODE={}", self.passcode.string),
             ]),
             host_config: Some(HostConfig {
                 port_bindings: Some(port_bindings),
@@ -113,7 +117,35 @@ impl Game {
                 HttpError::ServerError
             })?;
 
-        self.container_name = Some(container_name);
+        self.container_name = Some(container_name.clone());
+
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        let inspect = docker
+            .inspect_container(&container_name, None)
+            .await
+            .map_err(|e| {
+                eprintln!("docker inspect_container failed: {}", e);
+                HttpError::ServerError
+            })?;
+        if inspect
+            .state
+            .as_ref()
+            .and_then(|s| s.status)
+            .map_or(false, |s| s == ContainerStateStatusEnum::EXITED)
+        {
+            eprintln!(
+                "game server container {} exited immediately; check container logs",
+                container_name
+            );
+            if let Err(e) = docker.remove_container(&container_name, None).await {
+                eprintln!(
+                    "failed to remove exited container {}: {}",
+                    container_name, e
+                );
+            }
+            return Err(HttpError::ServerError);
+        }
+
         Ok(())
     }
 }

@@ -46,22 +46,28 @@ pub async fn create_game(
         .await
         .ok_or(HttpError::LimitsExceeded)?;
     let passcode = Passcode::generate();
+    let passcode_string = passcode.string.clone();
+    let passcode_bytes = passcode.bytes.clone();
     let private_key = auth::private_key();
 
-    let mut new_game = Game::new(state.server_host, port, player_count, private_key);
+    let mut new_game = Game::new(state.server_host, port, player_count, private_key, passcode);
     let connect_token = new_game.get_token().ok_or(HttpError::LimitsExceeded)?;
 
-    new_game
+    if let Err(e) = new_game
         .start_server_container(private_key, state.server_host)
-        .await?;
+        .await
+    {
+        state.port_pool.release(port).await;
+        return Err(e);
+    }
 
     println!("New game {} created on port: {}", new_game.id, port);
-    state.games.insert(passcode.bytes, new_game).await;
+    state.games.insert(passcode_bytes, new_game).await;
 
     let response_body = CreateGameOkBody {
         port,
         connect_token,
-        passcode: passcode.string,
+        passcode: passcode_string,
     };
 
     Ok(response_body.to_response())
