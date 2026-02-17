@@ -22,6 +22,7 @@ use crate::{
     session::{ClientSession, Clock},
     state::{ClientState, InputMode, Lobby},
 };
+use common::player::Color;
 use common::{self, auth::Passcode, constants::TICK_SECS};
 use renet_netcode::ConnectToken;
 
@@ -499,6 +500,27 @@ pub async fn prompt_for_server_address(
     }
 }
 
+const NEW_JOIN_MENU_ITEMS: &[&str] = &["New game", "Join game"];
+
+fn format_new_join_menu_lines(selected_index: usize) -> Vec<(String, Color)> {
+    let mut lines = Vec::with_capacity(4);
+    for (i, label) in NEW_JOIN_MENU_ITEMS.iter().enumerate() {
+        let prefix = if i == selected_index { "  * " } else { "    " };
+        let line_color = if i == selected_index {
+            Color::WHITE
+        } else {
+            Color::LightGray
+        };
+        lines.push((format!("{}{}", prefix, label), line_color));
+    }
+    lines.push((" ".to_string(), Color::LightGray));
+    lines.push((
+        "Use up/down arrows to select, Enter to confirm.".to_string(),
+        Color::LightGray,
+    ));
+    lines
+}
+
 pub async fn prompt_for_matchmaker_choice(
     api_host: &str,
     ui: &mut dyn LobbyUi,
@@ -512,6 +534,7 @@ pub async fn prompt_for_matchmaker_choice(
 
     let mut prompt_printed = false;
     let mut choice: Option<u8> = None;
+    let mut selected_index: usize = 0;
 
     loop {
         if should_quit() {
@@ -520,12 +543,15 @@ pub async fn prompt_for_matchmaker_choice(
 
         if choice.is_none() {
             match ui.poll_single_key() {
-                Ok(Some(common::input::UiKey::Char('1'))) => {
-                    choice = Some(1);
-                    prompt_printed = false;
+                Ok(Some(common::input::UiKey::Up)) => {
+                    selected_index = (selected_index + NEW_JOIN_MENU_ITEMS.len() - 1)
+                        % NEW_JOIN_MENU_ITEMS.len();
                 }
-                Ok(Some(common::input::UiKey::Char('2'))) => {
-                    choice = Some(2);
+                Ok(Some(common::input::UiKey::Down)) => {
+                    selected_index = (selected_index + 1) % NEW_JOIN_MENU_ITEMS.len();
+                }
+                Ok(Some(common::input::UiKey::Enter)) => {
+                    choice = Some((selected_index + 1) as u8);
                     prompt_printed = false;
                 }
                 Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
@@ -573,13 +599,11 @@ pub async fn prompt_for_matchmaker_choice(
                         prompt_printed = false;
                     } else {
                         if trimmed.len() == 6 && trimmed.chars().all(|c| c.is_ascii_digit()) {
-                                match api::join_game(trimmed, matchmaker_host) {
+                            match api::join_game(trimmed, matchmaker_host) {
                                 Ok((response, addr)) => {
                                     match net::connect_token_from_base64(&response.connect_token) {
                                         Ok(token) => {
-                                            if let Some(passcode) =
-                                                Passcode::from_string(trimmed)
-                                            {
+                                            if let Some(passcode) = Passcode::from_string(trimmed) {
                                                 return Some((addr, token, passcode, false));
                                             }
                                         }
@@ -611,14 +635,24 @@ pub async fn prompt_for_matchmaker_choice(
         }
 
         if !prompt_printed {
-            ui.show_prompt(if choice.is_none() {
-                "New game (1) or Join game (2)? "
+            if choice.is_none() {
+                ui.show_prompt("New game or Join game?");
+                ui.show_message(" ");
+                let menu_lines = format_new_join_menu_lines(selected_index);
+                for (line, color) in &menu_lines {
+                    ui.show_message_with_color(line, *color);
+                }
             } else if choice == Some(1) {
-                "How many players (1-10)? "
+                ui.show_prompt("How many players (1-10)? ");
             } else {
-                "Enter passcode (6 digits): "
-            });
+                ui.show_prompt("Enter passcode (6 digits): ");
+            }
             prompt_printed = true;
+        }
+
+        if choice.is_none() && prompt_printed {
+            let menu_lines = format_new_join_menu_lines(selected_index);
+            ui.replace_last_messages(menu_lines.len(), menu_lines);
         }
 
         let should_show_input = choice.is_some();
