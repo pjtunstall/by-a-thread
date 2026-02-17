@@ -41,23 +41,14 @@ pub fn run_server(
     let server_config =
         net::build_server_config(current_time, protocol_id, connectable_addr, private_key);
 
-    let server_connectable_addr = server_config.public_addresses[0];
-
     let mut transport =
         NetcodeServerTransport::new(server_config, socket).expect("failed to create transport");
     let connection_config = common::net::connection_config();
     let mut server = RenetServer::new(connection_config);
     let mut state = ServerState::Lobby(Lobby::new());
 
-    print_server_banner(protocol_id, &passcode, server_connectable_addr);
     server_loop(&mut server, &mut transport, &mut state, &passcode);
     println!("Server shutting down.");
-}
-
-fn print_server_banner(protocol_id: u64, passcode: &Passcode, server_connectable_addr: SocketAddr) {
-    println!("  Game version:   {}", protocol_id);
-    println!("  Server address: {}", server_connectable_addr);
-    println!("  Passcode:       {}", passcode.string);
 }
 
 fn server_loop(
