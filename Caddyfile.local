@@ -1,4 +1,3 @@
-# Local development only. No api.by-a-thread.de block, so Caddy does not attempt Let's Encrypt.
 localhost, 127.0.0.1 {
     log
     tls internal

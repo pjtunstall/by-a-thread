@@ -16,5 +16,6 @@ AppDir
 
 **/Dockerfile
 .dockerignore
+docker-compose.override.yaml
 
 .env.*

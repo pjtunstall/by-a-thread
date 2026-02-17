@@ -1,8 +1,0 @@
-# Copy to docker-compose.override.yml for local development.
-# Uses Caddyfile.local so Caddy does not attempt Let's Encrypt for api.by-a-thread.de.
-services:
-  caddy:
-    volumes:
-      - ./Caddyfile.local:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
