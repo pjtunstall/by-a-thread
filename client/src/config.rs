@@ -1,4 +1,4 @@
-pub const LOCAL_MATCHMAKER_HOST: &str = "127.0.0.1";
+pub const LOCAL_MATCHMAKER_HOST: &str = "localhost";
 
 pub fn api_server_host() -> String {
     common::domain::api_host_from_config(env!("BUILD_HOST"))

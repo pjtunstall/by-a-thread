@@ -6,11 +6,12 @@ use serde::{Deserialize, Serialize};
 use crate::config;
 use common::constants::VERSION_CODE_HEADER;
 
-fn client() -> Client {
-    Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()
-        .expect("failed to build HTTP client")
+fn client(insecure: bool) -> Client {
+    let mut builder = Client::builder().timeout(std::time::Duration::from_secs(30));
+    if insecure {
+        builder = builder.danger_accept_invalid_certs(true);
+    }
+    builder.build().expect("failed to build HTTP client")
 }
 
 #[derive(Serialize)]
@@ -71,8 +72,9 @@ pub fn create_game(
         Some(h) => h.to_string(),
         None => config::api_server_host(),
     };
+    let insecure = api_host == config::LOCAL_MATCHMAKER_HOST;
     let url = format!("https://{}/games", api_host);
-    let response = client()
+    let response = client(insecure)
         .post(&url)
         .header(VERSION_CODE_HEADER, config::version_code())
         .json(&CreateGameRequest { player_count })
@@ -111,8 +113,9 @@ pub fn join_game(
         Some(h) => h.to_string(),
         None => config::api_server_host(),
     };
+    let insecure = api_host == config::LOCAL_MATCHMAKER_HOST;
     let url = format!("https://{}/games/{}/join", api_host, passcode);
-    let response = client()
+    let response = client(insecure)
         .post(&url)
         .header(VERSION_CODE_HEADER, config::version_code())
         .json(&serde_json::json!({}))

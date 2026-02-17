@@ -20,7 +20,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ${CADDYFILE:-./Caddyfile}:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
     networks:
@@ -39,19 +39,6 @@ services:
       - GAME_IMAGE=server-image:latest
     depends_on:
       - socket-proxy
-    networks:
-      - backend
-
-  watchtower:
-    image: containrrr/watchtower
-    container_name: watchtower
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      # Cron expression for daily updates at 3:30 AM UTC.
-      - WATCHTOWER_SCHEDULE=0 30 3 * * *
-      - WATCHTOWER_CLEANUP=true
     networks:
       - backend
 

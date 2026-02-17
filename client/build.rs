@@ -3,17 +3,21 @@ use std::env;
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR set by cargo");
     let env_path = std::path::Path::new(&manifest_dir).join("../.env.client");
-    dotenvy::from_path(&env_path).unwrap_or_else(|e| {
-        panic!(
-            "failed to load .env.client from {}: {}. Required for client build.",
-            env_path.display(),
-            e
-        )
-    });
+    let vars: std::collections::HashMap<String, String> = dotenvy::from_path_iter(&env_path)
+        .unwrap_or_else(|e| {
+            panic!(
+                "failed to load .env.client from {}: {}. Required for client build.",
+                env_path.display(),
+                e
+            )
+        })
+        .filter_map(Result::ok)
+        .collect();
 
-    let version_code = env::var("VERSION_CODE")
-        .unwrap_or_else(|_| panic!("VERSION_CODE must be set in .env.client"));
-    let host = env::var("HOST").unwrap_or_default();
+    let version_code = vars.get("VERSION_CODE").cloned().unwrap_or_else(|| {
+        panic!("VERSION_CODE must be set in .env.client");
+    });
+    let host = vars.get("HOST").cloned().unwrap_or_default();
 
     println!("cargo:rustc-env=BUILD_HOST={}", host);
     println!("cargo:rustc-env=BUILD_VERSION_CODE={}", version_code);

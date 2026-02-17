@@ -92,6 +92,7 @@ pub struct Game {
     pub timer_expiration_tick: Option<u64>,
     pub is_solo_mode: bool,
     pub winner_index: Option<usize>,
+    pub post_game_start_time: Option<Instant>,
 }
 
 impl Game {
@@ -129,6 +130,7 @@ impl Game {
             timer_expiration_tick: None,
             is_solo_mode,
             winner_index: None,
+            post_game_start_time: None,
         }
     }
 
@@ -209,6 +211,22 @@ impl Game {
         }
 
         self.note_egress_bytes(egress_bytes);
+        self.leaderboard_sent = true;
+    }
+
+    pub fn force_send_leaderboard(&mut self, network: &mut dyn ServerNetworkHandle) {
+        if self.leaderboard_sent {
+            return;
+        }
+        let entries = self.build_leaderboard_entries();
+        let message = ServerMessage::PostGameLeaderboard { entries };
+        let payload =
+            encode_to_vec(&message, standard()).expect("failed to serialize PostGameLeaderboard");
+        let payload_len = payload.len();
+        for client_id in self.client_id_to_index.keys() {
+            network.send_message(*client_id, AppChannel::ReliableOrdered, payload.clone());
+        }
+        self.note_egress_bytes(payload_len.saturating_mul(self.client_id_to_index.len()));
         self.leaderboard_sent = true;
     }
 

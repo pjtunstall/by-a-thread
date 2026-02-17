@@ -19,7 +19,7 @@
 # Make checks that required tools exist before each step, and rebuilds artifacts
 # only when their dependencies have changed.
 #
-.PHONY: all test server docker deploy-hetzner run-hetzner windows deb rpm appimage macos-intel macos-silicon clean fullscreen unfullscreen
+.PHONY: all test server docker deploy-hetzner run-hetzner windows deb rpm appimage macos-intel macos-silicon clean fullscreen unfullscreen kill-servers
 .PHONY: check-windows check-deb check-rpm check-appimage check-docker check-deploy check-env
 
 DIST := dist
@@ -200,6 +200,11 @@ $(ZIP_APPLE_SILICON): $(EXE_APPLE_SILICON)
 macos-intel: $(ZIP_APPLE_INTEL)
 
 macos-silicon: $(ZIP_APPLE_SILICON)
+
+# Kill any running game server processes (direct run) and matchmaker-spawned containers.
+kill-servers:
+	-pkill -f 'target/.*/server' 2>/dev/null || true
+	@containers=$$(docker ps -q --filter 'name=game-' 2>/dev/null); [ -n "$$containers" ] && echo "$$containers" | xargs docker stop 2>/dev/null || true
 
 clean:
 	rm -rf $(DIST) $(STAGING_WIN) $(STAGING_APPDIR) ByAThread.app

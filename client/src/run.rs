@@ -22,7 +22,7 @@ use crate::{
     session::{ClientSession, Clock},
     state::{ClientState, InputMode, Lobby},
 };
-use common::{self, constants::TICK_SECS};
+use common::{self, auth::Passcode, constants::TICK_SECS};
 use renet_netcode::ConnectToken;
 
 pub struct ClientRunner {
@@ -347,6 +347,7 @@ pub async fn run_client_loop(
     private_key: [u8; 32],
     server_addr: SocketAddr,
     connect_token: Option<ConnectToken>,
+    share_passcode: Option<String>,
     session: ClientSession,
     ui: Gui,
     assets: Assets,
@@ -393,7 +394,7 @@ pub async fn run_client_loop(
 
     runner
         .ui
-        .print_client_banner(common::protocol::version(), server_addr);
+        .print_client_banner(common::protocol::version(), server_addr, share_passcode);
 
     loop {
         if should_quit() {
@@ -411,6 +412,14 @@ pub async fn run_client_loop(
 
 fn should_quit() -> bool {
     is_quit_requested() || is_key_pressed(KeyCode::Escape)
+}
+
+async fn await_error_dismissal(ui: &mut dyn LobbyUi, font: Option<&macroquad::prelude::Font>) {
+    ui.show_warning("Press Escape to exit.");
+    while !should_quit() {
+        ui.draw(false, false, font, None);
+        next_frame().await;
+    }
 }
 
 pub async fn prompt_for_server_address(
@@ -492,7 +501,7 @@ pub async fn prompt_for_matchmaker_choice(
     api_host: &str,
     ui: &mut dyn LobbyUi,
     font: Option<&macroquad::prelude::Font>,
-) -> Option<(SocketAddr, ConnectToken)> {
+) -> Option<(SocketAddr, ConnectToken, Passcode, bool)> {
     let matchmaker_host = if api_host == config::LOCAL_MATCHMAKER_HOST {
         Some(config::LOCAL_MATCHMAKER_HOST)
     } else {
@@ -509,10 +518,17 @@ pub async fn prompt_for_matchmaker_choice(
 
         if choice.is_none() {
             match ui.poll_single_key() {
-                Ok(Some(common::input::UiKey::Char('1'))) => choice = Some(1),
-                Ok(Some(common::input::UiKey::Char('2'))) => choice = Some(2),
+                Ok(Some(common::input::UiKey::Char('1'))) => {
+                    choice = Some(1);
+                    prompt_printed = false;
+                }
+                Ok(Some(common::input::UiKey::Char('2'))) => {
+                    choice = Some(2);
+                    prompt_printed = false;
+                }
                 Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
                     ui.show_sanitized_error(&format!("No connection: {}.", e));
+                    await_error_dismissal(ui, font).await;
                     return None;
                 }
                 _ => {}
@@ -529,15 +545,23 @@ pub async fn prompt_for_matchmaker_choice(
                                         match net::connect_token_from_base64(
                                             &response.connect_token,
                                         ) {
-                                            Ok(token) => return Some((addr, token)),
+                                            Ok(token) => {
+                                                if let Some(passcode) =
+                                                    Passcode::from_string(&response.passcode)
+                                                {
+                                                    return Some((addr, token, passcode, true));
+                                                }
+                                            }
                                             Err(e) => {
                                                 ui.show_sanitized_error(&e);
+                                                await_error_dismissal(ui, font).await;
                                                 return None;
                                             }
                                         }
                                     }
                                     Err(e) => {
                                         ui.show_sanitized_error(&e.to_string());
+                                        await_error_dismissal(ui, font).await;
                                         return None;
                                     }
                                 }
@@ -547,18 +571,26 @@ pub async fn prompt_for_matchmaker_choice(
                         prompt_printed = false;
                     } else {
                         if trimmed.len() == 6 && trimmed.chars().all(|c| c.is_ascii_digit()) {
-                            match api::join_game(trimmed, matchmaker_host) {
+                                match api::join_game(trimmed, matchmaker_host) {
                                 Ok((response, addr)) => {
                                     match net::connect_token_from_base64(&response.connect_token) {
-                                        Ok(token) => return Some((addr, token)),
+                                        Ok(token) => {
+                                            if let Some(passcode) =
+                                                Passcode::from_string(trimmed)
+                                            {
+                                                return Some((addr, token, passcode, false));
+                                            }
+                                        }
                                         Err(e) => {
                                             ui.show_sanitized_error(&e);
+                                            await_error_dismissal(ui, font).await;
                                             return None;
                                         }
                                     }
                                 }
                                 Err(e) => {
                                     ui.show_sanitized_error(&e.to_string());
+                                    await_error_dismissal(ui, font).await;
                                     return None;
                                 }
                             }
@@ -569,6 +601,7 @@ pub async fn prompt_for_matchmaker_choice(
                 }
                 Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
                     ui.show_sanitized_error(&format!("No connection: {}.", e));
+                    await_error_dismissal(ui, font).await;
                     return None;
                 }
                 Ok(None) => {}

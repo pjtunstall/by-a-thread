@@ -23,7 +23,7 @@ use crate::{
 use common::{
     self,
     auth::Passcode,
-    constants::{BROADCAST_INTERVAL, IDEAL_TICK_DURATION},
+    constants::{BROADCAST_INTERVAL, IDLE_TIMEOUT_SECS, IDEAL_TICK_DURATION},
     net::AppChannel,
     protocol::{GAME_ALREADY_STARTED_MESSAGE, ServerMessage},
     time,
@@ -60,6 +60,8 @@ fn server_loop(
     let mut next_tick_time = Instant::now();
     let mut last_updated = Instant::now();
     let mut last_sync_time = Instant::now();
+    let start_time = Instant::now();
+    let mut any_client_ever_connected = false;
 
     loop {
         let now = Instant::now();
@@ -78,7 +80,17 @@ fn server_loop(
             last_sync_time = now;
         }
 
-        update_server_state(&mut network_handle, state, passcode);
+        update_server_state(&mut network_handle, state, passcode, &mut any_client_ever_connected);
+
+        if !any_client_ever_connected
+            && now.duration_since(start_time) > Duration::from_secs(IDLE_TIMEOUT_SECS)
+        {
+            println!(
+                "No client connected within {} seconds. Server exiting...",
+                IDLE_TIMEOUT_SECS
+            );
+            break;
+        }
 
         transport.send_packets(server);
 
@@ -107,8 +119,9 @@ pub fn update_server_state(
     network: &mut dyn ServerNetworkHandle,
     state: &mut ServerState,
     passcode: &Passcode,
+    any_client_ever_connected: &mut bool,
 ) {
-    process_events(network, state);
+    process_events(network, state, any_client_ever_connected);
 
     let next_state = match state {
         ServerState::Lobby(lobby_state) => {
@@ -218,10 +231,15 @@ fn apply_server_transition(
     }
 }
 
-pub fn process_events(network: &mut dyn ServerNetworkHandle, state: &mut ServerState) {
+pub fn process_events(
+    network: &mut dyn ServerNetworkHandle,
+    state: &mut ServerState,
+    any_client_ever_connected: &mut bool,
+) {
     while let Some(event) = network.get_event() {
         match event {
             ServerNetworkEvent::ClientConnected { client_id } => {
+                *any_client_ever_connected = true;
                 println!("Client {} connected.", client_id);
                 state.register_connection(client_id, network);
             }
@@ -267,7 +285,8 @@ mod tests {
 
         network.queue_event(ServerNetworkEvent::ClientConnected { client_id: 1 });
 
-        process_events(&mut network, &mut state);
+        let mut any_client_ever_connected = false;
+        process_events(&mut network, &mut state, &mut any_client_ever_connected);
 
         if let ServerState::Lobby(lobby) = state {
             assert!(lobby.is_authenticating(1));
@@ -292,7 +311,8 @@ mod tests {
             reason: "timeout".to_string(),
         });
 
-        process_events(&mut network, &mut state);
+        let mut any_client_ever_connected = true;
+        process_events(&mut network, &mut state, &mut any_client_ever_connected);
 
         if let ServerState::Lobby(lobby) = state {
             assert_eq!(lobby.username(1), None);

@@ -120,7 +120,12 @@ impl LobbyUi for MockUi {
         }
     }
 
-    fn print_client_banner(&mut self, protocol_id: u64, server_addr: SocketAddr) {
+    fn print_client_banner(
+        &mut self,
+        protocol_id: u64,
+        server_addr: SocketAddr,
+        _share_passcode: Option<String>,
+    ) {
         self.messages.clear();
         self.messages.push(format!(
             "Client Banner: Protocol={}, Server={}",

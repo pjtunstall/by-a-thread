@@ -1,6 +1,6 @@
 pub mod api;
-pub mod config;
 pub mod assets;
+pub mod config;
 pub mod fade;
 pub mod frame;
 pub mod game;

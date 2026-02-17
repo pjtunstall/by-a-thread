@@ -11,8 +11,16 @@ pub const BATTLE_TIMER_DURATION: f32 = 600.0; // Multiplayer gets 10 minutes.
 pub const PRE_GAME_TIMER_SECS: u64 = 300; // 5 minutes.
 pub const PRE_GAME_TIMER_DURATION: Duration = Duration::from_secs(PRE_GAME_TIMER_SECS);
 
-// Connect token expiry. Must exceed lobby + countdown + full game (e.g. 5 + 0.2 + 10 min).
-pub const MAX_SESSION_DURATION: u64 = PRE_GAME_TIMER_SECS + BATTLE_TIMER_DURATION as u64 + 60;
+pub const IDLE_TIMEOUT_SECS: u64 = 120;
+pub const POST_GAME_TIMEOUT_SECS: u64 = 120;
+
+// Connect token expiry and matchmaker cleanup. Must exceed lobby + countdown + full game +
+// idle timeout + post-game timeout (e.g. 5 + 0.2 + 10 + 2 + 2 min).
+pub const MAX_SESSION_DURATION: u64 = PRE_GAME_TIMER_SECS
+    + BATTLE_TIMER_DURATION as u64
+    + 60
+    + IDLE_TIMEOUT_SECS
+    + POST_GAME_TIMEOUT_SECS;
 
 // Difficulty selection: 0 through NUM_DIFFICULTY_LEVELS - 1.
 pub const NUM_DIFFICULTY_LEVELS: u8 = 10;

@@ -1,1 +1,10 @@
-api.by-a-thread.de { reverse_proxy matchmaker:8080 }
+# On VPS, api.by-a-thread.de uses Caddy's default ACME (Let's Encrypt) for trusted TLS.
+api.by-a-thread.de {
+    reverse_proxy matchmaker:8080
+}
+
+# On localhost, tls internal uses self-signed certs; the client accepts them for localhost only.
+localhost, 127.0.0.1 {
+    tls internal
+    reverse_proxy matchmaker:8080
+}

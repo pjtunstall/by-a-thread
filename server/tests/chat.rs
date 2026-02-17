@@ -93,10 +93,12 @@ fn chat_messages_are_broadcast_to_other_clients() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
+        let mut any_client_ever_connected = false;
         update_server_state(
             &mut network_handle,
             &mut state,
             &passcode,
+            &mut any_client_ever_connected,
         );
     }
 
@@ -121,10 +123,12 @@ fn chat_messages_are_broadcast_to_other_clients() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
+        let mut any_client_ever_connected = false;
         update_server_state(
             &mut network_handle,
             &mut state,
             &passcode,
+            &mut any_client_ever_connected,
         );
     }
 
@@ -182,10 +186,12 @@ fn players_are_notified_when_others_join_and_leave() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
+        let mut any_client_ever_connected = false;
         update_server_state(
             &mut network_handle,
             &mut state,
             &passcode,
+            &mut any_client_ever_connected,
         );
     }
 
@@ -209,10 +215,12 @@ fn players_are_notified_when_others_join_and_leave() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
+        let mut any_client_ever_connected = false;
         update_server_state(
             &mut network_handle,
             &mut state,
             &passcode,
+            &mut any_client_ever_connected,
         );
     }
 
@@ -247,10 +255,12 @@ fn players_are_notified_when_others_join_and_leave() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
+        let mut any_client_ever_connected = false;
         update_server_state(
             &mut network_handle,
             &mut state,
             &passcode,
+            &mut any_client_ever_connected,
         );
     }
 
@@ -295,10 +305,12 @@ fn test_handle_messages_username_success_and_broadcast() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
+        let mut any_client_ever_connected = false;
         update_server_state(
             &mut network_handle,
             &mut state,
             &passcode,
+            &mut any_client_ever_connected,
         );
     }
 
@@ -322,10 +334,12 @@ fn test_handle_messages_username_success_and_broadcast() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
+        let mut any_client_ever_connected = false;
         update_server_state(
             &mut network_handle,
             &mut state,
             &passcode,
+            &mut any_client_ever_connected,
         );
     }
 
@@ -415,10 +429,12 @@ fn oversized_message_disconnects_client() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
+        let mut any_client_ever_connected = false;
         update_server_state(
             &mut network_handle,
             &mut state,
             &passcode,
+            &mut any_client_ever_connected,
         );
     }
 
@@ -448,10 +464,12 @@ fn oversized_message_disconnects_client() {
         let mut network_handle = RenetServerNetworkHandle {
             server: &mut server,
         };
+        let mut any_client_ever_connected = false;
         update_server_state(
             &mut network_handle,
             &mut state,
             &passcode,
+            &mut any_client_ever_connected,
         );
     }
 

@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
@@ -13,7 +15,7 @@ use crate::{
 use common::{
     bullets::{self, Bullet, check_player_collision, update_bullet_position},
     chat::MAX_CHAT_MESSAGE_BYTES,
-    constants::TICKS_PER_BROADCAST,
+    constants::{POST_GAME_TIMEOUT_SECS, TICKS_PER_BROADCAST},
     input::sanitize,
     net::AppChannel,
     protocol::{BulletEvent, ClientMessage, MAX_CLIENT_MESSAGE_BYTES, ServerMessage},
@@ -28,6 +30,26 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
     input::receive_inputs(network, state);
 
     check_timer_expiration(network, state);
+
+    let in_post_game = state.winner_index.is_some() || state.timer_expiration_tick.is_some();
+    if in_post_game {
+        if state.post_game_start_time.is_none() {
+            state.post_game_start_time = Some(Instant::now());
+        }
+        if !state.leaderboard_sent
+            && state.post_game_chat_clients.len() != state.client_id_to_index.len()
+            && state
+                .post_game_start_time
+                .map(|t| Instant::now().duration_since(t) > Duration::from_secs(POST_GAME_TIMEOUT_SECS))
+                .unwrap_or(false)
+        {
+            println!(
+                "Post-game timeout ({}s) reached. Sending leaderboard and exiting.",
+                POST_GAME_TIMEOUT_SECS
+            );
+            state.force_send_leaderboard(network);
+        }
+    }
 
     let player_positions: Vec<(usize, Vec3)> = state
         .players

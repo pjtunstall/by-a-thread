@@ -61,7 +61,7 @@ mod tests {
             protocol_id, server_addr
         );
 
-        ui.print_client_banner(protocol_id, server_addr);
+        ui.print_client_banner(protocol_id, server_addr, None);
 
         assert_eq!(ui.messages, vec![expected_banner]);
         assert!(ui.errors.is_empty());

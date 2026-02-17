@@ -38,22 +38,43 @@ async fn main() {
         return;
     };
 
-    let (server_addr, connect_token) = match choice {
-        run::ConnectionChoice::Direct(addr) => (addr, None),
+    let (server_addr, connect_token, initial_lobby, share_passcode) = match choice {
+        run::ConnectionChoice::Direct(addr) => (
+            addr,
+            None,
+            client::state::Lobby::Passcode {
+                prompt_printed: false,
+            },
+            None,
+        ),
         run::ConnectionChoice::Matchmaker { api_host } => {
-            let Some((addr, token)) =
+            let Some((addr, token, passcode, is_host)) =
                 run::prompt_for_matchmaker_choice(&api_host, &mut ui, Some(&assets.font)).await
             else {
                 return;
             };
-            (addr, Some(token))
+            (
+                addr,
+                Some(token),
+                client::state::Lobby::Connecting {
+                    pending_passcode: Some(passcode.clone()),
+                },
+                is_host.then(|| passcode.string.clone()),
+            )
         }
     };
 
     session.server_addr = Some(server_addr);
-    session.transition(client::state::ClientState::Lobby(client::state::Lobby::Passcode {
-        prompt_printed: false,
-    }));
+    session.transition(client::state::ClientState::Lobby(initial_lobby));
 
-    run::run_client_loop(private_key, server_addr, connect_token, session, ui, assets).await;
+    run::run_client_loop(
+        private_key,
+        server_addr,
+        connect_token,
+        share_passcode,
+        session,
+        ui,
+        assets,
+    )
+    .await;
 }
