@@ -33,6 +33,13 @@ pub fn handle(
                 prompt_printed: false,
             }));
         }
+        if trimmed.eq_ignore_ascii_case("localhost") || trimmed == "127.0.0.1" || trimmed == "::1" {
+            session.input_queue.clear();
+            return Some(ClientState::Lobby(Lobby::MatchmakerMenu {
+                api_host: config::LOCAL_MATCHMAKER_HOST.to_string(),
+                prompt_printed: false,
+            }));
+        }
         match server_address::parse_server_address(trimmed, SERVER_PORT) {
             Ok(parsed_server_addr) => {
                 session.input_queue.clear();
@@ -62,6 +69,6 @@ pub fn handle(
 
 fn server_address_prompt() -> String {
     format!(
-        "Press Enter for default server (recommended),\nTab for localhost,\nor pick another server (host:port): ",
+        "Press Enter for default server (recommended),\nTab for localhost,\nor pick another server (domain or IP address): ",
     )
 }

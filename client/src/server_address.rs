@@ -45,6 +45,6 @@ pub fn parse_server_address(input: &str, default_port: u16) -> Result<SocketAddr
     }
 
     Err(format!(
-        "Invalid address. Press Enter, or Tab, or enter host:port like 192.168.0.10:5000.",
+        "Invalid address. Press Enter, or Tab, or enter a domain (like example.com) or an IP address (like 192.168.0.10).",
     ))
 }
