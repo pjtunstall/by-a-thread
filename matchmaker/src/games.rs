@@ -33,20 +33,17 @@ impl Games {
         Ok((port, connect_token))
     }
 
-    pub async fn get_stale_for_cleanup(
+    pub async fn get_games_with_containers_for_cleanup(
         &self,
         session_duration: Duration,
-    ) -> Vec<([u8; 6], String, u16)> {
+    ) -> Vec<([u8; 6], String, u16, bool)> {
         let guard = self.inner.lock().await;
         guard
             .iter()
             .filter_map(|(passcode, game)| {
                 let container_name = game.container_name.as_ref()?;
-                if game.start_time.elapsed() > session_duration {
-                    Some((*passcode, container_name.clone(), game.port))
-                } else {
-                    None
-                }
+                let is_time_stale = game.start_time.elapsed() > session_duration;
+                Some((*passcode, container_name.clone(), game.port, is_time_stale))
             })
             .collect()
     }

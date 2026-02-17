@@ -5,6 +5,7 @@ api.by-a-thread.de {
 
 # On localhost, tls internal uses self-signed certs; the client accepts them for localhost only.
 localhost, 127.0.0.1 {
+    log
     tls internal
     reverse_proxy matchmaker:8080
 }
