@@ -25,3 +25,32 @@ RUN mkdir -p client/src && \
 In this way, I could omit/ignore the real client.
 
 The same technique is used in the matchmaker's [Dockerfile](../matchmaker/Dockerfile), with a dummy server and client.
+
+## Localhost
+
+To run locally, we have to take extra care to keep both Caddy and Docker happy.
+
+### Caddy
+
+The API host for local requests must be `localhost`, not `127.0.0.1`, or Caddy rejects the request. When connecting to an IP address, the TLS ClientHello has an empty Server Name Indication (SNI); Caddy refuses connections without SNI because it cannot match the request to a certificate. Using `localhost` sends the hostname in SNI, so Caddy can match the site block.
+
+### Docker
+
+The problem: If the client tries to connect on 127.0.0.1, the server can't reply. When it tries to, it misinterprets the client's 127.0.0.1 (i.e. the address of the host OS) with its own in-container loopback address, and sends the reply to itself.
+
+- Client (on host) sends to 127.0.0.1:7785 from something like 127.0.0.1:45678.
+- Docker receives it on the host and DNATs the destination to the container’s 5000.
+- The source address is usually left as 127.0.0.1:45678.
+- The server in the container does recv_from() and sees source 127.0.0.1:45678.
+- The server sends the reply to 127.0.0.1:45678.
+- Inside the container, 127.0.0.1 is the container's own loopback. The reply goes to the container's loopback, not the host.
+- The host client never gets the reply, so the connection times out.
+
+The solution I chose is to make the client connect to the default Docker bridge network, 127.17.0.1. This is the host OS's address as understood both inside and outside the server container.
+
+- Client sends to 172.17.0.1:7785 from something like 172.17.0.1:45678 (same interface).
+- Docker forwards to the container; the server sees source 172.17.0.1:45678.
+- The server sends the reply to 172.17.0.1:45678.
+- From the container, 172.17.0.1 is the gateway to the host. The reply goes out to the host.
+- The host receives it on 172.17.0.1 and delivers it to the client.
+- The client gets the reply and the connection succeeds.
