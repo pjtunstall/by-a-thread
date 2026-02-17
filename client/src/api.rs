@@ -56,15 +56,22 @@ impl std::fmt::Display for ApiError {
 
 impl std::error::Error for ApiError {}
 
-fn server_addr_from_port(port: u16) -> SocketAddr {
-    let mut addrs = (config::game_server_host().as_str(), port)
+fn server_addr_from_host_port(host: &str, port: u16) -> SocketAddr {
+    let mut addrs = (host, port)
         .to_socket_addrs()
         .expect("failed to resolve game server host");
     addrs.next().expect("no addresses for game server host")
 }
 
-pub fn create_game(player_count: u8) -> Result<(CreateGameResponse, SocketAddr), ApiError> {
-    let url = format!("https://{}/games", config::api_server_host());
+pub fn create_game(
+    player_count: u8,
+    matchmaker_host: Option<&str>,
+) -> Result<(CreateGameResponse, SocketAddr), ApiError> {
+    let api_host = match matchmaker_host {
+        Some(h) => h.to_string(),
+        None => config::api_server_host(),
+    };
+    let url = format!("https://{}/games", api_host);
     let response = client()
         .post(&url)
         .header(VERSION_CODE_HEADER, config::version_code())
@@ -88,12 +95,19 @@ pub fn create_game(player_count: u8) -> Result<(CreateGameResponse, SocketAddr),
 
     let create_response: CreateGameResponse =
         serde_json::from_str(&body).map_err(ApiError::Json)?;
-    let addr = server_addr_from_port(create_response.port);
+    let addr = server_addr_from_host_port(&api_host, create_response.port);
     Ok((create_response, addr))
 }
 
-pub fn join_game(passcode: &str) -> Result<(JoinGameResponse, SocketAddr), ApiError> {
-    let url = format!("https://{}/games/{}/join", config::api_server_host(), passcode);
+pub fn join_game(
+    passcode: &str,
+    matchmaker_host: Option<&str>,
+) -> Result<(JoinGameResponse, SocketAddr), ApiError> {
+    let api_host = match matchmaker_host {
+        Some(h) => h.to_string(),
+        None => config::api_server_host(),
+    };
+    let url = format!("https://{}/games/{}/join", api_host, passcode);
     let response = client()
         .post(&url)
         .header(VERSION_CODE_HEADER, config::version_code())
@@ -116,6 +130,6 @@ pub fn join_game(passcode: &str) -> Result<(JoinGameResponse, SocketAddr), ApiEr
     }
 
     let join_response: JoinGameResponse = serde_json::from_str(&body).map_err(ApiError::Json)?;
-    let addr = server_addr_from_port(join_response.port);
+    let addr = server_addr_from_host_port(&api_host, join_response.port);
     Ok((join_response, addr))
 }

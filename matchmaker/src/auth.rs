@@ -15,6 +15,7 @@ pub fn private_key() -> [u8; 32] {
 pub fn create_connect_token(
     server_host: std::net::IpAddr,
     port: u16,
+    client_id: u64,
     private_key: &[u8; 32],
 ) -> ConnectToken {
     let current_time = SystemTime::now()
@@ -27,7 +28,7 @@ pub fn create_connect_token(
         current_time,
         protocol_id,
         MAX_SESSION_DURATION,
-        1,
+        client_id,
         15, // Timeout after 15 seconds.
         vec![server_addr],
         None,

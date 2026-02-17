@@ -330,17 +330,13 @@ impl ClientRunner {
     }
 }
 
-pub async fn run_client_loop(private_key: [u8; 32], mut ui: Gui) {
-    let client_id = ::rand::random::<u64>();
-    let mut session = ClientSession::new(client_id, None);
-    let assets = Assets::load().await;
-
-    let Some(server_addr) =
-        prompt_for_server_address(&mut session, &mut ui, Some(&assets.font)).await
-    else {
-        return;
-    };
-
+pub async fn run_client_loop(
+    private_key: [u8; 32],
+    server_addr: SocketAddr,
+    session: ClientSession,
+    ui: Gui,
+    assets: Assets,
+) {
     println!("Connecting to server: {}", server_addr);
 
     #[cfg(target_os = "windows")]
@@ -394,7 +390,7 @@ fn should_quit() -> bool {
     is_quit_requested() || is_key_pressed(KeyCode::Escape)
 }
 
-async fn prompt_for_server_address(
+pub async fn prompt_for_server_address(
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     font: Option<&macroquad::prelude::Font>,

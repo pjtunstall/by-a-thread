@@ -2,8 +2,10 @@ use macroquad::prelude::Conf;
 
 use client::{
     self,
+    assets::Assets,
     lobby::ui::Gui,
     run::{self},
+    session::ClientSession,
 };
 use common;
 
@@ -22,8 +24,19 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let ui = Gui::new();
+    let assets = Assets::load().await;
+    let mut ui = Gui::new();
+
+    let client_id = ::rand::random::<u64>();
+    let mut session = ClientSession::new(client_id, None);
+
     let private_key = common::auth::private_key();
 
-    run::run_client_loop(private_key, ui).await;
+    let Some(server_addr) =
+        run::prompt_for_server_address(&mut session, &mut ui, Some(&assets.font)).await
+    else {
+        return;
+    };
+
+    run::run_client_loop(private_key, server_addr, session, ui, assets).await;
 }

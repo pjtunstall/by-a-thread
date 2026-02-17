@@ -84,8 +84,8 @@ check-deploy: check-docker
 check-env:
 	@test -f .env.client || (echo "Error: .env.client required" && exit 1)
 	@test -f .env.matchmaker || (echo "Error: .env.matchmaker required" && exit 1)
-	@client_host=$$(grep '^HOST=' .env.client 2>/dev/null | cut -d= -f2- || printf ''); \
-	matchmaker_host=$$(grep '^HOST=' .env.matchmaker 2>/dev/null | cut -d= -f2-); \
+	@client_host=$$(grep '^HOST=' .env.client 2>/dev/null | cut -d= -f2- || echo "local"); \
+	matchmaker_host=$$(grep '^HOST=' .env.matchmaker 2>/dev/null | cut -d= -f2- || echo "local"); \
 	if [ "$$client_host" != "$$matchmaker_host" ]; then \
 		echo "Error: HOST mismatch: .env.client has '$$client_host', .env.matchmaker has '$$matchmaker_host'"; \
 		exit 1; \
