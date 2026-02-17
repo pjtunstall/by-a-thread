@@ -58,10 +58,16 @@ impl std::fmt::Display for ApiError {
 impl std::error::Error for ApiError {}
 
 fn server_addr_from_host_port(host: &str, port: u16) -> SocketAddr {
-    let mut addrs = (host, port)
+    let addrs: Vec<SocketAddr> = (host, port)
         .to_socket_addrs()
-        .expect("failed to resolve game server host");
-    addrs.next().expect("no addresses for game server host")
+        .expect("failed to resolve game server host")
+        .collect();
+    addrs
+        .iter()
+        .find(|a| a.is_ipv4())
+        .copied()
+        .or_else(|| addrs.into_iter().next())
+        .expect("no addresses for game server host")
 }
 
 pub fn create_game(
@@ -98,6 +104,7 @@ pub fn create_game(
     let create_response: CreateGameResponse =
         serde_json::from_str(&body).map_err(ApiError::Json)?;
     let game_host = match matchmaker_host {
+        Some(h) if h == config::LOCAL_MATCHMAKER_HOST => config::game_server_host(),
         Some(h) => h.to_string(),
         None => config::game_server_host(),
     };
@@ -138,6 +145,7 @@ pub fn join_game(
 
     let join_response: JoinGameResponse = serde_json::from_str(&body).map_err(ApiError::Json)?;
     let game_host = match matchmaker_host {
+        Some(h) if h == config::LOCAL_MATCHMAKER_HOST => config::game_server_host(),
         Some(h) => h.to_string(),
         None => config::game_server_host(),
     };

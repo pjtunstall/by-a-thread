@@ -108,6 +108,7 @@ impl ClientRunner {
         let mut result: Result<(), String> = Ok(());
 
         if let Err(e) = self.transport.update(dt, &mut self.client) {
+            eprintln!("transport update error: {:?}", e);
             result = Err(format!("transport update failed: {}", e));
         }
 
@@ -119,6 +120,7 @@ impl ClientRunner {
         }
 
         if let Err(e) = self.transport.send_packets(&mut self.client) {
+            eprintln!("transport send_packets error: {:?}", e);
             result = Err(format!("packet send failed: {}", e));
         }
 

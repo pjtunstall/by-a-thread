@@ -53,6 +53,7 @@ async fn main() {
             else {
                 return;
             };
+            session.client_id = token.client_id;
             (
                 addr,
                 Some(token),

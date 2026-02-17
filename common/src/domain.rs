@@ -20,7 +20,11 @@ pub fn api_host_from_config(config_value: &str) -> String {
 }
 
 pub fn game_host_from_config(config_value: &str) -> String {
-    host_from_config(config_value, "game")
+    if is_local(config_value) {
+        std::env::var("GAME_HOST").unwrap_or_else(|_| "172.17.0.1".to_string()) // Docker's default bridge network.
+    } else {
+        format!("game.{}", config_value.trim())
+    }
 }
 
 pub fn api_server_host() -> String {

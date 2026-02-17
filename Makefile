@@ -6,7 +6,7 @@
 # Prerequisites: see docs/build.md.
 #
 # Usage:
-#   make              # full build (test, server, docker, windows, deb, rpm, appimage)
+#   make              # full build (test, server, matchmaker, docker, windows, deb, rpm, appimage)
 #   make deploy-hetzner   # after 'make', pushes image to VPS and runs container
 #   make run-hetzner     # run server container on VPS (image must already be there)
 #   make windows      # Windows zip (Ubuntu: cross-compile; Windows: use scripts/Build-Windows.ps1)
@@ -19,8 +19,8 @@
 # Make checks that required tools exist before each step, and rebuilds artifacts
 # only when their dependencies have changed.
 #
-.PHONY: all test server docker deploy-hetzner run-hetzner windows deb rpm appimage macos-intel macos-silicon clean fullscreen unfullscreen kill-servers
-.PHONY: check-windows check-deb check-rpm check-appimage check-docker check-deploy check-env
+.PHONY: all test server matchmaker docker deploy-hetzner run-hetzner windows deb rpm appimage macos-intel macos-silicon clean fullscreen unfullscreen kill-servers
+.PHONY: check-windows check-deb check-rpm check-appimage check-docker check-docker-compose check-deploy check-env
 
 DIST := dist
 STAGING_WIN := ByAThread-win64
@@ -32,6 +32,7 @@ EXE_HOST := target/release/ByAThread
 APPIMAGE_FILE := $(DIST)/ByAThread.AppImage
 SERVER_BIN := target/release/server
 DOCKER_SENTINEL := $(DIST)/.docker-image-built
+MATCHMAKER_SENTINEL := $(DIST)/.matchmaker-image-built
 TARGET_APPLE_INTEL := x86_64-apple-darwin
 TARGET_APPLE_SILICON := aarch64-apple-darwin
 EXE_APPLE_INTEL := target/$(TARGET_APPLE_INTEL)/release/ByAThread
@@ -40,9 +41,10 @@ ZIP_APPLE_INTEL := $(DIST)/ByAThread-macos-intel.zip
 ZIP_APPLE_SILICON := $(DIST)/ByAThread-macos-silicon.zip
 
 SERVER_SOURCES := Cargo.toml Cargo.lock server/Cargo.toml common/Cargo.toml $(shell find server -name '*.rs') $(shell find common -name '*.rs')
+MATCHMAKER_SOURCES := Cargo.toml Cargo.lock matchmaker/Cargo.toml common/Cargo.toml $(shell find matchmaker -name '*.rs') $(shell find common -name '*.rs')
 CLIENT_SOURCES := Cargo.toml Cargo.lock client/Cargo.toml client/build.rs .env.client $(shell find client/src -name '*.rs') common/Cargo.toml $(shell find common -name '*.rs')
 
-all: test server docker windows deb rpm appimage unfullscreen
+all: test server matchmaker docker windows deb rpm appimage unfullscreen
 
 # Set fullscreen true in the client so the built game runs fullscreen. Only run
 # this when building the client (inside those rules), not as a separate first step,
@@ -59,6 +61,17 @@ $(SERVER_BIN): $(SERVER_SOURCES)
 	cargo build --release -p server
 
 server: $(SERVER_BIN)
+
+# --- Build matchmaker container image ---
+#
+# Prerequisites: Docker, Docker Compose plugin (docker compose)
+#
+$(MATCHMAKER_SENTINEL): $(MATCHMAKER_SOURCES) matchmaker/Dockerfile docker-compose.yaml | check-docker-compose
+	mkdir -p $(DIST)
+	docker compose build matchmaker
+	touch $(MATCHMAKER_SENTINEL)
+
+matchmaker: $(MATCHMAKER_SENTINEL)
 
 # --- Tool checks (run before steps that need them) ---
 check-windows:
@@ -77,6 +90,9 @@ check-appimage:
 
 check-docker:
 	@which docker >/dev/null || (echo "Error: docker not found" && exit 1)
+
+check-docker-compose: check-docker
+	@docker compose version >/dev/null 2>&1 || (echo "Error: docker compose not found (Docker Compose plugin required)" && exit 1)
 
 check-deploy: check-docker
 	@which ssh >/dev/null || (echo "Error: ssh not found" && exit 1)
@@ -209,6 +225,7 @@ kill-servers:
 clean:
 	rm -rf $(DIST) $(STAGING_WIN) $(STAGING_APPDIR) ByAThread.app
 	-docker rmi server-image:latest $$(docker images -q server-image) 2>/dev/null || true
+	-docker rmi matchmaker-image:latest $$(docker images -q matchmaker-image) 2>/dev/null || true
 
 # Set fullscreen false so the source is in development state after a release build.
 # Only runs when it is currently true, so the file is not touched when already false.

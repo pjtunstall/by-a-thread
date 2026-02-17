@@ -61,7 +61,11 @@ pub async fn create_game(
         return Err(e);
     }
 
-    println!("New game {} created on port: {}", new_game.id, port);
+    let container_name = new_game.container_name.as_deref().unwrap_or("?");
+    println!(
+        "New game created on port: {} (container: {})",
+        port, container_name
+    );
     state.games.insert(passcode_bytes, new_game).await;
 
     let response_body = CreateGameOkBody {

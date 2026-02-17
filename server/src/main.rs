@@ -72,7 +72,11 @@ fn main() {
     let public_ip: std::net::IpAddr = public_host
         .parse()
         .expect("`IP` is not a valid IP address.");
-    let connectable_addr = SocketAddr::new(public_ip, SERVER_PORT);
+    let public_port = env::var("PORT")
+        .ok()
+        .and_then(|s| s.parse::<u16>().ok())
+        .unwrap_or(SERVER_PORT);
+    let connectable_addr = SocketAddr::new(public_ip, public_port);
 
     let socket = match common::net::bind_socket(BINDING_ADDRESS) {
         Ok(socket) => {
