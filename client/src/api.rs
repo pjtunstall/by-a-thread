@@ -95,7 +95,11 @@ pub fn create_game(
 
     let create_response: CreateGameResponse =
         serde_json::from_str(&body).map_err(ApiError::Json)?;
-    let addr = server_addr_from_host_port(&api_host, create_response.port);
+    let game_host = match matchmaker_host {
+        Some(h) => h.to_string(),
+        None => config::game_server_host(),
+    };
+    let addr = server_addr_from_host_port(&game_host, create_response.port);
     Ok((create_response, addr))
 }
 
@@ -130,6 +134,10 @@ pub fn join_game(
     }
 
     let join_response: JoinGameResponse = serde_json::from_str(&body).map_err(ApiError::Json)?;
-    let addr = server_addr_from_host_port(&api_host, join_response.port);
+    let game_host = match matchmaker_host {
+        Some(h) => h.to_string(),
+        None => config::game_server_host(),
+    };
+    let addr = server_addr_from_host_port(&game_host, join_response.port);
     Ok((join_response, addr))
 }

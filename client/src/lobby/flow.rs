@@ -80,7 +80,10 @@ fn transition(
         ClientState::Lobby(mut lobby_state) => {
             let result = match lobby_state {
                 Lobby::ServerAddress { .. } => unreachable!(
-                    "ServerAddress is handled by prompt_for_server_address before ClientRunner exists"
+                    "`ServerAddress` is handled by `prompt_for_server_address` before `ClientRunner` exists"
+                ),
+                Lobby::MatchmakerMenu { .. } => unreachable!(
+                    "`MatchmakerMenu` is handled by `prompt_for_matchmaker_choice` before `ClientRunner` exists"
                 ),
                 Lobby::Passcode { .. } => {
                     state_handlers::passcode::handle(&mut lobby_state, session, ui)

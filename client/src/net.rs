@@ -1,5 +1,10 @@
-use std::{net::SocketAddr, time::Duration};
+use std::{
+    io::Cursor,
+    net::SocketAddr,
+    time::Duration,
+};
 
+use base64::Engine;
 use renet::RenetClient;
 use renet_netcode::{ConnectToken, NetcodeClientTransport, NetcodeDisconnectReason};
 
@@ -14,6 +19,14 @@ pub enum DisconnectKind {
     ConnectionTimedOut,
     ConnectionDenied,
     Other(String),
+}
+
+pub fn connect_token_from_base64(base64_str: &str) -> Result<ConnectToken, String> {
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(base64_str)
+        .map_err(|e| format!("failed to decode connect token from base64: {}", e))?;
+    ConnectToken::read(&mut Cursor::new(&bytes))
+        .map_err(|e| format!("failed to parse connect token: {}", e))
 }
 
 pub fn create_connect_token(

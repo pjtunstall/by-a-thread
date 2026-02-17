@@ -32,11 +32,28 @@ async fn main() {
 
     let private_key = common::auth::private_key();
 
-    let Some(server_addr) =
+    let Some(choice) =
         run::prompt_for_server_address(&mut session, &mut ui, Some(&assets.font)).await
     else {
         return;
     };
 
-    run::run_client_loop(private_key, server_addr, session, ui, assets).await;
+    let (server_addr, connect_token) = match choice {
+        run::ConnectionChoice::Direct(addr) => (addr, None),
+        run::ConnectionChoice::Matchmaker { api_host } => {
+            let Some((addr, token)) =
+                run::prompt_for_matchmaker_choice(&api_host, &mut ui, Some(&assets.font)).await
+            else {
+                return;
+            };
+            (addr, Some(token))
+        }
+    };
+
+    session.server_addr = Some(server_addr);
+    session.transition(client::state::ClientState::Lobby(client::state::Lobby::Passcode {
+        prompt_printed: false,
+    }));
+
+    run::run_client_loop(private_key, server_addr, connect_token, session, ui, assets).await;
 }

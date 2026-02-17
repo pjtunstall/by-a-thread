@@ -206,6 +206,7 @@ impl ClientSession {
     pub fn input_mode(&self) -> InputMode {
         match &self.state {
             ClientState::Lobby(Lobby::ServerAddress { .. }) => InputMode::Enabled,
+            ClientState::Lobby(Lobby::MatchmakerMenu { .. }) => InputMode::SingleKey,
             ClientState::Lobby(Lobby::Passcode { .. }) => InputMode::Enabled,
             ClientState::Lobby(Lobby::Connecting { .. }) => InputMode::Hidden,
             ClientState::Lobby(Lobby::Authenticating {

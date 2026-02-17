@@ -7,6 +7,10 @@ pub enum Lobby {
     ServerAddress {
         prompt_printed: bool,
     },
+    MatchmakerMenu {
+        api_host: String,
+        prompt_printed: bool,
+    },
     Passcode {
         prompt_printed: bool,
     },
@@ -45,6 +49,14 @@ impl std::fmt::Debug for Lobby {
         match self {
             Lobby::ServerAddress { prompt_printed } => f
                 .debug_struct("ServerAddress")
+                .field("prompt_printed", prompt_printed)
+                .finish(),
+            Lobby::MatchmakerMenu {
+                api_host,
+                prompt_printed,
+            } => f
+                .debug_struct("MatchmakerMenu")
+                .field("api_host", api_host)
                 .field("prompt_printed", prompt_printed)
                 .finish(),
             Lobby::Passcode { prompt_printed } => f

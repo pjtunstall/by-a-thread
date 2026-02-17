@@ -1,4 +1,5 @@
 use crate::{
+    config,
     lobby::ui::LobbyUi,
     server_address,
     session::ClientSession,
@@ -17,14 +18,22 @@ pub fn handle(
 
     if let Ok(Some(common::input::UiKey::Tab)) = ui.poll_single_key() {
         session.input_queue.clear();
-        session.server_addr = Some(server_address::localhost_address());
-        return Some(ClientState::Lobby(Lobby::Passcode {
+        return Some(ClientState::Lobby(Lobby::MatchmakerMenu {
+            api_host: config::LOCAL_MATCHMAKER_HOST.to_string(),
             prompt_printed: false,
         }));
     }
 
     if let Some(input_string) = session.take_input() {
-        match server_address::parse_server_address(&input_string, SERVER_PORT) {
+        let trimmed = input_string.trim();
+        if trimmed.is_empty() {
+            session.input_queue.clear();
+            return Some(ClientState::Lobby(Lobby::MatchmakerMenu {
+                api_host: config::api_server_host(),
+                prompt_printed: false,
+            }));
+        }
+        match server_address::parse_server_address(trimmed, SERVER_PORT) {
             Ok(parsed_server_addr) => {
                 session.input_queue.clear();
                 session.server_addr = Some(parsed_server_addr);

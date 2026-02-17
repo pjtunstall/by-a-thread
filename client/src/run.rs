@@ -8,8 +8,9 @@ use renet::RenetClient;
 use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 
 use crate::{
+    api,
     assets::Assets,
-    game,
+    config, game,
     game::world::sky,
     info,
     lobby::{
@@ -22,6 +23,7 @@ use crate::{
     state::{ClientState, InputMode, Lobby},
 };
 use common::{self, constants::TICK_SECS};
+use renet_netcode::ConnectToken;
 
 pub struct ClientRunner {
     pub session: ClientSession,
@@ -37,12 +39,12 @@ impl ClientRunner {
     pub async fn new(
         socket: UdpSocket,
         server_addr: SocketAddr,
+        connect_token: Option<ConnectToken>,
         private_key: [u8; 32],
         ui: Gui,
         session: ClientSession,
         assets: Assets,
     ) -> Result<Self, String> {
-        let protocol_id = common::protocol::version();
         let current_time_duration = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("system time is before unix epoch");
@@ -50,14 +52,19 @@ impl ClientRunner {
             .set_nonblocking(true)
             .map_err(|e| format!("failed to set socket as non-blocking: {}", e))?;
 
-        // TODO: In production, the client should receive this token from a matchmaker.
-        let connect_token = net::create_connect_token(
-            current_time_duration,
-            protocol_id,
-            session.client_id,
-            server_addr,
-            &private_key,
-        );
+        let connect_token = match connect_token {
+            Some(token) => token,
+            None => {
+                let protocol_id = common::protocol::version();
+                net::create_connect_token(
+                    current_time_duration,
+                    protocol_id,
+                    session.client_id,
+                    server_addr,
+                    &private_key,
+                )
+            }
+        };
         let authentication = ClientAuthentication::Secure { connect_token };
         let transport = NetcodeClientTransport::new(current_time_duration, authentication, socket)
             .map_err(|e| {
@@ -330,9 +337,16 @@ impl ClientRunner {
     }
 }
 
+#[derive(Debug)]
+pub enum ConnectionChoice {
+    Direct(SocketAddr),
+    Matchmaker { api_host: String },
+}
+
 pub async fn run_client_loop(
     private_key: [u8; 32],
     server_addr: SocketAddr,
+    connect_token: Option<ConnectToken>,
     session: ClientSession,
     ui: Gui,
     assets: Assets,
@@ -359,14 +373,23 @@ pub async fn run_client_loop(
         }
     };
 
-    let mut runner =
-        match ClientRunner::new(socket, server_addr, private_key, ui, session, assets).await {
-            Ok(r) => r,
-            Err(e) => {
-                eprintln!("{}", e);
-                return;
-            }
-        };
+    let mut runner = match ClientRunner::new(
+        socket,
+        server_addr,
+        connect_token,
+        private_key,
+        ui,
+        session,
+        assets,
+    )
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("{}", e);
+            return;
+        }
+    };
 
     runner
         .ui
@@ -394,13 +417,15 @@ pub async fn prompt_for_server_address(
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     font: Option<&macroquad::prelude::Font>,
-) -> Option<SocketAddr> {
+) -> Option<ConnectionChoice> {
     loop {
         if should_quit() {
             return None;
         }
 
-        if matches!(session.input_mode(), InputMode::Enabled) {
+        if matches!(session.input_mode(), InputMode::Enabled)
+            || matches!(session.input_mode(), InputMode::SingleKey)
+        {
             match ui.poll_input(common::chat::MAX_CHAT_MESSAGE_BYTES, false) {
                 Ok(Some(input)) => session.add_input(input),
                 Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
@@ -411,10 +436,22 @@ pub async fn prompt_for_server_address(
             }
         }
 
+        if let ClientState::Lobby(Lobby::MatchmakerMenu { api_host, .. }) = &session.state {
+            ui.flush_input();
+            return Some(ConnectionChoice::Matchmaker {
+                api_host: api_host.clone(),
+            });
+        }
+
         let state = std::mem::take(&mut session.state);
         let result = match state {
             ClientState::Lobby(mut lobby_state) => {
-                let result = state_handlers::server_address::handle(&mut lobby_state, session, ui);
+                let result = match &lobby_state {
+                    Lobby::ServerAddress { .. } => {
+                        state_handlers::server_address::handle(&mut lobby_state, session, ui)
+                    }
+                    _ => None,
+                };
                 session.state = ClientState::Lobby(lobby_state);
                 result
             }
@@ -430,7 +467,7 @@ pub async fn prompt_for_server_address(
 
         if let Some(server_addr) = session.server_addr {
             ui.flush_input();
-            return Some(server_addr);
+            return Some(ConnectionChoice::Direct(server_addr));
         }
 
         let ui_state = session.prepare_ui_state();
@@ -443,6 +480,116 @@ pub async fn prompt_for_server_address(
         ui.draw(
             should_show_input,
             show_cursor,
+            font,
+            None::<crate::lobby::ui::LobbyTimerInfo>,
+        );
+
+        next_frame().await;
+    }
+}
+
+pub async fn prompt_for_matchmaker_choice(
+    api_host: &str,
+    ui: &mut dyn LobbyUi,
+    font: Option<&macroquad::prelude::Font>,
+) -> Option<(SocketAddr, ConnectToken)> {
+    let matchmaker_host = if api_host == config::LOCAL_MATCHMAKER_HOST {
+        Some(config::LOCAL_MATCHMAKER_HOST)
+    } else {
+        None
+    };
+
+    let mut prompt_printed = false;
+    let mut choice: Option<u8> = None;
+
+    loop {
+        if should_quit() {
+            return None;
+        }
+
+        if choice.is_none() {
+            match ui.poll_single_key() {
+                Ok(Some(common::input::UiKey::Char('1'))) => choice = Some(1),
+                Ok(Some(common::input::UiKey::Char('2'))) => choice = Some(2),
+                Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
+                    ui.show_sanitized_error(&format!("No connection: {}.", e));
+                    return None;
+                }
+                _ => {}
+            }
+        } else {
+            match ui.poll_input(common::chat::MAX_CHAT_MESSAGE_BYTES, false) {
+                Ok(Some(input)) => {
+                    let trimmed = input.trim();
+                    if choice == Some(1) {
+                        if let Ok(n) = trimmed.parse::<u8>() {
+                            if (1..=10).contains(&n) {
+                                match api::create_game(n, matchmaker_host) {
+                                    Ok((response, addr)) => {
+                                        match net::connect_token_from_base64(
+                                            &response.connect_token,
+                                        ) {
+                                            Ok(token) => return Some((addr, token)),
+                                            Err(e) => {
+                                                ui.show_sanitized_error(&e);
+                                                return None;
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        ui.show_sanitized_error(&e.to_string());
+                                        return None;
+                                    }
+                                }
+                            }
+                        }
+                        ui.show_error("Player count must be 1-10.");
+                        prompt_printed = false;
+                    } else {
+                        if trimmed.len() == 6 && trimmed.chars().all(|c| c.is_ascii_digit()) {
+                            match api::join_game(trimmed, matchmaker_host) {
+                                Ok((response, addr)) => {
+                                    match net::connect_token_from_base64(&response.connect_token) {
+                                        Ok(token) => return Some((addr, token)),
+                                        Err(e) => {
+                                            ui.show_sanitized_error(&e);
+                                            return None;
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    ui.show_sanitized_error(&e.to_string());
+                                    return None;
+                                }
+                            }
+                        }
+                        ui.show_error("Passcode must be 6 digits.");
+                        prompt_printed = false;
+                    }
+                }
+                Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
+                    ui.show_sanitized_error(&format!("No connection: {}.", e));
+                    return None;
+                }
+                Ok(None) => {}
+            }
+        }
+
+        if !prompt_printed {
+            ui.show_prompt(if choice.is_none() {
+                "New game (1) or Join game (2)? "
+            } else if choice == Some(1) {
+                "How many players (1-10)? "
+            } else {
+                "Enter passcode (6 digits): "
+            });
+            prompt_printed = true;
+        }
+
+        let should_show_input = choice.is_some();
+        ui.draw(
+            should_show_input,
+            should_show_input,
             font,
             None::<crate::lobby::ui::LobbyTimerInfo>,
         );
