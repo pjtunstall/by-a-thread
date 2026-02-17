@@ -49,8 +49,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      # Cron expression for daily updates at 3 AM UTC.
-      - WATCHTOWER_SCHEDULE=0 0 3 * * *
+      # Cron expression for daily updates at 3:30 AM UTC.
+      - WATCHTOWER_SCHEDULE=0 30 3 * * *
       - WATCHTOWER_CLEANUP=true
     networks:
       - backend
