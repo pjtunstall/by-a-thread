@@ -5,7 +5,7 @@ fn is_local(value: &str) -> bool {
 
 fn host_from_config(config_value: &str, subdomain: &str) -> String {
     if is_local(config_value) {
-        "127.0.0.1".to_string()
+        "localhost".to_string()
     } else {
         format!("{}.{}", subdomain, config_value.trim())
     }
