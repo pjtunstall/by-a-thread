@@ -8,7 +8,7 @@
 The [docker-compose.yaml](../docker-compose.yaml) stack runs the matchmaker, Caddy, a Docker socket proxy, and Watchtower. The matchmaker service reads env vars from `.env.matchmaker`. That file must provide:
 
 - `VERSION_HASH` (required): a 64-character hex string (32 bytes) that the matchmaker uses to validate client version codes.
-- `DOMAIN` (optional): used to resolve the server host for connect tokens (defaults to 127.0.0.1).
+- `HOST` (optional): deployment target used to resolve the API/game server host (e.g. `by-a-thread.de`; not set, empty, `local`, or `localhost` resolve to 127.0.0.1).
 
 The compose file sets `DOCKER_HOST` and `GAME_IMAGE` directly; override them in the `environment` block if needed. The matchmaker image is built and tagged as `matchmaker-image:latest`; the container runs as `matchmaker-container`. To stop the matchmaker stack, run `docker stop matchmaker-container` (and stop the other services as needed).
 

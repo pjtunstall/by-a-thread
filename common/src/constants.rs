@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 pub const SERVER_PORT: u16 = 5000;
+pub const VERSION_CODE_HEADER: &str = "X-Version-Code";
 
 // Timer durations based on game mode.
 pub const SOLO_TIMER_DURATION: f32 = 120.0; // Single player has 2 minutes to escape.

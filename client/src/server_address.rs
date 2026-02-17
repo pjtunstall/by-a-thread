@@ -2,17 +2,21 @@ use std::net::{IpAddr, SocketAddr};
 
 use common::constants::SERVER_PORT;
 
+#[cfg(not(test))]
+use crate::config;
+
 pub fn default_server_address() -> Result<SocketAddr, String> {
     #[cfg(not(test))]
     {
         use std::net::ToSocketAddrs;
 
-        let mut addrs = ("api.by-a-thread.de", SERVER_PORT)
+        let host = config::game_server_host();
+        let mut addrs = (host.as_str(), SERVER_PORT)
             .to_socket_addrs()
-            .map_err(|e| format!("failed to resolve api.by-a-thread.de: {}", e))?;
+            .map_err(|e| format!("failed to resolve {}: {}", host, e))?;
         addrs
             .next()
-            .ok_or_else(|| "no addresses for api.by-a-thread.de".to_string())
+            .ok_or_else(|| format!("no addresses for {}", host))
     }
 
     #[cfg(test)]

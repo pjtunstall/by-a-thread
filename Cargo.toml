@@ -10,6 +10,7 @@ description = "A multiplayer game built in Rust"
 
 [workspace.dependencies]
 base64 = "0.22.1"
+dotenvy = "0.15.7"
 bincode = { version = "2.0.1", features = ["serde"] }
 common = { path = "./common" }
 crossterm = "0.29.0"

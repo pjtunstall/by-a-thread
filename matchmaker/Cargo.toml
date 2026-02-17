@@ -8,7 +8,7 @@ axum = "0.8.8"
 base64 = { workspace = true }
 bollard = "0.20.1"
 common = { workspace = true }
-dotenvy = "0.15.7"
+dotenvy = { workspace = true }
 hex = "0.4.3"
 rand = { workspace = true }
 renet = { workspace = true }

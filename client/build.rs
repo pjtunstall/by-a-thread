@@ -1,9 +1,26 @@
 use std::env;
 
 fn main() {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR set by cargo");
+    let env_path = std::path::Path::new(&manifest_dir).join("../.env.client");
+    dotenvy::from_path(&env_path).unwrap_or_else(|e| {
+        panic!(
+            "failed to load .env.client from {}: {}. Required for client build.",
+            env_path.display(),
+            e
+        )
+    });
+
+    let version_code = env::var("VERSION_CODE")
+        .unwrap_or_else(|_| panic!("VERSION_CODE must be set in .env.client"));
+    let host = env::var("HOST").unwrap_or_default();
+
+    println!("cargo:rustc-env=BUILD_HOST={}", host);
+    println!("cargo:rustc-env=BUILD_VERSION_CODE={}", version_code);
+    println!("cargo:rerun-if-changed={}", env_path.display());
+
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
 
-    // If we aren't compiling FOR Windows, skip everything.
     if target_os != "windows" {
         return;
     }

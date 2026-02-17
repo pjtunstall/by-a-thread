@@ -6,8 +6,7 @@ use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 
 use crate::{errors::HttpError, state::AppState};
-
-const VERSION_CODE_HEADER: &str = "X-Version-Code";
+use common::constants::VERSION_CODE_HEADER;
 
 fn client_ip(parts: &Parts) -> Option<IpAddr> {
     if let Some(forwarded) = parts.headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()) {

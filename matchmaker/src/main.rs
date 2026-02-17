@@ -2,6 +2,7 @@ use std::{net::{IpAddr, Ipv4Addr, SocketAddr}, sync::Arc};
 
 use axum::{Router, routing::post};
 
+use common::domain;
 use matchmaker::{
     addressing::resolve_server_host,
     cleanup,
@@ -18,10 +19,7 @@ const BINDING_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECI
 async fn main() {
     dotenvy::from_path(".env.matchmaker").ok();
 
-    let server_host = match std::env::var("DOMAIN") {
-        Ok(domain) => resolve_server_host(&format!("api.{}", domain)),
-        Err(_) => resolve_server_host("127.0.0.1"),
-    };
+    let server_host = resolve_server_host(&domain::game_server_host());
 
     let version_hash = hex::decode(
         std::env::var("VERSION_HASH").expect("`VERSION_HASH` must be set in .env.matchmaker"),

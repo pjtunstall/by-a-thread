@@ -20,7 +20,7 @@
 # only when their dependencies have changed.
 #
 .PHONY: all test server docker deploy-hetzner run-hetzner windows deb rpm appimage macos-intel macos-silicon clean fullscreen unfullscreen
-.PHONY: check-windows check-deb check-rpm check-appimage check-docker check-deploy
+.PHONY: check-windows check-deb check-rpm check-appimage check-docker check-deploy check-env
 
 DIST := dist
 STAGING_WIN := ByAThread-win64
@@ -40,7 +40,7 @@ ZIP_APPLE_INTEL := $(DIST)/ByAThread-macos-intel.zip
 ZIP_APPLE_SILICON := $(DIST)/ByAThread-macos-silicon.zip
 
 SERVER_SOURCES := Cargo.toml Cargo.lock server/Cargo.toml common/Cargo.toml $(shell find server -name '*.rs') $(shell find common -name '*.rs')
-CLIENT_SOURCES := Cargo.toml Cargo.lock client/Cargo.toml client/build.rs $(shell find client/src -name '*.rs') common/Cargo.toml $(shell find common -name '*.rs')
+CLIENT_SOURCES := Cargo.toml Cargo.lock client/Cargo.toml client/build.rs .env.client $(shell find client/src -name '*.rs') common/Cargo.toml $(shell find common -name '*.rs')
 
 all: test server docker windows deb rpm appimage unfullscreen
 
@@ -81,6 +81,16 @@ check-docker:
 check-deploy: check-docker
 	@which ssh >/dev/null || (echo "Error: ssh not found" && exit 1)
 
+check-env:
+	@test -f .env.client || (echo "Error: .env.client required" && exit 1)
+	@test -f .env.matchmaker || (echo "Error: .env.matchmaker required" && exit 1)
+	@client_host=$$(grep '^HOST=' .env.client 2>/dev/null | cut -d= -f2- || printf ''); \
+	matchmaker_host=$$(grep '^HOST=' .env.matchmaker 2>/dev/null | cut -d= -f2-); \
+	if [ "$$client_host" != "$$matchmaker_host" ]; then \
+		echo "Error: HOST mismatch: .env.client has '$$client_host', .env.matchmaker has '$$matchmaker_host'"; \
+		exit 1; \
+	fi
+
 # --- Build Docker image of game server ---
 #
 # Prerequisites: Docker (https://docs.docker.com/engine/install)
@@ -111,7 +121,7 @@ run-hetzner: | check-deploy
 # Prerequisites (Ubuntu): rustup target add x86_64-pc-windows-gnu; apt install mingw-w64 zip
 # On Windows, use scripts/Build-Windows.ps1 instead.
 #
-$(EXE_WIN): $(CLIENT_SOURCES) | check-windows
+$(EXE_WIN): $(CLIENT_SOURCES) | check-windows check-env
 	./scripts/with-fullscreen.sh cargo build --release --target x86_64-pc-windows-gnu -p client
 
 $(ZIP_WIN): $(EXE_WIN)
@@ -130,7 +140,7 @@ windows: $(ZIP_WIN)
 #
 # Prerequisites: cargo install cargo-deb
 #
-$(DIST)/.deb-built: $(EXE_HOST) | check-deb
+$(DIST)/.deb-built: $(EXE_HOST) | check-deb check-env
 	mkdir -p $(DIST)
 	./scripts/with-fullscreen.sh bash -c 'cargo deb -p client && cp target/debian/by-a-thread_*.deb $(DIST)/ && touch $(DIST)/.deb-built'
 
@@ -141,7 +151,7 @@ deb: $(DIST)/.deb-built
 #
 # Prerequisites: cargo install cargo-generate-rpm
 #
-$(DIST)/.rpm-built: $(EXE_HOST) | check-rpm
+$(DIST)/.rpm-built: $(EXE_HOST) | check-rpm check-env
 	mkdir -p $(DIST)
 	./scripts/with-fullscreen.sh bash -c 'cargo generate-rpm -p client --payload-compress gzip && cp target/generate-rpm/*.rpm $(DIST)/ && touch $(DIST)/.rpm-built'
 
@@ -152,7 +162,7 @@ rpm: $(DIST)/.rpm-built
 #
 # Prerequisites: linuxdeploy (e.g. linuxdeploy-x86_64.AppImage) in PATH or set LINUXDEPLOY; appimagetool in PATH
 #
-$(EXE_HOST): $(CLIENT_SOURCES)
+$(EXE_HOST): $(CLIENT_SOURCES) | check-env
 	./scripts/with-fullscreen.sh cargo build --release -p client
 
 $(APPIMAGE_FILE): $(EXE_HOST) | check-appimage
@@ -173,11 +183,11 @@ appimage: $(APPIMAGE_FILE)
 #
 # Prerequisites: run on macOS; rustup target add x86_64-apple-darwin and/or aarch64-apple-darwin; optional client/icon.icns
 #
-$(EXE_APPLE_INTEL): $(CLIENT_SOURCES)
+$(EXE_APPLE_INTEL): $(CLIENT_SOURCES) | check-env
 	rustup target add $(TARGET_APPLE_INTEL) 2>/dev/null || true
 	./scripts/with-fullscreen.sh cargo build --release --target $(TARGET_APPLE_INTEL) -p client
 
-$(EXE_APPLE_SILICON): $(CLIENT_SOURCES)
+$(EXE_APPLE_SILICON): $(CLIENT_SOURCES) | check-env
 	rustup target add $(TARGET_APPLE_SILICON) 2>/dev/null || true
 	./scripts/with-fullscreen.sh cargo build --release --target $(TARGET_APPLE_SILICON) -p client
 
