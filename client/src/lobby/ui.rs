@@ -96,6 +96,10 @@ pub trait LobbyUi {
 
     fn set_local_player_color(&mut self, _color: Color) {}
 
+    fn local_player_color(&self) -> Option<Color> {
+        None
+    }
+
     fn show_typed_error(&mut self, _kind: UiErrorKind, message: &str) {
         self.show_sanitized_error(message);
     }

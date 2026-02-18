@@ -84,6 +84,10 @@ impl LobbyUi for MockUi {
         self.local_player_color = Some(color);
     }
 
+    fn local_player_color(&self) -> Option<common::player::Color> {
+        self.local_player_color
+    }
+
     fn poll_input(&mut self, limit: usize, _is_host: bool) -> Result<Option<String>, UiInputError> {
         self.inputs.pop_front().unwrap_or(Ok(None)).map(|opt| {
             opt.map(|mut s| {

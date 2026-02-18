@@ -490,6 +490,10 @@ impl LobbyUi for Gui {
         self.local_player_color = Some(color);
     }
 
+    fn local_player_color(&self) -> Option<PlayerColor> {
+        self.local_player_color
+    }
+
     fn show_error(&mut self, message: &str) {
         self.add_history(
             &format!("[ERROR] {}.", message.trim_end_matches('.')),

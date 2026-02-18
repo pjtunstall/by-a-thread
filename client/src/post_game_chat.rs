@@ -187,10 +187,12 @@ fn handle(
                     let seconds = (entry.ticks_survived as f64 * TICK_SECS) as u64;
                     let minutes = seconds / 60;
                     let remainder = seconds % 60;
+                    let is_you = ui.local_player_color() == Some(entry.color);
+                    let you_suffix = if is_you { " <-- you" } else { "" };
                     ui.show_sanitized_message_with_color(
                         &format!(
-                            "  {}. {}  {:02}:{:02}  ({})",
-                            current_rank, entry.username, minutes, remainder, entry.exit_reason
+                            "  {}. {}  {:02}:{:02}  ({}){}",
+                            current_rank, entry.username, minutes, remainder, entry.exit_reason, you_suffix
                         ),
                         entry.color,
                     );
