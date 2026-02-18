@@ -7,7 +7,6 @@ use bincode::{
 use renet::{ChannelConfig, ClientNotFound, ConnectionConfig, RenetServer, SendType};
 
 use common::{
-    auth::Passcode,
     net::AppChannel,
     protocol::{ClientMessage, MAX_CLIENT_MESSAGE_BYTES, ServerMessage},
 };
@@ -16,13 +15,6 @@ use server::{
     run::update_server_state,
     state::{Lobby, ServerState},
 };
-
-fn empty_passcode() -> Passcode {
-    Passcode {
-        bytes: [0, 0, 0, 0, 0, 0],
-        string: String::new(),
-    }
-}
 
 fn setup_test_server() -> RenetServer {
     let reliable_config = ChannelConfig {
@@ -96,7 +88,6 @@ fn full_tick(
 fn chat_messages_are_broadcast_to_other_clients() {
     let mut server = setup_test_server();
     let mut state = ServerState::Lobby(Lobby::new());
-    let passcode = empty_passcode();
 
     let alice_id = 1;
     let bob_id = 2;
@@ -113,7 +104,6 @@ fn chat_messages_are_broadcast_to_other_clients() {
         update_server_state(
             &mut network_handle,
             &mut state,
-            &passcode,
             &mut any_client_ever_connected,
         );
     }
@@ -121,9 +111,7 @@ fn chat_messages_are_broadcast_to_other_clients() {
     full_tick(&mut server, &mut alice, &mut bob);
 
     if let ServerState::Lobby(lobby) = &mut state {
-        lobby.mark_authenticated(alice_id);
         lobby.register_username(alice_id, "alice");
-        lobby.mark_authenticated(bob_id);
         lobby.register_username(bob_id, "bob");
     } else {
         panic!("state should be Lobby");
@@ -143,7 +131,6 @@ fn chat_messages_are_broadcast_to_other_clients() {
         update_server_state(
             &mut network_handle,
             &mut state,
-            &passcode,
             &mut any_client_ever_connected,
         );
     }
@@ -187,7 +174,6 @@ fn chat_messages_are_broadcast_to_other_clients() {
 fn players_are_notified_when_others_join_and_leave() {
     let mut server = setup_test_server();
     let mut state = ServerState::Lobby(Lobby::new());
-    let passcode = empty_passcode();
 
     let alice_id = 1;
     let bob_id = 2;
@@ -204,7 +190,6 @@ fn players_are_notified_when_others_join_and_leave() {
         update_server_state(
             &mut network_handle,
             &mut state,
-            &passcode,
             &mut any_client_ever_connected,
         );
     }
@@ -212,9 +197,7 @@ fn players_are_notified_when_others_join_and_leave() {
     full_tick(&mut server, &mut alice, &mut bob);
 
     if let ServerState::Lobby(lobby) = &mut state {
-        lobby.mark_authenticated(alice_id);
         lobby.register_username(alice_id, "alice");
-        lobby.mark_authenticated(bob_id);
     } else {
         panic!("state should be Lobby");
     }
@@ -233,7 +216,6 @@ fn players_are_notified_when_others_join_and_leave() {
         update_server_state(
             &mut network_handle,
             &mut state,
-            &passcode,
             &mut any_client_ever_connected,
         );
     }
@@ -271,7 +253,6 @@ fn players_are_notified_when_others_join_and_leave() {
         update_server_state(
             &mut network_handle,
             &mut state,
-            &passcode,
             &mut any_client_ever_connected,
         );
     }
@@ -304,7 +285,6 @@ fn players_are_notified_when_others_join_and_leave() {
 fn test_handle_messages_username_success_and_broadcast() {
     let mut server = setup_test_server();
     let mut state = ServerState::Lobby(Lobby::new());
-    let passcode = empty_passcode();
 
     let alice_id = 1;
     let bob_id = 2;
@@ -321,7 +301,6 @@ fn test_handle_messages_username_success_and_broadcast() {
         update_server_state(
             &mut network_handle,
             &mut state,
-            &passcode,
             &mut any_client_ever_connected,
         );
     }
@@ -329,9 +308,7 @@ fn test_handle_messages_username_success_and_broadcast() {
     full_tick(&mut server, &mut alice, &mut bob);
 
     if let ServerState::Lobby(lobby) = &mut state {
-        lobby.mark_authenticated(alice_id);
         lobby.register_username(alice_id, "alice");
-        lobby.mark_authenticated(bob_id);
     } else {
         panic!("state should be Lobby");
     }
@@ -350,7 +327,6 @@ fn test_handle_messages_username_success_and_broadcast() {
         update_server_state(
             &mut network_handle,
             &mut state,
-            &passcode,
             &mut any_client_ever_connected,
         );
     }
@@ -426,7 +402,6 @@ fn test_handle_messages_username_success_and_broadcast() {
 fn oversized_message_disconnects_client() {
     let mut server = setup_test_server();
     let mut state = ServerState::Lobby(Lobby::new());
-    let passcode = empty_passcode();
 
     let alice_id = 1;
     let bob_id = 2;
@@ -443,7 +418,6 @@ fn oversized_message_disconnects_client() {
         update_server_state(
             &mut network_handle,
             &mut state,
-            &passcode,
             &mut any_client_ever_connected,
         );
     }
@@ -451,9 +425,7 @@ fn oversized_message_disconnects_client() {
     full_tick(&mut server, &mut alice, &mut bob);
 
     if let ServerState::Lobby(lobby) = &mut state {
-        lobby.mark_authenticated(alice_id);
         lobby.register_username(alice_id, "alice");
-        lobby.mark_authenticated(bob_id);
         lobby.register_username(bob_id, "bob");
     } else {
         panic!("state should be Lobby");
@@ -478,7 +450,6 @@ fn oversized_message_disconnects_client() {
         update_server_state(
             &mut network_handle,
             &mut state,
-            &passcode,
             &mut any_client_ever_connected,
         );
     }

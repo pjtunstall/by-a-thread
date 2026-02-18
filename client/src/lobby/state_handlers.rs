@@ -1,4 +1,3 @@
-pub mod auth;
 pub mod chat;
 pub mod connecting;
 pub mod countdown;
@@ -43,11 +42,7 @@ mod tests {
         state::ClientState,
         test_helpers::{MockNetwork, MockUi},
     };
-    use common::{
-        auth::MAX_ATTEMPTS,
-        input::sanitize,
-        protocol::{AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE, ServerMessage},
-    };
+    use common::{input::sanitize, protocol::ServerMessage};
 
     #[test]
     fn client_banner_is_printed_correctly() {
@@ -116,51 +111,43 @@ mod tests {
             "chat message was not sanitized"
         );
 
-        let mut session_auth = ClientSession::new(0, server_address::default_server_address().ok());
-        session_auth.transition(ClientState::Lobby(Lobby::Authenticating {
-            waiting_for_input: false,
-            waiting_for_server: false,
-            guesses_left: MAX_ATTEMPTS,
+        let mut session_info = ClientSession::new(0, server_address::default_server_address().ok());
+        session_info.transition(ClientState::Lobby(Lobby::ChoosingUsername {
+            prompt_printed: true,
         }));
-        let mut ui_auth = MockUi::new();
-        let mut network_auth = MockNetwork::new();
+        let mut ui_info = MockUi::new();
+        let mut network_info = MockNetwork::new();
 
         let malicious_info = ServerMessage::ServerInfo {
-            message: format!("{}{}", AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE, esc),
+            message: format!("Hello{}World", esc),
         };
-        network_auth.queue_server_message(malicious_info);
+        network_info.queue_server_message(malicious_info);
 
         let _next_state = {
-            let mut temp_state = std::mem::take(&mut session_auth.state);
+            let mut temp_state = std::mem::take(&mut session_info.state);
             let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
-                auth::handle(
+                username::handle(
                     lobby_state,
-                    &mut session_auth,
-                    &mut ui_auth,
-                    &mut network_auth,
+                    &mut session_info,
+                    &mut ui_info,
+                    &mut network_info,
                 )
             } else {
                 panic!("expected Lobby state");
             };
-            session_auth.state = temp_state;
+            session_info.state = temp_state;
             result
         };
 
         assert_eq!(
-            ui_auth.messages.len(),
+            ui_info.messages.len(),
             1,
             "expected one server info message to be displayed"
         );
         assert_eq!(
-            ui_auth.messages[0],
-            format!("Server: {}", AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE),
+            ui_info.messages[0],
+            "Server: HelloWorld",
             "server info message was not correctly sanitized"
-        );
-        assert_eq!(ui_auth.prompts.len(), 1, "expected one prompt to be shown");
-        assert_eq!(
-            ui_auth.prompts[0],
-            auth::passcode_prompt(MAX_ATTEMPTS - 1),
-            "incorrect prompt shown after receiving server info"
         );
     }
 }

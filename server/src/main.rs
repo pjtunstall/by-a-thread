@@ -92,17 +92,5 @@ fn main() {
         }
     };
 
-    let passcode_str = env::var("PASSCODE").unwrap_or_else(|_| {
-        eprintln!("failed to find `PASSCODE` environment variable");
-        process::exit(1);
-    });
-    let passcode = common::auth::Passcode::from_string(&passcode_str).unwrap_or_else(|| {
-        eprintln!(
-            "`PASSCODE` must be a six-digit number, got \"{}\".",
-            passcode_str
-        );
-        process::exit(1);
-    });
-
-    server::run::run_server(socket, connectable_addr, private_key, passcode);
+    server::run::run_server(socket, connectable_addr, private_key);
 }

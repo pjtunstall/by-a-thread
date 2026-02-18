@@ -140,7 +140,7 @@ pub fn handle(
                         network.broadcast_message(AppChannel::ReliableOrdered, payload);
                     }
                 }
-                ClientMessage::SendPasscode(_) | ClientMessage::SetUsername(_) => {
+                ClientMessage::SetUsername(_) => {
                     let msg = ServerMessage::ServerInfo {
                         message: GAME_ALREADY_STARTED_MESSAGE.to_string(),
                     };
@@ -191,12 +191,10 @@ mod tests {
 
         network.add_client(host_id);
         lobby_state.register_connection(host_id, &mut network);
-        lobby_state.mark_authenticated(host_id);
         lobby_state.register_username(host_id, "Host");
 
         network.add_client(user_id);
         lobby_state.register_connection(user_id, &mut network);
-        lobby_state.mark_authenticated(user_id);
         lobby_state.register_username(user_id, "User");
 
         let mut choosing_state = ChoosingDifficulty::new(&lobby_state);

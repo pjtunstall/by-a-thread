@@ -89,7 +89,6 @@ impl Game {
                 format!("PRIVATE_KEY={}", private_key_b64),
                 format!("IP={}", server_host),
                 format!("PORT={}", self.port),
-                format!("PASSCODE={}", self.passcode.string),
             ]),
             host_config: Some(HostConfig {
                 port_bindings: Some(port_bindings),

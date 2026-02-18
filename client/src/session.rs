@@ -127,25 +127,6 @@ impl ClientSession {
         )
     }
 
-    pub fn set_auth_waiting_for_server(&mut self, waiting: bool) {
-        if let ClientState::Lobby(Lobby::Authenticating {
-            waiting_for_server, ..
-        }) = &mut self.state
-        {
-            *waiting_for_server = waiting;
-        }
-    }
-
-    pub fn auth_waiting_for_server(&self) -> bool {
-        matches!(
-            self.state,
-            ClientState::Lobby(Lobby::Authenticating {
-                waiting_for_server: true,
-                ..
-            })
-        )
-    }
-
     pub fn expect_initial_roster(&mut self) {
         match &mut self.state {
             ClientState::Lobby(Lobby::Chat {
@@ -196,19 +177,6 @@ impl ClientSession {
             ClientState::Lobby(Lobby::ServerAddress { .. }) => InputMode::Enabled,
             ClientState::Lobby(Lobby::MatchmakerMenu { .. }) => InputMode::SingleKey,
             ClientState::Lobby(Lobby::Connecting { .. }) => InputMode::Hidden,
-            ClientState::Lobby(Lobby::Authenticating {
-                waiting_for_input,
-                waiting_for_server,
-                ..
-            }) => {
-                if *waiting_for_server {
-                    InputMode::DisabledWaiting
-                } else if *waiting_for_input {
-                    InputMode::Enabled
-                } else {
-                    InputMode::DisabledWaiting
-                }
-            }
             ClientState::Lobby(Lobby::ChoosingUsername { .. }) => InputMode::Enabled,
             ClientState::Lobby(Lobby::AwaitingUsernameConfirmation) => InputMode::DisabledWaiting,
             ClientState::Lobby(Lobby::Chat {

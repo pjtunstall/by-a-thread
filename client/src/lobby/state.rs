@@ -1,7 +1,7 @@
 use macroquad::prelude::*;
 
 use crate::{game::world::maze::MazeMeshes, info::map::MapOverlay};
-use common::{auth::Passcode, snapshot::InitialData};
+use common::snapshot::InitialData;
 
 pub enum Lobby {
     ServerAddress {
@@ -12,12 +12,7 @@ pub enum Lobby {
         prompt_printed: bool,
     },
     Connecting {
-        pending_passcode: Option<Passcode>,
-    },
-    Authenticating {
-        waiting_for_input: bool,
-        guesses_left: u8,
-        waiting_for_server: bool,
+        pending_passcode: Option<()>,
     },
     ChoosingUsername {
         prompt_printed: bool,
@@ -59,16 +54,6 @@ impl std::fmt::Debug for Lobby {
             Lobby::Connecting { pending_passcode } => f
                 .debug_struct("Connecting")
                 .field("pending_passcode", pending_passcode)
-                .finish(),
-            Lobby::Authenticating {
-                waiting_for_input,
-                guesses_left,
-                waiting_for_server,
-            } => f
-                .debug_struct("Authenticating")
-                .field("waiting_for_input", waiting_for_input)
-                .field("guesses_left", guesses_left)
-                .field("waiting_for_server", waiting_for_server)
                 .finish(),
             Lobby::ChoosingUsername { prompt_printed } => f
                 .debug_struct("ChoosingUsername")

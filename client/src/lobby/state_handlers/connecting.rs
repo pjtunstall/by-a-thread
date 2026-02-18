@@ -1,15 +1,14 @@
-use bincode::{config::standard, serde::decode_from_slice, serde::encode_to_vec};
+use bincode::{config::standard, serde::decode_from_slice};
 
 use crate::{
     lobby::ui::{LobbyUi, UiErrorKind},
     net::{DisconnectKind, NetworkHandle},
-    session::ClientSession,
+    session::{ClientSession, username_prompt},
     state::{ClientState, Lobby},
 };
 use common::{
-    auth::MAX_ATTEMPTS,
     net::AppChannel,
-    protocol::{ClientMessage, ServerMessage},
+    protocol::{AUTHORIZATION_SUCCESS_MESSAGE, ServerMessage},
 };
 
 pub fn handle(
@@ -41,31 +40,12 @@ pub fn handle(
     }
 
     if network.is_connected() {
-        let passcode = pending_passcode.take();
-
-        if let Some(passcode) = passcode {
-            ui.show_message(&format!(
-                "Transport connected. Sending passcode: {}.",
-                passcode.string
-            ));
-
-            let message = ClientMessage::SendPasscode(passcode.bytes);
-            let payload =
-                encode_to_vec(&message, standard()).expect("failed to serialize SendPasscode");
-            network.send_message(AppChannel::ReliableOrdered, payload);
-
-            Some(ClientState::Lobby(Lobby::Authenticating {
-                waiting_for_input: false,
-                waiting_for_server: true,
-                guesses_left: MAX_ATTEMPTS,
-            }))
-        } else {
-            Some(ClientState::Lobby(Lobby::Authenticating {
-                waiting_for_input: true,
-                waiting_for_server: false,
-                guesses_left: MAX_ATTEMPTS,
-            }))
-        }
+        let _ = pending_passcode.take();
+        ui.show_sanitized_message(&format!("Server: {}", AUTHORIZATION_SUCCESS_MESSAGE));
+        ui.show_prompt(&username_prompt());
+        Some(ClientState::Lobby(Lobby::ChoosingUsername {
+            prompt_printed: true,
+        }))
     } else if network.is_disconnected() {
         let reason = network.get_disconnect_reason();
         let message = match network.disconnect_kind() {

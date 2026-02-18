@@ -465,7 +465,6 @@ impl Countdown {
 pub struct Lobby {
     pub usernames: HashMap<u64, String>,
     pub player_colors: HashMap<u64, Color>,
-    auth_attempts: HashMap<u64, u8>,
     pending_usernames: HashSet<u64>,
     host_client_id: Option<u64>,
     pub lobby_timer_end: Option<f64>,
@@ -481,7 +480,6 @@ fn notify_new_host(network: &mut dyn ServerNetworkHandle, id: u64) {
 impl Lobby {
     pub fn new() -> Self {
         Self {
-            auth_attempts: HashMap::new(),
             pending_usernames: HashSet::new(),
             usernames: HashMap::new(),
             player_colors: HashMap::new(),
@@ -510,10 +508,8 @@ impl Lobby {
     }
 
     pub fn register_connection(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
-        let is_first = self.auth_attempts.is_empty()
-            && self.pending_usernames.is_empty()
-            && self.usernames.is_empty();
-        self.auth_attempts.insert(client_id, 0);
+        let is_first = self.pending_usernames.is_empty() && self.usernames.is_empty();
+        self.pending_usernames.insert(client_id);
         if is_first {
             self.start_timer(network);
         }
@@ -532,7 +528,6 @@ impl Lobby {
     }
 
     pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
-        self.auth_attempts.remove(&client_id);
         self.pending_usernames.remove(&client_id);
         self.player_colors.remove(&client_id);
 
@@ -561,26 +556,10 @@ impl Lobby {
             }
         }
 
-        if self.auth_attempts.is_empty()
-            && self.usernames.is_empty()
-            && self.pending_usernames.is_empty()
-        {
+        if self.usernames.is_empty() && self.pending_usernames.is_empty() {
             println!("All clients have disconnected. Server exiting...");
             std::process::exit(0);
         }
-    }
-
-    pub fn authentication_attempts(&mut self, client_id: u64) -> Option<&mut u8> {
-        self.auth_attempts.get_mut(&client_id)
-    }
-
-    pub fn is_authenticating(&self, client_id: u64) -> bool {
-        self.auth_attempts.contains_key(&client_id)
-    }
-
-    pub fn mark_authenticated(&mut self, client_id: u64) {
-        self.auth_attempts.remove(&client_id);
-        self.pending_usernames.insert(client_id);
     }
 
     pub fn needs_username(&self, client_id: u64) -> bool {
@@ -662,34 +641,7 @@ impl Lobby {
     }
 
     pub fn pending_clients(&self) -> Vec<u64> {
-        let mut pending: HashSet<u64> = self.auth_attempts.keys().cloned().collect();
-        pending.extend(self.pending_usernames.iter().cloned());
-        pending.into_iter().collect()
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum AuthAttemptOutcome {
-    Authenticated,
-    TryAgain,
-    Disconnect,
-}
-
-pub fn evaluate_passcode_attempt(
-    passcode: &[u8],
-    attempts: &mut u8,
-    guess: &[u8],
-    max_attempts: u8,
-) -> AuthAttemptOutcome {
-    if guess == passcode {
-        AuthAttemptOutcome::Authenticated
-    } else {
-        *attempts = attempts.saturating_add(1);
-        if *attempts >= max_attempts {
-            AuthAttemptOutcome::Disconnect
-        } else {
-            AuthAttemptOutcome::TryAgain
-        }
+        self.pending_usernames.iter().cloned().collect()
     }
 }
 
@@ -732,58 +684,17 @@ mod tests {
     }
 
     #[test]
-    fn successful_authentication_does_not_increment_attempts() {
-        let passcode = [1, 2, 3, 4, 5, 6];
-        let mut attempts = 0;
-        let outcome = evaluate_passcode_attempt(&passcode, &mut attempts, &passcode, 3);
-        assert_eq!(outcome, AuthAttemptOutcome::Authenticated);
-        assert_eq!(attempts, 0);
-    }
-
-    #[test]
-    fn incorrect_attempt_requests_retry() {
-        let passcode = [1, 2, 3, 4, 5, 6];
-        let mut attempts = 0;
-        let outcome = evaluate_passcode_attempt(&passcode, &mut attempts, &[0, 0, 0, 0, 0, 0], 3);
-        assert_eq!(outcome, AuthAttemptOutcome::TryAgain);
-        assert_eq!(attempts, 1);
-    }
-
-    #[test]
-    fn max_attempts_triggers_disconnect() {
-        let passcode = [1, 2, 3, 4, 5, 6];
-        let mut attempts = 2;
-        let outcome = evaluate_passcode_attempt(&passcode, &mut attempts, &[0, 0, 0, 0, 0, 0], 3);
-        assert_eq!(outcome, AuthAttemptOutcome::Disconnect);
-        assert_eq!(attempts, 3);
-    }
-
-    #[test]
-    fn attempts_do_not_overflow_past_u8_max() {
-        let passcode = [1, 2, 3, 4, 5, 6];
-        let mut attempts = u8::MAX - 1;
-        let outcome =
-            evaluate_passcode_attempt(&passcode, &mut attempts, &[0, 0, 0, 0, 0, 0], u8::MAX);
-        assert_eq!(attempts, u8::MAX);
-        assert_eq!(outcome, AuthAttemptOutcome::Disconnect);
-    }
-
-    #[test]
-    fn register_connection_initializes_attempts() {
+    fn register_connection_puts_client_in_pending_usernames() {
         let mut state = Lobby::new();
         let mut network = MockServerNetwork::new();
         network.add_client(42);
         state.register_connection(42, &mut network);
 
-        let attempts = state
-            .authentication_attempts(42)
-            .expect("expected attempts entry");
-        assert_eq!(attempts, &mut 0);
-        assert!(state.is_authenticating(42));
+        assert!(state.needs_username(42));
     }
 
     #[test]
-    fn remove_client_clears_authentication_state() {
+    fn remove_client_clears_pending_state() {
         let mut state = Lobby::new();
         let mut network = MockServerNetwork::new();
         network.add_client(99);
@@ -791,21 +702,8 @@ mod tests {
 
         state.remove_client(99, &mut network);
 
-        assert!(!state.is_authenticating(99));
-        assert!(state.authentication_attempts(99).is_none());
+        assert!(!state.needs_username(99));
         assert!(state.username(99).is_none());
-    }
-
-    #[test]
-    fn mark_authenticated_moves_client_to_pending_username() {
-        let mut state = Lobby::new();
-        let mut network = MockServerNetwork::new();
-        network.add_client(1);
-        state.register_connection(1, &mut network);
-        state.mark_authenticated(1);
-
-        assert!(!state.is_authenticating(1));
-        assert!(state.needs_username(1));
     }
 
     #[test]
@@ -814,7 +712,6 @@ mod tests {
         let mut network = MockServerNetwork::new();
         network.add_client(5);
         state.register_connection(5, &mut network);
-        state.mark_authenticated(5);
 
         state
             .register_username(5, "playerone")
@@ -830,7 +727,6 @@ mod tests {
         let mut network = MockServerNetwork::new();
         network.add_client(10);
         state.register_connection(10, &mut network);
-        state.mark_authenticated(10);
         state.register_username(10, "playerone");
 
         assert!(state.is_username_taken("playerone"));
@@ -843,7 +739,6 @@ mod tests {
         let mut network = MockServerNetwork::new();
         network.add_client(10);
         state.register_connection(10, &mut network);
-        state.mark_authenticated(10);
         state.register_username(10, "playerone");
 
         assert!(state.is_username_taken("playerone"));
@@ -877,7 +772,6 @@ mod tests {
         for (id, name) in [(1, "alpha"), (2, "beta"), (3, "gamma")] {
             network.add_client(id);
             state.register_connection(id, &mut network);
-            state.mark_authenticated(id);
             state.register_username(id, name);
         }
 

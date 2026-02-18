@@ -702,11 +702,6 @@ fn disconnect_message(state: &ClientState, error: &str, kind: DisconnectKind) ->
             {
                 return common::protocol::GAME_ALREADY_STARTED_MESSAGE.to_string();
             }
-            Lobby::Authenticating { .. }
-                if matches!(kind, DisconnectKind::DisconnectedByServer) =>
-            {
-                return "authentication failed: server closed the connection".to_string();
-            }
             Lobby::AwaitingUsernameConfirmation => {
                 return format!(
                     "disconnected while awaiting username confirmation: {}",
@@ -747,24 +742,6 @@ mod tests {
         assert_eq!(
             msg,
             common::protocol::GAME_ALREADY_STARTED_MESSAGE.to_string()
-        );
-    }
-
-    #[test]
-    fn disconnect_message_for_authentication_server_close() {
-        let state = ClientState::Lobby(Lobby::Authenticating {
-            waiting_for_input: true,
-            waiting_for_server: false,
-            guesses_left: 3,
-        });
-        let msg = disconnect_message(
-            &state,
-            "connection terminated by server",
-            DisconnectKind::DisconnectedByServer,
-        );
-        assert_eq!(
-            msg,
-            "authentication failed: server closed the connection".to_string()
         );
     }
 

@@ -48,7 +48,7 @@ async fn main() {
     session.server_addr = Some(server_addr);
     session.transition(client::state::ClientState::Lobby(
         client::state::Lobby::Connecting {
-            pending_passcode: Some(passcode.clone()),
+            pending_passcode: Some(()),
         },
     ));
 

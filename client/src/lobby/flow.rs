@@ -91,9 +91,6 @@ fn transition(
                     ui,
                     network_handle,
                 ),
-                Lobby::Authenticating { .. } => {
-                    state_handlers::auth::handle(&mut lobby_state, session, ui, network_handle)
-                }
                 Lobby::ChoosingUsername { .. } => {
                     state_handlers::username::handle(&mut lobby_state, session, ui, network_handle)
                 }

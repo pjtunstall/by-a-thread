@@ -10,13 +10,10 @@ use crate::{
 
 pub const MAX_CLIENT_MESSAGE_BYTES: usize = 512;
 
-pub const AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE: &str =
-    "Incorrect passcode. Disconnecting.";
-pub const AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE: &str = "Incorrect passcode. Try again.";
 pub const GAME_ALREADY_STARTED_MESSAGE: &str =
     "The game is already in progress. Please try again after this match.";
 
-pub const AUTH_SUCCESS_MESSAGE: &str = "Authentication successful!";
+pub const AUTHORIZATION_SUCCESS_MESSAGE: &str = "Authorization successful!";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Display)]
 #[strum(serialize_all = "lowercase")]
@@ -155,7 +152,6 @@ pub enum BulletEvent {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum ClientMessage {
-    SendPasscode([u8; 6]),
     SetUsername(String),
     SendChat(String),
     RequestStartGame,

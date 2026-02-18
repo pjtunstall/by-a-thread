@@ -22,7 +22,6 @@ use crate::{
 };
 use common::{
     self,
-    auth::Passcode,
     constants::{BROADCAST_INTERVAL, IDLE_TIMEOUT_SECS, IDEAL_TICK_DURATION},
     net::AppChannel,
     protocol::{GAME_ALREADY_STARTED_MESSAGE, ServerMessage},
@@ -33,7 +32,6 @@ pub fn run_server(
     socket: UdpSocket,
     connectable_addr: SocketAddr,
     private_key: [u8; 32],
-    passcode: Passcode,
 ) {
     let current_time = common::time::now();
     let protocol_id = common::protocol::protocol_id();
@@ -47,7 +45,7 @@ pub fn run_server(
     let mut server = RenetServer::new(connection_config);
     let mut state = ServerState::Lobby(Lobby::new());
 
-    server_loop(&mut server, &mut transport, &mut state, &passcode);
+    server_loop(&mut server, &mut transport, &mut state);
     println!("Server shutting down.");
 }
 
@@ -55,7 +53,6 @@ fn server_loop(
     server: &mut RenetServer,
     transport: &mut NetcodeServerTransport,
     state: &mut ServerState,
-    passcode: &Passcode,
 ) {
     let mut next_tick_time = Instant::now();
     let mut last_updated = Instant::now();
@@ -80,7 +77,7 @@ fn server_loop(
             last_sync_time = now;
         }
 
-        update_server_state(&mut network_handle, state, passcode, &mut any_client_ever_connected);
+        update_server_state(&mut network_handle, state, &mut any_client_ever_connected);
 
         if !any_client_ever_connected
             && now.duration_since(start_time) > Duration::from_secs(IDLE_TIMEOUT_SECS)
@@ -118,15 +115,12 @@ fn server_loop(
 pub fn update_server_state(
     network: &mut dyn ServerNetworkHandle,
     state: &mut ServerState,
-    passcode: &Passcode,
     any_client_ever_connected: &mut bool,
 ) {
     process_events(network, state, any_client_ever_connected);
 
     let next_state = match state {
-        ServerState::Lobby(lobby_state) => {
-            state_handlers::lobby::handle(network, lobby_state, passcode)
-        }
+        ServerState::Lobby(lobby_state) => state_handlers::lobby::handle(network, lobby_state),
         ServerState::ChoosingDifficulty(difficulty_state) => {
             state_handlers::difficulty::handle(network, difficulty_state)
         }
@@ -289,7 +283,7 @@ mod tests {
         process_events(&mut network, &mut state, &mut any_client_ever_connected);
 
         if let ServerState::Lobby(lobby) = state {
-            assert!(lobby.is_authenticating(1));
+            assert!(lobby.needs_username(1));
         } else {
             panic!("state is not Lobby");
         }
@@ -303,7 +297,6 @@ mod tests {
 
         if let ServerState::Lobby(lobby) = &mut state {
             lobby.register_connection(1, &mut network);
-            lobby.mark_authenticated(1);
             lobby.register_username(1, "Alice");
         }
 

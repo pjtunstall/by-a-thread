@@ -7,24 +7,17 @@ use bincode::{
 
 use crate::{
     net::ServerNetworkHandle,
-    state::{
-        AuthAttemptOutcome, ChoosingDifficulty, Countdown, Lobby, ServerState,
-        evaluate_passcode_attempt,
-    },
+    state::{ChoosingDifficulty, Countdown, Lobby, ServerState},
 };
 use rand::Rng as _;
 
 use common::{
     self,
-    auth::{MAX_ATTEMPTS, Passcode},
     chat::MAX_CHAT_MESSAGE_BYTES,
     constants::NUM_DIFFICULTY_LEVELS,
     net::AppChannel,
     player::{UsernameError, sanitize_username},
-    protocol::{
-        AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE, AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE,
-        AUTH_SUCCESS_MESSAGE, ClientMessage, MAX_CLIENT_MESSAGE_BYTES, ServerMessage,
-    },
+    protocol::{ClientMessage, MAX_CLIENT_MESSAGE_BYTES, ServerMessage},
     snapshot::InitialData,
 };
 
@@ -36,7 +29,6 @@ pub enum LobbyErrorKind {
 pub fn handle(
     network: &mut dyn ServerNetworkHandle,
     state: &mut Lobby,
-    passcode: &Passcode,
 ) -> Option<ServerState> {
     if let Some(end_time) = state.lobby_timer_end {
         let now = common::time::now_as_secs_f64();
@@ -79,78 +71,6 @@ pub fn handle(
             };
 
             match message {
-                ClientMessage::SendPasscode(guess_bytes) => {
-                    if !state.is_authenticating(client_id) {
-                        eprintln!("client {} sent passcode in wrong state", client_id);
-                        continue;
-                    }
-
-                    let (outcome, attempts_count) = {
-                        let attempts_entry = state
-                            .authentication_attempts(client_id)
-                            .expect("expected authentication state for client");
-                        let outcome = evaluate_passcode_attempt(
-                            &passcode.bytes,
-                            attempts_entry,
-                            &guess_bytes,
-                            MAX_ATTEMPTS,
-                        );
-                        let count = *attempts_entry;
-                        (outcome, count)
-                    };
-
-                    match outcome {
-                        AuthAttemptOutcome::Authenticated => {
-                            println!("Client {} authenticated successfully.", client_id);
-                            state.mark_authenticated(client_id);
-
-                            let message = ServerMessage::ServerInfo {
-                                message: AUTH_SUCCESS_MESSAGE.to_string(),
-                            };
-                            let payload = encode_to_vec(&message, standard())
-                                .expect("failed to serialize ServerInfo");
-                            network.send_message(client_id, AppChannel::ReliableOrdered, payload);
-
-                            if let Some(end_time) = state.lobby_timer_end {
-                                let timer_msg = ServerMessage::LobbyTimer { end_time };
-                                let timer_payload = encode_to_vec(&timer_msg, standard())
-                                    .expect("failed to serialize LobbyTimer");
-                                network.send_message(
-                                    client_id,
-                                    AppChannel::ReliableOrdered,
-                                    timer_payload,
-                                );
-                            }
-                        }
-                        AuthAttemptOutcome::TryAgain => {
-                            println!(
-                                "Client {} sent wrong passcode (Attempt {}).",
-                                client_id, attempts_count
-                            );
-
-                            let message = ServerMessage::ServerInfo {
-                                message: AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE.to_string(),
-                            };
-                            let payload = encode_to_vec(&message, standard())
-                                .expect("failed to serialize ServerInfo");
-                            network.send_message(client_id, AppChannel::ReliableOrdered, payload);
-                        }
-                        AuthAttemptOutcome::Disconnect => {
-                            eprintln!(
-                                "client {} failed authentication; disconnecting them",
-                                client_id
-                            );
-                            let message = ServerMessage::ServerInfo {
-                                message: AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE.to_string(),
-                            };
-                            let payload = encode_to_vec(&message, standard())
-                                .expect("failed to serialize ServerInfo");
-                            network.send_message(client_id, AppChannel::ReliableOrdered, payload);
-                            network.disconnect(client_id);
-                            state.remove_client(client_id, network);
-                        }
-                    }
-                }
                 ClientMessage::SetUsername(username_text) => {
                     if !state.needs_username(client_id) {
                         eprintln!("client {} sent username in wrong state", client_id);
@@ -346,30 +266,21 @@ mod tests {
     use bincode::config::standard;
     use bincode::serde::decode_from_slice;
     use bincode::serde::encode_to_vec;
-    use common::{
-        auth::{MAX_ATTEMPTS, Passcode},
-        protocol::{
-            AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE, AUTH_SUCCESS_MESSAGE, ClientMessage,
-            MAX_CLIENT_MESSAGE_BYTES, ServerMessage,
-        },
-    };
+    use common::protocol::{ClientMessage, MAX_CLIENT_MESSAGE_BYTES, ServerMessage};
 
     #[test]
     fn oversized_message_disconnects_client() {
         let mut network = MockServerNetwork::new();
         let mut lobby_state = Lobby::new();
-        let passcode =
-            Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
         lobby_state.register_connection(1, &mut network);
-        lobby_state.mark_authenticated(1);
         lobby_state.register_username(1, "alice");
 
         let oversized_payload = vec![0u8; MAX_CLIENT_MESSAGE_BYTES + 1];
         network.queue_raw_message(1, oversized_payload);
 
-        handle(&mut network, &mut lobby_state, &passcode);
+        handle(&mut network, &mut lobby_state);
 
         assert!(
             network.disconnected_clients.contains(&1),
@@ -378,98 +289,22 @@ mod tests {
     }
 
     #[test]
-    fn auth_success() {
-        let mut network = MockServerNetwork::new();
-        let mut lobby_state = Lobby::new();
-        let passcode =
-            Passcode::from_string("123456").expect("failed to create passcode from string");
-
-        network.add_client(1);
-        lobby_state.register_connection(1, &mut network);
-
-        let msg = ClientMessage::SendPasscode([1, 2, 3, 4, 5, 6]);
-        let payload = encode_to_vec(&msg, standard()).unwrap();
-        network.queue_raw_message(1, payload);
-
-        let next_state = handle(&mut network, &mut lobby_state, &passcode);
-
-        assert!(lobby_state.needs_username(1));
-        assert!(next_state.is_none());
-
-        let client_msgs = network.get_sent_messages_data(1);
-        assert_eq!(client_msgs.len(), 2);
-        let msg = decode_from_slice::<ServerMessage, _>(&client_msgs[0], standard())
-            .unwrap()
-            .0;
-        if let ServerMessage::ServerInfo { message } = msg {
-            assert_eq!(message, AUTH_SUCCESS_MESSAGE);
-        } else {
-            panic!("expected ServerInfo message, got {:?}", msg);
-        }
-        let msg = decode_from_slice::<ServerMessage, _>(&client_msgs[1], standard())
-            .unwrap()
-            .0;
-        if let ServerMessage::LobbyTimer { .. } = msg {
-        } else {
-            panic!("expected LobbyTimer message, got {:?}", msg);
-        }
-    }
-
-    #[test]
-    fn auth_fail_then_disconnect() {
-        let mut network = MockServerNetwork::new();
-        let mut lobby_state = Lobby::new();
-        let passcode =
-            Passcode::from_string("123456").expect("failed to create passcode from string");
-
-        network.add_client(1);
-        lobby_state.register_connection(1, &mut network);
-
-        for _ in 0..MAX_ATTEMPTS {
-            let msg = ClientMessage::SendPasscode([0, 0, 0, 0, 0, 0]);
-            let payload = encode_to_vec(&msg, standard()).unwrap();
-            network.queue_raw_message(1, payload);
-        }
-
-        let next_state = handle(&mut network, &mut lobby_state, &passcode);
-
-        assert_eq!(lobby_state.username(1), None);
-        assert!(next_state.is_none());
-
-        assert!(network.disconnected_clients.contains(&1));
-        let client_msgs = network.get_sent_messages_data(1);
-        let last_msg_data = client_msgs.last().unwrap();
-        let msg = decode_from_slice::<ServerMessage, _>(last_msg_data, standard())
-            .unwrap()
-            .0;
-        if let ServerMessage::ServerInfo { message } = msg {
-            assert_eq!(message, AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE);
-        } else {
-            panic!("expected ServerInfo message, got {:?}", msg);
-        }
-    }
-
-    #[test]
     fn username_success_and_broadcast() {
         let mut network = MockServerNetwork::new();
         let mut lobby_state = Lobby::new();
-        let passcode =
-            Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
         lobby_state.register_connection(1, &mut network);
-        lobby_state.mark_authenticated(1);
         lobby_state.register_username(1, "alice");
 
         network.add_client(2);
         lobby_state.register_connection(2, &mut network);
-        lobby_state.mark_authenticated(2);
 
         let msg = ClientMessage::SetUsername("Bob".to_string());
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(2, payload);
 
-        let next_state = handle(&mut network, &mut lobby_state, &passcode);
+        let next_state = handle(&mut network, &mut lobby_state);
 
         assert_eq!(lobby_state.username(2), Some("bob"));
         assert!(next_state.is_none());
@@ -516,24 +351,20 @@ mod tests {
     fn chat_message() {
         let mut network = MockServerNetwork::new();
         let mut lobby_state = Lobby::new();
-        let passcode =
-            Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
         lobby_state.register_connection(1, &mut network);
-        lobby_state.mark_authenticated(1);
         lobby_state.register_username(1, "alice");
 
         network.add_client(2);
         lobby_state.register_connection(2, &mut network);
-        lobby_state.mark_authenticated(2);
         lobby_state.register_username(2, "bob");
 
         let msg = ClientMessage::SendChat("Hello Bob!".to_string());
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let next_state = handle(&mut network, &mut lobby_state, &passcode);
+        let next_state = handle(&mut network, &mut lobby_state);
 
         assert!(next_state.is_none());
 
@@ -561,12 +392,9 @@ mod tests {
     fn chat_length_limit() {
         let mut network = MockServerNetwork::new();
         let mut lobby_state = Lobby::new();
-        let passcode =
-            Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
         lobby_state.register_connection(1, &mut network);
-        lobby_state.mark_authenticated(1);
         lobby_state.register_username(1, "Alice");
 
         let long_message = "a".repeat(MAX_CHAT_MESSAGE_BYTES + 1);
@@ -574,7 +402,7 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let next_state = handle(&mut network, &mut lobby_state, &passcode);
+        let next_state = handle(&mut network, &mut lobby_state);
 
         assert!(next_state.is_none());
 
@@ -590,17 +418,13 @@ mod tests {
     fn chat_sanitization() {
         let mut network = MockServerNetwork::new();
         let mut lobby_state = Lobby::new();
-        let passcode =
-            Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
         lobby_state.register_connection(1, &mut network);
-        lobby_state.mark_authenticated(1);
         lobby_state.register_username(1, "alice");
 
         network.add_client(2);
         lobby_state.register_connection(2, &mut network);
-        lobby_state.mark_authenticated(2);
         lobby_state.register_username(2, "bob");
 
         let malicious_content = "  Hello\x07Bob!\x1B[2J  ";
@@ -610,7 +434,7 @@ mod tests {
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let next_state = handle(&mut network, &mut lobby_state, &passcode);
+        let next_state = handle(&mut network, &mut lobby_state);
 
         assert!(next_state.is_none());
 
@@ -642,24 +466,21 @@ mod tests {
     fn reserved_username_is_rejected() {
         let mut network = MockServerNetwork::new();
         let mut lobby_state = Lobby::new();
-        let passcode =
-            Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
         lobby_state.register_connection(1, &mut network);
-        lobby_state.mark_authenticated(1);
 
         let msg = ClientMessage::SetUsername("sErVeR".to_string());
         let payload = encode_to_vec(&msg, standard()).unwrap();
         network.queue_raw_message(1, payload);
 
-        let next_state = handle(&mut network, &mut lobby_state, &passcode);
+        let next_state = handle(&mut network, &mut lobby_state);
 
         assert!(next_state.is_none());
         assert_eq!(lobby_state.username(1), None);
 
         let client_msgs = network.get_sent_messages_data(1);
-        assert_eq!(client_msgs.len(), 3);
+        assert_eq!(client_msgs.len(), 1);
 
         let msg = decode_from_slice::<ServerMessage, _>(client_msgs.last().unwrap(), standard())
             .unwrap()
