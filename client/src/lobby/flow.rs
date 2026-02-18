@@ -85,9 +85,6 @@ fn transition(
                 Lobby::MatchmakerMenu { .. } => unreachable!(
                     "`MatchmakerMenu` is handled by `prompt_for_matchmaker_choice` before `ClientRunner` exists"
                 ),
-                Lobby::Passcode { .. } => {
-                    state_handlers::passcode::handle(&mut lobby_state, session, ui)
-                }
                 Lobby::Connecting { .. } => state_handlers::connecting::handle(
                     &mut lobby_state,
                     session,

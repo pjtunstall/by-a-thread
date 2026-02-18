@@ -3,7 +3,6 @@ pub mod chat;
 pub mod connecting;
 pub mod countdown;
 pub mod difficulty;
-pub mod passcode;
 pub mod server_address;
 pub mod start_countdown;
 pub mod username;

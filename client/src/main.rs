@@ -32,47 +32,31 @@ async fn main() {
 
     let private_key = common::auth::private_key();
 
-    let Some(choice) =
+    let Some(api_host) =
         run::prompt_for_server_address(&mut session, &mut ui, Some(&assets.font)).await
     else {
         return;
     };
 
-    let (server_addr, connect_token, initial_lobby, share_passcode) = match choice {
-        run::ConnectionChoice::Direct(addr) => (
-            addr,
-            None,
-            client::state::Lobby::Passcode {
-                prompt_printed: false,
-            },
-            None,
-        ),
-        run::ConnectionChoice::Matchmaker { api_host } => {
-            let Some((addr, token, passcode, is_host)) =
-                run::prompt_for_matchmaker_choice(&api_host, &mut ui, Some(&assets.font)).await
-            else {
-                return;
-            };
-            session.client_id = token.client_id;
-            (
-                addr,
-                Some(token),
-                client::state::Lobby::Connecting {
-                    pending_passcode: Some(passcode.clone()),
-                },
-                is_host.then(|| passcode.string.clone()),
-            )
-        }
+    let Some((server_addr, connect_token, passcode, is_host)) =
+        run::prompt_for_matchmaker_choice(&api_host, &mut ui, Some(&assets.font)).await
+    else {
+        return;
     };
 
+    session.client_id = connect_token.client_id;
     session.server_addr = Some(server_addr);
-    session.transition(client::state::ClientState::Lobby(initial_lobby));
+    session.transition(client::state::ClientState::Lobby(
+        client::state::Lobby::Connecting {
+            pending_passcode: Some(passcode.clone()),
+        },
+    ));
 
     run::run_client_loop(
         private_key,
         server_addr,
-        connect_token,
-        share_passcode,
+        Some(connect_token),
+        is_host.then(|| passcode.string.clone()),
         session,
         ui,
         assets,

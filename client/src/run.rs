@@ -340,12 +340,6 @@ impl ClientRunner {
     }
 }
 
-#[derive(Debug)]
-pub enum ConnectionChoice {
-    Direct(SocketAddr),
-    Matchmaker { api_host: String },
-}
-
 pub async fn run_client_loop(
     private_key: [u8; 32],
     server_addr: SocketAddr,
@@ -431,7 +425,7 @@ pub async fn prompt_for_server_address(
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     font: Option<&macroquad::prelude::Font>,
-) -> Option<ConnectionChoice> {
+) -> Option<String> {
     loop {
         if should_quit() {
             return None;
@@ -452,9 +446,7 @@ pub async fn prompt_for_server_address(
 
         if let ClientState::Lobby(Lobby::MatchmakerMenu { api_host, .. }) = &session.state {
             ui.flush_input();
-            return Some(ConnectionChoice::Matchmaker {
-                api_host: api_host.clone(),
-            });
+            return Some(api_host.clone());
         }
 
         let state = std::mem::take(&mut session.state);
@@ -477,11 +469,6 @@ pub async fn prompt_for_server_address(
 
         if let Some(next_state) = result {
             session.transition(next_state);
-        }
-
-        if let Some(server_addr) = session.server_addr {
-            ui.flush_input();
-            return Some(ConnectionChoice::Direct(server_addr));
         }
 
         let ui_state = session.prepare_ui_state();
@@ -715,14 +702,6 @@ fn disconnect_message(state: &ClientState, error: &str, kind: DisconnectKind) ->
             {
                 return common::protocol::GAME_ALREADY_STARTED_MESSAGE.to_string();
             }
-            Lobby::Passcode { .. }
-                if matches!(
-                    kind,
-                    DisconnectKind::DisconnectedByServer | DisconnectKind::ConnectionDenied
-                ) =>
-            {
-                return common::protocol::GAME_ALREADY_STARTED_MESSAGE.to_string();
-            }
             Lobby::Authenticating { .. }
                 if matches!(kind, DisconnectKind::DisconnectedByServer) =>
             {
@@ -763,22 +742,6 @@ mod tests {
         let msg = disconnect_message(
             &state,
             "connection terminated by server",
-            DisconnectKind::DisconnectedByServer,
-        );
-        assert_eq!(
-            msg,
-            common::protocol::GAME_ALREADY_STARTED_MESSAGE.to_string()
-        );
-    }
-
-    #[test]
-    fn disconnect_message_for_passcode_when_server_denies() {
-        let state = ClientState::Lobby(Lobby::Passcode {
-            prompt_printed: true,
-        });
-        let msg = disconnect_message(
-            &state,
-            "DisconnectedByServer",
             DisconnectKind::DisconnectedByServer,
         );
         assert_eq!(

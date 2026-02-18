@@ -11,9 +11,6 @@ pub enum Lobby {
         api_host: String,
         prompt_printed: bool,
     },
-    Passcode {
-        prompt_printed: bool,
-    },
     Connecting {
         pending_passcode: Option<Passcode>,
     },
@@ -57,10 +54,6 @@ impl std::fmt::Debug for Lobby {
             } => f
                 .debug_struct("MatchmakerMenu")
                 .field("api_host", api_host)
-                .field("prompt_printed", prompt_printed)
-                .finish(),
-            Lobby::Passcode { prompt_printed } => f
-                .debug_struct("Passcode")
                 .field("prompt_printed", prompt_printed)
                 .finish(),
             Lobby::Connecting { pending_passcode } => f

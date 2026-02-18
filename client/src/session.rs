@@ -33,24 +33,12 @@ pub struct ClientSession {
 
 impl ClientSession {
     pub fn new(client_id: u64, server_addr: Option<SocketAddr>) -> Self {
-        let (state, server_addr) = match server_addr {
-            Some(addr) => (
-                ClientState::Lobby(Lobby::Passcode {
-                    prompt_printed: false,
-                }),
-                Some(addr),
-            ),
-            None => (
-                ClientState::Lobby(Lobby::ServerAddress {
-                    prompt_printed: false,
-                }),
-                None,
-            ),
-        };
         Self {
             client_id,
             is_host: false,
-            state,
+            state: ClientState::Lobby(Lobby::ServerAddress {
+                prompt_printed: false,
+            }),
             clock: Clock::new(),
             input_queue: Vec::new(),
             local_player_index: None,
@@ -207,7 +195,6 @@ impl ClientSession {
         match &self.state {
             ClientState::Lobby(Lobby::ServerAddress { .. }) => InputMode::Enabled,
             ClientState::Lobby(Lobby::MatchmakerMenu { .. }) => InputMode::SingleKey,
-            ClientState::Lobby(Lobby::Passcode { .. }) => InputMode::Enabled,
             ClientState::Lobby(Lobby::Connecting { .. }) => InputMode::Hidden,
             ClientState::Lobby(Lobby::Authenticating {
                 waiting_for_input,
@@ -358,11 +345,11 @@ mod tests {
     use common::player::UsernameError;
 
     #[test]
-    fn new_session_starts_in_passcode_state() {
+    fn new_session_starts_in_server_address_state() {
         let session = ClientSession::new(0, crate::server_address::default_server_address().ok());
         assert!(matches!(
             session.state,
-            ClientState::Lobby(Lobby::Passcode {
+            ClientState::Lobby(Lobby::ServerAddress {
                 prompt_printed: false
             })
         ));
