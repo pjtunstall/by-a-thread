@@ -13,7 +13,7 @@ pub const MAX_CLIENT_MESSAGE_BYTES: usize = 512;
 pub const GAME_ALREADY_STARTED_MESSAGE: &str =
     "The game is already in progress. Please try again after this match.";
 
-pub const AUTHORIZATION_SUCCESS_MESSAGE: &str = "Authorization successful!";
+pub const AUTH_SUCCESS_MESSAGE: &str = "Authorization successful!";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Display)]
 #[strum(serialize_all = "lowercase")]
@@ -166,10 +166,7 @@ pub fn version_string() -> &'static str {
 
 pub fn protocol_id() -> u64 {
     let v = env!("CARGO_PKG_VERSION");
-    let parts: Vec<u64> = v
-        .split('.')
-        .map(|s| s.parse().unwrap_or(0))
-        .collect();
+    let parts: Vec<u64> = v.split('.').map(|s| s.parse().unwrap_or(0)).collect();
     let (major, minor, patch) = (
         parts.get(0).copied().unwrap_or(0),
         parts.get(1).copied().unwrap_or(0),

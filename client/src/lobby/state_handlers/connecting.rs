@@ -8,7 +8,7 @@ use crate::{
 };
 use common::{
     net::AppChannel,
-    protocol::{AUTHORIZATION_SUCCESS_MESSAGE, ServerMessage},
+    protocol::{AUTH_SUCCESS_MESSAGE, ServerMessage},
 };
 
 pub fn handle(
@@ -41,7 +41,7 @@ pub fn handle(
 
     if network.is_connected() {
         let _ = pending_passcode.take();
-        ui.show_sanitized_message(&format!("Server: {}", AUTHORIZATION_SUCCESS_MESSAGE));
+        ui.show_sanitized_message(&format!("Server: {}", AUTH_SUCCESS_MESSAGE));
         ui.show_prompt(&username_prompt());
         Some(ClientState::Lobby(Lobby::ChoosingUsername {
             prompt_printed: true,
