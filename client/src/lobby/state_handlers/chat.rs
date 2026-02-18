@@ -91,14 +91,6 @@ pub fn handle(
                         );
                     }
                 }
-                ui.show_message(" ");
-                ui.show_warning("  WASD to move.");
-                ui.show_warning("  Arrow keys to turn.");
-                ui.show_warning("  Space to fire.");
-                ui.show_warning("  Left shift for sniper mode.");
-                ui.show_message(" ");
-                ui.show_warning("  Escape to quit/exit.");
-                ui.show_message(" ");
                 session.mark_initial_roster_received();
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {

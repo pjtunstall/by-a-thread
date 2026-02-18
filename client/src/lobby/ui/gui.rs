@@ -524,10 +524,11 @@ impl LobbyUi for Gui {
     ) {
         self.message_history.clear();
         self.scroll_offset = 0;
-        self.show_message("@@@@@@@@@@@@@@@@@@@@@@@");
+        self.show_message("@@@@@@@@@@@@@@@@@@@");
         self.show_message("@@@@@ BY A THREAD @@@@@");
-        self.show_message("@@@@@@@@@@@@@@@@@@@@@@");
-        self.show_banner_message(&format!("Version:\t{}", version));
+        self.show_message("@@@@@@@@@@@@@@@@@@@");
+        self.show_message(" ");
+        self.show_banner_message(&format!("Version:      \t{}", version));
         if let Some(ref passcode) = share_passcode {
             self.show_banner_message(&format!("Session code: {} <-- Share this!", passcode));
         }
