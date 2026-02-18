@@ -341,7 +341,7 @@ impl Clock {
 
 pub fn username_prompt() -> String {
     format!(
-        "Choose a username (1-{} characters: letters, numbers, underscores, or dashes): ",
+        "Choose a username (1-{} characters: letters or numbers only): ",
         MAX_USERNAME_LENGTH
     )
 }
@@ -402,8 +402,8 @@ mod tests {
 
     #[test]
     fn username_validation_accepts_trimmed_valid_value() {
-        let validated = validate_username_input("  Player-1  ").expect("valid username expected");
-        assert_eq!(validated, "player-1");
+        let validated = validate_username_input("  Player1  ").expect("valid username expected");
+        assert_eq!(validated, "player1");
     }
 
     #[test]

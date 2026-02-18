@@ -411,9 +411,7 @@ pub fn sanitize_username(input: &str) -> Result<String, UsernameError> {
         return Err(UsernameError::TooLong);
     }
 
-    if let Some(invalid) = trimmed
-        .chars()
-        .find(|ch| !ch.is_ascii_alphanumeric() && *ch != '_' && *ch != '-')
+    if let Some(invalid) = trimmed.chars().find(|ch| !ch.is_ascii_alphanumeric())
     {
         return Err(UsernameError::InvalidCharacter(invalid));
     }
@@ -456,13 +454,13 @@ mod tests {
 
     #[test]
     fn sanitize_accepts_valid_usernames() {
-        let name = "Player_1";
-        assert_eq!(sanitize_username(name), Ok("player_1".to_string()));
+        let name = "Player1";
+        assert_eq!(sanitize_username(name), Ok("player1".to_string()));
     }
 
     #[test]
     fn sanitize_trims_whitespace() {
-        let name = "  Player-2  ";
-        assert_eq!(sanitize_username(name), Ok("player-2".to_string()));
+        let name = "  Player2  ";
+        assert_eq!(sanitize_username(name), Ok("player2".to_string()));
     }
 }
