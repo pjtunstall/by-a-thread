@@ -31,7 +31,7 @@ pub fn handle(
         if !state.lobby.one_minute_warning_sent && now >= end_time - 60.0 {
             state.lobby.one_minute_warning_sent = true;
             let message = ServerMessage::ServerInfo {
-                message: "Game starting in one minute...".to_string(),
+                message: "Game starting automatically in one minute...".to_string(),
             };
             let payload =
                 encode_to_vec(&message, standard()).expect("failed to serialize ServerInfo");

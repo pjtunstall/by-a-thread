@@ -51,14 +51,13 @@ pub fn handle(
         if !state.one_minute_warning_sent && now >= end_time - 60.0 {
             state.one_minute_warning_sent = true;
             let message = ServerMessage::ServerInfo {
-                message: "Game starting in one minute...".to_string(),
+                message: "Game starting automatically in one minute...".to_string(),
             };
             let payload =
                 encode_to_vec(&message, standard()).expect("failed to serialize ServerInfo");
             network.broadcast_message(AppChannel::ReliableOrdered, payload);
         }
     }
-
 
     for client_id in network.clients_id() {
         while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
