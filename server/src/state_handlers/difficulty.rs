@@ -190,12 +190,12 @@ mod tests {
         let user_id = 2;
 
         network.add_client(host_id);
-        lobby_state.register_connection(host_id);
+        lobby_state.register_connection(host_id, &mut network);
         lobby_state.mark_authenticated(host_id);
         lobby_state.register_username(host_id, "Host");
 
         network.add_client(user_id);
-        lobby_state.register_connection(user_id);
+        lobby_state.register_connection(user_id, &mut network);
         lobby_state.mark_authenticated(user_id);
         lobby_state.register_username(user_id, "User");
 

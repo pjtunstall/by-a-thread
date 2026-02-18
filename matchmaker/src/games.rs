@@ -2,8 +2,8 @@ use std::{collections::HashMap, time::Duration};
 
 use tokio::sync::Mutex;
 
-use common::constants::PRE_GAME_TIMER_DURATION;
 use crate::{errors::HttpError, game::Game};
+use common::constants::LOBBY_TIMER_DURATION;
 
 pub struct Games {
     inner: Mutex<HashMap<[u8; 6], Game>>,
@@ -24,7 +24,7 @@ impl Games {
         let mut guard = self.inner.lock().await;
         let game = guard.get_mut(&passcode).ok_or(HttpError::GameNotFound)?;
 
-        if game.start_time.elapsed() > PRE_GAME_TIMER_DURATION {
+        if game.start_time.elapsed() > LOBBY_TIMER_DURATION {
             return Err(HttpError::GameAlreadyStarted);
         }
 

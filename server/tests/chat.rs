@@ -61,6 +61,22 @@ fn setup_test_server() -> RenetServer {
     RenetServer::new(connection_config)
 }
 
+fn receive_until_message(
+    client: &mut renet::RenetClient,
+    expected: fn(&ServerMessage) -> bool,
+) -> Vec<u8> {
+    loop {
+        let data = client
+            .receive_message(AppChannel::ReliableOrdered)
+            .expect("expected a message");
+        let (msg, _) = decode_from_slice::<ServerMessage, _>(&data, standard())
+            .expect("failed to deserialize");
+        if expected(&msg) {
+            return data.to_vec();
+        }
+    }
+}
+
 fn full_tick(
     server: &mut RenetServer,
     alice: &mut renet::RenetClient,
@@ -142,9 +158,7 @@ fn chat_messages_are_broadcast_to_other_clients() {
     alice.update(Duration::from_millis(16));
     bob.update(Duration::from_millis(16));
 
-    let message_data = bob
-        .receive_message(AppChannel::ReliableOrdered)
-        .expect("Bob should receive the chat message");
+    let message_data = receive_until_message(&mut bob, |m| matches!(m, ServerMessage::ChatMessage { .. }));
     let message = decode_from_slice::<ServerMessage, _>(&message_data, standard())
         .expect("failed to deserialize message")
         .0;
@@ -234,9 +248,7 @@ fn players_are_notified_when_others_join_and_leave() {
     alice.update(Duration::from_millis(16));
     bob.update(Duration::from_millis(16));
 
-    let join_data = alice
-        .receive_message(AppChannel::ReliableOrdered)
-        .expect("Alice should be notified when bob joins");
+    let join_data = receive_until_message(&mut alice, |m| matches!(m, ServerMessage::UserJoined { .. }));
     let join_message = decode_from_slice::<ServerMessage, _>(&join_data, standard())
         .expect("failed to deserialize join message")
         .0;
@@ -398,9 +410,7 @@ fn test_handle_messages_username_success_and_broadcast() {
         "Bob should not be told that he himself joined"
     );
 
-    let alice_data = alice
-        .receive_message(AppChannel::ReliableOrdered)
-        .expect("Alice should have received a message");
+    let alice_data = receive_until_message(&mut alice, |m| matches!(m, ServerMessage::UserJoined { .. }));
     let alice_msg = decode_from_slice::<ServerMessage, _>(&alice_data, standard())
         .unwrap()
         .0;

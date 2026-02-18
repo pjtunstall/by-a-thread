@@ -8,15 +8,15 @@ pub const SOLO_TIMER_DURATION: f32 = 120.0; // Single player has 2 minutes to es
 pub const BATTLE_TIMER_DURATION: f32 = 600.0; // Multiplayer gets 10 minutes.
 
 // Lobby timer.
-pub const PRE_GAME_TIMER_SECS: u64 = 300; // 5 minutes.
-pub const PRE_GAME_TIMER_DURATION: Duration = Duration::from_secs(PRE_GAME_TIMER_SECS);
+pub const LOBBY_TIMER_SECS: u64 = 300; // 5 minutes.
+pub const LOBBY_TIMER_DURATION: Duration = Duration::from_secs(LOBBY_TIMER_SECS);
 
-pub const IDLE_TIMEOUT_SECS: u64 = 120;
-pub const POST_GAME_TIMEOUT_SECS: u64 = 120;
+pub const IDLE_TIMEOUT_SECS: u64 = 60;
+pub const POST_GAME_TIMEOUT_SECS: u64 = 60;
 
 // Connect token expiry and matchmaker cleanup. Must exceed lobby + countdown + full game +
 // idle timeout + post-game timeout (e.g. 5 + 0.2 + 10 + 2 + 2 min).
-pub const MAX_SESSION_DURATION: u64 = PRE_GAME_TIMER_SECS
+pub const MAX_SESSION_DURATION: u64 = LOBBY_TIMER_SECS
     + BATTLE_TIMER_DURATION as u64
     + 60
     + IDLE_TIMEOUT_SECS

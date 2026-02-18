@@ -43,6 +43,11 @@ pub fn handle(
         println!();
 
         let game_data = std::mem::take(&mut state.game_data);
+        let has_connected_players = game_data.players.iter().any(|p| !p.disconnected);
+        if !has_connected_players {
+            println!("No players connected when countdown finished. Server exiting.");
+            std::process::exit(0);
+        }
 
         Some(ServerState::Game(Game::new(game_data)))
     }

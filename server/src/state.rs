@@ -45,7 +45,7 @@ impl ServerState {
 
     pub fn register_connection(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
         match self {
-            ServerState::Lobby(lobby) => lobby.register_connection(client_id),
+            ServerState::Lobby(lobby) => lobby.register_connection(client_id, network),
             _ => {
                 eprintln!(
                     "client {} connected, but server is not in lobby state; informing, then disconnecting them",
@@ -381,8 +381,8 @@ impl ChoosingDifficulty {
         if was_host {
             if let Some(new_host_id) = self.lobby.host_client_id {
                 let message = ServerMessage::BeginDifficultySelection;
-                let payload =
-                    encode_to_vec(&message, standard()).expect("failed to serialize BeginDifficultySelection");
+                let payload = encode_to_vec(&message, standard())
+                    .expect("failed to serialize BeginDifficultySelection");
                 network.send_message(new_host_id, AppChannel::ReliableOrdered, payload);
                 println!(
                     "Host disconnected during difficulty selection. Client {} promoted.",
@@ -448,8 +448,10 @@ impl Countdown {
         let has_connected_players = self.game_data.players.iter().any(|p| !p.disconnected);
 
         if !has_connected_players {
-            self.host_id = None;
-        } else if host_was_removed || no_host {
+            println!("All players disconnected during countdown. Server exiting.");
+            std::process::exit(0);
+        }
+        if host_was_removed || no_host {
             if let Some(new_host) = self.game_data.players.iter().find(|p| !p.disconnected) {
                 self.host_id = Some(new_host.client_id);
                 notify_new_host(network, new_host.client_id);
@@ -494,7 +496,7 @@ impl Lobby {
         if self.lobby_timer_end.is_none() {
             self.lobby_timer_end = Some(
                 common::time::now_as_secs_f64()
-                    + common::constants::PRE_GAME_TIMER_DURATION.as_secs_f64(),
+                    + common::constants::LOBBY_TIMER_DURATION.as_secs_f64(),
             );
         }
         notify_new_host(network, id);
@@ -507,8 +509,26 @@ impl Lobby {
         }
     }
 
-    pub fn register_connection(&mut self, client_id: u64) {
+    pub fn register_connection(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
+        let is_first = self.auth_attempts.is_empty()
+            && self.pending_usernames.is_empty()
+            && self.usernames.is_empty();
         self.auth_attempts.insert(client_id, 0);
+        if is_first {
+            self.start_timer(network);
+        }
+    }
+
+    fn start_timer(&mut self, network: &mut dyn ServerNetworkHandle) {
+        if self.lobby_timer_end.is_none() {
+            let end_time = common::time::now_as_secs_f64()
+                + common::constants::LOBBY_TIMER_DURATION.as_secs_f64();
+            self.lobby_timer_end = Some(end_time);
+            let timer_msg = ServerMessage::LobbyTimer { end_time };
+            let payload =
+                encode_to_vec(&timer_msg, standard()).expect("failed to serialize LobbyTimer");
+            network.broadcast_message(AppChannel::ReliableOrdered, payload);
+        }
     }
 
     pub fn remove_client(&mut self, client_id: u64, network: &mut dyn ServerNetworkHandle) {
@@ -751,7 +771,9 @@ mod tests {
     #[test]
     fn register_connection_initializes_attempts() {
         let mut state = Lobby::new();
-        state.register_connection(42);
+        let mut network = MockServerNetwork::new();
+        network.add_client(42);
+        state.register_connection(42, &mut network);
 
         let attempts = state
             .authentication_attempts(42)
@@ -764,7 +786,8 @@ mod tests {
     fn remove_client_clears_authentication_state() {
         let mut state = Lobby::new();
         let mut network = MockServerNetwork::new();
-        state.register_connection(99);
+        network.add_client(99);
+        state.register_connection(99, &mut network);
 
         state.remove_client(99, &mut network);
 
@@ -776,7 +799,9 @@ mod tests {
     #[test]
     fn mark_authenticated_moves_client_to_pending_username() {
         let mut state = Lobby::new();
-        state.register_connection(1);
+        let mut network = MockServerNetwork::new();
+        network.add_client(1);
+        state.register_connection(1, &mut network);
         state.mark_authenticated(1);
 
         assert!(!state.is_authenticating(1));
@@ -786,7 +811,9 @@ mod tests {
     #[test]
     fn register_username_adds_user_and_removes_pending() {
         let mut state = Lobby::new();
-        state.register_connection(5);
+        let mut network = MockServerNetwork::new();
+        network.add_client(5);
+        state.register_connection(5, &mut network);
         state.mark_authenticated(5);
 
         state
@@ -800,7 +827,9 @@ mod tests {
     #[test]
     fn username_taken_checks_existing_names() {
         let mut state = Lobby::new();
-        state.register_connection(10);
+        let mut network = MockServerNetwork::new();
+        network.add_client(10);
+        state.register_connection(10, &mut network);
         state.mark_authenticated(10);
         state.register_username(10, "playerone");
 
@@ -811,7 +840,9 @@ mod tests {
     #[test]
     fn username_rejection_is_case_insensitive() {
         let mut state = Lobby::new();
-        state.register_connection(10);
+        let mut network = MockServerNetwork::new();
+        network.add_client(10);
+        state.register_connection(10, &mut network);
         state.mark_authenticated(10);
         state.register_username(10, "playerone");
 
@@ -842,8 +873,10 @@ mod tests {
     #[test]
     fn usernames_except_excludes_requested_client() {
         let mut state = Lobby::new();
+        let mut network = MockServerNetwork::new();
         for (id, name) in [(1, "alpha"), (2, "beta"), (3, "gamma")] {
-            state.register_connection(id);
+            network.add_client(id);
+            state.register_connection(id, &mut network);
             state.mark_authenticated(id);
             state.register_username(id, name);
         }

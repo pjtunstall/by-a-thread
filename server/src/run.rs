@@ -298,10 +298,11 @@ mod tests {
     #[test]
     fn test_process_events_client_disconnect_with_username() {
         let mut network = MockServerNetwork::new();
+        network.add_client(1);
         let mut state = ServerState::Lobby(Lobby::new());
 
         if let ServerState::Lobby(lobby) = &mut state {
-            lobby.register_connection(1);
+            lobby.register_connection(1, &mut network);
             lobby.mark_authenticated(1);
             lobby.register_username(1, "Alice");
         }

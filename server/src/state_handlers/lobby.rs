@@ -41,6 +41,10 @@ pub fn handle(
     if let Some(end_time) = state.lobby_timer_end {
         let now = common::time::now_as_secs_f64();
         if now >= end_time {
+            if state.usernames.is_empty() {
+                println!("Lobby timer expired with no players. Server exiting.");
+                std::process::exit(0);
+            }
             println!("Lobby timer expired. Starting game with default difficulty.");
             return Some(transition_to_countdown_with_random_difficulty(state));
         }
@@ -106,6 +110,17 @@ pub fn handle(
                             let payload = encode_to_vec(&message, standard())
                                 .expect("failed to serialize ServerInfo");
                             network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+
+                            if let Some(end_time) = state.lobby_timer_end {
+                                let timer_msg = ServerMessage::LobbyTimer { end_time };
+                                let timer_payload = encode_to_vec(&timer_msg, standard())
+                                    .expect("failed to serialize LobbyTimer");
+                                network.send_message(
+                                    client_id,
+                                    AppChannel::ReliableOrdered,
+                                    timer_payload,
+                                );
+                            }
                         }
                         AuthAttemptOutcome::TryAgain => {
                             println!(
@@ -347,7 +362,7 @@ mod tests {
             Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
-        lobby_state.register_connection(1);
+        lobby_state.register_connection(1, &mut network);
         lobby_state.mark_authenticated(1);
         lobby_state.register_username(1, "alice");
 
@@ -370,7 +385,7 @@ mod tests {
             Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
-        lobby_state.register_connection(1);
+        lobby_state.register_connection(1, &mut network);
 
         let msg = ClientMessage::SendPasscode([1, 2, 3, 4, 5, 6]);
         let payload = encode_to_vec(&msg, standard()).unwrap();
@@ -382,7 +397,7 @@ mod tests {
         assert!(next_state.is_none());
 
         let client_msgs = network.get_sent_messages_data(1);
-        assert_eq!(client_msgs.len(), 1);
+        assert_eq!(client_msgs.len(), 2);
         let msg = decode_from_slice::<ServerMessage, _>(&client_msgs[0], standard())
             .unwrap()
             .0;
@@ -390,6 +405,13 @@ mod tests {
             assert_eq!(message, auth_success_message(MAX_USERNAME_LENGTH));
         } else {
             panic!("expected ServerInfo message, got {:?}", msg);
+        }
+        let msg = decode_from_slice::<ServerMessage, _>(&client_msgs[1], standard())
+            .unwrap()
+            .0;
+        if let ServerMessage::LobbyTimer { .. } = msg {
+        } else {
+            panic!("expected LobbyTimer message, got {:?}", msg);
         }
     }
 
@@ -401,7 +423,7 @@ mod tests {
             Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
-        lobby_state.register_connection(1);
+        lobby_state.register_connection(1, &mut network);
 
         for _ in 0..MAX_ATTEMPTS {
             let msg = ClientMessage::SendPasscode([0, 0, 0, 0, 0, 0]);
@@ -435,12 +457,12 @@ mod tests {
             Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
-        lobby_state.register_connection(1);
+        lobby_state.register_connection(1, &mut network);
         lobby_state.mark_authenticated(1);
         lobby_state.register_username(1, "alice");
 
         network.add_client(2);
-        lobby_state.register_connection(2);
+        lobby_state.register_connection(2, &mut network);
         lobby_state.mark_authenticated(2);
 
         let msg = ClientMessage::SetUsername("Bob".to_string());
@@ -453,7 +475,7 @@ mod tests {
         assert!(next_state.is_none());
 
         let bob_msgs = network.get_sent_messages_data(2);
-        assert_eq!(bob_msgs.len(), 2);
+        assert_eq!(bob_msgs.len(), 3);
 
         let msg1 = decode_from_slice::<ServerMessage, _>(&bob_msgs[0], standard())
             .unwrap()
@@ -498,12 +520,12 @@ mod tests {
             Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
-        lobby_state.register_connection(1);
+        lobby_state.register_connection(1, &mut network);
         lobby_state.mark_authenticated(1);
         lobby_state.register_username(1, "alice");
 
         network.add_client(2);
-        lobby_state.register_connection(2);
+        lobby_state.register_connection(2, &mut network);
         lobby_state.mark_authenticated(2);
         lobby_state.register_username(2, "bob");
 
@@ -543,7 +565,7 @@ mod tests {
             Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
-        lobby_state.register_connection(1);
+        lobby_state.register_connection(1, &mut network);
         lobby_state.mark_authenticated(1);
         lobby_state.register_username(1, "Alice");
 
@@ -572,12 +594,12 @@ mod tests {
             Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
-        lobby_state.register_connection(1);
+        lobby_state.register_connection(1, &mut network);
         lobby_state.mark_authenticated(1);
         lobby_state.register_username(1, "alice");
 
         network.add_client(2);
-        lobby_state.register_connection(2);
+        lobby_state.register_connection(2, &mut network);
         lobby_state.mark_authenticated(2);
         lobby_state.register_username(2, "bob");
 
@@ -624,7 +646,7 @@ mod tests {
             Passcode::from_string("123456").expect("failed to create passcode from string");
 
         network.add_client(1);
-        lobby_state.register_connection(1);
+        lobby_state.register_connection(1, &mut network);
         lobby_state.mark_authenticated(1);
 
         let msg = ClientMessage::SetUsername("sErVeR".to_string());
@@ -637,9 +659,9 @@ mod tests {
         assert_eq!(lobby_state.username(1), None);
 
         let client_msgs = network.get_sent_messages_data(1);
-        assert_eq!(client_msgs.len(), 1);
+        assert_eq!(client_msgs.len(), 3);
 
-        let msg = decode_from_slice::<ServerMessage, _>(&client_msgs[0], standard())
+        let msg = decode_from_slice::<ServerMessage, _>(client_msgs.last().unwrap(), standard())
             .unwrap()
             .0;
 

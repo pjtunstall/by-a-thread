@@ -59,7 +59,7 @@ pub fn update(
             .flatten()
             .map(|end_time| crate::lobby::ui::LobbyTimerInfo {
                 end_time,
-                duration_secs: common::constants::PRE_GAME_TIMER_DURATION.as_secs_f32(),
+                duration_secs: common::constants::LOBBY_TIMER_DURATION.as_secs_f32(),
                 estimated_server_time: session.clock.estimated_server_time,
             });
         ui.draw(should_show_input, show_cursor, font, lobby_timer);
