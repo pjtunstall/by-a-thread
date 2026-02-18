@@ -1,7 +1,13 @@
 use macroquad::prelude::*;
 
+use common::constants::OBE_FADE_TO_BLACK_SECS;
+
 pub fn new_fade_to_black() -> Fade {
-    Fade::new(get_fade_to_black_color, 5.5, 0.25)
+    Fade::new(
+        get_fade_to_black_color,
+        OBE_FADE_TO_BLACK_SECS, // 5.5s
+        0.25,
+    )
 }
 
 pub fn new_flash() -> Fade {

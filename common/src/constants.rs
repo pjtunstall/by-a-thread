@@ -12,7 +12,13 @@ pub const LOBBY_TIMER_SECS: u64 = 300; // 5 minutes.
 pub const LOBBY_TIMER_DURATION: Duration = Duration::from_secs(LOBBY_TIMER_SECS);
 
 pub const IDLE_TIMEOUT_SECS: u64 = 60;
-pub const POST_GAME_TIMEOUT_SECS: u64 = 60;
+
+pub const OBE_FADE_TO_BLACK_SECS: f64 = 5.5;
+// The following timeout is a safety measure in case one of the last two players
+// gets stuck in the OBE state and never sends the message that they've reached
+// the post-game chat. Normally the server waits for that message before sending
+// the leaderboard and exiting.
+pub const POST_GAME_TIMEOUT_SECS: u64 = (OBE_FADE_TO_BLACK_SECS as u64) + 1;
 
 // Connect token expiry and matchmaker cleanup. Must exceed lobby + countdown + full game +
 // idle timeout + post-game timeout (e.g. 5 + 0.2 + 10 + 2 + 2 min).

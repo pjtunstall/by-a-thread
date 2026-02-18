@@ -36,18 +36,20 @@ pub fn handle(network: &mut dyn ServerNetworkHandle, state: &mut Game) -> Option
         if state.post_game_start_time.is_none() {
             state.post_game_start_time = Some(Instant::now());
         }
-        if !state.leaderboard_sent
-            && state.post_game_chat_clients.len() != state.client_id_to_index.len()
-            && state
+        if !state.leaderboard_sent && !state.client_id_to_index.is_empty() {
+            if state.post_game_chat_clients.len() == state.client_id_to_index.len() {
+                state.send_leaderboard_if_ready(network);
+            } else if state
                 .post_game_start_time
                 .map(|t| Instant::now().duration_since(t) > Duration::from_secs(POST_GAME_TIMEOUT_SECS))
                 .unwrap_or(false)
-        {
-            println!(
-                "Post-game timeout ({}s) reached. Sending leaderboard and exiting.",
-                POST_GAME_TIMEOUT_SECS
-            );
-            state.force_send_leaderboard(network);
+            {
+                println!(
+                    "Post-game timeout ({}s) reached. Sending leaderboard and exiting.",
+                    POST_GAME_TIMEOUT_SECS
+                );
+                state.force_send_leaderboard(network);
+            }
         }
     }
 
