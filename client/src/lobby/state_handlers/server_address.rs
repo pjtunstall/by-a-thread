@@ -159,6 +159,6 @@ fn server_address_host_error() -> String {
 
 fn server_address_prompt() -> String {
     format!(
-        "Press Enter for default server (recommended),\nTab if running locally,\nor pick another address:",
+        "Press ENTER for default server (recommended),\nTab if running locally,\nor pick another address:",
     )
 }

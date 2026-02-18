@@ -504,7 +504,7 @@ fn format_new_join_menu_lines(selected_index: usize) -> Vec<(String, Color)> {
     }
     lines.push((" ".to_string(), Color::LightGray));
     lines.push((
-        "Use up/down arrows to select, Enter to confirm.".to_string(),
+        "Use up/down arrows to select, ENTER to confirm.".to_string(),
         Color::LightGray,
     ));
     lines
