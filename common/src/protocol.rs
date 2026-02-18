@@ -169,11 +169,20 @@ pub enum ClientMessage {
     Input(WireItem<PlayerInput>),
 }
 
-pub fn version() -> u64 {
+pub fn version_string() -> &'static str {
     env!("CARGO_PKG_VERSION")
+}
+
+pub fn protocol_id() -> u64 {
+    let v = env!("CARGO_PKG_VERSION");
+    let parts: Vec<u64> = v
         .split('.')
-        .next()
-        .expect("failed to get major version")
-        .parse()
-        .expect("failed to parse major version")
+        .map(|s| s.parse().unwrap_or(0))
+        .collect();
+    let (major, minor, patch) = (
+        parts.get(0).copied().unwrap_or(0),
+        parts.get(1).copied().unwrap_or(0),
+        parts.get(2).copied().unwrap_or(0),
+    );
+    major * 1_000_000 + minor * 1_000 + patch
 }

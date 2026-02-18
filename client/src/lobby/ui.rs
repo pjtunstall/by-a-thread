@@ -60,7 +60,7 @@ pub trait LobbyUi {
     fn replace_last_messages(&mut self, count: usize, replacement: Vec<(String, Color)>);
     fn print_client_banner(
         &mut self,
-        protocol_id: u64,
+        version: &str,
         server_addr: SocketAddr,
         share_passcode: Option<String>,
     );

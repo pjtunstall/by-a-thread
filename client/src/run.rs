@@ -56,7 +56,7 @@ impl ClientRunner {
         let connect_token = match connect_token {
             Some(token) => token,
             None => {
-                let protocol_id = common::protocol::version();
+                let protocol_id = common::protocol::protocol_id();
                 net::create_connect_token(
                     current_time_duration,
                     protocol_id,
@@ -395,9 +395,11 @@ pub async fn run_client_loop(
         }
     };
 
-    runner
-        .ui
-        .print_client_banner(common::protocol::version(), server_addr, share_passcode);
+    runner.ui.print_client_banner(
+        common::protocol::version_string(),
+        server_addr,
+        share_passcode,
+    );
 
     loop {
         if should_quit() {
@@ -532,9 +534,12 @@ pub async fn prompt_for_matchmaker_choice(
         None
     };
 
+    const JOIN_GUESS_LIMIT: u8 = 3;
+
     let mut prompt_printed = false;
     let mut choice: Option<u8> = None;
     let mut selected_index: usize = 0;
+    let mut wrong_guesses: u8 = 0;
 
     loop {
         if should_quit() {
@@ -614,15 +619,30 @@ pub async fn prompt_for_matchmaker_choice(
                                         }
                                     }
                                 }
-                                Err(e) => {
-                                    ui.show_sanitized_error(&e.to_string());
-                                    await_error_dismissal(ui, font).await;
-                                    return None;
+                                Err(_e) => {
+                                    wrong_guesses += 1;
+                                    if wrong_guesses >= JOIN_GUESS_LIMIT {
+                                        ui.show_sanitized_error(
+                                            "Wrong passcode. No such game found",
+                                        );
+                                        choice = None;
+                                        wrong_guesses = 0;
+                                        prompt_printed = false;
+                                    } else {
+                                        let remaining = JOIN_GUESS_LIMIT - wrong_guesses;
+                                        ui.show_sanitized_error(&format!(
+                                            "Wrong passcode. {} {} remaining.",
+                                            remaining,
+                                            if remaining == 1 { "guess" } else { "guesses" }
+                                        ));
+                                        prompt_printed = false;
+                                    }
                                 }
                             }
+                        } else {
+                            ui.show_error("Passcode must be 6 digits.");
+                            prompt_printed = false;
                         }
-                        ui.show_error("Passcode must be 6 digits.");
-                        prompt_printed = false;
                     }
                 }
                 Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {

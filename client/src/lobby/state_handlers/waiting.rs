@@ -43,10 +43,10 @@ pub fn handle(
                 }));
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
-                if message != GAME_ALREADY_STARTED_MESSAGE {
-                    ui.show_sanitized_message(&format!("Server: {}", message));
+                if message == GAME_ALREADY_STARTED_MESSAGE {
+                    return Some(ClientState::Disconnected { message });
                 }
-                return Some(ClientState::Disconnected { message });
+                ui.show_sanitized_message(&format!("Server: {}", message));
             }
             Ok((_, _)) => {}
             Err(e) => {

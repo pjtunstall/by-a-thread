@@ -11,7 +11,7 @@ use crate::{
 };
 use common::{
     net::AppChannel,
-    protocol::{ClientMessage, ServerMessage},
+    protocol::{ClientMessage, GAME_ALREADY_STARTED_MESSAGE, ServerMessage},
 };
 
 pub fn handle(
@@ -106,11 +106,12 @@ pub fn handle_server_message(
         }));
     }
     if let ServerMessage::ServerInfo { message } = message {
+        if message == GAME_ALREADY_STARTED_MESSAGE {
+            return Some(ClientState::Disconnected {
+                message: message.clone(),
+            });
+        }
         ui.show_sanitized_message(&format!("Server: {}", message));
-        ui.show_message("Server: Disconnecting.");
-        return Some(ClientState::Disconnected {
-            message: message.clone(),
-        });
     }
     None
 }

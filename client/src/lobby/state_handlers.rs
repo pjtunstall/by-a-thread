@@ -53,15 +53,15 @@ mod tests {
     #[test]
     fn client_banner_is_printed_correctly() {
         let mut ui = MockUi::default();
-        let protocol_id = 12345;
+        let version = "0.1.0";
         let server_addr = server_address::default_server_address().ok().expect("test env");
 
         let expected_banner = format!(
-            "Client Banner: Protocol={}, Server={}",
-            protocol_id, server_addr
+            "Client Banner: Version={}, Server={}",
+            version, server_addr
         );
 
-        ui.print_client_banner(protocol_id, server_addr, None);
+        ui.print_client_banner(version, server_addr, None);
 
         assert_eq!(ui.messages, vec![expected_banner]);
         assert!(ui.errors.is_empty());

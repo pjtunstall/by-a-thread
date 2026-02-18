@@ -21,7 +21,7 @@ pub fn create_connect_token(
     let current_time = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("system time is before unix epoch");
-    let protocol_id = common::protocol::version();
+    let protocol_id = common::protocol::protocol_id();
     let server_addr = SocketAddr::new(server_host, port);
 
     ConnectToken::generate(

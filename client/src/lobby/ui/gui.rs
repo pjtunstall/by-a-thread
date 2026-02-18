@@ -514,7 +514,7 @@ impl LobbyUi for Gui {
 
     fn print_client_banner(
         &mut self,
-        protocol_id: u64,
+        version: &str,
         server_addr: SocketAddr,
         share_passcode: Option<String>,
     ) {
@@ -529,7 +529,7 @@ impl LobbyUi for Gui {
         self.show_message(" ");
         self.show_warning("  Escape to quit/exit.");
         self.add_history(" ", WHITE);
-        self.show_banner_message(&format!("Game version:\t{}", protocol_id));
+        self.show_banner_message(&format!("Game version:\t{}", version));
         self.show_banner_message(&format!("Connecting to:\t{}", server_addr));
         if let Some(ref passcode) = share_passcode {
             self.show_banner_message(&format!("Share this passcode with others: {}", passcode));

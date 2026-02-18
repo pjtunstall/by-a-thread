@@ -36,7 +36,7 @@ pub fn run_server(
     passcode: Passcode,
 ) {
     let current_time = common::time::now();
-    let protocol_id = common::protocol::version();
+    let protocol_id = common::protocol::protocol_id();
 
     let server_config =
         net::build_server_config(current_time, protocol_id, connectable_addr, private_key);
