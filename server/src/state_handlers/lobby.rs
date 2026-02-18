@@ -23,7 +23,7 @@ use common::{
     player::{UsernameError, sanitize_username},
     protocol::{
         AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE, AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE,
-        ClientMessage, MAX_CLIENT_MESSAGE_BYTES, ServerMessage, AUTH_SUCCESS_MESSAGE,
+        AUTH_SUCCESS_MESSAGE, ClientMessage, MAX_CLIENT_MESSAGE_BYTES, ServerMessage,
     },
     snapshot::InitialData,
 };
@@ -104,10 +104,9 @@ pub fn handle(
                             println!("Client {} authenticated successfully.", client_id);
                             state.mark_authenticated(client_id);
 
-                            let message =
-                                ServerMessage::ServerInfo {
-                                    message: AUTH_SUCCESS_MESSAGE.to_string(),
-                                };
+                            let message = ServerMessage::ServerInfo {
+                                message: AUTH_SUCCESS_MESSAGE.to_string(),
+                            };
                             let payload = encode_to_vec(&message, standard())
                                 .expect("failed to serialize ServerInfo");
                             network.send_message(client_id, AppChannel::ReliableOrdered, payload);
@@ -228,7 +227,7 @@ pub fn handle(
                                 UsernameError::Empty => "username must not be empty",
                                 UsernameError::TooLong => "username is too long",
                                 UsernameError::InvalidCharacter(_) => {
-                                    "username contains invalid characters"
+                                    "username contains an invalid character"
                                 }
                                 UsernameError::Reserved => "that username is reserved",
                             };
@@ -350,8 +349,8 @@ mod tests {
     use common::{
         auth::{MAX_ATTEMPTS, Passcode},
         protocol::{
-            AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE, ClientMessage, MAX_CLIENT_MESSAGE_BYTES,
-            ServerMessage, AUTH_SUCCESS_MESSAGE,
+            AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE, AUTH_SUCCESS_MESSAGE, ClientMessage,
+            MAX_CLIENT_MESSAGE_BYTES, ServerMessage,
         },
     };
 

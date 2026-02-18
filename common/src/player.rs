@@ -386,7 +386,12 @@ impl fmt::Display for UsernameError {
             UsernameError::Empty => write!(f, "username cannot be empty"),
             UsernameError::TooLong => write!(f, "username is too long"),
             UsernameError::InvalidCharacter(c) => {
-                write!(f, "username contains an invalid character '{}'", c)
+                let display = if c.is_control() || c.is_whitespace() && !c.is_ascii_whitespace() {
+                    format!("{:?}", c) // e.g. '\x07' or ' '.
+                } else {
+                    format!("'{}'", c)
+                };
+                write!(f, "username contains an invalid character {}", display)
             }
             UsernameError::Reserved => write!(f, "username is reserved"),
         }
