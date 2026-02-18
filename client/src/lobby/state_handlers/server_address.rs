@@ -71,13 +71,7 @@ fn validate_matchmaker_host(input: &str) -> Option<String> {
     if host.contains(|c: char| c.is_control() || c.is_whitespace()) {
         return None;
     }
-    if host.parse::<std::net::IpAddr>().is_ok() {
-        return Some(host);
-    }
-    if looks_like_hostname(&host) {
-        return Some(host);
-    }
-    None
+    Some(host)
 }
 
 fn normalize_host_input(input: &str) -> Option<String> {
@@ -112,17 +106,6 @@ fn strip_port(host: &str) -> Option<&str> {
         }
     }
     Some(host)
-}
-
-fn looks_like_hostname(input: &str) -> bool {
-    !input.is_empty()
-        && input
-            .split('.')
-            .all(|label| !label.is_empty() && label.len() <= 63 && label.chars().all(hostname_char))
-}
-
-fn hostname_char(c: char) -> bool {
-    c.is_ascii_alphanumeric() || c == '-'
 }
 
 fn server_address_host_error() -> String {

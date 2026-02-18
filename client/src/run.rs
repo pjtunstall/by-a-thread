@@ -10,7 +10,7 @@ use renet_netcode::{ClientAuthentication, NetcodeClientTransport};
 use crate::{
     api,
     assets::Assets,
-    config, game,
+    game,
     game::world::sky,
     info,
     lobby::{
@@ -528,11 +528,7 @@ pub async fn prompt_for_matchmaker_choice(
     ui: &mut dyn LobbyUi,
     font: Option<&macroquad::prelude::Font>,
 ) -> Option<(SocketAddr, ConnectToken, Passcode, bool)> {
-    let matchmaker_host = if api_host == config::LOCAL_MATCHMAKER_HOST {
-        Some(config::LOCAL_MATCHMAKER_HOST)
-    } else {
-        None
-    };
+    let matchmaker_host = Some(api_host);
 
     const JOIN_GUESS_LIMIT: u8 = 3;
 

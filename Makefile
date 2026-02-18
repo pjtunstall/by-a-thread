@@ -64,8 +64,7 @@ test:
 
 # --- Compile game server and build Docker image ---
 #
-# Builds the server binary and Docker image (server-image:latest). The matchmaker
-# is not built here; use docker compose build when you need it.
+# Builds the server binary and Docker image (server-image:latest).
 #
 $(SERVER_BIN): $(SERVER_SOURCES)
 	cargo build --release -p server
