@@ -91,6 +91,14 @@ pub fn handle(
                         );
                     }
                 }
+                ui.show_message(" ");
+                ui.show_warning("  WASD to move.");
+                ui.show_warning("  Arrow keys to turn.");
+                ui.show_warning("  Space to fire.");
+                ui.show_warning("  Left shift for sniper mode.");
+                ui.show_message(" ");
+                ui.show_warning("  Escape to quit/exit.");
+                ui.show_message(" ");
                 session.mark_initial_roster_received();
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
@@ -99,7 +107,7 @@ pub fn handle(
             Ok((ServerMessage::AppointHost, _)) => {
                 session.is_host = true;
                 ui.show_sanitized_message(
-                    "Server: You have been appointed host. Press TAB to begin.",
+                    "Server: You have been appointed host. Press TAB when everyone's ready.",
                 );
             }
             Ok((ServerMessage::LobbyTimer { end_time }, _)) => {
@@ -228,7 +236,8 @@ mod tests {
         let red = "\x1B[31m";
         let reset = "\x1B[0m";
 
-        let mut session = ClientSession::new(0, crate::server_address::default_server_address().ok());
+        let mut session =
+            ClientSession::new(0, crate::server_address::default_server_address().ok());
         session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: true,
             waiting_for_server: false,
@@ -264,7 +273,8 @@ mod tests {
 
     #[test]
     fn sends_start_game_request_on_tab_input() {
-        let mut session = ClientSession::new(0, crate::server_address::default_server_address().ok());
+        let mut session =
+            ClientSession::new(0, crate::server_address::default_server_address().ok());
         session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: true,
             waiting_for_server: false,

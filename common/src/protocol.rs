@@ -13,7 +13,7 @@ pub const MAX_CLIENT_MESSAGE_BYTES: usize = 512;
 pub const GAME_ALREADY_STARTED_MESSAGE: &str =
     "The game is already in progress. Please try again after this match.";
 
-pub const AUTH_SUCCESS_MESSAGE: &str = "Authorization successful!";
+pub const AUTH_SUCCESS_MESSAGE: &str = "You're in!";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Display)]
 #[strum(serialize_all = "lowercase")]

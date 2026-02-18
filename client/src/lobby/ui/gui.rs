@@ -519,26 +519,25 @@ impl LobbyUi for Gui {
     fn print_client_banner(
         &mut self,
         version: &str,
-        server_addr: SocketAddr,
+        _server_addr: SocketAddr,
         share_passcode: Option<String>,
     ) {
         self.message_history.clear();
         self.scroll_offset = 0;
         self.show_message("@@@@@ BY A THREAD @@@@@");
         self.show_message(" ");
-        self.show_warning("  WASD to move.");
-        self.show_warning("  Arrow keys to turn.");
-        self.show_warning("  Space to fire.");
-        self.show_warning("  Left shift for sniper mode.");
-        self.show_message(" ");
-        self.show_warning("  Escape to quit/exit.");
-        self.add_history(" ", WHITE);
-        self.show_banner_message(&format!("Game version:\t{}", version));
-        self.show_banner_message(&format!("Connecting to:\t{}", server_addr));
+        self.show_banner_message(&format!("Version:\t{}", version));
         if let Some(ref passcode) = share_passcode {
-            self.show_banner_message(&format!("Share this passcode with others: {}", passcode));
+            self.show_banner_message(&format!("Session code: {} <-- Share this!", passcode));
         }
-        self.add_history(" ", WHITE);
+        self.show_message(" ");
+        self.show_banner_message("WASD to move");
+        self.show_banner_message("Arrow keys to turn");
+        self.show_banner_message("Space to fire");
+        self.show_banner_message("Left shift for sniper mode");
+        self.show_message(" ");
+        self.show_banner_message("Escape to quit/exit");
+        self.show_message(" ");
     }
 
     fn show_banner_message(&mut self, message: &str) {
