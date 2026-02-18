@@ -39,6 +39,9 @@ pub fn handle(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
+            Ok((ServerMessage::LobbyTimer { end_time }, _)) => {
+                session.lobby_timer_end = Some(end_time);
+            }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 session.set_auth_waiting_for_server(false);
                 *waiting_for_server = false;

@@ -14,7 +14,7 @@ use common::{
 
 pub fn handle(
     lobby_state: &mut Lobby,
-    _session: &mut ClientSession,
+    session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
@@ -24,6 +24,9 @@ pub fn handle(
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
+            Ok((ServerMessage::LobbyTimer { end_time }, _)) => {
+                session.lobby_timer_end = Some(end_time);
+            }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 return Some(ClientState::Disconnected { message });
             }

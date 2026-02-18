@@ -87,10 +87,14 @@ pub fn handle(
 }
 
 pub fn handle_server_message(
-    _session: &mut ClientSession,
+    session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     message: &ServerMessage,
 ) -> Option<ClientState> {
+    if let ServerMessage::LobbyTimer { end_time } = message {
+        session.lobby_timer_end = Some(*end_time);
+        return None;
+    }
     if let ServerMessage::UsernameError { message } = message {
         let sanitized: String = message.chars().filter(|c| !c.is_control()).collect();
         ui.show_typed_error(

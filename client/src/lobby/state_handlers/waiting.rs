@@ -13,12 +13,15 @@ use common::{
 
 pub fn handle(
     _lobby_state: &mut Lobby,
-    _session: &mut ClientSession,
+    session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
+            Ok((ServerMessage::LobbyTimer { end_time }, _)) => {
+                session.lobby_timer_end = Some(end_time);
+            }
             Ok((ServerMessage::Welcome { username, color }, _)) => {
                 ui.set_local_player_color(color);
                 ui.show_sanitized_message(&format!("Server: Welcome, {}!", username));
