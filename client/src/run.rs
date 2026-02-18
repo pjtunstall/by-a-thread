@@ -520,6 +520,7 @@ pub async fn prompt_for_matchmaker_choice(
     const JOIN_GUESS_LIMIT: u8 = 3;
 
     let mut prompt_printed = false;
+    let mut choice_displayed = false;
     let mut choice: Option<u8> = None;
     let mut selected_index: usize = 0;
     let mut wrong_guesses: u8 = 0;
@@ -609,6 +610,7 @@ pub async fn prompt_for_matchmaker_choice(
                                             "Wrong passcode. No such game found",
                                         );
                                         choice = None;
+                                        choice_displayed = false;
                                         wrong_guesses = 0;
                                         prompt_printed = false;
                                     } else {
@@ -645,10 +647,21 @@ pub async fn prompt_for_matchmaker_choice(
                 for (line, color) in &menu_lines {
                     ui.show_message_with_color(line, *color);
                 }
-            } else if choice == Some(1) {
-                ui.show_prompt("How many players (1-10)? ");
             } else {
-                ui.show_prompt("Enter passcode (6 digits): ");
+                if !choice_displayed {
+                    let choice_label = NEW_JOIN_MENU_ITEMS[(choice.unwrap() - 1) as usize];
+                    let menu_line_count = 1 + format_new_join_menu_lines(0).len();
+                    ui.replace_last_messages(
+                        menu_line_count,
+                        vec![(format!("{}.", choice_label), Color::WHITE)],
+                    );
+                    choice_displayed = true;
+                }
+                if choice == Some(1) {
+                    ui.show_prompt("How many players (1-10)? ");
+                } else {
+                    ui.show_prompt("Enter passcode (6 digits): ");
+                }
             }
             prompt_printed = true;
         }
