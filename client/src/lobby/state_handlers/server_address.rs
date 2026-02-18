@@ -23,7 +23,10 @@ fn ping_matchmaker(host: &str) -> Result<(), String> {
             return Ok(());
         }
     }
-    Err(format!("cannot reach {}: connection refused or timed out.", host))
+    Err(format!(
+        "cannot reach {}: connection refused or timed out.",
+        host
+    ))
 }
 
 fn try_connect_to_host(
@@ -36,10 +39,7 @@ fn try_connect_to_host(
     };
     match ping_matchmaker(&host) {
         Ok(()) => {
-            ui.show_message_with_color(
-                &format!("Connecting to:\t{}", host),
-                Color::WHITE,
-            );
+            ui.show_message_with_color(&format!("Connecting to:\t{}", host), Color::WHITE);
             Some(ClientState::Lobby(Lobby::MatchmakerMenu {
                 api_host: host,
                 prompt_printed: false,
@@ -159,6 +159,6 @@ fn server_address_host_error() -> String {
 
 fn server_address_prompt() -> String {
     format!(
-        "Press Enter for default server (recommended),\nTab if running locally,\nor pick another server (domain or IP address): ",
+        "Press Enter for default server (recommended),\nTab if running locally,\nor pick another address:",
     )
 }
