@@ -341,7 +341,7 @@ impl Clock {
 
 pub fn username_prompt() -> String {
     format!(
-        "Choose a username (1-{} characters, letters/numbers/_/- only): ",
+        "Choose a username (1-{} characters: letters, numbers, underscores, or dashes): ",
         MAX_USERNAME_LENGTH
     )
 }
@@ -371,7 +371,8 @@ mod tests {
 
     #[test]
     fn transition_updates_state() {
-        let mut session = ClientSession::new(0, crate::server_address::default_server_address().ok());
+        let mut session =
+            ClientSession::new(0, crate::server_address::default_server_address().ok());
         session.transition(ClientState::Lobby(Lobby::Connecting {
             pending_passcode: None,
         }));
@@ -416,7 +417,8 @@ mod tests {
 
     #[test]
     fn input_queue_stores_and_retrieves_in_order() {
-        let mut session = ClientSession::new(0, crate::server_address::default_server_address().ok());
+        let mut session =
+            ClientSession::new(0, crate::server_address::default_server_address().ok());
 
         session.add_input("message one".to_string());
         session.add_input("message two".to_string());
@@ -428,7 +430,8 @@ mod tests {
 
     #[test]
     fn waiting_message_flags_after_delay() {
-        let mut session = ClientSession::new(0, crate::server_address::default_server_address().ok());
+        let mut session =
+            ClientSession::new(0, crate::server_address::default_server_address().ok());
         session.transition(ClientState::Lobby(Lobby::Chat {
             awaiting_initial_roster: false,
             waiting_for_server: false,
@@ -457,7 +460,8 @@ mod tests {
 
     #[test]
     fn waiting_message_triggers_during_connecting() {
-        let mut session = ClientSession::new(0, crate::server_address::default_server_address().ok());
+        let mut session =
+            ClientSession::new(0, crate::server_address::default_server_address().ok());
         session.transition(ClientState::Lobby(Lobby::Connecting {
             pending_passcode: None,
         }));

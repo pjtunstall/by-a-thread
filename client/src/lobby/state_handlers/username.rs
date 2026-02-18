@@ -6,7 +6,7 @@ use bincode::{
 use crate::{
     lobby::ui::{LobbyUi, UiErrorKind},
     net::NetworkHandle,
-    session::{ClientSession, validate_username_input},
+    session::{username_prompt, ClientSession, validate_username_input},
     state::{ClientState, Lobby},
 };
 use common::{
@@ -20,9 +20,15 @@ pub fn handle(
     ui: &mut dyn LobbyUi,
     network: &mut dyn NetworkHandle,
 ) -> Option<ClientState> {
-    let Lobby::ChoosingUsername { prompt_printed: _ } = lobby_state else {
+    let Lobby::ChoosingUsername { prompt_printed } = lobby_state else {
         unreachable!();
     };
+
+    if !*prompt_printed {
+        ui.show_prompt(&username_prompt());
+        *prompt_printed = true;
+        return None;
+    }
 
     while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
         match decode_from_slice::<ServerMessage, _>(&data, standard()) {
@@ -157,7 +163,9 @@ mod tests {
     #[test]
     fn enforces_max_username_length() {
         let mut session = ClientSession::new(0, crate::server_address::default_server_address().ok());
-        set_choosing_username(&mut session);
+        session.transition(ClientState::Lobby(Lobby::ChoosingUsername {
+            prompt_printed: true,
+        }));
 
         let long_name = "A".repeat(MAX_USERNAME_LENGTH as usize + 1);
         session.add_input(long_name.clone());

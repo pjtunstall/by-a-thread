@@ -6,17 +6,16 @@ use bincode::{
 use crate::{
     lobby::ui::{LobbyUi, UiErrorKind},
     net::NetworkHandle,
-    session::ClientSession,
+    session::{username_prompt, ClientSession},
     state::{ClientState, Lobby},
 };
 use common::{
     auth::{MAX_ATTEMPTS, Passcode},
     input::sanitize,
     net::AppChannel,
-    player::MAX_USERNAME_LENGTH,
     protocol::{
         AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE, AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE,
-        ClientMessage, GAME_ALREADY_STARTED_MESSAGE, ServerMessage, auth_success_message,
+        AUTH_SUCCESS_MESSAGE, ClientMessage, GAME_ALREADY_STARTED_MESSAGE, ServerMessage,
     },
 };
 
@@ -54,9 +53,10 @@ pub fn handle(
 
                 ui.show_message(&format!("Server: {}", sanitized_message));
 
-                if sanitized_message == auth_success_message(MAX_USERNAME_LENGTH) {
+                if sanitized_message == AUTH_SUCCESS_MESSAGE {
+                    ui.show_prompt(&username_prompt());
                     return Some(ClientState::Lobby(Lobby::ChoosingUsername {
-                        prompt_printed: false,
+                        prompt_printed: true,
                     }));
                 } else if sanitized_message == AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE {
                     *guesses_left = guesses_left.saturating_sub(1);

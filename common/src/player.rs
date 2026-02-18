@@ -386,7 +386,7 @@ impl fmt::Display for UsernameError {
             UsernameError::Empty => write!(f, "username cannot be empty"),
             UsernameError::TooLong => write!(f, "username is too long"),
             UsernameError::InvalidCharacter(c) => {
-                write!(f, "username contains invalid character '{}'", c)
+                write!(f, "username contains an invalid character '{}'", c)
             }
             UsernameError::Reserved => write!(f, "username is reserved"),
         }

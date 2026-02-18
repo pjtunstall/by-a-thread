@@ -20,10 +20,10 @@ use common::{
     chat::MAX_CHAT_MESSAGE_BYTES,
     constants::NUM_DIFFICULTY_LEVELS,
     net::AppChannel,
-    player::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username},
+    player::{UsernameError, sanitize_username},
     protocol::{
         AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE, AUTH_INCORRECT_PASSCODE_TRY_AGAIN_MESSAGE,
-        ClientMessage, MAX_CLIENT_MESSAGE_BYTES, ServerMessage, auth_success_message,
+        ClientMessage, MAX_CLIENT_MESSAGE_BYTES, ServerMessage, AUTH_SUCCESS_MESSAGE,
     },
     snapshot::InitialData,
 };
@@ -104,8 +104,10 @@ pub fn handle(
                             println!("Client {} authenticated successfully.", client_id);
                             state.mark_authenticated(client_id);
 
-                            let prompt = auth_success_message(MAX_USERNAME_LENGTH);
-                            let message = ServerMessage::ServerInfo { message: prompt };
+                            let message =
+                                ServerMessage::ServerInfo {
+                                    message: AUTH_SUCCESS_MESSAGE.to_string(),
+                                };
                             let payload = encode_to_vec(&message, standard())
                                 .expect("failed to serialize ServerInfo");
                             network.send_message(client_id, AppChannel::ReliableOrdered, payload);
@@ -349,7 +351,7 @@ mod tests {
         auth::{MAX_ATTEMPTS, Passcode},
         protocol::{
             AUTH_INCORRECT_PASSCODE_DISCONNECTING_MESSAGE, ClientMessage, MAX_CLIENT_MESSAGE_BYTES,
-            ServerMessage, auth_success_message,
+            ServerMessage, AUTH_SUCCESS_MESSAGE,
         },
     };
 
@@ -401,7 +403,7 @@ mod tests {
             .unwrap()
             .0;
         if let ServerMessage::ServerInfo { message } = msg {
-            assert_eq!(message, auth_success_message(MAX_USERNAME_LENGTH));
+            assert_eq!(message, AUTH_SUCCESS_MESSAGE);
         } else {
             panic!("expected ServerInfo message, got {:?}", msg);
         }

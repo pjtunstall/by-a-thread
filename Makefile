@@ -6,20 +6,26 @@
 # Prerequisites: see docs/build.md.
 #
 # Usage:
-#   make              # full build (test, server, matchmaker, docker, windows, deb, rpm, appimage)
+#   make              # full build (test, server, windows, deb, rpm, appimage)
+#   make no-test      # full build without running tests
+#   make test         # run tests
+#   make server       # build server binary and Docker image (use docker compose build for matchmaker)
 #   make deploy-hetzner   # after 'make', pushes image to VPS and runs container
 #   make run-hetzner     # run server container on VPS (image must already be there)
 #   make windows      # Windows zip (Ubuntu: cross-compile; Windows: use scripts/Build-Windows.ps1)
 #   make macos-intel      # Intel Mac .app and dist/ByAThread-macos-intel.zip (macOS only)
 #   make macos-silicon    # Apple Silicon .app and dist/ByAThread-macos-silicon.zip (macOS only)
 #   make deb          # only .deb package
-#   make clean        # remove dist/, temp dirs, and Docker image
+#   make rpm          # only .rpm package
+#   make appimage     # only AppImage
+#   make kill-servers # stop running game server processes and matchmaker-spawned containers
+#   make clean        # remove dist/, temp dirs, and Docker images
 #   make fullscreen   # set fullscreen: true in client/src/main.rs (idempotent)
 #
 # Make checks that required tools exist before each step, and rebuilds artifacts
 # only when their dependencies have changed.
 #
-.PHONY: all test server matchmaker docker deploy-hetzner run-hetzner windows deb rpm appimage macos-intel macos-silicon clean fullscreen unfullscreen kill-servers
+.PHONY: all no-test test server deploy-hetzner run-hetzner windows deb rpm appimage macos-intel macos-silicon clean fullscreen unfullscreen kill-servers
 .PHONY: check-windows check-deb check-rpm check-appimage check-docker check-docker-compose check-deploy check-env
 
 DIST := dist
@@ -32,7 +38,6 @@ EXE_HOST := target/release/ByAThread
 APPIMAGE_FILE := $(DIST)/ByAThread.AppImage
 SERVER_BIN := target/release/server
 DOCKER_SENTINEL := $(DIST)/.docker-image-built
-MATCHMAKER_SENTINEL := $(DIST)/.matchmaker-image-built
 TARGET_APPLE_INTEL := x86_64-apple-darwin
 TARGET_APPLE_SILICON := aarch64-apple-darwin
 EXE_APPLE_INTEL := target/$(TARGET_APPLE_INTEL)/release/ByAThread
@@ -41,10 +46,11 @@ ZIP_APPLE_INTEL := $(DIST)/ByAThread-macos-intel.zip
 ZIP_APPLE_SILICON := $(DIST)/ByAThread-macos-silicon.zip
 
 SERVER_SOURCES := Cargo.toml Cargo.lock server/Cargo.toml common/Cargo.toml $(shell find server -name '*.rs') $(shell find common -name '*.rs')
-MATCHMAKER_SOURCES := Cargo.toml Cargo.lock matchmaker/Cargo.toml common/Cargo.toml $(shell find matchmaker -name '*.rs') $(shell find common -name '*.rs')
 CLIENT_SOURCES := Cargo.toml Cargo.lock client/Cargo.toml client/build.rs .env.client $(shell find client/src -name '*.rs') common/Cargo.toml $(shell find common -name '*.rs')
 
-all: test server matchmaker docker windows deb rpm appimage unfullscreen
+all: test server windows deb rpm appimage unfullscreen
+
+no-test: server windows deb rpm appimage unfullscreen
 
 # Set fullscreen true in the client so the built game runs fullscreen. Only run
 # this when building the client (inside those rules), not as a separate first step,
@@ -56,22 +62,15 @@ fullscreen:
 test:
 	cargo test --workspace
 
-# --- Compile game server ---
+# --- Compile game server and build Docker image ---
+#
+# Builds the server binary and Docker image (server-image:latest). The matchmaker
+# is not built here; use docker compose build when you need it.
+#
 $(SERVER_BIN): $(SERVER_SOURCES)
 	cargo build --release -p server
 
-server: $(SERVER_BIN)
-
-# --- Build matchmaker container image ---
-#
-# Prerequisites: Docker, Docker Compose plugin (docker compose)
-#
-$(MATCHMAKER_SENTINEL): $(MATCHMAKER_SOURCES) matchmaker/Dockerfile docker-compose.yaml | check-docker-compose
-	mkdir -p $(DIST)
-	docker compose build matchmaker
-	touch $(MATCHMAKER_SENTINEL)
-
-matchmaker: $(MATCHMAKER_SENTINEL)
+server: $(DOCKER_SENTINEL)
 
 # --- Tool checks (run before steps that need them) ---
 check-windows:
@@ -107,7 +106,7 @@ check-env:
 		exit 1; \
 	fi
 
-# --- Build Docker image of game server ---
+# --- Build Docker image of game server (prerequisite for server target) ---
 #
 # Prerequisites: Docker (https://docs.docker.com/engine/install)
 #
@@ -116,8 +115,6 @@ $(DOCKER_SENTINEL): $(SERVER_BIN) server/Dockerfile | check-docker
 	VERSION=$$(cargo pkgid -p server | cut -d# -f2 | cut -d: -f2); \
 	docker build -f server/Dockerfile -t server-image:$$VERSION -t server-image:latest .
 	touch $(DOCKER_SENTINEL)
-
-docker: $(DOCKER_SENTINEL)
 
 # --- Update game server on VPS ---
 #
