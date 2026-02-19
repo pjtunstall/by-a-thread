@@ -554,7 +554,133 @@ fn format_new_join_menu_lines(selected_index: usize) -> Vec<(String, Color)> {
     lines
 }
 
-pub async fn prompt_for_new_or_join(
+async fn choose_new_or_join(
+    ui: &mut dyn LobbyUi,
+    font: Option<&macroquad::prelude::Font>,
+) -> Option<NewOrJoin> {
+    let mut prompt_printed = false;
+    let mut selected_index: usize = 0;
+
+    loop {
+        if should_quit() {
+            return None;
+        }
+
+        if !prompt_printed {
+            ui.show_prompt("New game or join game?");
+            ui.show_message(" ");
+            for (line, color) in &format_new_join_menu_lines(selected_index) {
+                ui.show_message_with_color(line, *color);
+            } // Print menu options with current selection.
+            prompt_printed = true;
+        }
+
+        if let Some(new_or_join) = match handle_menu_navigation(ui, font, &mut selected_index).await
+        {
+            Err(()) => {
+                // TODO: What can go wrong here? Can we be more explicit about
+                // that? Should we log the error here, upstream or downstream?
+                eprintln!("failed to handle navigation menu");
+                return None; // Breaks upstream loop, leading to exit.
+            }
+            Ok(selection) => selection,
+        } {
+            return Some(new_or_join);
+        }
+
+        next_frame().await;
+    }
+}
+
+async fn choose_player_count(
+    ui: &mut dyn LobbyUi,
+    font: Option<&macroquad::prelude::Font>,
+) -> Option<u8> {
+    let mut prompt_printed = false;
+
+    loop {
+        if should_quit() {
+            return None;
+        }
+
+        match ui.poll_input(common::chat::MAX_CHAT_MESSAGE_BYTES, false) {
+            Ok(Some(input)) => {
+                let trimmed = input.trim();
+                if let Ok(n) = trimmed.parse::<u8>() {
+                    if (1..=10).contains(&n) {
+                        return Some(n);
+                    }
+                }
+                ui.show_error("Player count must be 1-10.");
+                prompt_printed = false;
+            }
+            Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
+                ui.show_sanitized_error(&format!("No connection: {}.", e));
+                await_error_dismissal(ui, font).await;
+                return None;
+            }
+            Ok(None) => {}
+        }
+
+        if !prompt_printed {
+            ui.show_prompt("How many players (1-10)? ");
+            prompt_printed = true;
+        }
+
+        ui.draw(true, true, font, None::<crate::lobby::ui::LobbyTimerInfo>);
+
+        next_frame().await;
+    }
+}
+
+fn remove_new_or_join_menu(ui: &mut dyn LobbyUi, new_or_join: NewOrJoin) {
+    let menu_line_count = 1 + format_new_join_menu_lines(0).len();
+    ui.replace_last_messages(
+        menu_line_count,
+        vec![(format!("{}.", new_or_join.menu_label()), Color::WHITE)],
+    );
+}
+
+async fn choose_passcode(
+    ui: &mut dyn LobbyUi,
+    font: Option<&macroquad::prelude::Font>,
+) -> Option<String> {
+    let mut prompt_printed = false;
+
+    loop {
+        if should_quit() {
+            return None;
+        }
+
+        match ui.poll_input(common::chat::MAX_CHAT_MESSAGE_BYTES, false) {
+            Ok(Some(input)) => {
+                let trimmed = input.trim();
+                if trimmed.len() == 6 && trimmed.chars().all(|c| c.is_ascii_digit()) {
+                    return Some(trimmed.to_string());
+                }
+                ui.show_error("Passcode must be 6 digits.");
+                prompt_printed = false;
+            }
+            Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
+                ui.show_sanitized_error(&format!("No connection: {}.", e));
+                await_error_dismissal(ui, font).await;
+                return None;
+            }
+            Ok(None) => {}
+        }
+
+        if !prompt_printed {
+            ui.show_prompt("Enter passcode (6 digits): ");
+            prompt_printed = true;
+        }
+
+        ui.draw(true, true, font, None::<crate::lobby::ui::LobbyTimerInfo>);
+
+        next_frame().await;
+    }
+}
+
+pub async fn seek_matchmaker_response(
     api_host: &str,
     ui: &mut dyn LobbyUi,
     font: Option<&macroquad::prelude::Font>,
@@ -562,115 +688,54 @@ pub async fn prompt_for_new_or_join(
     let matchmaker_host = Some(api_host);
     const JOIN_GUESS_LIMIT: u8 = 3;
 
-    let mut prompt_printed = false;
-    let mut choice_displayed = false;
-    let mut new_or_join: Option<NewOrJoin> = None;
-    let mut selected_index: usize = 0;
-    let mut wrong_guesses: u8 = 0;
-
     loop {
-        if should_quit() {
+        let Some(new_or_join) = choose_new_or_join(ui, font).await else {
             return None;
-        }
+        };
 
-        if new_or_join.is_none() {
-            match handle_menu_navigation(ui, font, &mut selected_index).await {
-                Err(()) => return None, // Breaks upstream loop, leading to exit.
-                Ok(Some(selection)) => {
-                    new_or_join = Some(selection);
-                    prompt_printed = false;
+        remove_new_or_join_menu(ui, new_or_join);
+
+        match new_or_join {
+            NewOrJoin::NewGame => {
+                let Some(n) = choose_player_count(ui, font).await else {
+                    return None;
+                };
+                match try_create_game(n, matchmaker_host, ui, font).await {
+                    Some(Ok(m)) => return Some(m),
+                    Some(Err(true)) => {
+                        await_error_dismissal(ui, font).await;
+                        return None;
+                    }
+                    Some(Err(false)) | None => {}
                 }
-                Ok(None) => {} // No choice made this frame.
             }
-        } else {
-            match ui.poll_input(common::chat::MAX_CHAT_MESSAGE_BYTES, false) {
-                Ok(Some(input)) => {
-                    let trimmed = input.trim();
-                    let result = if new_or_join == Some(NewOrJoin::NewGame) {
-                        try_create_game(trimmed, matchmaker_host, ui, font).await
-                    } else {
-                        try_join_game(
-                            trimmed,
-                            matchmaker_host,
-                            ui,
-                            font,
-                            &mut wrong_guesses,
-                            JOIN_GUESS_LIMIT,
-                        )
-                        .await
+            NewOrJoin::JoinGame => {
+                let mut wrong_guesses: u8 = 0;
+                loop {
+                    let Some(passcode) = choose_passcode(ui, font).await else {
+                        return None;
                     };
-
-                    match result {
+                    match try_join_game(
+                        &passcode,
+                        matchmaker_host,
+                        ui,
+                        font,
+                        &mut wrong_guesses,
+                        JOIN_GUESS_LIMIT,
+                    )
+                    .await
+                    {
                         Some(Ok(m)) => return Some(m),
                         Some(Err(true)) => {
                             await_error_dismissal(ui, font).await;
                             return None;
                         }
-                        Some(Err(false)) => {
-                            new_or_join = None;
-                            choice_displayed = false;
-                            wrong_guesses = 0;
-                            prompt_printed = false;
-                        }
-                        None => {
-                            if new_or_join == Some(NewOrJoin::NewGame) {
-                                ui.show_error("Player count must be 1-10.");
-                            } else {
-                                ui.show_error("Passcode must be 6 digits.");
-                            }
-                            prompt_printed = false;
-                        }
+                        Some(Err(false)) => break,
+                        None => {}
                     }
                 }
-                Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
-                    ui.show_sanitized_error(&format!("No connection: {}.", e));
-                    await_error_dismissal(ui, font).await;
-                    return None;
-                }
-                Ok(None) => {}
             }
         }
-
-        if !prompt_printed {
-            if new_or_join.is_none() {
-                ui.show_prompt("New game or Join game?");
-                ui.show_message(" ");
-                for (line, color) in &format_new_join_menu_lines(selected_index) {
-                    ui.show_message_with_color(line, *color);
-                }
-            } else {
-                if !choice_displayed {
-                    let selection_label = new_or_join.unwrap().menu_label();
-                    let menu_line_count = 1 + format_new_join_menu_lines(0).len();
-                    ui.replace_last_messages(
-                        menu_line_count,
-                        vec![(format!("{}.", selection_label), Color::WHITE)],
-                    );
-                    choice_displayed = true;
-                }
-                ui.show_prompt(if new_or_join == Some(NewOrJoin::NewGame) {
-                    "How many players (1-10)? "
-                } else {
-                    "Enter passcode (6 digits): "
-                });
-            }
-            prompt_printed = true;
-        }
-
-        if new_or_join.is_none() && prompt_printed {
-            let menu_lines = format_new_join_menu_lines(selected_index);
-            ui.replace_last_messages(menu_lines.len(), menu_lines);
-        }
-
-        let should_show_input = new_or_join.is_some();
-        ui.draw(
-            should_show_input,
-            should_show_input,
-            font,
-            None::<crate::lobby::ui::LobbyTimerInfo>,
-        );
-
-        next_frame().await;
     }
 }
 
@@ -706,15 +771,11 @@ async fn handle_menu_navigation(
 }
 
 async fn try_create_game(
-    trimmed: &str,
+    n: u8,
     matchmaker_host: Option<&str>,
     ui: &mut dyn LobbyUi,
     _font: Option<&macroquad::prelude::Font>,
 ) -> Option<Result<MatchmakerResult, bool>> {
-    let n = trimmed
-        .parse::<u8>()
-        .ok()
-        .filter(|&n| (1..=10).contains(&n))?;
     let (response, addr) = match api::create_game(n, matchmaker_host) {
         Ok(x) => x,
         Err(e) => {

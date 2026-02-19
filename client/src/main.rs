@@ -35,15 +35,16 @@ async fn main() {
         return;
     };
 
-    let Some(result) = run::prompt_for_new_or_join(&api_host, &mut ui, Some(&assets.font)).await
+    let Some(response) =
+        run::seek_matchmaker_response(&api_host, &mut ui, Some(&assets.font)).await
     else {
         return;
     };
 
-    let only_player = result.only_player();
-    let server_addr = result.server_addr();
-    let share_passcode = result.share_passcode();
-    let connect_token = result.connect_token();
+    let only_player = response.only_player();
+    let server_addr = response.server_addr();
+    let share_passcode = response.share_passcode();
+    let connect_token = response.connect_token();
 
     session.client_id = connect_token.client_id;
     session.server_addr = Some(server_addr);
