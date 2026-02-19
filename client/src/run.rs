@@ -25,6 +25,11 @@ use crate::{
 use common::{auth::Passcode, chat::MAX_CHAT_MESSAGE_BYTES, constants::TICK_SECS, player::Color};
 use renet_netcode::ConnectToken;
 
+enum MenuError {
+    Fatal,
+    ReturnToMenu,
+}
+
 pub enum MatchmakerResult {
     Create {
         server_addr: SocketAddr,
@@ -593,12 +598,7 @@ async fn choose_new_or_join(
             ui.replace_last_messages(menu_lines.len(), menu_lines);
         }
 
-        ui.draw(
-            false,
-            false,
-            font,
-            None::<crate::lobby::ui::LobbyTimerInfo>,
-        );
+        ui.draw(false, false, font, None::<crate::lobby::ui::LobbyTimerInfo>);
 
         next_frame().await;
     }
@@ -678,7 +678,7 @@ async fn choose_passcode(
                 }
             }
             Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
-                ui.show_sanitized_error(&format!("No connection: {}.", e));
+                ui.show_sanitized_error(&format!("No connection: {}.", e)); // TODO: Will the lily of this period be gilded with another when the message is shown? Check this.
                 await_error_dismissal(ui, font).await;
                 return None;
             }
@@ -705,6 +705,8 @@ pub async fn seek_matchmaker_response(
     const JOIN_GUESS_LIMIT: u8 = 3;
 
     loop {
+        ui.flush_input();
+        next_frame().await;
         let Some(new_or_join) = choose_new_or_join(ui, font).await else {
             return None;
         };
@@ -720,18 +722,17 @@ pub async fn seek_matchmaker_response(
                 };
                 match try_create_game(n, matchmaker_host, ui, font).await {
                     Some(Ok(m)) => return Some(m),
-                    Some(Err(true)) => {
-                        await_error_dismissal(ui, font).await;
-                        return None;
-                    }
-                    Some(Err(false)) | None => {}
+                    Some(Err(MenuError::Fatal)) => {
+                            await_error_dismissal(ui, font).await;
+                            return None;
+                        }
+                    Some(Err(MenuError::ReturnToMenu)) | None => {}
                 }
             }
             NewOrJoin::JoinGame => {
                 ui.flush_input();
                 next_frame().await;
-                let mut wrong_guesses: u8 = 0;
-                loop {
+                for wrong_guesses in 0..JOIN_GUESS_LIMIT {
                     let Some(passcode) = choose_passcode(ui, font).await else {
                         return None;
                     };
@@ -740,18 +741,17 @@ pub async fn seek_matchmaker_response(
                         matchmaker_host,
                         ui,
                         font,
-                        &mut wrong_guesses,
+                        wrong_guesses,
                         JOIN_GUESS_LIMIT,
                     )
                     .await
                     {
                         Some(Ok(m)) => return Some(m),
-                        Some(Err(true)) => {
+                    Some(Err(MenuError::Fatal)) => {
                             await_error_dismissal(ui, font).await;
                             return None;
                         }
-                        Some(Err(false)) => break,
-                        None => {}
+                    Some(Err(MenuError::ReturnToMenu)) | None => {}
                     }
                 }
             }
@@ -791,23 +791,23 @@ async fn handle_menu_navigation(
 }
 
 async fn try_create_game(
-    n: u8,
+    player_count: u8,
     matchmaker_host: Option<&str>,
     ui: &mut dyn LobbyUi,
     _font: Option<&macroquad::prelude::Font>,
-) -> Option<Result<MatchmakerResult, bool>> {
-    let (response, addr) = match api::create_game(n, matchmaker_host) {
+) -> Option<Result<MatchmakerResult, MenuError>> {
+    let (response, addr) = match api::create_game(player_count, matchmaker_host) {
         Ok(x) => x,
         Err(e) => {
             ui.show_sanitized_error(&e.to_string());
-            return Some(Err(true));
+            return Some(Err(MenuError::Fatal));
         }
     };
     let token = match net::connect_token_from_base64(&response.connect_token) {
         Ok(t) => t,
         Err(e) => {
             ui.show_sanitized_error(&e);
-            return Some(Err(true));
+            return Some(Err(MenuError::Fatal));
         }
     };
     let passcode = Passcode::from_string(&response.passcode)?;
@@ -815,7 +815,7 @@ async fn try_create_game(
         server_addr: addr,
         connect_token: token,
         passcode,
-        player_count: n,
+        player_count,
     }))
 }
 
@@ -824,9 +824,9 @@ async fn try_join_game(
     matchmaker_host: Option<&str>,
     ui: &mut dyn LobbyUi,
     _font: Option<&macroquad::prelude::Font>,
-    wrong_guesses: &mut u8,
+    wrong_guesses: u8,
     join_guess_limit: u8,
-) -> Option<Result<MatchmakerResult, bool>> {
+) -> Option<Result<MatchmakerResult, MenuError>> {
     if trimmed.len() != 6 || !trimmed.chars().all(|c| c.is_ascii_digit()) {
         return None;
     }
@@ -836,7 +836,7 @@ async fn try_join_game(
                 Ok(t) => t,
                 Err(e) => {
                     ui.show_sanitized_error(&e);
-                    return Some(Err(true));
+                    return Some(Err(MenuError::Fatal));
                 }
             };
             let passcode = Passcode::from_string(trimmed)?;
@@ -852,12 +852,12 @@ async fn try_join_game(
                 crate::api::ApiError::Api { code, .. } if code == "GAME_NOT_FOUND"
             );
             if is_game_not_found {
-                *wrong_guesses += 1;
-                if *wrong_guesses >= join_guess_limit {
+                let wrong_guesses_after = wrong_guesses + 1;
+                if wrong_guesses_after >= join_guess_limit {
                     ui.show_sanitized_error(&e.to_string());
-                    Some(Err(false))
+                    Some(Err(MenuError::ReturnToMenu))
                 } else {
-                    let remaining = join_guess_limit - *wrong_guesses;
+                    let remaining = join_guess_limit - wrong_guesses_after;
                     ui.show_sanitized_error(&format!(
                         "Wrong passcode. {} {} remaining.",
                         remaining,
