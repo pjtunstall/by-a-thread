@@ -39,7 +39,7 @@ fn try_connect_to_host(
     };
     match ping_matchmaker(&host) {
         Ok(()) => {
-            ui.show_message_with_color(&format!("Connecting to:\t{}", host), Color::WHITE);
+            ui.show_message_with_color(&format!("Connecting to:\t{}.", host), Color::WHITE);
             Some(ClientState::Lobby(Lobby::MatchmakerMenu {
                 api_host: host,
                 prompt_printed: false,

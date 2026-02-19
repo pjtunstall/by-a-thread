@@ -296,7 +296,7 @@ impl Clock {
 
 pub fn username_prompt() -> String {
     format!(
-        "Choose a username (1-{} characters: letters or numbers only): ",
+        "Choose a username (1-{} characters, letters/numbers only): ",
         MAX_USERNAME_LENGTH
     )
 }

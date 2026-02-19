@@ -588,6 +588,18 @@ async fn choose_new_or_join(
             return Some(new_or_join);
         }
 
+        if prompt_printed {
+            let menu_lines = format_new_join_menu_lines(selected_index);
+            ui.replace_last_messages(menu_lines.len(), menu_lines);
+        }
+
+        ui.draw(
+            false,
+            false,
+            font,
+            None::<crate::lobby::ui::LobbyTimerInfo>,
+        );
+
         next_frame().await;
     }
 }
@@ -606,12 +618,14 @@ async fn choose_player_count(
         match ui.poll_input(common::chat::MAX_CHAT_MESSAGE_BYTES, false) {
             Ok(Some(input)) => {
                 let trimmed = input.trim();
-                if let Ok(n) = trimmed.parse::<u8>() {
-                    if (1..=10).contains(&n) {
-                        return Some(n);
+                if !trimmed.is_empty() {
+                    if let Ok(n) = trimmed.parse::<u8>() {
+                        if (1..=10).contains(&n) {
+                            return Some(n);
+                        }
                     }
+                    ui.show_error("Player count must be 1-10.");
                 }
-                ui.show_error("Player count must be 1-10.");
                 prompt_printed = false;
             }
             Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
@@ -655,11 +669,13 @@ async fn choose_passcode(
         match ui.poll_input(common::chat::MAX_CHAT_MESSAGE_BYTES, false) {
             Ok(Some(input)) => {
                 let trimmed = input.trim();
-                if trimmed.len() == 6 && trimmed.chars().all(|c| c.is_ascii_digit()) {
+                if trimmed.is_empty() {
+                } else if trimmed.len() == 6 && trimmed.chars().all(|c| c.is_ascii_digit()) {
                     return Some(trimmed.to_string());
+                } else {
+                    ui.show_error("Passcode must be 6 digits.");
+                    prompt_printed = false;
                 }
-                ui.show_error("Passcode must be 6 digits.");
-                prompt_printed = false;
             }
             Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
                 ui.show_sanitized_error(&format!("No connection: {}.", e));
@@ -697,6 +713,8 @@ pub async fn seek_matchmaker_response(
 
         match new_or_join {
             NewOrJoin::NewGame => {
+                ui.flush_input();
+                next_frame().await;
                 let Some(n) = choose_player_count(ui, font).await else {
                     return None;
                 };
@@ -710,6 +728,8 @@ pub async fn seek_matchmaker_response(
                 }
             }
             NewOrJoin::JoinGame => {
+                ui.flush_input();
+                next_frame().await;
                 let mut wrong_guesses: u8 = 0;
                 loop {
                     let Some(passcode) = choose_passcode(ui, font).await else {
