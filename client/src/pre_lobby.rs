@@ -1,10 +1,11 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::mpsc};
 
 use macroquad::prelude::*;
 use renet_netcode::ConnectToken;
 
 use crate::{
-    api, exit,
+    api::{self, ApiError},
+    exit,
     lobby::{state_handlers, ui::LobbyUi},
     session::ClientSession,
     state::{ClientState, InputMode, Lobby},
@@ -12,26 +13,6 @@ use crate::{
 use common::{auth::Passcode, chat::MAX_CHAT_MESSAGE_BYTES, player::Color};
 
 const NEW_JOIN_MENU_ITEMS: &[&str] = &["New game", "Join game"];
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum NewOrJoin {
-    NewGame,
-    JoinGame,
-}
-
-impl NewOrJoin {
-    fn menu_label(&self) -> &'static str {
-        match self {
-            Self::NewGame => "New game",
-            Self::JoinGame => "Join game",
-        }
-    }
-}
-
-enum MenuError {
-    Fatal,
-    ReturnToMenu,
-}
 
 pub enum MatchmakerResult {
     Create {
@@ -88,6 +69,115 @@ impl MatchmakerResult {
             Self::Create { passcode, .. } => Some(passcode.string.clone()),
             Self::Join { .. } => None,
         }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum NewOrJoin {
+    NewGame,
+    JoinGame,
+}
+
+impl NewOrJoin {
+    fn menu_label(&self) -> &'static str {
+        match self {
+            Self::NewGame => "New game",
+            Self::JoinGame => "Join game",
+        }
+    }
+}
+
+enum MenuError {
+    Fatal,
+    ReturnToMenu,
+}
+
+pub async fn seek_matchmaker_response(
+    api_host: &str,
+    ui: &mut dyn LobbyUi,
+    font: Option<&macroquad::prelude::Font>,
+) -> Option<MatchmakerResult> {
+    let matchmaker_host = Some(api_host);
+    const JOIN_GUESS_LIMIT: u8 = 3;
+
+    loop {
+        ui.flush_input();
+        next_frame().await;
+        let Some(new_or_join) = choose_new_or_join(ui, font).await else {
+            return None;
+        };
+
+        remove_new_or_join_menu(ui, new_or_join);
+
+        match new_or_join {
+            NewOrJoin::NewGame => {
+                ui.flush_input();
+                next_frame().await;
+                let Some(n) = choose_player_count(ui, font).await else {
+                    return None;
+                };
+                match try_create_game(n, matchmaker_host, ui, font).await {
+                    Some(Ok(m)) => return Some(m),
+                    Some(Err(MenuError::Fatal)) => {
+                        exit::wait_till_escape_is_pressed(ui, font).await;
+                        return None;
+                    }
+                    Some(Err(MenuError::ReturnToMenu)) | None => {}
+                }
+            }
+            NewOrJoin::JoinGame => {
+                ui.flush_input();
+                next_frame().await;
+                for wrong_guesses in 0..JOIN_GUESS_LIMIT {
+                    let Some(passcode) = choose_passcode(ui, font).await else {
+                        return None;
+                    };
+                    match try_join_game(
+                        &passcode,
+                        matchmaker_host,
+                        ui,
+                        font,
+                        wrong_guesses,
+                        JOIN_GUESS_LIMIT,
+                    )
+                    .await
+                    {
+                        Some(Ok(m)) => return Some(m),
+                        Some(Err(MenuError::Fatal)) => {
+                            exit::wait_till_escape_is_pressed(ui, font).await;
+                            return None;
+                        }
+                        Some(Err(MenuError::ReturnToMenu)) | None => {}
+                    }
+                }
+            }
+        }
+    }
+}
+
+async fn run_api_call_with_waiting_ui<T, F>(
+    ui: &mut dyn LobbyUi,
+    font: Option<&macroquad::prelude::Font>,
+    f: F,
+) -> Option<Result<T, ApiError>>
+where
+    F: FnOnce() -> Result<T, ApiError> + Send + 'static,
+    T: Send + 'static,
+{
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(f());
+    });
+    ui.show_warning("Waiting for server... (Press ESCAPE to cancel.)");
+    loop {
+        if exit::should_quit() {
+            return None;
+        }
+        if let Ok(result) = rx.try_recv() {
+            return Some(result);
+        }
+        ui.draw(false, false, font, None::<crate::lobby::ui::LobbyTimerInfo>);
+        next_frame().await;
     }
 }
 
@@ -311,69 +401,6 @@ async fn choose_passcode(
     }
 }
 
-pub async fn seek_matchmaker_response(
-    api_host: &str,
-    ui: &mut dyn LobbyUi,
-    font: Option<&macroquad::prelude::Font>,
-) -> Option<MatchmakerResult> {
-    let matchmaker_host = Some(api_host);
-    const JOIN_GUESS_LIMIT: u8 = 3;
-
-    loop {
-        ui.flush_input();
-        next_frame().await;
-        let Some(new_or_join) = choose_new_or_join(ui, font).await else {
-            return None;
-        };
-
-        remove_new_or_join_menu(ui, new_or_join);
-
-        match new_or_join {
-            NewOrJoin::NewGame => {
-                ui.flush_input();
-                next_frame().await;
-                let Some(n) = choose_player_count(ui, font).await else {
-                    return None;
-                };
-                match try_create_game(n, matchmaker_host, ui, font).await {
-                    Some(Ok(m)) => return Some(m),
-                    Some(Err(MenuError::Fatal)) => {
-                        exit::wait_till_escape_is_pressed(ui, font).await;
-                        return None;
-                    }
-                    Some(Err(MenuError::ReturnToMenu)) | None => {}
-                }
-            }
-            NewOrJoin::JoinGame => {
-                ui.flush_input();
-                next_frame().await;
-                for wrong_guesses in 0..JOIN_GUESS_LIMIT {
-                    let Some(passcode) = choose_passcode(ui, font).await else {
-                        return None;
-                    };
-                    match try_join_game(
-                        &passcode,
-                        matchmaker_host,
-                        ui,
-                        font,
-                        wrong_guesses,
-                        JOIN_GUESS_LIMIT,
-                    )
-                    .await
-                    {
-                        Some(Ok(m)) => return Some(m),
-                        Some(Err(MenuError::Fatal)) => {
-                            exit::wait_till_escape_is_pressed(ui, font).await;
-                            return None;
-                        }
-                        Some(Err(MenuError::ReturnToMenu)) | None => {}
-                    }
-                }
-            }
-        }
-    }
-}
-
 async fn handle_menu_navigation(
     ui: &mut dyn LobbyUi,
     font: Option<&macroquad::prelude::Font>,
@@ -409,14 +436,21 @@ async fn try_create_game(
     player_count: u8,
     matchmaker_host: Option<&str>,
     ui: &mut dyn LobbyUi,
-    _font: Option<&macroquad::prelude::Font>,
+    font: Option<&macroquad::prelude::Font>,
 ) -> Option<Result<MatchmakerResult, MenuError>> {
-    let (response, addr) = match api::create_game(player_count, matchmaker_host) {
-        Ok(x) => x,
-        Err(e) => {
+    let matchmaker_host_owned = matchmaker_host.map(|s| s.to_string());
+    let api_result = run_api_call_with_waiting_ui(ui, font, move || {
+        api::create_game(player_count, matchmaker_host_owned.as_deref())
+    })
+    .await;
+
+    let (response, addr) = match api_result {
+        None => return None,
+        Some(Err(e)) => {
             ui.show_sanitized_error(&e.to_string());
             return Some(Err(MenuError::Fatal));
         }
+        Some(Ok(x)) => x,
     };
     let token = match crate::net::connect_token_from_base64(&response.connect_token) {
         Ok(t) => t,
@@ -438,15 +472,23 @@ async fn try_join_game(
     trimmed: &str,
     matchmaker_host: Option<&str>,
     ui: &mut dyn LobbyUi,
-    _font: Option<&macroquad::prelude::Font>,
+    font: Option<&macroquad::prelude::Font>,
     wrong_guesses: u8,
     join_guess_limit: u8,
 ) -> Option<Result<MatchmakerResult, MenuError>> {
     if trimmed.len() != 6 || !trimmed.chars().all(|c| c.is_ascii_digit()) {
         return None;
     }
-    match api::join_game(trimmed, matchmaker_host) {
-        Ok((response, addr)) => {
+    let trimmed_owned = trimmed.to_string();
+    let matchmaker_host_owned = matchmaker_host.map(|s| s.to_string());
+    let api_result = run_api_call_with_waiting_ui(ui, font, move || {
+        api::join_game(&trimmed_owned, matchmaker_host_owned.as_deref())
+    })
+    .await;
+
+    match api_result {
+        None => return None,
+        Some(Ok((response, addr))) => {
             let token = match crate::net::connect_token_from_base64(&response.connect_token) {
                 Ok(t) => t,
                 Err(e) => {
@@ -461,11 +503,9 @@ async fn try_join_game(
                 passcode,
             }))
         }
-        Err(e) => {
-            let is_game_not_found = matches!(
-                &e,
-                crate::api::ApiError::Api { code, .. } if code == "GAME_NOT_FOUND"
-            );
+        Some(Err(e)) => {
+            let is_game_not_found =
+                matches!(&e, ApiError::Api { code, .. } if code == "GAME_NOT_FOUND");
             if is_game_not_found {
                 let wrong_guesses_after = wrong_guesses + 1;
                 if wrong_guesses_after >= join_guess_limit {

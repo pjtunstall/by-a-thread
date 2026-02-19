@@ -100,10 +100,11 @@ fn strip_port(host: &str) -> Option<&str> {
     if host.matches(':').count() > 1 {
         return Some(host);
     }
-    if let Some((h, p)) = host.rsplit_once(':') {
-        if p.parse::<u16>().is_ok() && !h.is_empty() {
-            return Some(h);
-        }
+    if let Some((h, p)) = host.rsplit_once(':')
+        && p.parse::<u16>().is_ok()
+        && !h.is_empty()
+    {
+        return Some(h);
     }
     Some(host)
 }
@@ -116,9 +117,7 @@ fn server_address_host_error() -> String {
 }
 
 fn server_address_prompt() -> String {
-    format!(
-        "Press ENTER for the default server (recommended),\nTAB if running locally,\nor pick another address:",
-    )
+    "Press ENTER for the default server (recommended),\nTAB if running locally,\nor pick another address:".to_string()
 }
 
 fn try_connect_to_host(
