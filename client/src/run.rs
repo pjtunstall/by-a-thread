@@ -451,7 +451,10 @@ fn should_quit() -> bool {
     is_quit_requested() || is_key_pressed(KeyCode::Escape)
 }
 
-async fn await_error_dismissal(ui: &mut dyn LobbyUi, font: Option<&macroquad::prelude::Font>) {
+async fn wait_till_escape_is_pressed(
+    ui: &mut dyn LobbyUi,
+    font: Option<&macroquad::prelude::Font>,
+) {
     ui.show_warning("Press ESCAPE to exit.");
     while !should_quit() {
         ui.draw(false, false, font, None);
@@ -630,7 +633,7 @@ async fn choose_player_count(
             }
             Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
                 ui.show_sanitized_error(&format!("No connection: {}.", e));
-                await_error_dismissal(ui, font).await;
+                wait_till_escape_is_pressed(ui, font).await;
                 return None;
             }
             Ok(None) => {}
@@ -678,8 +681,8 @@ async fn choose_passcode(
                 }
             }
             Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
-                ui.show_sanitized_error(&format!("No connection: {}.", e)); // TODO: Will the lily of this period be gilded with another when the message is shown? Check this.
-                await_error_dismissal(ui, font).await;
+                ui.show_sanitized_error(&format!("No connection: {}", e)); // TODO: Will the lily of this period be gilded with another when the message is shown? Check this.
+                wait_till_escape_is_pressed(ui, font).await;
                 return None;
             }
             Ok(None) => {}
@@ -723,9 +726,9 @@ pub async fn seek_matchmaker_response(
                 match try_create_game(n, matchmaker_host, ui, font).await {
                     Some(Ok(m)) => return Some(m),
                     Some(Err(MenuError::Fatal)) => {
-                            await_error_dismissal(ui, font).await;
-                            return None;
-                        }
+                        wait_till_escape_is_pressed(ui, font).await;
+                        return None;
+                    }
                     Some(Err(MenuError::ReturnToMenu)) | None => {}
                 }
             }
@@ -747,11 +750,11 @@ pub async fn seek_matchmaker_response(
                     .await
                     {
                         Some(Ok(m)) => return Some(m),
-                    Some(Err(MenuError::Fatal)) => {
-                            await_error_dismissal(ui, font).await;
+                        Some(Err(MenuError::Fatal)) => {
+                            wait_till_escape_is_pressed(ui, font).await;
                             return None;
                         }
-                    Some(Err(MenuError::ReturnToMenu)) | None => {}
+                        Some(Err(MenuError::ReturnToMenu)) | None => {}
                     }
                 }
             }
@@ -783,7 +786,7 @@ async fn handle_menu_navigation(
         }
         Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
             ui.show_sanitized_error(&format!("No connection: {}.", e));
-            await_error_dismissal(ui, font).await;
+            wait_till_escape_is_pressed(ui, font).await;
             Err(())
         }
         _ => Ok(None),
