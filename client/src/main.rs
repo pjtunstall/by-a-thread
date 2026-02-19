@@ -38,11 +38,16 @@ async fn main() {
         return;
     };
 
-    let Some((server_addr, connect_token, passcode, is_host)) =
+    let Some(result) =
         run::prompt_for_matchmaker_choice(&api_host, &mut ui, Some(&assets.font)).await
     else {
         return;
     };
+
+    let only_player = result.only_player();
+    let server_addr = result.server_addr();
+    let share_passcode = result.share_passcode();
+    let connect_token = result.connect_token();
 
     session.client_id = connect_token.client_id;
     session.server_addr = Some(server_addr);
@@ -56,10 +61,11 @@ async fn main() {
         private_key,
         server_addr,
         Some(connect_token),
-        is_host.then(|| passcode.string.clone()),
+        share_passcode,
         session,
         ui,
         assets,
+        only_player,
     )
     .await;
 }

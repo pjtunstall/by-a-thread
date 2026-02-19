@@ -63,6 +63,7 @@ pub trait LobbyUi {
         version: &str,
         server_addr: SocketAddr,
         share_passcode: Option<String>,
+        only_player: bool,
     );
     fn draw_countdown(&mut self, countdown_text: &str, font: Option<&Font>);
     fn flush_input(&mut self) {}

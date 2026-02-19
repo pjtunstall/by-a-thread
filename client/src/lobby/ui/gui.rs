@@ -519,18 +519,20 @@ impl LobbyUi for Gui {
     fn print_client_banner(
         &mut self,
         version: &str,
-        _server_addr: SocketAddr,
+        server_addr: SocketAddr,
         share_passcode: Option<String>,
+        only_player: bool,
     ) {
         self.message_history.clear();
         self.scroll_offset = 0;
-        self.show_message("@@@@@@@@@@@@@@@@@@@");
         self.show_message("@@@@@ BY A THREAD @@@@@");
-        self.show_message("@@@@@@@@@@@@@@@@@@@");
         self.show_message(" ");
-        self.show_banner_message(&format!("Version:      \t{}", version));
-        if let Some(ref passcode) = share_passcode {
-            self.show_banner_message(&format!("Session code: {} <-- Share this!", passcode));
+        self.show_message(&format!("  Version:         {}", version));
+        self.show_message(&format!("  Connected to: {}", server_addr));
+        if let Some(ref passcode) = share_passcode
+            && !only_player
+        {
+            self.show_message(&format!("  Session code:   {} <-- Share this!", passcode));
         }
         self.show_message(" ");
         self.show_banner_message("WASD to move");

@@ -26,6 +26,64 @@ use common::player::Color;
 use common::{self, auth::Passcode, constants::TICK_SECS};
 use renet_netcode::ConnectToken;
 
+pub enum MatchmakerResult {
+    Create {
+        server_addr: SocketAddr,
+        connect_token: ConnectToken,
+        passcode: Passcode,
+        player_count: u8,
+    },
+    Join {
+        server_addr: SocketAddr,
+        connect_token: ConnectToken,
+        passcode: Passcode,
+    },
+}
+
+impl MatchmakerResult {
+    pub fn only_player(&self) -> bool {
+        match self {
+            Self::Create { player_count, .. } => {
+                if *player_count == 1 {
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+
+    pub fn server_addr(&self) -> SocketAddr {
+        match self {
+            Self::Create { server_addr, .. } | Self::Join { server_addr, .. } => *server_addr,
+        }
+    }
+
+    pub fn connect_token(self) -> ConnectToken {
+        match self {
+            Self::Create { connect_token, .. } | Self::Join { connect_token, .. } => connect_token,
+        }
+    }
+
+    pub fn passcode(&self) -> &Passcode {
+        match self {
+            Self::Create { passcode, .. } | Self::Join { passcode, .. } => passcode,
+        }
+    }
+
+    pub fn is_host(&self) -> bool {
+        matches!(self, Self::Create { .. })
+    }
+
+    pub fn share_passcode(&self) -> Option<String> {
+        match self {
+            Self::Create { passcode, .. } => Some(passcode.string.clone()),
+            Self::Join { .. } => None,
+        }
+    }
+}
+
 pub struct ClientRunner {
     pub session: ClientSession,
     pub client: RenetClient,
@@ -348,6 +406,7 @@ pub async fn run_client_loop(
     session: ClientSession,
     ui: Gui,
     assets: Assets,
+    only_player: bool,
 ) {
     println!("Connecting to server: {}", server_addr);
 
@@ -393,6 +452,7 @@ pub async fn run_client_loop(
         common::protocol::version_string(),
         server_addr,
         share_passcode,
+        only_player,
     );
 
     loop {
@@ -491,6 +551,21 @@ pub async fn prompt_for_server_address(
 
 const NEW_JOIN_MENU_ITEMS: &[&str] = &["New game", "Join game"];
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum NewOrJoin {
+    NewGame,
+    JoinGame,
+}
+
+impl NewOrJoin {
+    fn menu_label(&self) -> &'static str {
+        match self {
+            Self::NewGame => "New game",
+            Self::JoinGame => "Join game",
+        }
+    }
+}
+
 fn format_new_join_menu_lines(selected_index: usize) -> Vec<(String, Color)> {
     let mut lines = Vec::with_capacity(4);
     for (i, label) in NEW_JOIN_MENU_ITEMS.iter().enumerate() {
@@ -514,14 +589,13 @@ pub async fn prompt_for_matchmaker_choice(
     api_host: &str,
     ui: &mut dyn LobbyUi,
     font: Option<&macroquad::prelude::Font>,
-) -> Option<(SocketAddr, ConnectToken, Passcode, bool)> {
+) -> Option<MatchmakerResult> {
     let matchmaker_host = Some(api_host);
-
     const JOIN_GUESS_LIMIT: u8 = 3;
 
     let mut prompt_printed = false;
     let mut choice_displayed = false;
-    let mut choice: Option<u8> = None;
+    let mut new_or_join: Option<NewOrJoin> = None;
     let mut selected_index: usize = 0;
     let mut wrong_guesses: u8 = 0;
 
@@ -530,102 +604,51 @@ pub async fn prompt_for_matchmaker_choice(
             return None;
         }
 
-        if choice.is_none() {
-            match ui.poll_single_key() {
-                Ok(Some(common::input::UiKey::Up)) => {
-                    selected_index = (selected_index + NEW_JOIN_MENU_ITEMS.len() - 1)
-                        % NEW_JOIN_MENU_ITEMS.len();
-                }
-                Ok(Some(common::input::UiKey::Down)) => {
-                    selected_index = (selected_index + 1) % NEW_JOIN_MENU_ITEMS.len();
-                }
-                Ok(Some(common::input::UiKey::Enter)) => {
-                    choice = Some((selected_index + 1) as u8);
+        if new_or_join.is_none() {
+            match handle_menu_navigation(ui, font, &mut selected_index).await {
+                Err(()) => return None,
+                Ok(Some(selection)) => {
+                    new_or_join = Some(selection);
                     prompt_printed = false;
                 }
-                Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
-                    ui.show_sanitized_error(&format!("No connection: {}.", e));
-                    await_error_dismissal(ui, font).await;
-                    return None;
-                }
-                _ => {}
+                Ok(None) => {}
             }
         } else {
             match ui.poll_input(common::chat::MAX_CHAT_MESSAGE_BYTES, false) {
                 Ok(Some(input)) => {
                     let trimmed = input.trim();
-                    if choice == Some(1) {
-                        if let Ok(n) = trimmed.parse::<u8>() {
-                            if (1..=10).contains(&n) {
-                                match api::create_game(n, matchmaker_host) {
-                                    Ok((response, addr)) => {
-                                        match net::connect_token_from_base64(
-                                            &response.connect_token,
-                                        ) {
-                                            Ok(token) => {
-                                                if let Some(passcode) =
-                                                    Passcode::from_string(&response.passcode)
-                                                {
-                                                    return Some((addr, token, passcode, true));
-                                                }
-                                            }
-                                            Err(e) => {
-                                                ui.show_sanitized_error(&e);
-                                                await_error_dismissal(ui, font).await;
-                                                return None;
-                                            }
-                                        }
-                                    }
-                                    Err(e) => {
-                                        ui.show_sanitized_error(&e.to_string());
-                                        await_error_dismissal(ui, font).await;
-                                        return None;
-                                    }
-                                }
-                            }
-                        }
-                        ui.show_error("Player count must be 1-10.");
-                        prompt_printed = false;
+                    let result = if new_or_join == Some(NewOrJoin::NewGame) {
+                        try_create_game(trimmed, matchmaker_host, ui, font).await
                     } else {
-                        if trimmed.len() == 6 && trimmed.chars().all(|c| c.is_ascii_digit()) {
-                            match api::join_game(trimmed, matchmaker_host) {
-                                Ok((response, addr)) => {
-                                    match net::connect_token_from_base64(&response.connect_token) {
-                                        Ok(token) => {
-                                            if let Some(passcode) = Passcode::from_string(trimmed) {
-                                                return Some((addr, token, passcode, false));
-                                            }
-                                        }
-                                        Err(e) => {
-                                            ui.show_sanitized_error(&e);
-                                            await_error_dismissal(ui, font).await;
-                                            return None;
-                                        }
-                                    }
-                                }
-                                Err(_e) => {
-                                    wrong_guesses += 1;
-                                    if wrong_guesses >= JOIN_GUESS_LIMIT {
-                                        ui.show_sanitized_error(
-                                            "Wrong passcode. No such game found",
-                                        );
-                                        choice = None;
-                                        choice_displayed = false;
-                                        wrong_guesses = 0;
-                                        prompt_printed = false;
-                                    } else {
-                                        let remaining = JOIN_GUESS_LIMIT - wrong_guesses;
-                                        ui.show_sanitized_error(&format!(
-                                            "Wrong passcode. {} {} remaining.",
-                                            remaining,
-                                            if remaining == 1 { "guess" } else { "guesses" }
-                                        ));
-                                        prompt_printed = false;
-                                    }
-                                }
+                        try_join_game(
+                            trimmed,
+                            matchmaker_host,
+                            ui,
+                            font,
+                            &mut wrong_guesses,
+                            JOIN_GUESS_LIMIT,
+                        )
+                        .await
+                    };
+
+                    match result {
+                        Some(Ok(m)) => return Some(m),
+                        Some(Err(true)) => {
+                            await_error_dismissal(ui, font).await;
+                            return None;
+                        }
+                        Some(Err(false)) => {
+                            new_or_join = None;
+                            choice_displayed = false;
+                            wrong_guesses = 0;
+                            prompt_printed = false;
+                        }
+                        None => {
+                            if new_or_join == Some(NewOrJoin::NewGame) {
+                                ui.show_error("Player count must be 1-10.");
+                            } else {
+                                ui.show_error("Passcode must be 6 digits.");
                             }
-                        } else {
-                            ui.show_error("Passcode must be 6 digits.");
                             prompt_printed = false;
                         }
                     }
@@ -640,38 +663,37 @@ pub async fn prompt_for_matchmaker_choice(
         }
 
         if !prompt_printed {
-            if choice.is_none() {
+            if new_or_join.is_none() {
                 ui.show_prompt("New game or Join game?");
                 ui.show_message(" ");
-                let menu_lines = format_new_join_menu_lines(selected_index);
-                for (line, color) in &menu_lines {
+                for (line, color) in &format_new_join_menu_lines(selected_index) {
                     ui.show_message_with_color(line, *color);
                 }
             } else {
                 if !choice_displayed {
-                    let choice_label = NEW_JOIN_MENU_ITEMS[(choice.unwrap() - 1) as usize];
+                    let selection_label = new_or_join.unwrap().menu_label();
                     let menu_line_count = 1 + format_new_join_menu_lines(0).len();
                     ui.replace_last_messages(
                         menu_line_count,
-                        vec![(format!("{}.", choice_label), Color::WHITE)],
+                        vec![(format!("{}.", selection_label), Color::WHITE)],
                     );
                     choice_displayed = true;
                 }
-                if choice == Some(1) {
-                    ui.show_prompt("How many players (1-10)? ");
+                ui.show_prompt(if new_or_join == Some(NewOrJoin::NewGame) {
+                    "How many players (1-10)? "
                 } else {
-                    ui.show_prompt("Enter passcode (6 digits): ");
-                }
+                    "Enter passcode (6 digits): "
+                });
             }
             prompt_printed = true;
         }
 
-        if choice.is_none() && prompt_printed {
+        if new_or_join.is_none() && prompt_printed {
             let menu_lines = format_new_join_menu_lines(selected_index);
             ui.replace_last_messages(menu_lines.len(), menu_lines);
         }
 
-        let should_show_input = choice.is_some();
+        let should_show_input = new_or_join.is_some();
         ui.draw(
             should_show_input,
             should_show_input,
@@ -680,6 +702,124 @@ pub async fn prompt_for_matchmaker_choice(
         );
 
         next_frame().await;
+    }
+}
+
+async fn handle_menu_navigation(
+    ui: &mut dyn LobbyUi,
+    font: Option<&macroquad::prelude::Font>,
+    selected_index: &mut usize,
+) -> Result<Option<NewOrJoin>, ()> {
+    match ui.poll_single_key() {
+        Ok(Some(common::input::UiKey::Up)) => {
+            *selected_index =
+                (*selected_index + NEW_JOIN_MENU_ITEMS.len() - 1) % NEW_JOIN_MENU_ITEMS.len();
+            Ok(None)
+        }
+        Ok(Some(common::input::UiKey::Down)) => {
+            *selected_index = (*selected_index + 1) % NEW_JOIN_MENU_ITEMS.len();
+            Ok(None)
+        }
+        Ok(Some(common::input::UiKey::Enter)) => {
+            let selection = match *selected_index {
+                0 => NewOrJoin::NewGame,
+                _ => NewOrJoin::JoinGame,
+            };
+            Ok(Some(selection))
+        }
+        Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
+            ui.show_sanitized_error(&format!("No connection: {}.", e));
+            await_error_dismissal(ui, font).await;
+            Err(())
+        }
+        _ => Ok(None),
+    }
+}
+
+async fn try_create_game(
+    trimmed: &str,
+    matchmaker_host: Option<&str>,
+    ui: &mut dyn LobbyUi,
+    _font: Option<&macroquad::prelude::Font>,
+) -> Option<Result<MatchmakerResult, bool>> {
+    let n = trimmed
+        .parse::<u8>()
+        .ok()
+        .filter(|&n| (1..=10).contains(&n))?;
+    let (response, addr) = match api::create_game(n, matchmaker_host) {
+        Ok(x) => x,
+        Err(e) => {
+            ui.show_sanitized_error(&e.to_string());
+            return Some(Err(true));
+        }
+    };
+    let token = match net::connect_token_from_base64(&response.connect_token) {
+        Ok(t) => t,
+        Err(e) => {
+            ui.show_sanitized_error(&e);
+            return Some(Err(true));
+        }
+    };
+    let passcode = Passcode::from_string(&response.passcode)?;
+    Some(Ok(MatchmakerResult::Create {
+        server_addr: addr,
+        connect_token: token,
+        passcode,
+        player_count: n,
+    }))
+}
+
+async fn try_join_game(
+    trimmed: &str,
+    matchmaker_host: Option<&str>,
+    ui: &mut dyn LobbyUi,
+    _font: Option<&macroquad::prelude::Font>,
+    wrong_guesses: &mut u8,
+    join_guess_limit: u8,
+) -> Option<Result<MatchmakerResult, bool>> {
+    if trimmed.len() != 6 || !trimmed.chars().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    match api::join_game(trimmed, matchmaker_host) {
+        Ok((response, addr)) => {
+            let token = match net::connect_token_from_base64(&response.connect_token) {
+                Ok(t) => t,
+                Err(e) => {
+                    ui.show_sanitized_error(&e);
+                    return Some(Err(true));
+                }
+            };
+            let passcode = Passcode::from_string(trimmed)?;
+            Some(Ok(MatchmakerResult::Join {
+                server_addr: addr,
+                connect_token: token,
+                passcode,
+            }))
+        }
+        Err(e) => {
+            let is_game_not_found = matches!(
+                &e,
+                crate::api::ApiError::Api { code, .. } if code == "GAME_NOT_FOUND"
+            );
+            if is_game_not_found {
+                *wrong_guesses += 1;
+                if *wrong_guesses >= join_guess_limit {
+                    ui.show_sanitized_error(&e.to_string());
+                    Some(Err(false))
+                } else {
+                    let remaining = join_guess_limit - *wrong_guesses;
+                    ui.show_sanitized_error(&format!(
+                        "Wrong passcode. {} {} remaining.",
+                        remaining,
+                        if remaining == 1 { "guess" } else { "guesses" }
+                    ));
+                    None
+                }
+            } else {
+                ui.show_sanitized_error(&e.to_string());
+                None
+            }
+        }
     }
 }
 

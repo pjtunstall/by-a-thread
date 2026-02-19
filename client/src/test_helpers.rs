@@ -129,6 +129,7 @@ impl LobbyUi for MockUi {
         version: &str,
         server_addr: SocketAddr,
         _share_passcode: Option<String>,
+        _only_player: bool,
     ) {
         self.messages.clear();
         self.messages.push(format!(
