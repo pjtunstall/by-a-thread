@@ -26,6 +26,12 @@ impl ClientState {
     }
 }
 
+impl Default for ClientState {
+    fn default() -> Self {
+        Self::Transitioning
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputMode {
     Hidden,

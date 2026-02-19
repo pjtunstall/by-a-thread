@@ -258,12 +258,6 @@ impl ClientSession {
     }
 }
 
-impl Default for ClientState {
-    fn default() -> Self {
-        Self::Transitioning
-    }
-}
-
 pub struct InputUiState {
     pub mode: InputMode,
     pub show_waiting_message: bool,
