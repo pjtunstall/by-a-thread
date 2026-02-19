@@ -3,6 +3,7 @@
 - [Overview](#overview)
 - [State Machines](#state-machines)
   - [Client State Machine](#client-state-machine)
+    - [PreLobby](#prelobby)
     - [Lobby](#lobby)
   - [Server State Machine](#server-state-machine)
 - [File structure](#file-structure)
@@ -20,25 +21,37 @@ Both client and server use the state pattern to organize flow. Each has its own 
 Top-level states:
 
 ```txt
-Lobby -> Game -> PostGameChat -> EndAfterLeaderboard
+PreLobby -> Lobby -> Game -> PostGameChat -> EndAfterLeaderboard
 ```
 
+- `PreLobby` runs before the client establishes a network connection. It is driven by `run_pre_lobby_loop`; the main run loop (`ClientRunner`) does not exist yet. On completion, the client transitions to `Lobby::Connecting` and enters the run loop.
 - `Transitioning` is a formal state used only during the transition from `Game` to `PostGameChat`. The run loop replaces the current state with `Transitioning` (via `ClientState::default()`) so it can consume the `Game` state to build the full `PostGameChat` value, then immediately sets the state to `PostGameChat`. The client is in `Transitioning` only for that brief moment; the run loop does nothing while in this state.
 - `Disconnected` can be entered from the Lobby substate `Connecting` onwards (and from Game/PostGameChat on connection loss).
 - `EndAfterLeaderboard` is terminal: the client displays the post-game leaderboard and waits for the player to exit.
 
-Lobby has various substates, as detailed [below](#lobby).
+`PreLobby` and `Lobby` have various substates, as detailed [below](#prelobby) and [below](#lobby).
+
+#### PreLobby
+
+```
+ServerAddress -> ApiRequestMenu
+```
+
+- `ServerAddress`: the player enters the matchmaker API host (or uses default). The client pings the host to verify reachability before proceeding.
+- `ApiRequestMenu`: the player chooses "New game" or "Join game", then either enters player count (new) or passcode (join). The client calls the matchmaker API; the request runs in a background thread so the UI stays responsive and the player can press Escape to cancel. On success, the client receives a connect token and transitions to `Lobby::Connecting`.
+
+`ApiRequestMenu` internal phases: `ChoosingNewOrJoin` -> `ChoosingPlayerCount` (new) or `ChoosingPasscode` (join) -> `AwaitingCreate` or `AwaitingJoin` (polling the API response).
 
 #### Lobby
 
 ```
-Passcode -> Connecting -> Authenticating -> ChoosingUsername <-> AwaitingUsernameConfirmation -> Chat
+Connecting -> ChoosingUsername <-> AwaitingUsernameConfirmation -> Chat
 
 host: Chat -> ChoosingDifficulty -> Countdown -> Game
 non-host: Chat -> Countdown -> Game
 ```
 
-The client connects to by-a-thread.de by default. If the player is the host: `Chat -> ChoosingDifficulty`, then the host starts the countdown and everyone (including the host) receives `CountdownStarted` and enters `Countdown`. Non-hosts: `Chat -> Countdown` when the server broadcasts that the countdown has started. In either case,
+The client connects using the connect token obtained in PreLobby. If the player is the host: `Chat -> ChoosingDifficulty`, then the host starts the countdown and everyone (including the host) receives `CountdownStarted` and enters `Countdown`. Non-hosts: `Chat -> Countdown` when the server broadcasts that the countdown has started. In either case,
 
 ```txt
 Countdown -> Game
@@ -53,8 +66,8 @@ Lobby -> ChoosingDifficulty -> Countdown -> Game
 - The host, in Lobby, triggers a move to `ChoosingDifficulty`; when the host starts the game, the server moves to `Countdown` and broadcasts to all clients.
 - The server enters the formal state `Ending` only from `Game`: when the leaderboard has been sent to all clients in after-game chat (`leaderboard_sent`), the game handler returns `Ending` and the run loop breaks, exiting the process.
 - If all clients disconnect during `Game`, `Lobby`, or `ChoosingDifficulty`, the server does not transition to `Ending`; instead the given state's `remove_client` method calls `std::process::exit(0)` when the last client is removed, so the process exits. (This only runs when a client actually disconnects, so the server does not exit at startup when no one has connected.) If all clients disconnect during `Countdown`, the server just waits for the game to start, and lets the disconnection logic there take care of it.
-- If no client connects within two minutes of startup, the server exits. This failsafe avoids leaving orphaned containers running when connection fails.
-- If the server is waiting for clients to send `EnterPostGameChat` (ready for leaderboard) and some do not within two minutes, the server sends the leaderboard anyway and exits.
+- If no client connects within one minute of startup, the server exits. This failsafe avoids leaving orphaned containers running when connection fails.
+- If the server is waiting for clients to send `EnterPostGameChat` (ready for leaderboard) and some do not within 6 seconds, the server sends the leaderboard anyway and exits.
 - The `Game` state also manages clients in after-game chat, since they arrive at different times.
 
 ## File structure
@@ -90,6 +103,9 @@ client/src/
 ├── main.rs
 ├── post_game_chat.rs
 ├── assets.rs
+├── api.rs
+├── config.rs
+├── exit.rs
 ├── fade.rs
 ├── frame.rs
 ├── game/
@@ -116,12 +132,10 @@ client/src/
 ├── lobby/
 │   ├── flow.rs
 │   ├── state_handlers/
-│   │   ├── auth.rs
 │   │   ├── chat.rs
 │   │   ├── connecting.rs
 │   │   ├── countdown.rs
 │   │   ├── difficulty.rs
-│   │   ├── passcode.rs
 │   │   ├── start_countdown.rs
 │   │   ├── username.rs
 │   │   └── waiting.rs
@@ -132,7 +146,16 @@ client/src/
 │   └── ui.rs
 ├── lobby.rs
 ├── net.rs
+├── pre_lobby/
+│   ├── flow.rs
+│   ├── state_handlers/
+│   │   ├── api_request_menu.rs
+│   │   └── server_address.rs
+│   ├── state_handlers.rs
+│   └── state.rs
+├── pre_lobby.rs
 ├── run.rs
+├── server_address.rs
 ├── session.rs
 ├── state.rs
 ├── test_helpers.rs
