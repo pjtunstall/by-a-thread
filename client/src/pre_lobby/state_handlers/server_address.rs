@@ -3,11 +3,13 @@ use std::time::Duration;
 
 use common::player::Color;
 
+use super::api_request_menu::PreLobbyTransition;
 use crate::{
     config,
     lobby::ui::LobbyUi,
+    pre_lobby::state::{ApiRequestPhase, PreLobby},
     session::ClientSession,
-    state::{ClientState, Lobby},
+    state::ClientState,
 };
 
 const PING_TIMEOUT: Duration = Duration::from_secs(5);
@@ -15,24 +17,24 @@ const MATCHMAKER_PORT: u16 = 443;
 const MAX_HOST_LEN: usize = 253;
 
 pub fn handle(
-    lobby_state: &mut Lobby,
+    pre_lobby_state: &mut PreLobby,
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
-) -> Option<ClientState> {
-    let Lobby::ServerAddress { prompt_printed } = lobby_state else {
+) -> PreLobbyTransition {
+    let PreLobby::ServerAddress { prompt_printed } = pre_lobby_state else {
         unreachable!();
     };
 
     if let Ok(Some(common::input::UiKey::Tab)) = ui.poll_single_key() {
         session.input_queue.clear();
-        return try_connect_to_host(config::LOCAL_MATCHMAKER_HOST.to_string(), lobby_state, ui);
+        return try_connect_to_host(config::LOCAL_MATCHMAKER_HOST.to_string(), pre_lobby_state, ui);
     }
 
     if let Some(input_string) = session.take_input() {
         let trimmed = input_string.trim();
         if trimmed.is_empty() {
             session.input_queue.clear();
-            return try_connect_to_host(config::api_server_host(), lobby_state, ui);
+            return try_connect_to_host(config::api_server_host(), pre_lobby_state, ui);
         }
         if let Some(api_host) = validate_matchmaker_host(trimmed) {
             session.input_queue.clear();
@@ -44,21 +46,21 @@ pub fn handle(
             } else {
                 api_host
             };
-            return try_connect_to_host(host, lobby_state, ui);
+            return try_connect_to_host(host, pre_lobby_state, ui);
         }
         ui.show_error(&server_address_host_error());
         ui.show_prompt(&server_address_prompt());
         *prompt_printed = true;
-        return None;
+        return PreLobbyTransition::Stay;
     }
 
     if !*prompt_printed {
         ui.show_prompt(&server_address_prompt());
         *prompt_printed = true;
-        return None;
+        return PreLobbyTransition::Stay;
     }
 
-    None
+    PreLobbyTransition::Stay
 }
 
 fn validate_matchmaker_host(input: &str) -> Option<String> {
@@ -122,25 +124,28 @@ fn server_address_prompt() -> String {
 
 fn try_connect_to_host(
     host: String,
-    lobby_state: &mut Lobby,
+    pre_lobby_state: &mut PreLobby,
     ui: &mut dyn LobbyUi,
-) -> Option<ClientState> {
-    let Lobby::ServerAddress { prompt_printed } = lobby_state else {
+) -> PreLobbyTransition {
+    let PreLobby::ServerAddress { prompt_printed } = pre_lobby_state else {
         unreachable!();
     };
     match ping_matchmaker(&host) {
         Ok(()) => {
             ui.show_message_with_color(&format!("Connecting to:\t{}.", host), Color::WHITE);
-            Some(ClientState::Lobby(Lobby::MatchmakerMenu {
+            PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
                 api_host: host,
-                prompt_printed: false,
+                phase: ApiRequestPhase::ChoosingNewOrJoin {
+                    selected_index: 0,
+                    prompt_printed: false,
+                },
             }))
         }
         Err(e) => {
             ui.show_error(&e);
             ui.show_prompt(&server_address_prompt());
             *prompt_printed = true;
-            None
+            PreLobbyTransition::Stay
         }
     }
 }

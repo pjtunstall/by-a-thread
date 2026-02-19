@@ -1,7 +1,13 @@
-pub use crate::{game::state::Game, lobby::state::Lobby, post_game_chat::PostGameChat};
+pub use crate::{
+    game::state::Game,
+    lobby::state::Lobby,
+    post_game_chat::PostGameChat,
+    pre_lobby::state::PreLobby,
+};
 
 #[derive(Debug)]
 pub enum ClientState {
+    PreLobby(PreLobby),
     Lobby(Lobby),
     Game(Game),
     PostGameChat(PostGameChat),

@@ -4,6 +4,7 @@ use crate::{
     frame::FrameRate,
     lobby::state::Lobby,
     post_game_chat::PostGameChat,
+    pre_lobby::state::{ApiRequestPhase, PreLobby},
     state::{ClientState, InputMode},
 };
 use common::player::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username};
@@ -36,7 +37,7 @@ impl ClientSession {
         Self {
             client_id,
             is_host: false,
-            state: ClientState::Lobby(Lobby::ServerAddress {
+            state: ClientState::PreLobby(PreLobby::ServerAddress {
                 prompt_printed: false,
             }),
             clock: Clock::new(),
@@ -174,8 +175,15 @@ impl ClientSession {
 
     pub fn input_mode(&self) -> InputMode {
         match &self.state {
-            ClientState::Lobby(Lobby::ServerAddress { .. }) => InputMode::Enabled,
-            ClientState::Lobby(Lobby::MatchmakerMenu { .. }) => InputMode::SingleKey,
+            ClientState::PreLobby(PreLobby::ServerAddress { .. }) => InputMode::Enabled,
+            ClientState::PreLobby(PreLobby::ApiRequestMenu { phase, .. }) => match phase {
+                ApiRequestPhase::ChoosingNewOrJoin { .. } => InputMode::SingleKey,
+                ApiRequestPhase::ChoosingPlayerCount { .. }
+                | ApiRequestPhase::ChoosingPasscode { .. } => InputMode::Enabled,
+                ApiRequestPhase::AwaitingCreate { .. } | ApiRequestPhase::AwaitingJoin { .. } => {
+                    InputMode::DisabledWaiting
+                }
+            },
             ClientState::Lobby(Lobby::Connecting { .. }) => InputMode::Hidden,
             ClientState::Lobby(Lobby::ChoosingUsername { .. }) => InputMode::Enabled,
             ClientState::Lobby(Lobby::AwaitingUsernameConfirmation) => InputMode::DisabledWaiting,
@@ -218,7 +226,15 @@ impl ClientSession {
 
     pub fn prepare_ui_state(&mut self) -> InputUiState {
         let waiting_active = matches!(self.input_mode(), InputMode::DisabledWaiting)
-            || matches!(&self.state, ClientState::Lobby(Lobby::Connecting { .. }));
+            || matches!(&self.state, ClientState::Lobby(Lobby::Connecting { .. }))
+            || matches!(
+                &self.state,
+                ClientState::PreLobby(PreLobby::ApiRequestMenu {
+                    phase: ApiRequestPhase::AwaitingCreate { .. }
+                        | ApiRequestPhase::AwaitingJoin { .. },
+                    ..
+                })
+            );
 
         if waiting_active {
             if self.waiting_since.is_none() {
@@ -230,12 +246,20 @@ impl ClientSession {
             self.waiting_message_shown = false;
         }
 
+        let pre_lobby_awaiting = matches!(
+            &self.state,
+            ClientState::PreLobby(PreLobby::ApiRequestMenu {
+                phase: ApiRequestPhase::AwaitingCreate { .. } | ApiRequestPhase::AwaitingJoin { .. },
+                ..
+            })
+        );
         let show_waiting_message = waiting_active
             && !self.waiting_message_shown
-            && self
-                .waiting_since
-                .map(|start| start.elapsed().as_millis() >= 300)
-                .unwrap_or(false);
+            && (pre_lobby_awaiting
+                || self
+                    .waiting_since
+                    .map(|start| start.elapsed().as_millis() >= 300)
+                    .unwrap_or(false));
 
         if show_waiting_message {
             self.waiting_message_shown = true;
@@ -311,7 +335,7 @@ mod tests {
         let session = ClientSession::new(0, crate::server_address::default_server_address().ok());
         assert!(matches!(
             session.state,
-            ClientState::Lobby(Lobby::ServerAddress {
+            ClientState::PreLobby(PreLobby::ServerAddress {
                 prompt_printed: false
             })
         ));

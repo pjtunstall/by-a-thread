@@ -79,12 +79,6 @@ fn transition(
     let result = match state {
         ClientState::Lobby(mut lobby_state) => {
             let result = match lobby_state {
-                Lobby::ServerAddress { .. } => unreachable!(
-                    "`ServerAddress` is handled by `prompt_for_server_address` before `ClientRunner` exists"
-                ),
-                Lobby::MatchmakerMenu { .. } => unreachable!(
-                    "`MatchmakerMenu` is handled by `prompt_for_new_or_join` before `ClientRunner` exists"
-                ),
                 Lobby::Connecting { .. } => state_handlers::connecting::handle(
                     &mut lobby_state,
                     session,

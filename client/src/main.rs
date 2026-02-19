@@ -1,11 +1,10 @@
 use macroquad::prelude::Conf;
 
 use client::{
-    self,
     assets::Assets,
     lobby::ui::Gui,
     pre_lobby,
-    run::{self},
+    run,
     session::ClientSession,
 };
 
@@ -25,44 +24,23 @@ fn window_conf() -> Conf {
 #[macroquad::main(window_conf)]
 async fn main() {
     let assets = Assets::load().await;
-    let mut ui = Gui::new();
+    let ui = Gui::new();
 
     let client_id = ::rand::random::<u64>();
-    let mut session = ClientSession::new(client_id, None);
+    let session = ClientSession::new(client_id, None);
 
-    let Some(api_host) =
-        pre_lobby::prompt_for_server_address(&mut session, &mut ui, Some(&assets.font)).await
-    else {
+    let Some(result) = pre_lobby::run_pre_lobby_loop(session, ui, assets).await else {
         return;
     };
-
-    let Some(response) =
-        pre_lobby::seek_matchmaker_response(&api_host, &mut ui, Some(&assets.font)).await
-    else {
-        return;
-    };
-
-    let only_player = response.only_player();
-    let server_addr = response.server_addr();
-    let share_passcode = response.share_passcode();
-    let connect_token = response.connect_token();
-
-    session.client_id = connect_token.client_id;
-    session.server_addr = Some(server_addr);
-    session.transition(client::state::ClientState::Lobby(
-        client::state::Lobby::Connecting {
-            pending_passcode: Some(()),
-        },
-    ));
 
     run::run_client_loop(
-        server_addr,
-        connect_token,
-        share_passcode,
-        session,
-        ui,
-        assets,
-        only_player,
+        result.server_addr,
+        result.connect_token,
+        result.share_passcode,
+        result.session,
+        result.ui,
+        result.assets,
+        result.only_player,
     )
     .await;
 }

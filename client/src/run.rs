@@ -214,6 +214,11 @@ impl ClientRunner {
                     }
                 }
             }
+            ClientState::PreLobby(_) => {
+                unreachable!(
+                    "`PreLobby` is handled by `run_pre_lobby_loop` before `ClientRunner` exists"
+                )
+            }
             ClientState::Lobby(_) => lobby::state_handlers::update(self),
             ClientState::PostGameChat { .. } => {
                 let mut network = RenetNetworkHandle::new(&mut self.client, &mut self.transport);

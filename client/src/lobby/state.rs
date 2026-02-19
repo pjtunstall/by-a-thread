@@ -4,13 +4,6 @@ use crate::{game::world::maze::MazeMeshes, info::map::MapOverlay};
 use common::snapshot::InitialData;
 
 pub enum Lobby {
-    ServerAddress {
-        prompt_printed: bool,
-    },
-    MatchmakerMenu {
-        api_host: String,
-        prompt_printed: bool,
-    },
     Connecting {
         pending_passcode: Option<()>,
     },
@@ -39,18 +32,6 @@ pub enum Lobby {
 impl std::fmt::Debug for Lobby {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Lobby::ServerAddress { prompt_printed } => f
-                .debug_struct("ServerAddress")
-                .field("prompt_printed", prompt_printed)
-                .finish(),
-            Lobby::MatchmakerMenu {
-                api_host,
-                prompt_printed,
-            } => f
-                .debug_struct("MatchmakerMenu")
-                .field("api_host", api_host)
-                .field("prompt_printed", prompt_printed)
-                .finish(),
             Lobby::Connecting { pending_passcode } => f
                 .debug_struct("Connecting")
                 .field("pending_passcode", pending_passcode)
