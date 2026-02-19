@@ -12,47 +12,7 @@ use crate::{
 
 const PING_TIMEOUT: Duration = Duration::from_secs(5);
 const MATCHMAKER_PORT: u16 = 443;
-
-fn ping_matchmaker(host: &str) -> Result<(), String> {
-    let addrs: Vec<_> = (host, MATCHMAKER_PORT)
-        .to_socket_addrs()
-        .map_err(|e| format!("failed to resolve {}: {}", host, e))?
-        .collect();
-    for addr in addrs {
-        if TcpStream::connect_timeout(&addr, PING_TIMEOUT).is_ok() {
-            return Ok(());
-        }
-    }
-    Err(format!(
-        "cannot reach {}: connection refused or timed out.",
-        host
-    ))
-}
-
-fn try_connect_to_host(
-    host: String,
-    lobby_state: &mut Lobby,
-    ui: &mut dyn LobbyUi,
-) -> Option<ClientState> {
-    let Lobby::ServerAddress { prompt_printed } = lobby_state else {
-        unreachable!();
-    };
-    match ping_matchmaker(&host) {
-        Ok(()) => {
-            ui.show_message_with_color(&format!("Connecting to:\t{}.", host), Color::WHITE);
-            Some(ClientState::Lobby(Lobby::MatchmakerMenu {
-                api_host: host,
-                prompt_printed: false,
-            }))
-        }
-        Err(e) => {
-            ui.show_error(&e);
-            ui.show_prompt(&server_address_prompt());
-            *prompt_printed = true;
-            None
-        }
-    }
-}
+const MAX_HOST_LEN: usize = 253;
 
 pub fn handle(
     lobby_state: &mut Lobby,
@@ -100,8 +60,6 @@ pub fn handle(
 
     None
 }
-
-const MAX_HOST_LEN: usize = 253;
 
 fn validate_matchmaker_host(input: &str) -> Option<String> {
     let host = normalize_host_input(input)?;
@@ -161,4 +119,45 @@ fn server_address_prompt() -> String {
     format!(
         "Press ENTER for the default server (recommended),\nTAB if running locally,\nor pick another address:",
     )
+}
+
+fn try_connect_to_host(
+    host: String,
+    lobby_state: &mut Lobby,
+    ui: &mut dyn LobbyUi,
+) -> Option<ClientState> {
+    let Lobby::ServerAddress { prompt_printed } = lobby_state else {
+        unreachable!();
+    };
+    match ping_matchmaker(&host) {
+        Ok(()) => {
+            ui.show_message_with_color(&format!("Connecting to:\t{}.", host), Color::WHITE);
+            Some(ClientState::Lobby(Lobby::MatchmakerMenu {
+                api_host: host,
+                prompt_printed: false,
+            }))
+        }
+        Err(e) => {
+            ui.show_error(&e);
+            ui.show_prompt(&server_address_prompt());
+            *prompt_printed = true;
+            None
+        }
+    }
+}
+
+fn ping_matchmaker(host: &str) -> Result<(), String> {
+    let addrs: Vec<_> = (host, MATCHMAKER_PORT)
+        .to_socket_addrs()
+        .map_err(|e| format!("failed to resolve {}: {}", host, e))?
+        .collect();
+    for addr in addrs {
+        if TcpStream::connect_timeout(&addr, PING_TIMEOUT).is_ok() {
+            return Ok(());
+        }
+    }
+    Err(format!(
+        "cannot reach {}: connection refused or timed out",
+        host
+    ))
 }
