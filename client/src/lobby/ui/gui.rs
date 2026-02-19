@@ -537,10 +537,10 @@ impl LobbyUi for Gui {
         self.show_message(" ");
         self.show_banner_message("WASD to move");
         self.show_banner_message("Arrow keys to turn");
-        self.show_banner_message("Space to fire");
-        self.show_banner_message("Left shift for sniper mode");
+        self.show_banner_message("SPACE to fire");
+        self.show_banner_message("LEFT SHIFT for sniper mode");
         self.show_message(" ");
-        self.show_banner_message("Escape to quit/exit");
+        self.show_banner_message("ESCAPE to quit/exit");
         self.show_message(" ");
     }
 

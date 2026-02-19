@@ -200,7 +200,7 @@ fn handle(
                 ui.show_message(" ");
                 ui.show_sanitized_message("Server: That's your lot.");
                 ui.show_message(" ");
-                ui.show_warning("Press Escape to exit.");
+                ui.show_warning("Press ESCAPE to exit.");
             }
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));
@@ -208,7 +208,7 @@ fn handle(
             Ok((ServerMessage::SessionEnded { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));
                 ui.show_message(" ");
-                ui.show_warning("Press Escape to exit.");
+                ui.show_warning("Press ESCAPE to exit.");
                 return Some(ClientState::EndAfterLeaderboard);
             }
             Ok((_, _)) => {}

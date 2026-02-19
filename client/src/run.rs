@@ -199,7 +199,7 @@ impl ClientRunner {
                 &disconnect_message, separator
             ));
             self.ui.show_message(" ");
-            self.ui.show_warning("Press Escape to exit.");
+            self.ui.show_warning("Press ESCAPE to exit.");
             eprintln!("disconnected: {}{}", disconnect_message, separator);
             self.session.disconnected_notified = true;
         }
@@ -447,7 +447,7 @@ fn should_quit() -> bool {
 }
 
 async fn await_error_dismissal(ui: &mut dyn LobbyUi, font: Option<&macroquad::prelude::Font>) {
-    ui.show_warning("Press Escape to exit.");
+    ui.show_warning("Press ESCAPE to exit.");
     while !should_quit() {
         ui.draw(false, false, font, None);
         next_frame().await;
@@ -552,7 +552,7 @@ fn format_new_join_menu_lines(selected_index: usize) -> Vec<(String, Color)> {
     }
     lines.push((" ".to_string(), Color::LightGray));
     lines.push((
-        "Use up/down arrows to select, ENTER to confirm.".to_string(),
+        "Use UP/DOWN to select, ENTER to confirm.".to_string(),
         Color::LightGray,
     ));
     lines

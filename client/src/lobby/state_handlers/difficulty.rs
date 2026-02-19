@@ -68,7 +68,7 @@ fn format_menu_lines(selected_index: u8) -> Vec<(String, Color)> {
     }
     lines.push((" ".to_string(), Color::CHARTREUSE));
     lines.push((
-        "Use up/down arrows to select, Enter to confirm.".to_string(),
+        "Use UP/DOWN to select, ENTER to confirm.".to_string(),
         Color::LightGray,
     ));
     lines

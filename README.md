@@ -58,10 +58,10 @@ According to the 01 spec, the game is expected to include:
 
 - WASD to move
 - Arrow keys to turn
-- Space to fire
-- Left shift for sniper mode
+- SPACE to fire
+- LEFT SHIFT for sniper mode
 
-- Escape to quit/exit
+- ESCAPE to quit/exit
 
 ## Where to play
 
