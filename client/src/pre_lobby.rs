@@ -4,8 +4,7 @@ use macroquad::prelude::*;
 use renet_netcode::ConnectToken;
 
 use crate::{
-    api,
-    exit::should_quit,
+    api, exit,
     lobby::{state_handlers, ui::LobbyUi},
     session::ClientSession,
     state::{ClientState, InputMode, Lobby},
@@ -92,24 +91,13 @@ impl MatchmakerResult {
     }
 }
 
-async fn wait_till_escape_is_pressed(
-    ui: &mut dyn LobbyUi,
-    font: Option<&macroquad::prelude::Font>,
-) {
-    ui.show_warning("Press ESCAPE to exit.");
-    while !should_quit() {
-        ui.draw(false, false, font, None);
-        next_frame().await;
-    }
-}
-
 pub async fn prompt_for_server_address(
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
     font: Option<&macroquad::prelude::Font>,
 ) -> Option<String> {
     loop {
-        if should_quit() {
+        if exit::should_quit() {
             return None;
         }
 
@@ -180,7 +168,7 @@ fn format_new_join_menu_lines(selected_index: usize) -> Vec<(String, Color)> {
     }
     lines.push((" ".to_string(), Color::LightGray));
     lines.push((
-        "Use UP/DOWN to select, ENTER to confirm.".to_string(),
+        "UP/DOWN arrows to select, ENTER to confirm.".to_string(),
         Color::LightGray,
     ));
     lines
@@ -194,7 +182,7 @@ async fn choose_new_or_join(
     let mut selected_index: usize = 0;
 
     loop {
-        if should_quit() {
+        if exit::should_quit() {
             return None;
         }
 
@@ -238,7 +226,7 @@ async fn choose_player_count(
     let mut prompt_printed = false;
 
     loop {
-        if should_quit() {
+        if exit::should_quit() {
             return None;
         }
 
@@ -257,7 +245,7 @@ async fn choose_player_count(
             }
             Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
                 ui.show_sanitized_error(&format!("No connection: {}.", e));
-                wait_till_escape_is_pressed(ui, font).await;
+                exit::wait_till_escape_is_pressed(ui, font).await;
                 return None;
             }
             Ok(None) => {}
@@ -289,7 +277,7 @@ async fn choose_passcode(
     let mut prompt_printed = false;
 
     loop {
-        if should_quit() {
+        if exit::should_quit() {
             return None;
         }
 
@@ -305,8 +293,8 @@ async fn choose_passcode(
                 }
             }
             Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
-                ui.show_sanitized_error(&format!("No connection: {}", e)); // TODO: Will the lily of this period be gilded with another when the message is shown? Check this.
-                wait_till_escape_is_pressed(ui, font).await;
+                ui.show_sanitized_error(&format!("No connection: {}", e));
+                exit::wait_till_escape_is_pressed(ui, font).await;
                 return None;
             }
             Ok(None) => {}
@@ -350,7 +338,7 @@ pub async fn seek_matchmaker_response(
                 match try_create_game(n, matchmaker_host, ui, font).await {
                     Some(Ok(m)) => return Some(m),
                     Some(Err(MenuError::Fatal)) => {
-                        wait_till_escape_is_pressed(ui, font).await;
+                        exit::wait_till_escape_is_pressed(ui, font).await;
                         return None;
                     }
                     Some(Err(MenuError::ReturnToMenu)) | None => {}
@@ -375,7 +363,7 @@ pub async fn seek_matchmaker_response(
                     {
                         Some(Ok(m)) => return Some(m),
                         Some(Err(MenuError::Fatal)) => {
-                            wait_till_escape_is_pressed(ui, font).await;
+                            exit::wait_till_escape_is_pressed(ui, font).await;
                             return None;
                         }
                         Some(Err(MenuError::ReturnToMenu)) | None => {}
@@ -410,7 +398,7 @@ async fn handle_menu_navigation(
         }
         Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
             ui.show_sanitized_error(&format!("No connection: {}.", e));
-            wait_till_escape_is_pressed(ui, font).await;
+            exit::wait_till_escape_is_pressed(ui, font).await;
             Err(())
         }
         _ => Ok(None),
