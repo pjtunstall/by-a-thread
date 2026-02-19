@@ -22,7 +22,7 @@ use crate::{
     session::{ClientSession, Clock},
     state::{ClientState, InputMode, Lobby},
 };
-use common::{auth::Passcode, constants::TICK_SECS, player::Color};
+use common::{auth::Passcode, chat::MAX_CHAT_MESSAGE_BYTES, constants::TICK_SECS, player::Color};
 use renet_netcode::ConnectToken;
 
 pub enum MatchmakerResult {
@@ -464,22 +464,18 @@ pub async fn prompt_for_server_address(
             return None;
         }
 
-        if matches!(session.input_mode(), InputMode::Enabled)
-            || matches!(session.input_mode(), InputMode::SingleKey)
-        {
-            match ui.poll_input(common::chat::MAX_CHAT_MESSAGE_BYTES, false) {
-                Ok(Some(input)) => session.add_input(input),
-                Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
-                    ui.show_sanitized_error(&format!("No connection: {}.", e));
-                    return None;
-                }
-                Ok(None) => {}
-            }
-        }
-
         if let ClientState::Lobby(Lobby::MatchmakerMenu { api_host, .. }) = &session.state {
             ui.flush_input();
             return Some(api_host.clone());
+        }
+
+        match ui.poll_input(MAX_CHAT_MESSAGE_BYTES, false) {
+            Ok(Some(input)) => session.add_input(input),
+            Err(e @ crate::lobby::ui::UiInputError::Disconnected) => {
+                ui.show_sanitized_error(&format!("No connection: {}.", e));
+                return None;
+            }
+            Ok(None) => {}
         }
 
         let state = std::mem::take(&mut session.state);
@@ -558,7 +554,7 @@ fn format_new_join_menu_lines(selected_index: usize) -> Vec<(String, Color)> {
     lines
 }
 
-pub async fn prompt_for_matchmaker_choice(
+pub async fn prompt_for_new_or_join(
     api_host: &str,
     ui: &mut dyn LobbyUi,
     font: Option<&macroquad::prelude::Font>,
@@ -579,12 +575,12 @@ pub async fn prompt_for_matchmaker_choice(
 
         if new_or_join.is_none() {
             match handle_menu_navigation(ui, font, &mut selected_index).await {
-                Err(()) => return None,
+                Err(()) => return None, // Breaks upstream loop, leading to exit.
                 Ok(Some(selection)) => {
                     new_or_join = Some(selection);
                     prompt_printed = false;
                 }
-                Ok(None) => {}
+                Ok(None) => {} // No choice made this frame.
             }
         } else {
             match ui.poll_input(common::chat::MAX_CHAT_MESSAGE_BYTES, false) {

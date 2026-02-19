@@ -83,7 +83,7 @@ fn transition(
                     "`ServerAddress` is handled by `prompt_for_server_address` before `ClientRunner` exists"
                 ),
                 Lobby::MatchmakerMenu { .. } => unreachable!(
-                    "`MatchmakerMenu` is handled by `prompt_for_matchmaker_choice` before `ClientRunner` exists"
+                    "`MatchmakerMenu` is handled by `prompt_for_new_or_join` before `ClientRunner` exists"
                 ),
                 Lobby::Connecting { .. } => state_handlers::connecting::handle(
                     &mut lobby_state,

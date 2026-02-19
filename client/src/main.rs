@@ -35,8 +35,7 @@ async fn main() {
         return;
     };
 
-    let Some(result) =
-        run::prompt_for_matchmaker_choice(&api_host, &mut ui, Some(&assets.font)).await
+    let Some(result) = run::prompt_for_new_or_join(&api_host, &mut ui, Some(&assets.font)).await
     else {
         return;
     };
