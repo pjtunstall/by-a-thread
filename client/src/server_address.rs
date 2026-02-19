@@ -5,11 +5,12 @@ use common::constants::SERVER_PORT;
 #[cfg(not(test))]
 use crate::config;
 
+#[cfg(not(test))]
+use std::net::ToSocketAddrs;
+
 pub fn default_server_address() -> Result<SocketAddr, String> {
     #[cfg(not(test))]
     {
-        use std::net::ToSocketAddrs;
-
         let host = config::game_server_host();
         let mut addrs = (host.as_str(), SERVER_PORT)
             .to_socket_addrs()

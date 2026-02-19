@@ -13,10 +13,10 @@ fn main() {
         })
         .filter_map(Result::ok)
         .collect();
-
-    let version_code = vars.get("VERSION_CODE").cloned().unwrap_or_else(|| {
-        panic!("VERSION_CODE must be set in .env.client");
-    });
+    let version_code = vars
+        .get("VERSION_CODE")
+        .cloned()
+        .expect("VERSION_CODE must be set in .env.client");
     let host = vars.get("HOST").cloned().unwrap_or_default();
 
     println!("cargo:rustc-env=BUILD_HOST={}", host);

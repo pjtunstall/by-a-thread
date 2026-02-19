@@ -22,8 +22,7 @@ use crate::{
     session::{ClientSession, Clock},
     state::{ClientState, InputMode, Lobby},
 };
-use common::player::Color;
-use common::{self, auth::Passcode, constants::TICK_SECS};
+use common::{auth::Passcode, constants::TICK_SECS, player::Color};
 use renet_netcode::ConnectToken;
 
 pub enum MatchmakerResult {
@@ -97,9 +96,7 @@ pub struct ClientRunner {
 impl ClientRunner {
     pub async fn new(
         socket: UdpSocket,
-        server_addr: SocketAddr,
-        connect_token: Option<ConnectToken>,
-        private_key: [u8; 32],
+        connect_token: ConnectToken,
         ui: Gui,
         session: ClientSession,
         assets: Assets,
@@ -111,19 +108,6 @@ impl ClientRunner {
             .set_nonblocking(true)
             .map_err(|e| format!("failed to set socket as non-blocking: {}", e))?;
 
-        let connect_token = match connect_token {
-            Some(token) => token,
-            None => {
-                let protocol_id = common::protocol::protocol_id();
-                net::create_connect_token(
-                    current_time_duration,
-                    protocol_id,
-                    session.client_id,
-                    server_addr,
-                    &private_key,
-                )
-            }
-        };
         let authentication = ClientAuthentication::Secure { connect_token };
         let transport = NetcodeClientTransport::new(current_time_duration, authentication, socket)
             .map_err(|e| {
@@ -399,9 +383,8 @@ impl ClientRunner {
 }
 
 pub async fn run_client_loop(
-    private_key: [u8; 32],
     server_addr: SocketAddr,
-    connect_token: Option<ConnectToken>,
+    connect_token: ConnectToken,
     share_passcode: Option<String>,
     session: ClientSession,
     ui: Gui,
@@ -430,17 +413,7 @@ pub async fn run_client_loop(
         }
     };
 
-    let mut runner = match ClientRunner::new(
-        socket,
-        server_addr,
-        connect_token,
-        private_key,
-        ui,
-        session,
-        assets,
-    )
-    .await
-    {
+    let mut runner = match ClientRunner::new(socket, connect_token, ui, session, assets).await {
         Ok(r) => r,
         Err(e) => {
             eprintln!("{}", e);

@@ -7,7 +7,6 @@ use client::{
     run::{self},
     session::ClientSession,
 };
-use common;
 
 fn window_conf() -> Conf {
     Conf {
@@ -29,8 +28,6 @@ async fn main() {
 
     let client_id = ::rand::random::<u64>();
     let mut session = ClientSession::new(client_id, None);
-
-    let private_key = common::auth::private_key();
 
     let Some(api_host) =
         run::prompt_for_server_address(&mut session, &mut ui, Some(&assets.font)).await
@@ -58,9 +55,8 @@ async fn main() {
     ));
 
     run::run_client_loop(
-        private_key,
         server_addr,
-        Some(connect_token),
+        connect_token,
         share_passcode,
         session,
         ui,

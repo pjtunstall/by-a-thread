@@ -36,7 +36,8 @@ impl Game {
 
         for _ in 0..player_count {
             let client_id = rand::random::<u64>();
-            let connect_token = auth::create_connect_token(server_host, port, client_id, &private_key);
+            let connect_token =
+                auth::create_connect_token(server_host, port, client_id, &private_key);
             let mut bytes = Vec::new();
             connect_token
                 .write(&mut bytes)
