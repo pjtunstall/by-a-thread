@@ -1,11 +1,13 @@
 pub mod api;
 pub mod assets;
 pub mod config;
+pub mod exit;
 pub mod fade;
 pub mod frame;
 pub mod game;
 pub mod info;
 pub mod lobby;
+pub mod narthex;
 pub mod net;
 pub mod post_game_chat;
 pub mod run;

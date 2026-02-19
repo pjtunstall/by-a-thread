@@ -4,6 +4,7 @@ use client::{
     self,
     assets::Assets,
     lobby::ui::Gui,
+    narthex,
     run::{self},
     session::ClientSession,
 };
@@ -30,13 +31,13 @@ async fn main() {
     let mut session = ClientSession::new(client_id, None);
 
     let Some(api_host) =
-        run::prompt_for_server_address(&mut session, &mut ui, Some(&assets.font)).await
+        narthex::prompt_for_server_address(&mut session, &mut ui, Some(&assets.font)).await
     else {
         return;
     };
 
     let Some(response) =
-        run::seek_matchmaker_response(&api_host, &mut ui, Some(&assets.font)).await
+        narthex::seek_matchmaker_response(&api_host, &mut ui, Some(&assets.font)).await
     else {
         return;
     };
