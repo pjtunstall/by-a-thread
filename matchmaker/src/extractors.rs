@@ -1,15 +1,22 @@
 use std::net::{IpAddr, SocketAddr};
 
-use axum::{extract::{ConnectInfo, FromRef, FromRequestParts}, http::request::Parts};
+use axum::{
+    extract::{ConnectInfo, FromRef, FromRequestParts},
+    http::request::Parts,
+};
 use base64::Engine;
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 
 use crate::{errors::HttpError, state::AppState};
-use common::constants::VERSION_CODE_HEADER;
+use common::constants::{VERSION_CODE_HEADER, VERSION_HEADER};
 
 fn client_ip(parts: &Parts) -> Option<IpAddr> {
-    if let Some(forwarded) = parts.headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()) {
+    if let Some(forwarded) = parts
+        .headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+    {
         if let Some(first) = forwarded.split(',').next() {
             if let Ok(ip) = first.trim().parse() {
                 return Some(ip);
@@ -82,25 +89,44 @@ where
             .map(|s| s.to_string())
             .ok_or(HttpError::InvalidVersionCode)?;
 
+        let client_version = parts
+            .headers
+            .get(VERSION_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.trim().to_string())
+            .ok_or(HttpError::InvalidVersionCode)?;
+
         let app_state = AppState::from_ref(state);
         validate_version_code(&version_code, app_state.version_hash)?;
+        validate_version(&client_version, &app_state.expected_version)?;
 
         Ok(VersionCode)
     }
 }
 
-fn validate_version_code(
-    version_code: &str,
-    expected_hash: [u8; 32],
-) -> Result<(), HttpError> {
+fn validate_version_code(version_code: &str, expected_hash: [u8; 32]) -> Result<(), HttpError> {
     let version_bytes = base64::engine::general_purpose::STANDARD
         .decode(version_code.trim())
         .map_err(|_| HttpError::InvalidVersionCode)?;
 
     let computed_hash: [u8; 32] = Sha256::digest(&version_bytes).into();
     if !bool::from(computed_hash.ct_eq(&expected_hash)) {
-        return Err(HttpError::VersionMismatch);
+        return Err(HttpError::VersionMismatch {
+            message: "Client version is not supported.".to_string(),
+        });
     }
 
+    Ok(())
+}
+
+fn validate_version(client_version: &str, expected_version: &str) -> Result<(), HttpError> {
+    if client_version != expected_version {
+        return Err(HttpError::VersionMismatch {
+            message: format!(
+                "Client version {} is not supported. Please download the current version: {}.",
+                client_version, expected_version
+            ),
+        });
+    }
     Ok(())
 }

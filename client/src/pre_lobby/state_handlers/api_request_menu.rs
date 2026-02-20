@@ -19,6 +19,7 @@ pub enum PreLobbyTransition {
     NextState(ClientState),
     Complete(CompleteInfo),
     Exit,
+    ExitPendingUserAck,
 }
 
 pub struct CompleteInfo {
@@ -67,7 +68,7 @@ pub fn handle(
         ApiRequestPhase::AwaitingCreate {
             player_count,
             receiver,
-        } => handle_awaiting_create(*player_count, receiver, session, ui),
+        } => handle_awaiting_create(api_host, *player_count, receiver, session, ui),
         ApiRequestPhase::AwaitingJoin {
             passcode,
             wrong_guesses,
@@ -215,6 +216,7 @@ fn handle_choosing_passcode(
 }
 
 fn handle_awaiting_create(
+    api_host: &str,
     player_count: u8,
     receiver: &mpsc::Receiver<Result<(api::CreateGameResponse, std::net::SocketAddr), ApiError>>,
     session: &mut ClientSession,
@@ -243,7 +245,19 @@ fn handle_awaiting_create(
         }
         Ok(Err(e)) => {
             ui.show_sanitized_error(&e.to_string());
-            PreLobbyTransition::Exit
+            let is_version_mismatch =
+                matches!(&e, ApiError::Api { code, .. } if code == "VERSION_MISMATCH");
+            if is_version_mismatch {
+                PreLobbyTransition::ExitPendingUserAck
+            } else {
+                PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
+                    api_host: api_host.to_string(),
+                    phase: ApiRequestPhase::ChoosingNewOrJoin {
+                        selected_index: 0,
+                        prompt_printed: false,
+                    },
+                }))
+            }
         }
         Err(mpsc::TryRecvError::Empty) => PreLobbyTransition::Stay,
         Err(mpsc::TryRecvError::Disconnected) => PreLobbyTransition::Exit,
@@ -309,13 +323,19 @@ fn handle_awaiting_join(
                 }
             } else {
                 ui.show_sanitized_error(&e.to_string());
-                PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
-                    api_host: api_host.to_string(),
-                    phase: ApiRequestPhase::ChoosingPasscode {
-                        wrong_guesses,
-                        prompt_printed: false,
-                    },
-                }))
+                let is_version_mismatch =
+                    matches!(&e, ApiError::Api { code, .. } if code == "VERSION_MISMATCH");
+                if is_version_mismatch {
+                    PreLobbyTransition::ExitPendingUserAck
+                } else {
+                    PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
+                        api_host: api_host.to_string(),
+                        phase: ApiRequestPhase::ChoosingPasscode {
+                            wrong_guesses,
+                            prompt_printed: false,
+                        },
+                    }))
+                }
             }
         }
         Err(mpsc::TryRecvError::Empty) => PreLobbyTransition::Stay,

@@ -11,6 +11,7 @@ pub enum PreLobbyStep {
     Continue,
     Complete(CompleteInfo),
     Exit,
+    ExitPendingUserAck,
 }
 
 pub fn update(
@@ -92,6 +93,10 @@ fn transition(
                 PreLobbyTransition::Exit => {
                     session.state = ClientState::PreLobby(pre_lobby_state);
                     return Some(PreLobbyStep::Exit);
+                }
+                PreLobbyTransition::ExitPendingUserAck => {
+                    session.state = ClientState::PreLobby(pre_lobby_state);
+                    return Some(PreLobbyStep::ExitPendingUserAck);
                 }
             }
         }

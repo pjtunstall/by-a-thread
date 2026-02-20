@@ -7,7 +7,7 @@ use std::net::SocketAddr;
 use macroquad::prelude::*;
 use renet_netcode::ConnectToken;
 
-use crate::{assets::Assets, lobby::ui::Gui, session::ClientSession};
+use crate::{assets::Assets, exit, lobby::ui::{Gui, LobbyUi}, session::ClientSession};
 
 pub use state::{ApiRequestPhase, MatchmakerResponse, PreLobby};
 
@@ -44,6 +44,15 @@ pub async fn run_pre_lobby_loop(
                 });
             }
             flow::PreLobbyStep::Exit => return None,
+            flow::PreLobbyStep::ExitPendingUserAck => {
+                ui.show_message(" ");
+                ui.show_warning("Press ESCAPE to exit.");
+                while !exit::should_quit() {
+                    ui.draw(false, false, Some(&assets.font), None);
+                    next_frame().await;
+                }
+                return None;
+            }
         }
         next_frame().await;
     }

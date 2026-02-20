@@ -4,7 +4,7 @@ use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::config;
-use common::constants::VERSION_CODE_HEADER;
+use common::constants::{VERSION_CODE_HEADER, VERSION_HEADER};
 
 fn client(insecure: bool) -> Client {
     let mut builder = Client::builder().timeout(std::time::Duration::from_secs(30));
@@ -83,6 +83,7 @@ pub fn create_game(
     let response = client(insecure)
         .post(&url)
         .header(VERSION_CODE_HEADER, config::version_code())
+        .header(VERSION_HEADER, common::protocol::version_string())
         .json(&CreateGameRequest { player_count })
         .send()
         .map_err(ApiError::Http)?;
@@ -125,6 +126,7 @@ pub fn join_game(
     let response = client(insecure)
         .post(&url)
         .header(VERSION_CODE_HEADER, config::version_code())
+        .header(VERSION_HEADER, common::protocol::version_string())
         .json(&serde_json::json!({}))
         .send()
         .map_err(ApiError::Http)?;

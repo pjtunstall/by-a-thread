@@ -28,11 +28,24 @@ async fn main() {
     .and_then(|v| v.try_into().ok())
     .expect("`VERSION_HASH` must be a 64-character hex string (32 bytes)");
 
+    let expected_version =
+        std::env::var("EXPECTED_VERSION").expect("`EXPECTED_VERSION` must be set in .env.matchmaker");
+
+    if expected_version != common::protocol::version_string() {
+        panic!(
+            "EXPECTED_VERSION ({}) does not match matchmaker build version ({}). \
+             Version checks may reject valid clients, or protocol_id may mismatch the game server.",
+            expected_version,
+            common::protocol::version_string()
+        );
+    }
+
     let state = AppState {
         port_pool: Arc::new(PortPool::new()),
         server_host,
         games: Arc::new(Games::new()),
         version_hash,
+        expected_version,
         rate_limiter: Arc::new(rate_limiter::RateLimiter::new()),
     };
 

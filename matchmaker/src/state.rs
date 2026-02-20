@@ -8,5 +8,6 @@ pub struct AppState {
     pub server_host: IpAddr,
     pub games: Arc<Games>,
     pub version_hash: [u8; 32],
+    pub expected_version: String,
     pub rate_limiter: Arc<RateLimiter>,
 }
