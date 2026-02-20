@@ -82,9 +82,6 @@ pub enum ServerMessage {
     LobbyTimer {
         end_time: f64,
     },
-    SessionEnded {
-        message: String,
-    },
     BeginDifficultySelection, // Allow host to move to phase where they choose a difficulty.
     DenyDifficultySelection,  // Refuse non-host client who asks to choose a difficulty level.
     Victory {
@@ -110,7 +107,6 @@ impl ServerMessage {
             Self::PostGameLeaderboard { .. } => "PostGameLeaderboard",
             Self::ServerInfo { .. } => "ServerInfo",
             Self::LobbyTimer { .. } => "LobbyTimer",
-            Self::SessionEnded { .. } => "SessionEnded",
             Self::BeginDifficultySelection => "BeginDifficultySelection",
             Self::DenyDifficultySelection => "DenyDifficultySelection",
             Self::Victory { .. } => "Victory",

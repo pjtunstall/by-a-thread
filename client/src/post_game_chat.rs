@@ -205,12 +205,6 @@ fn handle(
             Ok((ServerMessage::ServerInfo { message }, _)) => {
                 ui.show_sanitized_message(&format!("Server: {}", message));
             }
-            Ok((ServerMessage::SessionEnded { message }, _)) => {
-                ui.show_sanitized_message(&format!("Server: {}", message));
-                ui.show_message(" ");
-                ui.show_warning("Press ESCAPE to exit, ENTER to return to menu.");
-                return Some(ClientState::EndAfterLeaderboard);
-            }
             Ok((_, _)) => {}
             Err(error) => ui.show_typed_error(
                 UiErrorKind::Deserialization,
