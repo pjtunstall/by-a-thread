@@ -1,7 +1,6 @@
 # Run from the workspace root.
 #
 # Do not run with `make -j` (parallel builds).
-# See comment on unfullscreen at the end of the file.
 #
 # Prerequisites: see docs/build.md.
 #
@@ -20,13 +19,11 @@
 #   make appimage     # only AppImage
 #   make kill-servers # stop running game server processes and matchmaker-spawned containers
 #   make clean        # remove dist/, temp dirs, and Docker images
-#   make fullscreen   # set fullscreen: true in client/src/main.rs (idempotent)
 #
 # Make checks that required tools exist before each step, and rebuilds artifacts
 # only when their dependencies have changed.
 #
-.PHONY: all no-test test server deploy-hetzner run-hetzner windows deb rpm appimage macos-intel macos-silicon clean fullscreen unfullscreen kill-servers
-.PHONY: check-windows check-deb check-rpm check-appimage check-docker check-docker-compose check-deploy check-env
+.PHONY: all no-test test server deploy-hetzner run-hetzner windows deb rpm appimage macos-intel macos-silicon clean kill-servers check-windows check-deb check-rpm check-appimage check-docker check-docker-compose check-deploy check-env
 
 DIST := dist
 STAGING_WIN := ByAThread-win64
@@ -48,15 +45,9 @@ ZIP_APPLE_SILICON := $(DIST)/ByAThread-macos-silicon.zip
 SERVER_SOURCES := Cargo.toml Cargo.lock server/Cargo.toml common/Cargo.toml $(shell find server -name '*.rs') $(shell find common -name '*.rs')
 CLIENT_SOURCES := Cargo.toml Cargo.lock client/Cargo.toml client/build.rs .env.client $(shell find client/src -name '*.rs') common/Cargo.toml $(shell find common -name '*.rs')
 
-all: test server windows deb rpm appimage unfullscreen
+all: test server windows deb rpm appimage
 
-no-test: server windows deb rpm appimage unfullscreen
-
-# Set fullscreen true in the client so the built game runs fullscreen. Only run
-# this when building the client (inside those rules), not as a separate first step,
-# so the source is not touched when everything is already up to date.
-fullscreen:
-	@grep -q 'fullscreen: false,' client/src/main.rs && sed 's|fullscreen: false,|fullscreen: true,|' client/src/main.rs > client/src/main.rs.tmp && mv client/src/main.rs.tmp client/src/main.rs || true
+no-test: server windows deb rpm appimage
 
 # --- Run tests ---
 test:
@@ -146,7 +137,6 @@ $(ZIP_WIN): $(EXE_WIN)
 	rm -r $(STAGING_WIN)
 
 windows: $(ZIP_WIN)
-	$(MAKE) unfullscreen
 
 # --- Debian .deb package ---
 #
@@ -157,7 +147,6 @@ $(DIST)/.deb-built: $(EXE_HOST) | check-deb check-env
 	./scripts/with-fullscreen.sh bash -c 'cargo deb -p client && cp target/debian/by-a-thread_*.deb $(DIST)/ && touch $(DIST)/.deb-built'
 
 deb: $(DIST)/.deb-built
-	$(MAKE) unfullscreen
 
 # --- RPM package ---
 #
@@ -168,7 +157,6 @@ $(DIST)/.rpm-built: $(EXE_HOST) | check-rpm check-env
 	./scripts/with-fullscreen.sh bash -c 'cargo generate-rpm -p client --payload-compress gzip && cp target/generate-rpm/*.rpm $(DIST)/ && touch $(DIST)/.rpm-built'
 
 rpm: $(DIST)/.rpm-built
-	$(MAKE) unfullscreen
 
 # --- AppImage ---
 #
@@ -219,16 +207,7 @@ kill-servers:
 	@containers=$$(docker ps -q --filter 'name=game-' 2>/dev/null); [ -n "$$containers" ] && echo "$$containers" | xargs docker stop 2>/dev/null || true
 
 clean:
-	rm -rf $(DIST) $(STAGING_WIN) $(STAGING_APPDIR) ByAThread.app target/debian target/generate-rpm
-	-docker rmi server-image:latest $$(docker images -q server-image) 2>/dev/null || true
-	-docker rmi matchmaker-image:latest $$(docker images -q matchmaker-image) 2>/dev/null || true
-
-# Set fullscreen false so the source is in development state after a release build.
-# Only runs when it is currently true, so the file is not touched when already false.
-# Touch client outputs only when we reverted main.rs, so the next make does not rebuild
-# solely due to that revert. If we do not touch, outputs keep real mtimes and rebuild when
-# other sources change.
-# Must be last in the Makefile so it runs after all other targets.
-# This assumes `make` is not run in parallel, i.e., we should not run `make -j`.
-unfullscreen:
-	@grep -q 'fullscreen: true,' client/src/main.rs && (sed 's|fullscreen: true,|fullscreen: false,|' client/src/main.rs > client/src/main.rs.tmp && mv client/src/main.rs.tmp client/src/main.rs && for f in $(EXE_HOST) $(EXE_WIN) $(ZIP_WIN) $(DIST)/.deb-built $(DIST)/.rpm-built $(APPIMAGE_FILE); do [ -f "$$f" ] && touch "$$f"; done) || true
+    rm -rf $(DIST) $(STAGING_WIN) $(STAGING_APPDIR) ByAThread.app target/debian target/generate-rpm
+    cargo clean
+    -docker rmi server-image:latest $$(docker images -q server-image) 2>/dev/null || true
+    -docker rmi matchmaker-image:latest $$(docker images -q matchmaker-image) 2>/dev/null || true
