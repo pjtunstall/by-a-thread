@@ -219,15 +219,16 @@ kill-servers:
 	@containers=$$(docker ps -q --filter 'name=game-' 2>/dev/null); [ -n "$$containers" ] && echo "$$containers" | xargs docker stop 2>/dev/null || true
 
 clean:
-	rm -rf $(DIST) $(STAGING_WIN) $(STAGING_APPDIR) ByAThread.app
+	rm -rf $(DIST) $(STAGING_WIN) $(STAGING_APPDIR) ByAThread.app target/debian target/generate-rpm
 	-docker rmi server-image:latest $$(docker images -q server-image) 2>/dev/null || true
 	-docker rmi matchmaker-image:latest $$(docker images -q matchmaker-image) 2>/dev/null || true
 
 # Set fullscreen false so the source is in development state after a release build.
 # Only runs when it is currently true, so the file is not touched when already false.
-# Then touch client outputs so their mtime is newer than main.rs and the next make does not rebuild.
+# Touch client outputs only when we reverted main.rs, so the next make does not rebuild
+# solely due to that revert. If we do not touch, outputs keep real mtimes and rebuild when
+# other sources change.
 # Must be last in the Makefile so it runs after all other targets.
 # This assumes `make` is not run in parallel, i.e., we should not run `make -j`.
 unfullscreen:
-	@grep -q 'fullscreen: true,' client/src/main.rs && sed 's|fullscreen: true,|fullscreen: false,|' client/src/main.rs > client/src/main.rs.tmp && mv client/src/main.rs.tmp client/src/main.rs || true
-	@for f in $(EXE_HOST) $(EXE_WIN) $(ZIP_WIN) $(DIST)/.deb-built $(DIST)/.rpm-built $(APPIMAGE_FILE); do [ -f "$$f" ] && touch "$$f"; done
+	@grep -q 'fullscreen: true,' client/src/main.rs && (sed 's|fullscreen: true,|fullscreen: false,|' client/src/main.rs > client/src/main.rs.tmp && mv client/src/main.rs.tmp client/src/main.rs && for f in $(EXE_HOST) $(EXE_WIN) $(ZIP_WIN) $(DIST)/.deb-built $(DIST)/.rpm-built $(APPIMAGE_FILE); do [ -f "$$f" ] && touch "$$f"; done) || true
