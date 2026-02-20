@@ -8,6 +8,7 @@ services:
     environment:
       - CONTAINERS=1
       - POST=1
+      - DELETE=1
       - NETWORKS=1
     networks:
       - backend
@@ -27,16 +28,13 @@ services:
       - backend
 
   matchmaker:
-    image: matchmaker-image:latest
-    build:
-      context: .
-      dockerfile: matchmaker/Dockerfile
+    image: pjtunstall/matchmaker-image:latest
     container_name: matchmaker-container
     restart: unless-stopped
     env_file: .env.matchmaker
     environment:
       - DOCKER_HOST=tcp://socket-proxy:2375
-      - GAME_IMAGE=server-image:latest
+      - GAME_IMAGE=pjtunstall/server-image:latest
     depends_on:
       - socket-proxy
     networks:

@@ -22,16 +22,16 @@ To use a private Docker Hub repository for the game server and matchmaker images
 
    ```sh
    make server
-   docker tag server-image:latest your-username/game-server:latest
+   docker tag server-image:latest your-username/server-image:latest
    docker compose build matchmaker
-   docker tag matchmaker-image:latest your-username/matchmaker:latest
+   docker tag matchmaker-image:latest your-username/matchmaker-image:latest
    ```
 
 4. **Push the images.**
 
    ```sh
-   docker push your-username/game-server:latest
-   docker push your-username/matchmaker:latest
+   docker push your-username/server-image:latest
+   docker push your-username/matchmaker-image:latest
    ```
 
 5. **Use images from the registry.** On a host that has run `docker login` with access to the private repos, pull and run by image name. For the matchmaker stack, set `GAME_IMAGE` to the full server image name so the matchmaker can start game servers from the registry, e.g. in `.env.matchmaker` or by overriding in compose:
@@ -39,7 +39,7 @@ To use a private Docker Hub repository for the game server and matchmaker images
    environment:
      - GAME_IMAGE=your-username/game-server:latest
    ```
-   Use `your-username/matchmaker:latest` as the matchmaker service image in `docker-compose.yaml` (or override with `docker compose run`) when you want to run the image from Docker Hub instead of building locally.
+   Use `your-username/matchmaker-image:latest` as the matchmaker service image in `docker-compose.yaml` (or override with `docker compose run`) when you want to run the image from Docker Hub instead of building locally.
 
 ## A curiosity: The dummy package trick
 
