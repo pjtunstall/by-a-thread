@@ -3,7 +3,7 @@ use std::{
     io::{self, stdout},
     net::SocketAddr,
     process,
-};
+}; // Temp. change to test protocol check.
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use crossterm::{
