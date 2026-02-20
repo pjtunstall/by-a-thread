@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# Creates ByAThread.app and dist/ZIP_NAME. Called from the Makefile; not intended to be run alone.
-# Run from workspace root.
-# Usage: bundle-macos.sh TARGET STAGING_DIR ZIP_NAME
-# e.g.   bundle-macos.sh aarch64-apple-darwin ByAThread-macos-silicon ByAThread-macos-silicon.zip
 set -e
 
 TARGET=$1
@@ -10,7 +6,6 @@ STAGING=$2
 ZIP_NAME=$3
 
 if [ -z "$TARGET" ] || [ -z "$STAGING" ] || [ -z "$ZIP_NAME" ]; then
-    echo "Usage: $0 TARGET STAGING_DIR ZIP_NAME" >&2
     exit 1
 fi
 
@@ -18,24 +13,29 @@ BUNDLE=ByAThread.app
 
 rm -rf "$BUNDLE" "dist/$STAGING"
 mkdir -p "$BUNDLE/Contents/MacOS" \
-         "$BUNDLE/Contents/Resources/fonts" \
-         "$BUNDLE/Contents/Resources/images" \
-         "$BUNDLE/Contents/Resources/sfx"
+         "$BUNDLE/Contents/Resources/assets/fonts" \
+         "$BUNDLE/Contents/Resources/assets/images" \
+         "$BUNDLE/Contents/Resources/assets/sfx"
+
+cat > "$BUNDLE/Contents/MacOS/launcher.sh" << 'EOF'
+#!/usr/bin/env bash
+cd "$(dirname "$0")/../Resources"
+exec "../MacOS/ByAThread"
+EOF
+chmod +x "$BUNDLE/Contents/MacOS/launcher.sh"
 
 cp "target/$TARGET/release/ByAThread" "$BUNDLE/Contents/MacOS/"
 cp "client/assets/fonts/PF Hellenica Serif Pro Bold.ttf" \
    "client/assets/fonts/NotoSerifBold-MmDx.ttf" \
-   "$BUNDLE/Contents/Resources/fonts/"
-cp client/assets/images/*.png "$BUNDLE/Contents/Resources/images/"
-cp client/assets/sfx/*.wav "$BUNDLE/Contents/Resources/sfx/"
-if [ -f client/icon.icns ]; then
-    cp client/icon.icns "$BUNDLE/Contents/Resources/"
-fi
+   "$BUNDLE/Contents/Resources/assets/fonts/"
+cp client/assets/images/*.png "$BUNDLE/Contents/Resources/assets/images/"
+cp client/assets/sfx/*.wav "$BUNDLE/Contents/Resources/assets/sfx/"
 
 if [ -f client/icon.icns ]; then
+    cp client/icon.icns "$BUNDLE/Contents/Resources/"
     ICON_PLIST='
     <key>CFBundleIconFile</key>
-    <string>icon</string>'
+    <string>icon.icns</string>'
 else
     ICON_PLIST=
 fi
@@ -46,7 +46,7 @@ cat > "$BUNDLE/Contents/Info.plist" << PLIST
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>ByAThread</string>
+    <string>launcher.sh</string>
     <key>CFBundleIdentifier</key>
     <string>com.byathread.client</string>
     <key>CFBundleName</key>
@@ -56,6 +56,8 @@ cat > "$BUNDLE/Contents/Info.plist" << PLIST
 </dict>
 </plist>
 PLIST
+
+codesign -s - -f --deep "$BUNDLE"
 
 mkdir -p dist
 cp -R "$BUNDLE" "dist/$STAGING/"

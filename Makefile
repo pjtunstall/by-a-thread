@@ -10,8 +10,8 @@
 #   make test         # run tests
 #   make server       # build server binary and Docker image (use docker compose build for matchmaker)
 #   make deploy-hetzner   # after 'make', pushes image to VPS and runs container
-#   make run-hetzner     # run server container on VPS (image must already be there)
-#   make windows      # Windows zip (Ubuntu: cross-compile; Windows: use scripts/Build-Windows.ps1)
+#   make run-hetzner      # run server container on VPS (image must already be there)
+#   make windows          # Windows zip (Ubuntu: cross-compile; Windows: use scripts/Build-Windows.ps1)
 #   make macos-intel      # Intel Mac .app and dist/ByAThread-macos-intel.zip (macOS only)
 #   make macos-silicon    # Apple Silicon .app and dist/ByAThread-macos-silicon.zip (macOS only)
 #   make deb          # only .deb package
@@ -102,7 +102,7 @@ check-env:
 #
 $(DOCKER_SENTINEL): $(SERVER_BIN) server/Dockerfile | check-docker
 	mkdir -p $(DIST)
-	VERSION=$$(cargo pkgid -p server | cut -d# -f2 | cut -d: -f2); \
+	VERSION=$$(cargo pkgid -p server | awk -F'[@#:]' '{print $$NF}'); \
 	docker build -f server/Dockerfile -t server-image:$$VERSION -t server-image:latest .
 	touch $(DOCKER_SENTINEL)
 
@@ -207,7 +207,7 @@ kill-servers:
 	@containers=$$(docker ps -q --filter 'name=game-' 2>/dev/null); [ -n "$$containers" ] && echo "$$containers" | xargs docker stop 2>/dev/null || true
 
 clean:
-    rm -rf $(DIST) $(STAGING_WIN) $(STAGING_APPDIR) ByAThread.app target/debian target/generate-rpm
-    cargo clean
-    -docker rmi server-image:latest $$(docker images -q server-image) 2>/dev/null || true
-    -docker rmi matchmaker-image:latest $$(docker images -q matchmaker-image) 2>/dev/null || true
+	rm -rf $(DIST) $(STAGING_WIN) $(STAGING_APPDIR) ByAThread.app target/debian target/generate-rpm
+	cargo clean
+	-docker rmi server-image:latest $$(docker images -q server-image) 2>/dev/null || true
+	-docker rmi matchmaker-image:latest $$(docker images -q matchmaker-image) 2>/dev/null || true
