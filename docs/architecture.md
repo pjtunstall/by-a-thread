@@ -2,6 +2,10 @@
 
 - [Overview](#overview)
 - [Matchmaker and deployment](#matchmaker-and-deployment)
+  - [Running the stack](#running-the-stack)
+  - [Environment files](#environment-files)
+  - [Local development](#local-development)
+  - [Deployment](#deployment)
 - [State Machines](#state-machines)
   - [Client State Machine](#client-state-machine)
     - [PreLobby](#prelobby)
@@ -25,7 +29,66 @@ The stack runs via Docker Compose:
 - **caddy**: Reverse proxy and TLS termination. Exposes ports 80 and 443; proxies `api.by-a-thread.de` to the matchmaker. Handles Let's Encrypt certificates in production.
 - **socket-proxy** ([tecnativa/docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy)): Exposes a restricted subset of the Docker socket to the matchmaker. The matchmaker connects to `tcp://socket-proxy:2375` instead of the raw socket. The proxy allows only `CONTAINERS=1`, `POST=1`, and `NETWORKS=1`, so the matchmaker can create containers and attach them to networks but cannot list or inspect other containers.
 
-All three services share a backend bridge network. Caddy reverse-proxies the matchmaker; the matchmaker connects to the socket proxy to run Docker. The matchmaker reads `.env.matchmaker` for `VERSION_HASH`, `HOST`, and related config. See [Docker](docker.md) for setup and local development.
+All three services share a backend bridge network. Caddy reverse-proxies the matchmaker; the matchmaker connects to the socket proxy to run Docker. The matchmaker reads `.env.matchmaker` for `VERSION_HASH`, `HOST`, and related config. See [Docker](docker.md) for compose stack details and the dummy package trick.
+
+### Running the stack
+
+Build the game server image with `make server` (builds the server binary and Docker image `server-image:latest`). Start the compose stack with `docker compose up -d`. After changes to the matchmaker source, run `docker compose up -d --build` to rebuild and restart the matchmaker container.
+
+### Environment files
+
+Create `.env.client` and `.env.matchmaker` in the project root. The client is built with values from `.env.client`; the matchmaker container reads `.env.matchmaker`. Run `make check-env` to ensure the two files are consistent.
+
+**.env.client** (used at client build time; values will be baked into the binary on build):
+
+- `VERSION_CODE` (required): Base64-encoded secret. The matchmaker validates the client by checking that the SHA-256 hash of the decoded bytes equals `VERSION_HASH` in `.env.matchmaker`. The secret can be any length; 32 bytes is a typical choice (44 base64 characters). Generate a pair once and use the same `VERSION_CODE` in `.env.client` and the corresponding hex `VERSION_HASH` in `.env.matchmaker`.
+- `HOST` (optional): Default server for API and game. Omit or leave empty for local. For production, set to your domain (e.g. `HOST=by-a-thread.de`). Must match `HOST` in `.env.matchmaker`.
+
+**.env.matchmaker** (loaded by Docker Compose for the matchmaker service):
+
+- `VERSION_HASH` (required): 64-character hex string (32 bytes), the SHA-256 hash of the bytes that are base64-encoded as `VERSION_CODE` in `.env.client`.
+- `HOST` (optional): Same meaning as in `.env.client`. Omit or set to `local` or `localhost` for local; set to your domain for production. Must match `.env.client` (see `make check-env`).
+
+**Local vs production:**
+
+|  | Local | Production |
+| --- | --- | --- |
+| `.env.client` | Leave `HOST` commented out or unset. | Set `HOST=your-domain.de`. |
+| `.env.matchmaker` | Leave `HOST` commented out or set to `local`. | Set `HOST=your-domain.de`. |
+| `.env` | Create with `CADDYFILE=./Caddyfile.local`. | Omit or use default Caddyfile. |
+
+After changing `HOST` for production, rebuild the client so the new default server is baked in.
+
+### Local development
+
+To run locally, extra care is needed for Caddy and Docker:
+
+**Caddy**
+
+1. The API host for local requests must be `localhost`, not `127.0.0.1`, or Caddy rejects the request. When connecting to an IP address, the TLS ClientHello has an empty Server Name Indication (SNI); Caddy refuses connections without SNI because it cannot match the request to a certificate. Using `localhost` sends the hostname in SNI, so Caddy can match the site block.
+
+2. In production, Caddy uses the default Caddyfile which tells it to obtain trusted TLS certificates from Let's Encrypt for `api.by-a-thread.de`. For local development, that's not possible. Create a `.env` file with `CADDYFILE=./Caddyfile.local` so that Caddy uses Caddyfile.local instead of Caddyfile. Caddyfile.local tells Caddy to use self-signed certs instead of trying to get them from Let's Encrypt. For the sake of local testing, our client accepts these over localhost, and only over localhost.
+
+**Docker**
+
+If the client tries to connect on 127.0.0.1, the server can't reply. When it tries to, it misinterprets the client's 127.0.0.1 (i.e. the address of the host OS) with its own in-container loopback address, and sends the reply to itself.
+
+- Client (on host) sends to 127.0.0.1:7785 from something like 127.0.0.1:45678.
+- Docker receives it on the host and DNATs the destination to the container's 5000.
+- The source address is usually left as 127.0.0.1:45678.
+- The server in the container does recv_from() and sees source 127.0.0.1:45678.
+- The server sends the reply to 127.0.0.1:45678.
+- Inside the container, 127.0.0.1 is the container's own loopback. The reply goes to the container's loopback, not the host.
+- The host client never gets the reply, so the connection times out.
+
+The solution is to make the client connect to the default Docker bridge network, 172.17.0.1. This is the host OS's address as understood both inside and outside the server container.
+
+- Client sends to 172.17.0.1:7785 from something like 172.17.0.1:45678 (same interface).
+- Docker forwards to the container; the server sees source 172.17.0.1:45678.
+- The server sends the reply to 172.17.0.1:45678.
+- From the container, 172.17.0.1 is the gateway to the host. The reply goes out to the host.
+- The host receives it on 172.17.0.1 and delivers it to the client.
+- The client gets the reply and the connection succeeds.
 
 ## State Machines
 
