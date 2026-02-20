@@ -55,7 +55,7 @@ Create `.env.client` and `.env.matchmaker` in the project root. The client is bu
 | --- | --- | --- |
 | `.env.client` | Leave `HOST` commented out or unset. | Set `HOST=your-domain.de`. |
 | `.env.matchmaker` | Leave `HOST` commented out or set to `local`. | Set `HOST=your-domain.de`. |
-| `.env` | Create with `CADDYFILE=./Caddyfile.local`. | Omit or use default Caddyfile. |
+| `.env` | Should contain `CADDYFILE=./Caddyfile.local`. | Omit to use default Caddyfile. |
 
 After changing `HOST` for production, rebuild the client so the new default server is baked in.
 
@@ -89,6 +89,22 @@ The solution is to make the client connect to the default Docker bridge network,
 - From the container, 172.17.0.1 is the gateway to the host. The reply goes out to the host.
 - The host receives it on 172.17.0.1 and delivers it to the client.
 - The client gets the reply and the connection succeeds.
+
+### Deployment
+
+Brief outline for running the stack on a cloud server:
+
+1. **Server and Docker**  
+   Provision a cloud server (e.g. Hetzner). Install Docker; the Compose plugin is included with current Docker (use `docker compose`). No separate Compose install is needed.
+
+2. **SSH**  
+   Set up SSH keys and ensure you can log in. The Makefile deploy target uses the SSH alias `hetzner` (see below); any suitable host alias in `~/.ssh/config` can be used instead.
+
+3. **Firewall**  
+   Allow SSH (22), HTTP (80), HTTPS (443), and UDP on the 10 game server ports 7777–7786.
+
+4. **Deploy**  
+   Run `make deploy-hetzner` after a full `make` (or at least `make server`). This builds and pushes the latest game server Docker image to the VPS and runs a single server container there. It does **not** yet deploy the matchmaker stack (matchmaker, Caddy, socket-proxy) or use Docker Compose on the server; bringing up the full compose stack on the VPS is currently a separate, manual step (copy `docker-compose.yaml`, `.env.matchmaker`, and Caddyfile; run `docker compose up -d` on the server). This will be automated in due course.
 
 ## State Machines
 
