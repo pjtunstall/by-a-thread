@@ -93,6 +93,12 @@ impl Game {
             ]),
             host_config: Some(HostConfig {
                 port_bindings: Some(port_bindings),
+                // 0.5 CPUs expressed in "nanos" (0.5 * 10^9).
+                nano_cpus: Some(500_000_000),
+                // 300MB expressed in bytes (300 * 1024 * 1024).
+                memory: Some(314_572_800),
+                // Weight: 1024 is the standard baseline for equal priority.
+                cpu_shares: Some(1024),
                 ..Default::default()
             }),
             ..Default::default()

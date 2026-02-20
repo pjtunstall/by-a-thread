@@ -3,6 +3,7 @@
 - [Matchmaker stack (docker-compose)](#matchmaker-stack-docker-compose)
 - [Private Docker Hub registry](#private-docker-hub-registry)
 - [A curiosity: The dummy package trick](#a-curiosity-the-dummy-package-trick)
+- [Stats](#stats)
 
 ## Matchmaker stack (docker-compose)
 
@@ -54,3 +55,11 @@ RUN mkdir -p client/src && \
 In this way, I could omit/ignore the real client.
 
 The same technique is used in the matchmaker's [Dockerfile](../matchmaker/Dockerfile), with a dummy server and client.
+
+## Stats
+
+To check Docker stats:
+
+```sh
+ssh hetzner "docker stats --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}'"
+```

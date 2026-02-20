@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+pub const MAX_PLAYERS: usize = 10;
+
 pub const SERVER_PORT: u16 = 5000;
 pub const CLIENT_PROOF_HEADER: &str = "X-Version-Code";
 pub const VERSION_HEADER: &str = "X-Version";
@@ -50,7 +52,6 @@ pub const BROADCAST_INTERVAL: Duration = Duration::from_micros(BROADCAST_MICROS)
 
 // Server:
 pub const INPUT_BUFFER_LENGTH: usize = 128; // 128 ticks, ~2.1s at 60Hz.
-pub const MAX_PLAYERS: usize = 10;
 
 #[cfg(test)]
 mod tests {

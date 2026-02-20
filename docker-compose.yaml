@@ -12,6 +12,11 @@ services:
       - NETWORKS=1
     networks:
       - backend
+    deploy:
+      resources:
+        limits:
+          cpus: "0.05"
+          memory: 64M
 
   caddy:
     image: caddy:latest
@@ -26,6 +31,11 @@ services:
       - caddy_config:/config
     networks:
       - backend
+    deploy:
+      resources:
+        limits:
+          cpus: "0.10"
+          memory: 128M
 
   matchmaker:
     image: pjtunstall/matchmaker-image:latest
@@ -39,6 +49,12 @@ services:
       - socket-proxy
     networks:
       - backend
+    deploy:
+      resources:
+        limits:
+          cpus: "0.15"
+          memory: 256M
+          cpu_shares: 2048
 
 networks:
   backend:
