@@ -1,8 +1,9 @@
-use macroquad::prelude::Conf;
+use macroquad::prelude::*;
 
 use client::{
     assets::Assets,
-    lobby::ui::Gui,
+    exit,
+    lobby::ui::{Gui, LobbyUi},
     pre_lobby,
     run,
     session::ClientSession,
@@ -36,7 +37,7 @@ async fn main() {
             return;
         };
 
-        let Some(run_result) = run::run_client_loop(
+        let run_result = run::run_client_loop(
             pre_lobby_result.server_addr,
             pre_lobby_result.connect_token,
             pre_lobby_result.share_passcode,
@@ -45,10 +46,7 @@ async fn main() {
             pre_lobby_result.assets,
             pre_lobby_result.only_player,
         )
-        .await
-        else {
-            return;
-        };
+        .await;
 
         match run_result {
             run::RunClientReturn::Exit => return,
@@ -60,6 +58,30 @@ async fn main() {
                 session = s;
                 ui = u;
                 assets = a;
+            }
+            run::RunClientReturn::ConnectionError {
+                message,
+                session: s,
+                ui: u,
+                assets: a,
+            } => {
+                let mut connection_error_ui = u;
+                connection_error_ui.show_sanitized_error(&message);
+                connection_error_ui.show_message(" ");
+                connection_error_ui.show_warning("Press ESCAPE to exit, ENTER to return to menu.");
+                loop {
+                    if is_key_pressed(KeyCode::Enter) {
+                        session = s;
+                        ui = connection_error_ui;
+                        assets = a;
+                        break;
+                    }
+                    if exit::should_quit() {
+                        return;
+                    }
+                    connection_error_ui.draw(false, false, Some(&a.font), None);
+                    next_frame().await;
+                }
             }
         }
     }

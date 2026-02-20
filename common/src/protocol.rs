@@ -156,17 +156,57 @@ pub enum ClientMessage {
     Input(WireItem<PlayerInput>),
 }
 
+use std::sync::OnceLock;
+
+static VERSION_STRING: OnceLock<&'static str> = OnceLock::new();
+
 pub fn version_string() -> &'static str {
-    env!("CARGO_PKG_VERSION")
+    *VERSION_STRING.get_or_init(|| {
+        let version = env!("CARGO_PKG_VERSION");
+        let commit = env!("BUILD_GIT_COMMIT");
+        if commit.is_empty() {
+            version
+        } else {
+            const MAX_DISPLAY: usize = 12;
+            let short = if commit.len() > MAX_DISPLAY {
+                &commit[..MAX_DISPLAY]
+            } else {
+                commit
+            };
+            Box::leak(format!("{}-{}", version, short).into_boxed_str())
+        }
+    })
 }
 
 pub fn protocol_id() -> u64 {
-    let v = env!("CARGO_PKG_VERSION");
-    let parts: Vec<u64> = v.split('.').map(|s| s.parse().unwrap_or(0)).collect();
-    let (major, minor, patch) = (
-        parts.get(0).copied().unwrap_or(0),
-        parts.get(1).copied().unwrap_or(0),
-        parts.get(2).copied().unwrap_or(0),
-    );
-    major * 1_000_000 + minor * 1_000 + patch
+    let commit = env!("BUILD_GIT_COMMIT");
+    if commit.is_empty() {
+        let v = env!("CARGO_PKG_VERSION");
+        let parts: Vec<u64> = v.split('.').map(|s| s.parse().unwrap_or(0)).collect();
+        let (major, minor, patch) = (
+            parts.get(0).copied().unwrap_or(0),
+            parts.get(1).copied().unwrap_or(0),
+            parts.get(2).copied().unwrap_or(0),
+        );
+        major * 1_000_000 + minor * 1_000 + patch
+    } else {
+        const LEN: usize = 16;
+        if commit.len() >= LEN {
+            u64::from_str_radix(&commit[..LEN], 16).unwrap_or_else(|_| hash_commit(commit))
+        } else {
+            hash_commit(commit)
+        }
+    }
+}
+
+fn hash_commit(commit: &str) -> u64 {
+    let mut hash: u64 = 0;
+    for (i, b) in commit.bytes().take(16).enumerate() {
+        hash ^= (b as u64) << (i % 8 * 8);
+    }
+    if hash == 0 {
+        1
+    } else {
+        hash
+    }
 }

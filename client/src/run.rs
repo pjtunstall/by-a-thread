@@ -30,6 +30,12 @@ pub enum RunClientReturn {
         ui: Gui,
         assets: Assets,
     },
+    ConnectionError {
+        message: String,
+        session: ClientSession,
+        ui: Gui,
+        assets: Assets,
+    },
 }
 
 pub struct ClientRunner {
@@ -49,30 +55,40 @@ impl ClientRunner {
         ui: Gui,
         session: ClientSession,
         assets: Assets,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, (String, Gui, ClientSession, Assets)> {
         let current_time_duration = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("system time is before unix epoch");
-        socket
-            .set_nonblocking(true)
-            .map_err(|e| format!("failed to set socket as non-blocking: {}", e))?;
+        if let Err(e) = socket.set_nonblocking(true) {
+            return Err((
+                format!("failed to set socket as non-blocking: {}", e),
+                ui,
+                session,
+                assets,
+            ));
+        }
 
         let authentication = ClientAuthentication::Secure { connect_token };
-        let transport = NetcodeClientTransport::new(current_time_duration, authentication, socket)
-            .map_err(|e| {
-                let error_msg = e.to_string();
-                if error_msg.contains("invalid protocol id")
-                    || error_msg.contains("invalid version info")
-                {
-                    "version mismatch: client and server versions do not match".to_string()
-                } else if error_msg.contains("connection denied") {
-                    "connection denied: server full or access restricted".to_string()
-                } else if error_msg.contains("connection timed out") {
-                    "connection timed out: server not responding".to_string()
-                } else {
-                    format!("failed to create network transport: {}", e)
+        let transport =
+            match NetcodeClientTransport::new(current_time_duration, authentication, socket) {
+                Ok(t) => t,
+                Err(e) => {
+                    let error_msg = e.to_string();
+                    let message = if error_msg.contains("invalid protocol id")
+                        || error_msg.contains("invalid version info")
+                    {
+                        "Version mismatch: server updated. Please download the latest version."
+                            .to_string()
+                    } else if error_msg.contains("connection denied") {
+                        "connection denied: server full or access restricted".to_string()
+                    } else if error_msg.contains("connection timed out") {
+                        "connection timed out: server not responding".to_string()
+                    } else {
+                        format!("failed to create network transport: {}", e)
+                    };
+                    return Err((message, ui, session, assets));
                 }
-            })?;
+            };
         let connection_config = common::net::connection_config();
         let client = RenetClient::new(connection_config);
 
@@ -148,7 +164,8 @@ impl ClientRunner {
                 &disconnect_message, separator
             ));
             self.ui.show_message(" ");
-            self.ui.show_warning("Press ESCAPE to exit, ENTER to return to menu.");
+            self.ui
+                .show_warning("Press ESCAPE to exit, ENTER to return to menu.");
             eprintln!("disconnected: {}{}", disconnect_message, separator);
             self.session.disconnected_notified = true;
         }
@@ -344,7 +361,7 @@ pub async fn run_client_loop(
     ui: Gui,
     assets: Assets,
     only_player: bool,
-) -> Option<RunClientReturn> {
+) -> RunClientReturn {
     println!("Connecting to server: {}", server_addr);
 
     #[cfg(target_os = "windows")]
@@ -362,16 +379,24 @@ pub async fn run_client_loop(
     let socket = match UdpSocket::bind(socket_addr) {
         Ok(socket) => socket,
         Err(e) => {
-            eprintln!("failed to bind client socket: {}", e);
-            return None;
+            return RunClientReturn::ConnectionError {
+                message: format!("failed to bind client socket: {}", e),
+                session,
+                ui,
+                assets,
+            };
         }
     };
 
     let mut runner = match ClientRunner::new(socket, connect_token, ui, session, assets).await {
         Ok(r) => r,
-        Err(e) => {
-            eprintln!("{}", e);
-            return None;
+        Err((message, ui, session, assets)) => {
+            return RunClientReturn::ConnectionError {
+                message,
+                session,
+                ui,
+                assets,
+            };
         }
     };
 
@@ -388,15 +413,12 @@ pub async fn run_client_loop(
             &runner.session.state,
             ClientState::Disconnected { .. }
                 | ClientState::EndAfterLeaderboard
-                | ClientState::PostGameChat(
-                    crate::post_game_chat::PostGameChat {
-                        leaderboard_received: true,
-                        ..
-                    },
-                )
+                | ClientState::PostGameChat(crate::post_game_chat::PostGameChat {
+                    leaderboard_received: true,
+                    ..
+                },)
         );
-        if can_return_to_menu && is_key_pressed(KeyCode::Enter)
-        {
+        if can_return_to_menu && is_key_pressed(KeyCode::Enter) {
             return_to_menu = true;
             break;
         }
@@ -412,13 +434,13 @@ pub async fn run_client_loop(
     }
 
     if return_to_menu {
-        Some(RunClientReturn::ReturnToStartMenu {
+        RunClientReturn::ReturnToStartMenu {
             session: ClientSession::new(runner.session.client_id, None),
             ui: runner.ui,
             assets: runner.assets,
-        })
+        }
     } else {
-        Some(RunClientReturn::Exit)
+        RunClientReturn::Exit
     }
 }
 

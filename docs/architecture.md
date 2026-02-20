@@ -42,6 +42,8 @@ Create `.env.client` and `.env.matchmaker` in the project root. The client is bu
 **.env.client** (used at client build time; values will be baked into the binary on build):
 
 - `VERSION_CODE` (required): Base64-encoded secret. The matchmaker validates the client by checking that the SHA-256 hash of the decoded bytes equals `VERSION_HASH` in `.env.matchmaker`. The secret can be any length; 32 bytes is a typical choice (44 base64 characters). Generate a pair once and use the same `VERSION_CODE` in `.env.client` and the corresponding hex `VERSION_HASH` in `.env.matchmaker`.
+
+The Renet protocol id is derived from the git commit hash at build time (when available), so client and server built from different commits will reject each other with a clear error. Rebuild both from the same source to fix protocol mismatches.
 - `HOST` (optional): Default server for API and game. Omit or leave empty for local. For production, set to your domain (e.g. `HOST=by-a-thread.de`). Must match `HOST` in `.env.matchmaker`.
 
 **.env.matchmaker** (loaded by Docker Compose for the matchmaker service):
