@@ -38,7 +38,18 @@ pub fn handle(
     };
 
     if crate::exit::should_quit() {
-        return PreLobbyTransition::Exit;
+        return match phase {
+            ApiRequestPhase::AwaitingCreate { .. } | ApiRequestPhase::AwaitingJoin { .. } => {
+                PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
+                    api_host: api_host.to_string(),
+                    phase: ApiRequestPhase::ChoosingNewOrJoin {
+                        selected_index: 0,
+                        prompt_printed: false,
+                    },
+                }))
+            }
+            _ => PreLobbyTransition::Exit,
+        };
     }
 
     match phase {

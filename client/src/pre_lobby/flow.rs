@@ -1,7 +1,7 @@
 use crate::{
     assets::Assets,
     lobby::ui::LobbyUi,
-    pre_lobby::state::PreLobby,
+    pre_lobby::state::{ApiRequestPhase, PreLobby},
     pre_lobby::state_handlers::{self, api_request_menu::CompleteInfo},
     session::ClientSession,
     state::{ClientState, InputMode},
@@ -18,7 +18,14 @@ pub fn update(
     ui: &mut dyn LobbyUi,
     assets: Option<&Assets>,
 ) -> PreLobbyStep {
-    if crate::exit::should_quit() {
+    let in_awaiting_matchmaker = matches!(
+        &session.state,
+        ClientState::PreLobby(PreLobby::ApiRequestMenu {
+            phase: ApiRequestPhase::AwaitingCreate { .. } | ApiRequestPhase::AwaitingJoin { .. },
+            ..
+        })
+    );
+    if !in_awaiting_matchmaker && crate::exit::should_quit() {
         return PreLobbyStep::Exit;
     }
 
