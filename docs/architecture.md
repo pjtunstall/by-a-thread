@@ -1,6 +1,7 @@
 # Architecture
 
 - [Overview](#overview)
+- [Matchmaker and deployment](#matchmaker-and-deployment)
 - [State Machines](#state-machines)
   - [Client State Machine](#client-state-machine)
     - [PreLobby](#prelobby)
@@ -11,6 +12,20 @@
 # Overview
 
 The game uses a client-server architecture. In Rust terms, these are represented by two separate packages: `server` and `client`. Both depend on a third package, `common`, for shared types, physics, and communication protocol.
+
+Before connecting to a game server, the client calls a matchmaker REST API to create or join a session. The matchmaker allocates ports, generates passcodes, and launches game servers in Docker. See [Matchmaker and deployment](#matchmaker-and-deployment).
+
+## Matchmaker and deployment
+
+The matchmaker is a REST API that creates and joins game sessions. It checks limits (games, and potentially in the future also total player count and CPU usage), allocates ports, generates passcodes and private keys, and launches game servers as Docker containers. The API spec is in [api.yaml](api.yaml).
+
+The stack runs via Docker Compose:
+
+- **matchmaker**: HTTP server (Axum) on port 8080. Receives create-game and join-game requests, validates version codes, enforces rate limiting, and spawns game server containers via the Docker API.
+- **caddy**: Reverse proxy and TLS termination. Exposes ports 80 and 443; proxies `api.by-a-thread.de` to the matchmaker. Handles Let's Encrypt certificates in production.
+- **socket-proxy** ([tecnativa/docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy)): Exposes a restricted subset of the Docker socket to the matchmaker. The matchmaker connects to `tcp://socket-proxy:2375` instead of the raw socket. The proxy allows only `CONTAINERS=1`, `POST=1`, and `NETWORKS=1`, so the matchmaker can create containers and attach them to networks but cannot list or inspect other containers.
+
+All three services share a backend bridge network. Caddy reverse-proxies the matchmaker; the matchmaker connects to the socket proxy to run Docker. The matchmaker reads `.env.matchmaker` for `VERSION_HASH`, `HOST`, and related config. See [Docker](docker.md) for setup and local development.
 
 ## State Machines
 
@@ -71,6 +86,45 @@ Lobby -> ChoosingDifficulty -> Countdown -> Game
 - The `Game` state also manages clients in after-game chat, since they arrive at different times.
 
 ## File structure
+
+### Repository root (deployment)
+
+```txt
+.
+├── docker-compose.yaml
+├── Caddyfile
+├── Caddyfile.local
+├── .env.matchmaker
+└── docs/
+    ├── architecture.md
+    ├── api.yaml
+    └── docker.md
+```
+
+### Matchmaker
+
+```txt
+matchmaker/
+├── src/
+│   ├── lib.rs
+│   ├── main.rs
+│   ├── addressing.rs
+│   ├── auth.rs
+│   ├── cleanup.rs
+│   ├── errors.rs
+│   ├── extractors.rs
+│   ├── game.rs
+│   ├── games.rs
+│   ├── handlers/
+│   │   ├── create.rs
+│   │   └── join.rs
+│   ├── handlers.rs
+│   ├── ports.rs
+│   ├── rate_limiter.rs
+│   └── state.rs
+├── Cargo.toml
+└── Dockerfile
+```
 
 ### Server
 

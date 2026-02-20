@@ -48,7 +48,7 @@ The problem: If the client tries to connect on 127.0.0.1, the server can't reply
 - Inside the container, 127.0.0.1 is the container's own loopback. The reply goes to the container's loopback, not the host.
 - The host client never gets the reply, so the connection times out.
 
-The solution I chose is to make the client connect to the default Docker bridge network, 127.17.0.1. This is the host OS's address as understood both inside and outside the server container.
+The solution I chose is to make the client connect to the default Docker bridge network, 172.17.0.1. This is the host OS's address as understood both inside and outside the server container.
 
 - Client sends to 172.17.0.1:7785 from something like 172.17.0.1:45678 (same interface).
 - Docker forwards to the container; the server sees source 172.17.0.1:45678.
