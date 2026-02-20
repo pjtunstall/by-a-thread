@@ -3,7 +3,7 @@ info:
   title: By a Thread Matchmaker API
   description: |
     API for creating and joining game sessions. All requests must include the
-    version code header to prove the client is legitimate. The matchmaker
+    client proof header to prove the client is legitimate. The matchmaker
     enforces rate limiting on both create-game and join requests. Clients may
     encounter 502 or 504 from the reverse proxy if the matchmaker is
     unreachable or slow to respond; create-game in particular involves Docker
@@ -25,7 +25,7 @@ paths:
         to four requests per minute per client.
       operationId: createGame
       parameters:
-        - $ref: "#/components/parameters/VersionCode"
+        - $ref: "#/components/parameters/ClientProof"
       requestBody:
         required: true
         content:
@@ -57,16 +57,23 @@ paths:
             Json extractor handles this before the handler runs; response body
             format is Axum's default.
         "401":
-          description: Version code invalid or rejected (authentication failure)
+          description: |
+            Unauthorized. Either the client proof is missing or invalid
+            (INVALID_CLIENT_PROOF), or the version string does not match the
+            matchmaker (VERSION_MISMATCH).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
               examples:
+                invalid_client_proof:
+                  value:
+                    code: INVALID_CLIENT_PROOF
+                    message: "Client proof is missing or invalid."
                 version_mismatch:
                   value:
                     code: VERSION_MISMATCH
-                    message: "Client version is not supported."
+                    message: "Client version 0.1.0 is not supported. Please download the current version: 0.2.0."
         "429":
           description: Rate limit exceeded
           headers:
@@ -119,7 +126,7 @@ paths:
         tokens remain available. Rate limited to prevent passcode enumeration.
       operationId: joinGame
       parameters:
-        - $ref: "#/components/parameters/VersionCode"
+        - $ref: "#/components/parameters/ClientProof"
         - name: passcode
           in: path
           required: true
@@ -159,11 +166,23 @@ paths:
             Json extractor handles this before the handler runs; response body
             format is Axum's default.
         "401":
-          description: Version code invalid or rejected (authentication failure)
+          description: |
+            Unauthorized. Either the client proof is missing or invalid
+            (INVALID_CLIENT_PROOF), or the version string does not match the
+            matchmaker (VERSION_MISMATCH).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              examples:
+                invalid_client_proof:
+                  value:
+                    code: INVALID_CLIENT_PROOF
+                    message: "Client proof is missing or invalid."
+                version_mismatch:
+                  value:
+                    code: VERSION_MISMATCH
+                    message: "Client version 0.1.0 is not supported. Please download the current version: 0.2.0."
         "404":
           description: Game not found (invalid passcode)
           content:
@@ -221,11 +240,11 @@ paths:
 
 components:
   parameters:
-    VersionCode:
+    ClientProof:
       name: X-Version-Code
       in: header
       required: true
-      description: Baked-in code proving the client is legitimate and identifying its version
+      description: Baked-in client proof (base64) proving the request is from a real game client.
       schema:
         type: string
 

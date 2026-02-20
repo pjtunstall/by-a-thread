@@ -348,10 +348,7 @@ impl Game {
                     }
                 }
                 Ok((other, _)) => {
-                    eprintln!(
-                        "unexpected message type received from server: {}",
-                        other.variant_name()
-                    );
+                    eprintln!("unexpected message type received from server: `{}`", other);
                 }
                 Err(error) => {
                     eprintln!("failed to decode server message: {}", error);
@@ -375,7 +372,7 @@ impl Game {
                 Ok((other, _)) => {
                     eprintln!(
                         "unexpected reliable message type received from server: {}",
-                        other.variant_name()
+                        other
                     );
                 }
                 Err(error) => {

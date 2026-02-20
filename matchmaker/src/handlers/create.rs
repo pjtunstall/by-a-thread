@@ -3,7 +3,7 @@ use axum::{Json, extract::State, http::StatusCode};
 use crate::{
     auth,
     errors::HttpError,
-    extractors::{RateLimitCreate, VersionCode},
+    extractors::{ClientProof, RateLimitCreate},
     game::Game,
     state::AppState,
 };
@@ -34,7 +34,7 @@ type CreateGameResult = Result<(StatusCode, Json<CreateGameOkBody>), HttpError>;
 pub async fn create_game(
     State(state): State<AppState>,
     _rate_limit: RateLimitCreate,
-    _version_code: VersionCode,
+    _client_proof: ClientProof,
     Json(request_body): Json<CreateGameRequest>,
 ) -> CreateGameResult {
     let player_count = request_body.player_count;

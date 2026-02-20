@@ -1,13 +1,45 @@
 # Docker
 
 - [Matchmaker stack (docker-compose)](#matchmaker-stack-docker-compose)
+- [Private Docker Hub registry](#private-docker-hub-registry)
 - [A curiosity: The dummy package trick](#a-curiosity-the-dummy-package-trick)
 
 ## Matchmaker stack (docker-compose)
 
-The [docker-compose.yaml](../docker-compose.yaml) stack runs the matchmaker, Caddy, a Docker socket proxy, and Watchtower. The matchmaker service reads env vars from `.env.matchmaker`. For the full list of variables in `.env.matchmaker` and `.env.client`, and how to set them for local vs production, see [Environment files](architecture.md#environment-files) in the architecture doc. In short: `.env.matchmaker` must provide `VERSION_HASH` (64-char hex) and `EXPECTED_VERSION` (semantic version matching the matchmaker build), and may provide `HOST` (domain or unset/`local` for local). `HOST` must match `.env.client` (run `make check-env`).
+The [docker-compose.yaml](../docker-compose.yaml) stack runs the matchmaker, Caddy, a Docker socket proxy, and Watchtower. The matchmaker service reads env vars from `.env.matchmaker`. For the full list of variables in `.env.matchmaker` and `.env.client`, and how to set them for local vs production, see [Environment files](architecture.md#environment-files) in the architecture doc. In short: `.env.matchmaker` must provide `CLIENT_PROOF_HASH` (64-char hex), and may provide `HOST` (domain or unset/`local` for local). `HOST` must match `.env.client` (run `make check-env`).
 
 The compose file sets `DOCKER_HOST` and `GAME_IMAGE` directly; override them in the `environment` block if needed. The matchmaker image is built and tagged as `matchmaker-image:latest`; the container runs as `matchmaker-container`. To stop the matchmaker stack, run `docker stop matchmaker-container` (and stop the other services as needed). For running the stack and local development, see [Architecture](architecture.md#matchmaker-and-deployment).
+
+## Private Docker Hub registry
+
+To use a private Docker Hub repository for the game server and matchmaker images:
+
+1. **Create repositories on Docker Hub.** Sign in at [hub.docker.com](https://hub.docker.com), go to Repositories --> Create Repository, and create two private repositories (e.g. `your-username/game-server` and `your-username/matchmaker`).
+
+2. **Log in from the CLI.** Run `docker login` and enter your Docker Hub username and password (or a [personal access token](https://docs.docker.com/docker-hub/access-tokens/) for password).
+
+3. **Build and tag for Docker Hub.** From the repo root, build then tag with your Hub namespace and repo names:
+
+   ```sh
+   make server
+   docker tag server-image:latest your-username/game-server:latest
+   docker compose build matchmaker
+   docker tag matchmaker-image:latest your-username/matchmaker:latest
+   ```
+
+4. **Push the images.**
+
+   ```sh
+   docker push your-username/game-server:latest
+   docker push your-username/matchmaker:latest
+   ```
+
+5. **Use images from the registry.** On a host that has run `docker login` with access to the private repos, pull and run by image name. For the matchmaker stack, set `GAME_IMAGE` to the full server image name so the matchmaker can start game servers from the registry, e.g. in `.env.matchmaker` or by overriding in compose:
+   ```yaml
+   environment:
+     - GAME_IMAGE=your-username/game-server:latest
+   ```
+   Use `your-username/matchmaker:latest` as the matchmaker service image in `docker-compose.yaml` (or override with `docker compose run`) when you want to run the image from Docker Hub instead of building locally.
 
 ## A curiosity: The dummy package trick
 

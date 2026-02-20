@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 pub const SERVER_PORT: u16 = 5000;
-pub const VERSION_CODE_HEADER: &str = "X-Version-Code";
+pub const CLIENT_PROOF_HEADER: &str = "X-Version-Code";
 pub const VERSION_HEADER: &str = "X-Version";
 
 // Timer durations based on game mode.

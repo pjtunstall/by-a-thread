@@ -39,7 +39,7 @@ pub struct PlayerRosterEntry {
     pub color: Color,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Display)]
 pub enum ServerMessage {
     Snapshot(WireItem<Snapshot>),
     BulletEvent(BulletEvent),
@@ -89,31 +89,6 @@ pub enum ServerMessage {
     },
 }
 
-impl ServerMessage {
-    pub fn variant_name(&self) -> &'static str {
-        match self {
-            Self::Snapshot(_) => "Snapshot",
-            Self::BulletEvent(_) => "BulletEvent",
-            Self::ServerTime(_) => "ServerTime",
-            Self::CountdownStarted { .. } => "CountdownStarted",
-            Self::Welcome { .. } => "Welcome",
-            Self::UsernameError { .. } => "UsernameError",
-            Self::AppointHost => "AppointHost",
-            Self::Roster { .. } => "Roster",
-            Self::UserJoined { .. } => "UserJoined",
-            Self::UserLeft { .. } => "UserLeft",
-            Self::ChatMessage { .. } => "ChatMessage",
-            Self::PostGameRoster { .. } => "PostGameRoster",
-            Self::PostGameLeaderboard { .. } => "PostGameLeaderboard",
-            Self::ServerInfo { .. } => "ServerInfo",
-            Self::LobbyTimer { .. } => "LobbyTimer",
-            Self::BeginDifficultySelection => "BeginDifficultySelection",
-            Self::DenyDifficultySelection => "DenyDifficultySelection",
-            Self::Victory { .. } => "Victory",
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum BulletEvent {
     Spawn {
@@ -154,10 +129,6 @@ pub enum ClientMessage {
     SetDifficulty(u8),
     EnterPostGameChat,
     Input(WireItem<PlayerInput>),
-}
-
-pub fn version_string() -> &'static str {
-    env!("CARGO_PKG_VERSION")
 }
 
 pub fn protocol_id() -> u64 {

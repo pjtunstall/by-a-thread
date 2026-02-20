@@ -25,15 +25,15 @@ The matchmaker is a REST API that creates and joins game sessions. It checks lim
 
 The stack runs via Docker Compose:
 
-- **matchmaker**: HTTP server (Axum) on port 8080. Receives create-game and join-game requests, validates version codes, enforces rate limiting, and spawns game server containers via the Docker API.
+- **matchmaker**: HTTP server (Axum) on port 8080. Receives create-game and join-game requests, validates client proof, enforces rate limiting, and spawns game server containers via the Docker API.
 - **caddy**: Reverse proxy and TLS termination. Exposes ports 80 and 443; proxies `api.by-a-thread.de` to the matchmaker. Handles Let's Encrypt certificates in production.
 - **socket-proxy** ([tecnativa/docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy)): Exposes a restricted subset of the Docker socket to the matchmaker. The matchmaker connects to `tcp://socket-proxy:2375` instead of the raw socket. The proxy allows only `CONTAINERS=1`, `POST=1`, and `NETWORKS=1`, so the matchmaker can create containers and attach them to networks but cannot list or inspect other containers.
 
-All three services share a backend bridge network. Caddy reverse-proxies the matchmaker; the matchmaker connects to the socket proxy to run Docker. The matchmaker reads `.env.matchmaker` for `VERSION_HASH`, `EXPECTED_VERSION`, `HOST`, and related config. See [Docker](docker.md) for compose stack details.
+All three services share a backend bridge network. Caddy reverse-proxies the matchmaker; the matchmaker connects to the socket proxy to run Docker. The matchmaker reads `.env.matchmaker` for `CLIENT_PROOF_HASH`, `HOST`, and related config. The expected client version is taken from the matchmaker build (the `common` crate version), not from env. See [Docker](docker.md) for compose stack details.
 
 ### Running the stack
 
-Build the game server image with `make server` (builds the server binary and Docker image `server-image:latest`). Start the compose stack with `docker compose up -d`. After changes to the matchmaker source, run `docker compose up -d --build` to rebuild and restart the matchmaker container.
+Build the game server image with `make server` (builds the server binary and Docker image `server-image:latest`). Start the compose stack with `docker compose up -d`; stop it with `docker compose down`. After changes to the matchmaker source, run `docker compose up -d --build` to rebuild and restart the matchmaker container.
 
 ### Environment files
 
@@ -41,7 +41,7 @@ Create `.env.client` and `.env.matchmaker` in the project root. The client is bu
 
 **.env.client** (used at client build time; values will be baked into the binary on build):
 
-- `VERSION_CODE` (required): Base64-encoded secret. The matchmaker validates the client by checking that the SHA-256 hash of the decoded bytes equals `VERSION_HASH` in `.env.matchmaker`. The secret can be any length; 32 bytes is a typical choice (44 base64 characters). Generate a pair once and use the same `VERSION_CODE` in `.env.client` and the corresponding hex `VERSION_HASH` in `.env.matchmaker`.
+- `CLIENT_PROOF` (required): Base64-encoded secret. The matchmaker validates the client by checking that the SHA-256 hash of the decoded bytes equals `CLIENT_PROOF_HASH` in `.env.matchmaker`. The secret can be any length; 32 bytes is a typical choice (44 base64 characters). Generate a pair once and use the same `CLIENT_PROOF` in `.env.client` and the corresponding hex `CLIENT_PROOF_HASH` in `.env.matchmaker`.
 
 The Renet protocol id is derived from the git commit hash at build time (when available), so client and server built from different commits will reject each other with a clear error. Rebuild both from the same source to fix protocol mismatches.
 
@@ -49,8 +49,7 @@ The Renet protocol id is derived from the git commit hash at build time (when av
 
 **.env.matchmaker** (loaded by Docker Compose for the matchmaker service):
 
-- `VERSION_HASH` (required): 64-character hex string (32 bytes), the SHA-256 hash of the bytes that are base64-encoded as `VERSION_CODE` in `.env.client`.
-- `EXPECTED_VERSION` (required): Semantic version string (e.g. `0.1.0`) that must match the matchmaker build version (`common` crate `CARGO_PKG_VERSION`). The matchmaker panics on startup if they differ. Set it to the version of the matchmaker image you are running.
+- `CLIENT_PROOF_HASH` (required): 64-character hex string (32 bytes), the SHA-256 hash of the bytes that are base64-encoded as `CLIENT_PROOF` in `.env.client`.
 - `HOST` (optional): Same meaning as in `.env.client`. Omit or set to `local` or `localhost` for local; set to your domain for production. Must match `.env.client` (see `make check-env`).
 
 **Local vs production:**

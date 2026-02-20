@@ -401,7 +401,7 @@ pub async fn run_client_loop(
     };
 
     runner.ui.print_client_banner(
-        common::protocol::version_string(),
+        env!("CARGO_PKG_VERSION"),
         server_addr,
         share_passcode,
         only_player,

@@ -1,4 +1,7 @@
-use std::{net::{IpAddr, Ipv4Addr, SocketAddr}, sync::Arc};
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    sync::Arc,
+};
 
 use axum::{Router, routing::post};
 
@@ -21,30 +24,21 @@ async fn main() {
 
     let server_host = resolve_server_host(&domain::game_server_host());
 
-    let version_hash = hex::decode(
-        std::env::var("VERSION_HASH").expect("`VERSION_HASH` must be set in .env.matchmaker"),
+    let client_proof_hash = hex::decode(
+        std::env::var("CLIENT_PROOF_HASH")
+            .expect("`CLIENT_PROOF_HASH` must be set in .env.matchmaker"),
     )
     .ok()
     .and_then(|v| v.try_into().ok())
-    .expect("`VERSION_HASH` must be a 64-character hex string (32 bytes)");
+    .expect("`CLIENT_PROOF_HASH` must be a 64-character hex string (32 bytes)");
 
-    let expected_version =
-        std::env::var("EXPECTED_VERSION").expect("`EXPECTED_VERSION` must be set in .env.matchmaker");
-
-    if expected_version != common::protocol::version_string() {
-        panic!(
-            "EXPECTED_VERSION ({}) does not match matchmaker build version ({}). \
-             Version checks may reject valid clients, or protocol_id may mismatch the game server.",
-            expected_version,
-            common::protocol::version_string()
-        );
-    }
+    let expected_version = env!("CARGO_PKG_VERSION").to_string();
 
     let state = AppState {
         port_pool: Arc::new(PortPool::new()),
         server_host,
         games: Arc::new(Games::new()),
-        version_hash,
+        client_proof_hash,
         expected_version,
         rate_limiter: Arc::new(rate_limiter::RateLimiter::new()),
     };

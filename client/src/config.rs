@@ -8,6 +8,6 @@ pub fn game_server_host() -> String {
     common::domain::game_host_from_config(env!("BUILD_HOST"))
 }
 
-pub fn version_code() -> &'static str {
-    env!("BUILD_VERSION_CODE")
+pub fn client_proof() -> &'static str {
+    env!("BUILD_CLIENT_PROOF")
 }

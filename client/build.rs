@@ -13,14 +13,14 @@ fn main() {
         })
         .filter_map(Result::ok)
         .collect();
-    let version_code = vars
-        .get("VERSION_CODE")
+    let client_proof = vars
+        .get("CLIENT_PROOF")
         .cloned()
-        .expect("VERSION_CODE must be set in .env.client");
+        .expect("CLIENT_PROOF must be set in .env.client");
     let host = vars.get("HOST").cloned().unwrap_or_default();
 
     println!("cargo:rustc-env=BUILD_HOST={}", host);
-    println!("cargo:rustc-env=BUILD_VERSION_CODE={}", version_code);
+    println!("cargo:rustc-env=BUILD_CLIENT_PROOF={}", client_proof);
     println!("cargo:rerun-if-changed={}", env_path.display());
 
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();

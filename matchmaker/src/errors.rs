@@ -1,4 +1,8 @@
-use axum::{http::{header::RETRY_AFTER, HeaderValue, StatusCode}, response::IntoResponse, Json};
+use axum::{
+    Json,
+    http::{HeaderValue, StatusCode, header::RETRY_AFTER},
+    response::IntoResponse,
+};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -12,7 +16,7 @@ pub enum HttpError {
     RateLimited { retry_after: u64 },
     InvalidPlayerCount,
     LimitsExceeded,
-    InvalidVersionCode,
+    InvalidClientProof,
     VersionMismatch { message: String },
     InvalidPassCode,
     GameNotFound,
@@ -52,11 +56,11 @@ impl IntoResponse for HttpError {
                 },
                 None,
             ),
-            HttpError::InvalidVersionCode => (
+            HttpError::InvalidClientProof => (
                 StatusCode::UNAUTHORIZED,
                 ErrorBody {
-                    code: "VERSION_MISMATCH",
-                    message: "Client version is not supported.".to_string(),
+                    code: "INVALID_CLIENT_PROOF",
+                    message: "Client proof is missing or invalid.".to_string(),
                 },
                 None,
             ),
@@ -64,7 +68,12 @@ impl IntoResponse for HttpError {
                 StatusCode::UNAUTHORIZED,
                 ErrorBody {
                     code: "VERSION_MISMATCH",
-                    message,
+                    message: if message.is_empty() {
+                        "Client version is not supported. Please download the current version."
+                            .to_string()
+                    } else {
+                        message
+                    },
                 },
                 None,
             ),

@@ -1,11 +1,15 @@
-use axum::{Json, extract::{Path, State}, http::StatusCode};
+use axum::{
+    Json,
+    extract::{Path, State},
+    http::StatusCode,
+};
 
-use common::auth::Passcode;
 use crate::{
     errors::HttpError,
-    extractors::{RateLimitJoin, VersionCode},
+    extractors::{ClientProof, RateLimitJoin},
     state::AppState,
 };
+use common::auth::Passcode;
 
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -30,7 +34,7 @@ type JoinGameResult = Result<(StatusCode, Json<JoinGameOkBody>), HttpError>;
 pub async fn join_game(
     State(state): State<AppState>,
     _rate_limit: RateLimitJoin,
-    _version_code: VersionCode,
+    _client_proof: ClientProof,
     Path(passcode): Path<String>,
     Json(_body): Json<JoinGameRequest>,
 ) -> JoinGameResult {

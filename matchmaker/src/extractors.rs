@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 
 use crate::{errors::HttpError, state::AppState};
-use common::constants::{VERSION_CODE_HEADER, VERSION_HEADER};
+use common::constants::{CLIENT_PROOF_HEADER, VERSION_HEADER};
 
 fn client_ip(parts: &Parts) -> Option<IpAddr> {
     if let Some(forwarded) = parts
@@ -72,9 +72,9 @@ where
     }
 }
 
-pub struct VersionCode;
+pub struct ClientProof;
 
-impl<S> FromRequestParts<S> for VersionCode
+impl<S> FromRequestParts<S> for ClientProof
 where
     S: Send + Sync,
     AppState: FromRef<S>,
@@ -82,38 +82,36 @@ where
     type Rejection = HttpError;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let version_code = parts
+        let client_proof = parts
             .headers
-            .get(VERSION_CODE_HEADER)
+            .get(CLIENT_PROOF_HEADER)
             .and_then(|v| v.to_str().ok())
             .map(|s| s.to_string())
-            .ok_or(HttpError::InvalidVersionCode)?;
+            .ok_or(HttpError::InvalidClientProof)?;
 
         let client_version = parts
             .headers
             .get(VERSION_HEADER)
             .and_then(|v| v.to_str().ok())
             .map(|s| s.trim().to_string())
-            .ok_or(HttpError::InvalidVersionCode)?;
+            .ok_or(HttpError::InvalidClientProof)?;
 
         let app_state = AppState::from_ref(state);
-        validate_version_code(&version_code, app_state.version_hash)?;
+        validate_client_proof(&client_proof, app_state.client_proof_hash)?;
         validate_version(&client_version, &app_state.expected_version)?;
 
-        Ok(VersionCode)
+        Ok(ClientProof)
     }
 }
 
-fn validate_version_code(version_code: &str, expected_hash: [u8; 32]) -> Result<(), HttpError> {
-    let version_bytes = base64::engine::general_purpose::STANDARD
-        .decode(version_code.trim())
-        .map_err(|_| HttpError::InvalidVersionCode)?;
+fn validate_client_proof(client_proof: &str, expected_hash: [u8; 32]) -> Result<(), HttpError> {
+    let client_proof_bytes = base64::engine::general_purpose::STANDARD
+        .decode(client_proof.trim())
+        .map_err(|_| HttpError::InvalidClientProof)?;
 
-    let computed_hash: [u8; 32] = Sha256::digest(&version_bytes).into();
+    let computed_hash: [u8; 32] = Sha256::digest(&client_proof_bytes).into();
     if !bool::from(computed_hash.ct_eq(&expected_hash)) {
-        return Err(HttpError::VersionMismatch {
-            message: "Client version is not supported.".to_string(),
-        });
+        return Err(HttpError::InvalidClientProof);
     }
 
     Ok(())

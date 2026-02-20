@@ -7,7 +7,7 @@ pub struct AppState {
     pub port_pool: Arc<PortPool>,
     pub server_host: IpAddr,
     pub games: Arc<Games>,
-    pub version_hash: [u8; 32],
+    pub client_proof_hash: [u8; 32],
     pub expected_version: String,
     pub rate_limiter: Arc<RateLimiter>,
 }

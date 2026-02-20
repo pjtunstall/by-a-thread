@@ -245,9 +245,13 @@ fn handle_awaiting_create(
         }
         Ok(Err(e)) => {
             ui.show_sanitized_error(&e.to_string());
-            let is_version_mismatch =
-                matches!(&e, ApiError::Api { code, .. } if code == "VERSION_MISMATCH");
-            if is_version_mismatch {
+            let is_auth_rejection = matches!(
+                &e,
+                ApiError::InvalidClientProof { .. }
+                    | ApiError::VersionMismatch { .. }
+                    | ApiError::Unauthorized { .. }
+            );
+            if is_auth_rejection {
                 PreLobbyTransition::ExitPendingUserAck
             } else {
                 PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
@@ -323,9 +327,13 @@ fn handle_awaiting_join(
                 }
             } else {
                 ui.show_sanitized_error(&e.to_string());
-                let is_version_mismatch =
-                    matches!(&e, ApiError::Api { code, .. } if code == "VERSION_MISMATCH");
-                if is_version_mismatch {
+                let is_auth_rejection = matches!(
+                    &e,
+                    ApiError::InvalidClientProof { .. }
+                        | ApiError::VersionMismatch { .. }
+                        | ApiError::Unauthorized { .. }
+                );
+                if is_auth_rejection {
                     PreLobbyTransition::ExitPendingUserAck
                 } else {
                     PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
