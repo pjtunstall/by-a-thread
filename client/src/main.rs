@@ -23,24 +23,44 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let assets = Assets::load().await;
-    let ui = Gui::new();
+    let mut assets = Assets::load().await;
+    let mut ui = Gui::new();
 
     let client_id = ::rand::random::<u64>();
-    let session = ClientSession::new(client_id, None);
+    let mut session = ClientSession::new(client_id, None);
 
-    let Some(result) = pre_lobby::run_pre_lobby_loop(session, ui, assets).await else {
-        return;
-    };
+    loop {
+        let Some(pre_lobby_result) =
+            pre_lobby::run_pre_lobby_loop(session, ui, assets).await
+        else {
+            return;
+        };
 
-    run::run_client_loop(
-        result.server_addr,
-        result.connect_token,
-        result.share_passcode,
-        result.session,
-        result.ui,
-        result.assets,
-        result.only_player,
-    )
-    .await;
+        let Some(run_result) = run::run_client_loop(
+            pre_lobby_result.server_addr,
+            pre_lobby_result.connect_token,
+            pre_lobby_result.share_passcode,
+            pre_lobby_result.session,
+            pre_lobby_result.ui,
+            pre_lobby_result.assets,
+            pre_lobby_result.only_player,
+        )
+        .await
+        else {
+            return;
+        };
+
+        match run_result {
+            run::RunClientReturn::Exit => return,
+            run::RunClientReturn::ReturnToStartMenu {
+                session: s,
+                ui: u,
+                assets: a,
+            } => {
+                session = s;
+                ui = u;
+                assets = a;
+            }
+        }
+    }
 }

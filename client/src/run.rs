@@ -23,6 +23,15 @@ use crate::{
 };
 use common::constants::TICK_SECS;
 
+pub enum RunClientReturn {
+    Exit,
+    ReturnToStartMenu {
+        session: ClientSession,
+        ui: Gui,
+        assets: Assets,
+    },
+}
+
 pub struct ClientRunner {
     pub session: ClientSession,
     pub client: RenetClient,
@@ -139,7 +148,7 @@ impl ClientRunner {
                 &disconnect_message, separator
             ));
             self.ui.show_message(" ");
-            self.ui.show_warning("Press ESCAPE to exit.");
+            self.ui.show_warning("Press ESCAPE to exit, ENTER to return to menu.");
             eprintln!("disconnected: {}{}", disconnect_message, separator);
             self.session.disconnected_notified = true;
         }
@@ -335,7 +344,7 @@ pub async fn run_client_loop(
     ui: Gui,
     assets: Assets,
     only_player: bool,
-) {
+) -> Option<RunClientReturn> {
     println!("Connecting to server: {}", server_addr);
 
     #[cfg(target_os = "windows")]
@@ -354,7 +363,7 @@ pub async fn run_client_loop(
         Ok(socket) => socket,
         Err(e) => {
             eprintln!("failed to bind client socket: {}", e);
-            return;
+            return None;
         }
     };
 
@@ -362,7 +371,7 @@ pub async fn run_client_loop(
         Ok(r) => r,
         Err(e) => {
             eprintln!("{}", e);
-            return;
+            return None;
         }
     };
 
@@ -373,17 +382,43 @@ pub async fn run_client_loop(
         only_player,
     );
 
+    let mut return_to_menu = false;
     loop {
+        let can_return_to_menu = matches!(
+            &runner.session.state,
+            ClientState::Disconnected { .. }
+                | ClientState::EndAfterLeaderboard
+                | ClientState::PostGameChat(
+                    crate::post_game_chat::PostGameChat {
+                        leaderboard_received: true,
+                        ..
+                    },
+                )
+        );
+        if can_return_to_menu && is_key_pressed(KeyCode::Enter)
+        {
+            return_to_menu = true;
+            break;
+        }
         if exit::should_quit() {
             break;
         }
 
         runner.session.clock.fps.update();
-        // println!("{}", runner.session.clock.fps.rate);
         runner.pump_network();
         runner.update_client_state();
 
         next_frame().await;
+    }
+
+    if return_to_menu {
+        Some(RunClientReturn::ReturnToStartMenu {
+            session: ClientSession::new(runner.session.client_id, None),
+            ui: runner.ui,
+            assets: runner.assets,
+        })
+    } else {
+        Some(RunClientReturn::Exit)
     }
 }
 

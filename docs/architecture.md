@@ -120,8 +120,8 @@ PreLobby -> Lobby -> Game -> PostGameChat -> EndAfterLeaderboard
 
 - `PreLobby` runs before the client establishes a network connection. It is driven by `run_pre_lobby_loop`; the main run loop (`ClientRunner`) does not exist yet. On completion, the client transitions to `Lobby::Connecting` and enters the run loop.
 - `Transitioning` is a formal state used only during the transition from `Game` to `PostGameChat`. The run loop replaces the current state with `Transitioning` (via `ClientState::default()`) so it can consume the `Game` state to build the full `PostGameChat` value, then immediately sets the state to `PostGameChat`. The client is in `Transitioning` only for that brief moment; the run loop does nothing while in this state.
-- `Disconnected` can be entered from the Lobby substate `Connecting` onwards (and from Game/PostGameChat on connection loss).
-- `EndAfterLeaderboard` is terminal: the client displays the post-game leaderboard and waits for the player to exit.
+- `Disconnected` can be entered from the Lobby substate `Connecting` onwards (and from Game/PostGameChat on connection loss). The player can press ESCAPE to exit or ENTER to return to the start menu (PreLobby).
+- `EndAfterLeaderboard` is terminal: the client displays the post-game leaderboard. The player can press ESCAPE to exit or ENTER to return to the start menu (PreLobby).
 
 `PreLobby` and `Lobby` have various substates, as detailed [below](#prelobby) and [below](#lobby).
 
