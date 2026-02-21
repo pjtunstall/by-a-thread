@@ -20,11 +20,11 @@ const BINDING_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECI
 
 #[tokio::main]
 async fn main() {
+    dotenvy::from_path(".env.matchmaker").expect("`.env.matchmaker` should exist");
+
     if let Err(e) = cleanup::cleanup_zombies().await {
         eprintln!("zombie container cleanup error: {}", e);
     }
-
-    dotenvy::from_path(".env.matchmaker").ok();
 
     let server_host = resolve_server_host(&domain::game_server_host());
 
