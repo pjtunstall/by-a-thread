@@ -1,11 +1,54 @@
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
-use bollard::{Docker, models::ContainerStateStatusEnum};
+use bollard::{
+    Docker,
+    models::ContainerStateStatusEnum,
+    query_parameters::{ListContainersOptions, RemoveContainerOptions},
+};
 
-use common::constants::MAX_SESSION_DURATION;
 use crate::state::AppState;
+use common::constants::MAX_SESSION_DURATION;
 
-const CLEANUP_INTERVAL_SECS: u64 = 300;
+const CLEANUP_INTERVAL_SECS: u64 = 60;
+
+pub async fn cleanup_zombies() -> Result<(), Box<dyn std::error::Error>> {
+    let docker = Docker::connect_with_http_defaults().map_err(|e| e.to_string())?;
+    let mut filters = HashMap::new();
+    filters.insert("name".to_string(), vec!["game-".to_string()]);
+
+    let options = Some(ListContainersOptions {
+        all: true,
+        filters: Some(filters),
+        ..Default::default()
+    });
+
+    let containers = docker.list_containers(options).await?;
+
+    for container in containers {
+        if let Some(id) = container.id {
+            let container_names = container
+                .names
+                .as_ref()
+                .map(|n| n.join(", "))
+                .unwrap_or_else(|| "unnamed".to_string());
+
+            let remove_options = Some(RemoveContainerOptions {
+                force: true,
+                ..Default::default()
+            });
+
+            if let Err(e) = docker.remove_container(&id, remove_options).await {
+                eprintln!(
+                    "failed to cleanup zombie container {} (ID: {}): {}",
+                    container_names, id, e
+                );
+            } else {
+                println!("Successfully removed {} (ID: {})", container_names, id);
+            }
+        }
+    }
+    Ok(())
+}
 
 pub fn spawn_cleanup_task(state: AppState) {
     tokio::spawn(async move {
