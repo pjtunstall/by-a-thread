@@ -23,13 +23,13 @@ pub const OBE_FADE_TO_BLACK_SECS: f64 = 5.5;
 // the leaderboard and exiting.
 pub const POST_GAME_TIMEOUT_SECS: u64 = (OBE_FADE_TO_BLACK_SECS as u64) + 1;
 
-// Connect token expiry and matchmaker cleanup. Must exceed lobby + countdown + full game +
-// idle timeout + post-game timeout (e.g. 5 + 0.2 + 10 + 2 + 2 min).
+// Connect token expiry and matchmaker cleanup: lobby + countdown + full game +
+// idle timeout + post-game timeout + buffer (300 + 10 + 600 + 60 + 6 + 60).
 pub const MAX_SESSION_DURATION: u64 = LOBBY_TIMER_SECS
     + BATTLE_TIMER_DURATION as u64
-    + 60
     + IDLE_TIMEOUT_SECS
-    + POST_GAME_TIMEOUT_SECS;
+    + POST_GAME_TIMEOUT_SECS
+    + 60;
 
 // Difficulty selection: 0 through NUM_DIFFICULTY_LEVELS - 1.
 pub const NUM_DIFFICULTY_LEVELS: u8 = 10;

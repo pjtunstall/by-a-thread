@@ -43,6 +43,8 @@ The game itself has a timer of ten minutes for multiplayer games, and two for si
 
 When players die, they return to the chat room. Likewise when the in-game timer expires or the game is over. When the game is over, the server sends a leaderboard to all clients as a `Reliable` Renet message. The server then exits. Players are shown a final message after the leaderboard, and are offered the choice to exit or play again.
 
+As a safety measure, in case game server containers are left running if the matchmaker crashes, it cleans up any existing ("zombie") game server containers when it starts.
+
 ## Footnotes
 
 [^1]: Caddy also takes care of TLS certificates, renewing them as needed.

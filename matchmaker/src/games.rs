@@ -3,7 +3,7 @@ use std::{collections::HashMap, time::Duration};
 use tokio::sync::Mutex;
 
 use crate::{errors::HttpError, game::Game};
-use common::constants::LOBBY_TIMER_DURATION;
+use common::constants::{LOBBY_TIMER_DURATION, MAX_SESSION_DURATION};
 
 pub struct Games {
     inner: Mutex<HashMap<[u8; 6], Game>>,
@@ -33,17 +33,20 @@ impl Games {
         Ok((port, connect_token))
     }
 
-    pub async fn get_games_with_containers_for_cleanup(
-        &self,
-        session_duration: Duration,
-    ) -> Vec<([u8; 6], String, u16, bool)> {
+    pub async fn get_games_with_containers_for_cleanup(&self) -> Vec<([u8; 6], String, u16, bool)> {
+        let max_session_duration = Duration::from_secs(MAX_SESSION_DURATION);
         let guard = self.inner.lock().await;
         guard
             .iter()
             .filter_map(|(passcode, game)| {
                 let container_name = game.container_name.as_ref()?;
-                let is_time_stale = game.start_time.elapsed() > session_duration;
-                Some((*passcode, container_name.clone(), game.port, is_time_stale))
+                let is_time_elapsed = game.start_time.elapsed() > max_session_duration;
+                Some((
+                    *passcode,
+                    container_name.clone(),
+                    game.port,
+                    is_time_elapsed,
+                ))
             })
             .collect()
     }

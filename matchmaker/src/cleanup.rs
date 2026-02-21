@@ -7,7 +7,6 @@ use bollard::{
 };
 
 use crate::state::AppState;
-use common::constants::MAX_SESSION_DURATION;
 
 const CLEANUP_INTERVAL_SECS: u64 = 60;
 
@@ -65,12 +64,7 @@ pub fn spawn_cleanup_task(state: AppState) {
 }
 
 async fn run_cleanup(state: AppState) -> Result<(), String> {
-    let session_duration_with_buffer = Duration::from_secs(MAX_SESSION_DURATION + 60);
-
-    let candidates = state
-        .games
-        .get_games_with_containers_for_cleanup(session_duration_with_buffer)
-        .await;
+    let candidates = state.games.get_games_with_containers_for_cleanup().await;
 
     if candidates.is_empty() {
         return Ok(());
@@ -78,50 +72,42 @@ async fn run_cleanup(state: AppState) -> Result<(), String> {
 
     let docker = Docker::connect_with_http_defaults().map_err(|e| e.to_string())?;
 
-    let mut to_clean = Vec::new();
-    for (passcode, container_name, port, is_time_stale) in candidates {
-        if is_time_stale {
-            to_clean.push((passcode, container_name, port));
-            continue;
-        }
-        let inspect = match docker.inspect_container(&container_name, None).await {
-            Ok(i) => i,
-            Err(e) => {
-                eprintln!(
-                    "failed to inspect container {} (may have been removed): {}",
-                    container_name, e
-                );
-                to_clean.push((passcode, container_name, port));
-                continue;
+    for (passcode, container_name, port, is_time_elapsed) in candidates {
+        let mut should_clean = is_time_elapsed;
+
+        if !should_clean {
+            match docker.inspect_container(&container_name, None).await {
+                Ok(response) => {
+                    let is_exited = response
+                        .state
+                        .as_ref()
+                        .and_then(|s| s.status)
+                        .is_some_and(|s| matches!(s, ContainerStateStatusEnum::EXITED));
+                    if is_exited {
+                        should_clean = true;
+                    }
+                }
+                Err(_) => {
+                    should_clean = true;
+                }
             }
-        };
-        let is_exited = inspect
-            .state
-            .as_ref()
-            .and_then(|s| s.status.as_ref())
-            .map_or(false, |s| *s == ContainerStateStatusEnum::EXITED);
-        if is_exited {
-            to_clean.push((passcode, container_name, port));
         }
-    }
 
-    if to_clean.is_empty() {
-        return Ok(());
-    }
+        if should_clean {
+            let _ = docker
+                .remove_container(
+                    &container_name,
+                    Some(RemoveContainerOptions {
+                        force: true,
+                        ..Default::default()
+                    }),
+                )
+                .await;
 
-    for (_passcode, container_name, _port) in &to_clean {
-        if let Err(e) = docker.stop_container(container_name, None).await {
-            eprintln!(
-                "failed to stop stale container {} (may already have exited): {}",
-                container_name, e
-            );
+            state.games.remove(passcode).await;
+            state.port_pool.release(port).await;
+            println!("Cleaned up {} and released port {}", container_name, port);
         }
-    }
-
-    for (passcode, _, port) in to_clean {
-        state.games.remove(passcode).await;
-        state.port_pool.release(port).await;
-        eprintln!("cleaned up a stale container and released port {}", port);
     }
 
     Ok(())
