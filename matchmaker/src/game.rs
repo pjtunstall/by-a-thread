@@ -93,11 +93,12 @@ impl Game {
             ]),
             host_config: Some(HostConfig {
                 port_bindings: Some(port_bindings),
-                // 0.5 CPUs expressed in "nanos" (0.5 * 10^9).
-                nano_cpus: Some(500_000_000),
-                // 300MB expressed in bytes (300 * 1024 * 1024).
+                readonly_rootfs: Some(true),
+                cap_drop: Some(vec!["ALL".to_string()]),
+                security_opt: Some(vec!["no-new-privileges:true".to_string()]),
+                pids_limit: Some(256),
+                nano_cpus: Some(200_000_000),
                 memory: Some(314_572_800),
-                // Weight: 1024 is the standard baseline for equal priority.
                 cpu_shares: Some(1024),
                 ..Default::default()
             }),

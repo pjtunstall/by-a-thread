@@ -24,8 +24,10 @@ pub const OBE_FADE_TO_BLACK_SECS: f64 = 5.5;
 pub const POST_GAME_TIMEOUT_SECS: u64 = (OBE_FADE_TO_BLACK_SECS as u64) + 1;
 
 // Connect token expiry and matchmaker cleanup: lobby + countdown + full game +
-// idle timeout + post-game timeout + buffer (300 + 10 + 600 + 60 + 6 + 60).
+// idle timeout + post-game timeout + buffer (300 + 10 + 600 + 60 + 6 + 60 =
+// 1036s = 17 minutes & 20 seconds).
 pub const MAX_SESSION_DURATION: u64 = LOBBY_TIMER_SECS
+    + 10
     + BATTLE_TIMER_DURATION as u64
     + IDLE_TIMEOUT_SECS
     + POST_GAME_TIMEOUT_SECS

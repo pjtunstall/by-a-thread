@@ -33,6 +33,7 @@ LINUXDEPLOY ?= linuxdeploy
 EXE_HOST := target/release/ByAThread
 APPIMAGE_FILE := $(DIST)/ByAThread.AppImage
 SERVER_BIN := target/release/server
+MATCHMAKER_BIN := target/release/matchmaker
 DOCKER_SENTINEL := $(DIST)/.docker-image-built
 TARGET_APPLE_INTEL := x86_64-apple-darwin
 TARGET_APPLE_SILICON := aarch64-apple-darwin
@@ -44,6 +45,7 @@ DOCKER_USER ?= pjtunstall
 
 SERVER_SOURCES := Cargo.toml Cargo.lock server/Cargo.toml common/Cargo.toml $(shell find server -name '*.rs') $(shell find common -name '*.rs')
 CLIENT_SOURCES := Cargo.toml Cargo.lock client/Cargo.toml client/build.rs .env.client $(shell find client/src -name '*.rs') common/Cargo.toml $(shell find common -name '*.rs')
+MATCHMAKER_SOURCES := Cargo.toml Cargo.lock matchmaker/Cargo.toml common/Cargo.toml $(shell find matchmaker -name '.rs') $(shell find common -name '.rs')
 
 all: test server windows deb rpm appimage
 
@@ -94,8 +96,13 @@ build-server-image: $(SERVER_BIN) server/Dockerfile | check-docker
 
 server: build-server-image
 
-build-matchmaker-image: | check-docker
-	docker build -f matchmaker/Dockerfile -t $(DOCKER_USER)/matchmaker-image:latest .
+$(MATCHMAKER_BIN): $(MATCHMAKER_SOURCES)
+	cargo build --release -p matchmaker
+
+build-matchmaker-image: $(MATCHMAKER_BIN) matchmaker/Dockerfile | check-docker
+	mkdir -p $(DIST)
+	VERSION=$$(cargo pkgid -p matchmaker | awk -F'[@#:]' '{print $$NF}'); \
+	docker build -f matchmaker/Dockerfile -t $(DOCKER_USER)/matchmaker-image:$$VERSION -t $(DOCKER_USER)/matchmaker-image:latest .
 
 build-images: build-server-image build-matchmaker-image
 
@@ -106,11 +113,13 @@ push-server-image: build-server-image
 
 push-matchmaker-image: build-matchmaker-image
 	docker push $(DOCKER_USER)/matchmaker-image:latest
+	VERSION=$$(cargo pkgid -p matchmaker | awk -F'[@\#:]' '{print $$NF}'); \
+	docker push $(DOCKER_USER)/matchmaker-image:$$VERSION
 
 push-images: push-server-image push-matchmaker-image
 
 deploy: push-images | check-deploy
-	scp docker-compose.yml Caddyfile .env.matchmaker hetzner:~/
+	scp docker-compose.yaml Caddyfile .env.matchmaker hetzner:~/
 	ssh hetzner 'docker pull $(DOCKER_USER)/server-image:latest && \
 	docker compose up -d --pull always'
 

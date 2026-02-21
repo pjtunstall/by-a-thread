@@ -1,5 +1,7 @@
 use tokio::sync::Mutex;
 
+const MAX_GAMES: u16 = 10;
+
 pub struct PortPool {
     ports: Mutex<Vec<u16>>,
 }
@@ -7,7 +9,7 @@ pub struct PortPool {
 impl PortPool {
     pub fn new() -> Self {
         Self {
-            ports: Mutex::new((7777..=7786).collect()),
+            ports: Mutex::new((7777..=(7777 + MAX_GAMES - 1)).collect()),
         }
     }
 

@@ -41,6 +41,7 @@ services:
     image: pjtunstall/matchmaker-image:latest
     container_name: matchmaker-container
     restart: unless-stopped
+    cpu_shares: 2048
     env_file: .env.matchmaker
     environment:
       - DOCKER_HOST=tcp://socket-proxy:2375
@@ -54,7 +55,6 @@ services:
         limits:
           cpus: "0.15"
           memory: 256M
-          cpu_shares: 2048
 
 networks:
   backend:
