@@ -13,7 +13,7 @@ The compose file sets `DOCKER_HOST` and `GAME_IMAGE` directly; override them in 
 
 ## Private Docker Hub registry
 
-To use a private Docker Hub repository for the game server and matchmaker images:
+I used a private Docker Hub repository for the matchmaker image and a public one for the server image. (The free plan only allows one private repo.)
 
 1. **Create repositories on Docker Hub.** Sign in at [hub.docker.com](https://hub.docker.com), go to Repositories --> Create Repository, and create two private repositories (e.g. `your-username/game-server` and `your-username/matchmaker`).
 

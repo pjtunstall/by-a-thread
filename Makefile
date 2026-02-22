@@ -11,7 +11,7 @@
 #   make server       # build server binary and Docker image locally
 #   make build-images # build both server and matchmaker Docker images
 #   make push-images  # push both Docker images to Docker Hub (uses DOCKER_USER)
-#   make deploy       # automated: build, push, update VPS config, and restart
+#   make deploy       # build, push, update VPS config, and restart
 #   make windows      # Windows zip (Ubuntu: cross-compile; Windows: use scripts/Build-Windows.ps1)
 #   make macos-intel  # Intel Mac .app and dist/ByAThread-macos-intel.zip (macOS only)
 #   make macos-silicon # Apple Silicon .app and dist/ByAThread-macos-silicon.zip (macOS only)
@@ -20,9 +20,12 @@
 #   make appimage              # only AppImage
 #   make kill-local-servers    #
 #   make kill-remote-servers   #
-#   make clean                 # remove dist/, temp dirs, and Docker images
+#   make reset-local           # stop stack running on Docker compose locally
+#   make reset-remote          # stop stack running on Docker compose locally
+#   make clean-local           # remove dist/, temp dirs, and Docker images
+#   make clean-remote          # remove Docker images
 #
-.PHONY: all no-test test server build-server-image build-matchmaker-image push-server-image push-matchmaker-image build-images push-images deploy windows deb rpm appimage macos-intel macos-silicon clean check-windows check-deb check-rpm check-appimage check-docker check-docker-compose check-deploy check-env kill-local-servers kill-remote-servers reset-vps
+.PHONY: all no-test test server build-server-image build-matchmaker-image push-server-image push-matchmaker-image build-images push-images deploy windows deb rpm appimage macos-intel macos-silicon check-windows check-deb check-rpm check-appimage check-docker check-docker-compose check-deploy check-env kill-local-servers kill-remote-servers reset-local reset-remote clean-local clean-remote
 
 DIST := dist
 STAGING_WIN := ByAThread-win64
@@ -178,18 +181,27 @@ macos-silicon:
 
 kill-local-servers:
 	-pkill -f 'target/.*/server' 2>/dev/null || true
-	@containers=$$(docker ps -q --filter 'name=game-' 2>/dev/null); [ -n "$$containers" ] && echo "$$containers" | xargs docker stop 2>/dev/null || true
+	@containers=$$(docker ps -aq --filter 'name=game-' 2>/dev/null); [ -n "$$containers" ] && echo "$$containers" | xargs docker rm -f 2>/dev/null || true
 
 kill-remote-servers: | check-deploy
-	ssh hetzner "containers=\$$(docker ps -q --filter 'name=game-' 2>/dev/null); [ -n \"\$$containers\" ] && echo \"Stopping remote game servers...\" && echo \"\$$containers\" | xargs docker stop 2>/dev/null || echo 'No remote game servers running.'"
+	ssh hetzner "containers=\$$(docker ps -aq --filter 'name=game-' 2>/dev/null); [ -n \"\$$containers\" ] && echo \"Stopping and removing remote game servers...\" && echo \"\$$containers\" | xargs docker rm -f 2>/dev/null || echo 'No remote game servers to clean up.'"
 
-reset-vps: | check-deploy
-	ssh hetzner "docker compose down && \
-	containers=\$$(docker ps -a -q --filter 'name=game-' 2>/dev/null); \
+reset-local: | check-deploy
+	"docker compose down && \
+	containers=\$$(docker ps -aq --filter 'name=game-' 2>/dev/null); \
 	[ -n \"\$$containers\" ] && docker rm -f \$$containers || true"
 
-clean:
+reset-remote: | check-deploy
+	ssh hetzner "docker compose down && \
+	containers=\$$(docker ps -aq --filter 'name=game-' 2>/dev/null); \
+	[ -n \"\$$containers\" ] && docker rm -f \$$containers || true"
+
+clean-local:
 	rm -rf $(DIST) $(STAGING_WIN) $(STAGING_APPDIR) ByAThread.app target/debian target/generate-rpm
 	cargo clean
 	-docker rmi $(DOCKER_USER)/server-image:latest $$(docker images -q $(DOCKER_USER)/server-image) 2>/dev/null || true
 	-docker rmi $(DOCKER_USER)/matchmaker-image:latest $$(docker images -q $(DOCKER_USER)/matchmaker-image) 2>/dev/null || true
+
+clean-remote: | check-deploy
+	ssh hetzner "docker rmi $(DOCKER_USER)/server-image:latest \$$(docker images -q $(DOCKER_USER)/server-image) 2>/dev/null || true; \
+	docker rmi $(DOCKER_USER)/matchmaker-image:latest \$$(docker images -q $(DOCKER_USER)/matchmaker-image) 2>/dev/null || true"
