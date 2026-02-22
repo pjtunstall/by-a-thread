@@ -74,9 +74,13 @@ According to the 01 spec, the game should include:
 
 ### Controls
 
+In-game:
+
 - WASD to move
 - Arrow keys to turn
 - SPACE to fire
 - LEFT SHIFT for sniper mode
+
+In-game or in the lobby:
 
 - ESCAPE to quit/exit
