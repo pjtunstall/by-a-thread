@@ -1,3 +1,15 @@
+# Notes
+
+## Stats
+
+To check Docker stats:
+
+```sh
+ssh hetzner "docker stats --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}'"
+```
+
+## Old single server deployment
+
 Old section of Makefile to build, deploy, and run a single game server.
 
 ```sh

@@ -11,7 +11,7 @@ The [docker-compose.yaml](../docker-compose.yaml) stack runs the matchmaker, Cad
 
 The compose file sets `DOCKER_HOST` and `GAME_IMAGE` directly; override them in the `environment` block if needed. The matchmaker image is built and tagged as `matchmaker-image:latest`; the container runs as `matchmaker-container`. To stop the matchmaker stack, run `docker stop matchmaker-container` (and stop the other services as needed). For running the stack and local development, see [Architecture](architecture.md#matchmaker-and-deployment).
 
-## Private Docker Hub registry
+## Docker Hub
 
 I used a private Docker Hub repository for the matchmaker image and a public one for the server image. (The free plan only allows one private repo.)
 
@@ -41,25 +41,3 @@ I used a private Docker Hub repository for the matchmaker image and a public one
      - GAME_IMAGE=your-username/game-server:latest
    ```
    Use `your-username/matchmaker-image:latest` as the matchmaker service image in `docker-compose.yaml` (or override with `docker compose run`) when you want to run the image from Docker Hub instead of building locally.
-
-## A curiosity: The dummy package trick
-
-The server consists of one package: `server`. It depends on another package, called `common`. Both belong to the same workspace, and that workspace contains a third package: `client`. I wanted to keep this structure without polluting the Docker build context with the client source code and assets. The solution I found was to include, in my [Dockerfile](../server/Dockerfile), commands to create a dummy client, i.e. the minimal file structure required to satisfy `cargo install`.
-
-```sh
-RUN mkdir -p client/src && \
-    echo '[package]\nname = "client"\nversion = "0.0.0"\n[dependencies]' > client/Cargo.toml && \
-    echo 'fn main() {}' > client/src/main.rs
-```
-
-In this way, I could omit/ignore the real client.
-
-The same technique is used in the matchmaker's [Dockerfile](../matchmaker/Dockerfile), with a dummy server and client.
-
-## Stats
-
-To check Docker stats:
-
-```sh
-ssh hetzner "docker stats --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}'"
-```

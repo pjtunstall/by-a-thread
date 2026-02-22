@@ -7,12 +7,14 @@ COPY Cargo.toml Cargo.lock ./
 COPY common ./common
 COPY server ./server
 
-# Create a dummy client to satisfy `cargo install`.
+# Create a dummy client to satisfy `cargo install` without polluting the Docker
+# build context with the real client code.
 RUN mkdir -p client/src && \
     echo '[package]\nname = "client"\nversion = "0.0.0"\n[dependencies]' > client/Cargo.toml && \
     echo 'fn main() {}' > client/src/main.rs
 
-# Create a dummy matchmaker to satisfy `cargo install`.
+# Create a dummy matchmaker to satisfy `cargo install` without polluting the
+# Docker build context with the real matchmaker code.
 RUN mkdir -p matchmaker/src && \
     echo '[package]\nname = "matchmaker"\nversion = "0.0.0"\n[dependencies]' > matchmaker/Cargo.toml && \
     echo 'fn main() {}' > matchmaker/src/main.rs

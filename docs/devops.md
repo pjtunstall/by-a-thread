@@ -27,9 +27,9 @@ The Renet protocol id is derived from the git commit hash at build time (when av
 
 |  | Local | Production |
 | --- | --- | --- |
-| `.env.client` | Leave `HOST` commented out or unset. | Set `HOST=your-domain.de`. |
-| `.env.matchmaker` | Leave `HOST` commented out or set to `local`. | Set `HOST=your-domain.de`. |
-| `.env` | Should contain `CADDYFILE=./Caddyfile.local`. | Omit to use default Caddyfile. |
+| .env.client | Leave `HOST` commented out or unset. | Set `HOST=your-domain.de`. |
+| .env.matchmaker | Leave `HOST` commented out or set to `local`. | Set `HOST=your-domain.de`. |
+| .env | Should contain `CADDYFILE=./Caddyfile.local`. | Omit to use default Caddyfile. |
 
 After changing `HOST` for production, rebuild the client so the new default server is baked in.
 
@@ -70,9 +70,15 @@ The solution is to make the client connect to the default Docker bridge network,
 
 ### Deploy
 
-**Server and Docker**
+**Cloud serverr**
 
-Provision a cloud server. (I've used Hetzner.) Install Docker.
+Provision a cloud server running the latest Ubuntu. I've used a Hetzner VPS, so I'll refer to it as a VPS in what follows. Install Docker.
+
+**Docker Hub**
+
+- Sign in at [hub.docker.com](https://hub.docker.com), go to Repositories --> Create Repository, and create two repositories (e.g. `your-username/game-server` and `your-username/matchmaker`). I made matchmaker private and server public a the free plan only allows one private repo.
+- On Docker Hub, click on your avatar and go to account settings. Create a read-write-delete [personal access token](https://docs.docker.com/docker-hub/access-tokens/). Call it something like `local`. Locally, run `docker login` to activate it.
+- Create another token called, for example, `vps`. Via SSH, run `docker login` on your VPS, and enter the token when it asks for a password. You only need to do this once.
 
 **SSH**
 
