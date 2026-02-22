@@ -42,19 +42,20 @@ For more information on specific topics, see the following documents:
 
 ## Status
 
-Currently in private beta. Successfully tested with the Linux AppImage, Linux deb, and Windows versions of the client.
+Currently in private beta. Successfully tested on a VPS with the Linux AppImage, Linux deb, and Windows versions of the client.
 
 Next steps include:
 
 - CI/CD: GitHub Actions to build, and to deploy on a scheduled or emergency basis (backend to VPS and client to itch.io);
 - test macOS (Intel and Apple Silicon);
 - test Linux rpm;
+- make public on itch.io;
 
 Please contact me if you'd like to play.
 
 ## Spec
 
-According to the 01 spec, the game is expected to include:
+According to the 01 spec, the game should include:
 
 - all elements of the original game:
   - multiplayer,
