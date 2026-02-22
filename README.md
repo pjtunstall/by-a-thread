@@ -3,16 +3,11 @@
 ![screenshot](screenshot.jpg)
 
 - [Overview](#overview)
+- [Status](#status)
 - [Spec](#spec)
 - [How to play](#how-to-play)
   - [Objective](#objective)
   - [Controls](#controls)
-- [Where to play](#where-to-play)
-  - [Locally](#locally)
-  - [Online plan](#online-plan)
-- [Links](#links)
-  - [Maze-generating algorithms](#maze-generating-algorithms)
-  - [Netcode](#netcode)
 
 ## Overview
 
