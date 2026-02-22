@@ -24,8 +24,8 @@
 #   make reset-remote          # stop stack running on Docker compose on the VPS
 #   make clean-local           # remove dist/, temp dirs, and Docker images localy
 #   make clean-remote          # remove Docker images on the VPS
-#   make deep-clean-local      # prune all Docker images locally
-#   make deep-clean-remote     # prune all Docker images on the VPS
+#   make deep-clean-local      # to remove all stopped containers, all unused networks, and all unused images locally
+#   make deep-clean-remote     # to remove all stopped containers, all unused networks, and all unused images on the VPS
 #
 .PHONY: all no-test test server build-server-image build-matchmaker-image push-server-image push-matchmaker-image build-images push-images deploy windows deb rpm appimage macos-intel macos-silicon check-windows check-deb check-rpm check-appimage check-docker check-docker-compose check-deploy check-env kill-local-servers kill-remote-servers reset-local reset-remote clean-local clean-remote deep-clean-local deep-clean-remote
 
