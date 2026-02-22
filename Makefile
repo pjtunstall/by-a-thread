@@ -21,11 +21,13 @@
 #   make kill-local-servers    #
 #   make kill-remote-servers   #
 #   make reset-local           # stop stack running on Docker compose locally
-#   make reset-remote          # stop stack running on Docker compose locally
-#   make clean-local           # remove dist/, temp dirs, and Docker images
-#   make clean-remote          # remove Docker images
+#   make reset-remote          # stop stack running on Docker compose on the VPS
+#   make clean-local           # remove dist/, temp dirs, and Docker images localy
+#   make clean-remote          # remove Docker images on the VPS
+#   make deep-clean-local      # prune all Docker images locally
+#   make deep-clean-remote     # prune all Docker images on the VPS
 #
-.PHONY: all no-test test server build-server-image build-matchmaker-image push-server-image push-matchmaker-image build-images push-images deploy windows deb rpm appimage macos-intel macos-silicon check-windows check-deb check-rpm check-appimage check-docker check-docker-compose check-deploy check-env kill-local-servers kill-remote-servers reset-local reset-remote clean-local clean-remote
+.PHONY: all no-test test server build-server-image build-matchmaker-image push-server-image push-matchmaker-image build-images push-images deploy windows deb rpm appimage macos-intel macos-silicon check-windows check-deb check-rpm check-appimage check-docker check-docker-compose check-deploy check-env kill-local-servers kill-remote-servers reset-local reset-remote clean-local clean-remote deep-clean-local deep-clean-remote
 
 DIST := dist
 STAGING_WIN := ByAThread-win64
@@ -201,7 +203,16 @@ clean-local:
 	cargo clean
 	-docker rmi $(DOCKER_USER)/server-image:latest $$(docker images -q $(DOCKER_USER)/server-image) 2>/dev/null || true
 	-docker rmi $(DOCKER_USER)/matchmaker-image:latest $$(docker images -q $(DOCKER_USER)/matchmaker-image) 2>/dev/null || true
+	-docker image prune -f
+	-docker builder prune -f
 
 clean-remote: | check-deploy
 	ssh hetzner "docker rmi $(DOCKER_USER)/server-image:latest \$$(docker images -q $(DOCKER_USER)/server-image) 2>/dev/null || true; \
-	docker rmi $(DOCKER_USER)/matchmaker-image:latest \$$(docker images -q $(DOCKER_USER)/matchmaker-image) 2>/dev/null || true"
+	docker rmi $(DOCKER_USER)/matchmaker-image:latest \$$(docker images -q $(DOCKER_USER)/matchmaker-image) 2>/dev/null || true; \
+	docker image prune -f"
+
+deep-clean-local: clean
+	docker system prune -af --volumes
+
+deep-clean-remote: clean-remote
+	ssh hetzner "docker system prune -af --volumes"

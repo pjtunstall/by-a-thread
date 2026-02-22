@@ -101,3 +101,4 @@ The Makefile also includes the following commands for maintainance:
 - `make kill-local-servers` and `make kill-remote-servers` to stop and remove all currently running server containers.
 - `make reset-vps` to remove stop the stack from running on Docker compose and remove any game containers.
 - `make-clean-local` and `make-clean-remote` to clean up the build environment and Docker images.
+- `make-deep-clean-local` and `make-deep-clean-remote` to prune all Docker images.
