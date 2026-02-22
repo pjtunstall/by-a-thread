@@ -5,7 +5,7 @@
 # Prerequisites: see docs/build.md.
 #
 # Usage:
-#   make              # full build (test, server, windows, deb, rpm, appimage)
+#   make              # full build (test, server, client bundles: windows, deb, rpm, appimage)
 #   make no-test      # full build without running tests
 #   make test         # run tests
 #   make server       # build server binary and Docker image locally
