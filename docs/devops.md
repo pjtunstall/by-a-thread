@@ -1,41 +1,47 @@
-# Devops
+# DevOps
 
-- [Environment](#environment)
-- [Run locally](#run-locally)
 - [Deploy](#deploy)
+- [Run locally](#run-locally)
+- [Environment](#environment)
 
 This is a guide to running the stack with Docker compose, locally or remotely.
 
-## Environment
-
-Create files .env.client and .env.matchmaker in the project root. The client is built with values from .env.client; the matchmaker container reads .env.matchmaker. After entering the following items, run `make check-env` to ensure the two files are consistent.
-
-**.env.client** (used at client build time; values will be baked into the binary on build):
-
-- `CLIENT_PROOF` (required): Base64-encoded secret. The matchmaker validates the client by checking that the SHA-256 hash of the decoded bytes equals `CLIENT_PROOF_HASH` in .env.matchmaker. The secret can be any length; 32 bytes is a typical choice (44 base64 characters). Generate a pair once and use the same `CLIENT_PROOF` in .env.client and the corresponding hex `CLIENT_PROOF_HASH` in .env.matchmaker.
-
-The Renet protocol id is derived from the git commit hash at build time (when available), so client and server built from different commits will reject each other with a clear error. Rebuild both from the same source to fix protocol mismatches.
-
-- `HOST` (optional): Default server for API and game. Omit or leave empty for local. For production, set to your domain (e.g. `HOST=by-a-thread.de`). Must match `HOST` in .env.matchmaker.
-
-**.env.matchmaker** (loaded by Docker Compose for the matchmaker service):
-
-- `CLIENT_PROOF_HASH` (required): 64-character hex string (32 bytes), the SHA-256 hash of the bytes that are base64-encoded as `CLIENT_PROOF` in .env.client.
-- `HOST` (optional): Same meaning as in .env.client. Omit or set to `local` or `localhost` for local; set to your domain for production. Must match .env.client (see `make check-env`).
-
-**Local vs production:**
-
-|  | Local | Production |
-| --- | --- | --- |
-| .env.client | Leave `HOST` commented out or unset. | Set `HOST=your-domain.de`. |
-| .env.matchmaker | Leave `HOST` commented out or set to `local`. | Set `HOST=your-domain.de`. |
-| .env | Should contain `CADDYFILE=./Caddyfile.local`. | Omit to use default Caddyfile. |
-
-After changing `HOST` for production, rebuild the client so the new default server is baked in.
-
 ## Run locally
 
-Build the game server image with make server (builds the server binary and Docker image server-image:latest). Start the compose stack with `docker compose up -d`; stop it with `docker compose down`.
+1. **Create environment**: Create files `.env`, `.env.client`, and `.env.matchmaker`, as described [below](#environment).
+2. **Build game server image:** `make server`.
+3. **Start stack:** `docker compose up -d`. Stop it with `docker compose down`.
+
+## Deploy
+
+**Cloud server**
+
+Provision a cloud server running the latest Ubuntu (e.g. a Hetzner VPS). Install Docker.
+
+**Firewall**
+
+Allow SSH (22), HTTP (80) (used by Caddy to set up TLS certificates), HTTPS (443), and UDP on the 10 game server ports 7777–7786.
+
+**Docker Hub**
+
+- Sign in at [hub.docker.com](https://hub.docker.com), go to Repositories --> Create Repository, and create two repositories (e.g. `your-username/game-server` and `your-username/matchmaker`). The free plan allows only one private repo; typically matchmaker is private and server is public.
+- Create a read-write-delete [personal access token](https://docs.docker.com/docker-hub/access-tokens/) (account settings). Use one token locally: run `docker login` and enter it as the password. Create a second token (e.g. `vps`) and, via SSH, run `docker login` on the VPS so it can pull images. You only need to log in on the VPS once.
+
+**SSH**
+
+Set up SSH keys for passwordless login. The Makefile deploy target uses the host alias `hetzner`; configure it in `~/.ssh/config`.
+
+**Create environment**
+
+Create files `.env`, `.env.client`, and `.env.matchmaker`, as described [below](#environment).
+
+**Deploy**
+
+The stack is driven by the Makefile. Run `make deploy` to:
+
+1. **Build images:** Runs release builds and creates the server and matchmaker Docker images (tags from Cargo.toml).
+2. **Push to Docker Hub:** Pushes both images with "latest" and versioned tags so the VPS can pull them.
+3. **Deploy to VPS:** `make deploy`. Copies `docker-compose.yaml`, `Caddyfile`, and `.env.matchmaker` to the VPS home directory via SSH, then pulls the latest server image, and runs `docker compose up -d --pull always` to refresh the matchmaker and network. (Docker Compose will take care of pulling the matchmaker image.)
 
 ### Notes
 
@@ -68,43 +74,29 @@ The solution is to make the client connect to the default Docker bridge network,
 - The host receives it on 172.17.0.1 and delivers it to the client.
 - The client gets the reply and the connection succeeds.
 
-### Deploy
+## Environment
 
-**Cloud serverr**
+Create files .env.client and .env.matchmaker in the project root. The client is built with values from .env.client; the matchmaker container reads .env.matchmaker. After entering the following items, run `make check-env` to ensure the two files are consistent.
 
-Provision a cloud server running the latest Ubuntu. I've used a Hetzner VPS, so I'll refer to it as a VPS in what follows. Install Docker.
+**.env.client** (used at client build time; values will be baked into the binary on build):
 
-**Docker Hub**
+- `CLIENT_PROOF` (required): Base64-encoded secret. The matchmaker validates the client by checking that the SHA-256 hash of the decoded bytes equals `CLIENT_PROOF_HASH` in .env.matchmaker. The secret can be any length; 32 bytes is a typical choice (44 base64 characters). Generate a pair once (e.g. `openssl rand -base64 32` for `CLIENT_PROOF`, then take the SHA-256 hash of the decoded bytes as 64 hex characters for `CLIENT_PROOF_HASH`) and use the same values in both env files.
 
-- Sign in at [hub.docker.com](https://hub.docker.com), go to Repositories --> Create Repository, and create two repositories (e.g. `your-username/game-server` and `your-username/matchmaker`). I made matchmaker private and server public a the free plan only allows one private repo.
-- On Docker Hub, click on your avatar and go to account settings. Create a read-write-delete [personal access token](https://docs.docker.com/docker-hub/access-tokens/). Call it something like `local`. Locally, run `docker login` to activate it.
-- Create another token called, for example, `vps`. Via SSH, run `docker login` on your VPS, and enter the token when it asks for a password. You only need to do this once.
+The Renet protocol id is derived from the Cargo version number at build time. If client and server are built from different versions, the server refuses the connection. Rebuild both from the same source to fix protocol mismatches.
 
-**SSH**
+- `HOST` (optional): Default server for API and game. Omit or leave empty for local. For production, set to your domain (e.g. `HOST=by-a-thread.de`). Must match `HOST` in .env.matchmaker.
 
-- SSH Keys: Set up SSH keys for passwordless login. The Makefile deploy target uses the host alias `hetzner`; ensure this is configured in your ~/.ssh/config.
-- Docker Hub: Create a Personal Access Token (PAT) on Docker Hub. Log in on the VPS once with `docker login -u <your-username>` to allow it to pull private images.
+**.env.matchmaker** (loaded by Docker Compose for the matchmaker service):
 
-**Firewall**
+- `CLIENT_PROOF_HASH` (required): 64-character hex string (32 bytes), the SHA-256 hash of the bytes that are base64-encoded as `CLIENT_PROOF` in .env.client.
+- `HOST` (optional): Same meaning as in `.env.client`. Omit or set to `local` or `localhost` for local; set to your domain for production. Must match `.env.client` (see `make check-env`).
 
-Allow SSH (22), HTTP (80) (used by Caddy to set up TLS certificates), HTTPS (443), and UDP on the 10 game server ports 7777–7786.
+**Local vs production:**
 
-**Deploy**
+|  | Local | Production |
+| --- | --- | --- |
+| `.env.client` | Leave `HOST` commented out or unset. | Set `HOST=your-domain.de`. |
+| `.env.matchmaker` | Leave `HOST` commented out or set to `local`. | Set `HOST=your-domain.de`. |
+| `.env` | Should contain `CADDYFILE=./Caddyfile.local`. | Omit to use default Caddyfile. |
 
-The infrastructure is managed via the Makefile. You can run these commands individually, or simply run the final one to trigger the whole chain.
-
-- Build the Images locally. Command: `make build-images`. This runs the release builds for your Rust code and creates the Docker images. It automatically calculates the version from your Cargo.toml for tagging.
-- Push to Docker Hub. Command: `make push-images`. This uploads both the "latest" and the versioned tags to your Docker Hub repository. This makes the images accessible to your VPS.
-- Deploy to the VPS. Command: `make deploy`. This is the "master" command. It performs the push, then executes the following via SSH on your server:
-- Copies docker-compose.yaml, Caddyfile, and .env.matchmaker to the VPS home directory.
-- Pulls the latest `server-image`.
-- Runs `docker compose up -d --pull always` to refresh the Matchmaker and the network configuration.
-
-**maintainance**
-
-The Makefile also includes the following commands for maintainance:
-
-- `make kill-local-servers` and `make kill-remote-servers` to stop and remove all currently running server containers.
-- `make reset-vps` to remove stop the stack from running on Docker compose and remove any game containers.
-- `make-clean-local` and `make-clean-remote` to clean up the build environment and Docker images.
-- `make-deep-clean-local` and `make-deep-clean-remote` to remove all stopped containers, all unused networks, and all unused images.
+After changing `HOST` for production, rebuild the client so the new default server is baked in.

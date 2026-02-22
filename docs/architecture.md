@@ -25,7 +25,7 @@ The stack runs via Docker Compose:
 - **caddy**: Reverse proxy and TLS termination. Exposes ports 80 and 443; proxies `api.by-a-thread.de` to the matchmaker. Handles Let's Encrypt certificates in production.
 - **socket-proxy** ([tecnativa/docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy)): Exposes a restricted subset of the Docker socket to the matchmaker. The matchmaker connects to `tcp://socket-proxy:2375` instead of the raw socket. The proxy allows only `CONTAINERS=1`, `POST=1`, and `NETWORKS=1`, so the matchmaker can create containers and attach them to networks but cannot list or inspect other containers.
 
-All three services share a backend bridge network. Caddy reverse-proxies the matchmaker; the matchmaker connects to the socket proxy to run Docker. The matchmaker reads `.env.matchmaker` for `CLIENT_PROOF_HASH`, `HOST`, and related config. The expected client version is taken from the matchmaker build (the `common` crate version), not from env. See [docker.md](docker.md) for compose stack details. For more detail on deployment and how to run locally, see [devops.md](#devops.md).
+All three services share a backend bridge network. Caddy reverse-proxies the matchmaker; the matchmaker connects to the socket proxy to run Docker. The matchmaker reads `.env.matchmaker` for `CLIENT_PROOF_HASH`, `HOST`, and related config. The version it expects from clients is its own Cargo package version, baked in at build time via `env!("CARGO_PKG_VERSION")` (there is no env var for it). The client sends its own package version in the `X-Version` header; the matchmaker rejects the request if they differ. In this workspace all crates use the same workspace version, so a client built from the same tree matches. For more detail see [devops.md](#devops.md).
 
 ## State Machines
 
@@ -94,12 +94,12 @@ Lobby -> ChoosingDifficulty -> Countdown -> Game
 ├── docker-compose.yaml
 ├── Caddyfile
 ├── Caddyfile.local
-├── .env.matchmaker
-└── docs/
-    ├── architecture.md
-    ├── api.yaml
-    └── docker.md
+├── .env
+├── .env.client
+└── .env.matchmaker
 ```
+
+For what to put in the `.env` files, see [devops.md](#devops.md).
 
 ### Matchmaker
 
@@ -225,11 +225,12 @@ common/src/
 ├── bullets.rs
 ├── chat.rs
 ├── constants.rs
+├── domain.rs
 ├── input.rs
 ├── maze/
 │   ├── maker/
 │   │   ├── algorithms/
-│   │   │   ├── backtrack.rs
+│   │   │   ├── backtracker.rs
 │   │   │   ├── binary_tree.rs
 │   │   │   ├── blobby.rs
 │   │   │   ├── division.rs
