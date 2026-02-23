@@ -24,5 +24,9 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
 
+      - name: Log in to Docker Hub on VPS
+        run: |
+          ssh github@${{ secrets.HOST }} "echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin"
+
       - name: Deploy to Hetzner
         run: make deploy DOCKER_USER=${{ secrets.DOCKERHUB_USERNAME }} HOST=github@${{ secrets.HOST }}
