@@ -82,10 +82,12 @@ impl Game {
             }]),
         );
 
+        let image_name = std::env::var("GAME_IMAGE").expect(
+            "`GAME_IMAGE` environment variable must be set (check your .env.matchmaker file)",
+        );
+
         let config = ContainerCreateBody {
-            image: Some(
-                std::env::var("GAME_IMAGE").unwrap_or_else(|_| "server-image:latest".to_string()),
-            ),
+            image: Some(image_name),
             env: Some(vec![
                 format!("PRIVATE_KEY={}", private_key_b64),
                 format!("IP={}", server_host),
@@ -97,9 +99,8 @@ impl Game {
                 cap_drop: Some(vec!["ALL".to_string()]),
                 security_opt: Some(vec!["no-new-privileges:true".to_string()]),
                 pids_limit: Some(256),
-                nano_cpus: Some(200_000_000),
+                nano_cpus: Some(200_000_000), // 0.2 CPU.
                 memory: Some(314_572_800),
-                cpu_shares: Some(1024),
                 ..Default::default()
             }),
             ..Default::default()

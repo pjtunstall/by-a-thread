@@ -80,16 +80,19 @@ Create files .env.client and .env.matchmaker in the project root. The client is 
 
 **.env.client** (used at client build time; values will be baked into the binary on build):
 
-- `CLIENT_PROOF` (required): Base64-encoded secret. The matchmaker validates the client by checking that the SHA-256 hash of the decoded bytes equals `CLIENT_PROOF_HASH` in .env.matchmaker. The secret can be any length; 32 bytes is a typical choice (44 base64 characters). Generate a pair once (e.g. `openssl rand -base64 32` for `CLIENT_PROOF`, then take the SHA-256 hash of the decoded bytes as 64 hex characters for `CLIENT_PROOF_HASH`) and use the same values in both env files.
+- `HOST`: Default server for API and game. Omit or leave empty for local. For production, set to your domain (e.g. `HOST=by-a-thread.de`). Must match `HOST` in .env.matchmaker.
+
+- `CLIENT_PROOF`: Base64-encoded secret. The matchmaker validates the client by checking that the SHA-256 hash of the decoded bytes equals `CLIENT_PROOF_HASH` in .env.matchmaker. The secret can be any length; 32 bytes is a typical choice (44 base64 characters). Generate a pair once (e.g. `openssl rand -base64 32` for `CLIENT_PROOF`, then take the SHA-256 hash of the decoded bytes as 64 hex characters for `CLIENT_PROOF_HASH`) and use the same values in both env files.
 
 The Renet protocol id is derived from the Cargo version number at build time. If client and server are built from different versions, the server refuses the connection. Rebuild both from the same source to fix protocol mismatches.
 
-- `HOST` (optional): Default server for API and game. Omit or leave empty for local. For production, set to your domain (e.g. `HOST=by-a-thread.de`). Must match `HOST` in .env.matchmaker.
-
 **.env.matchmaker** (loaded by Docker Compose for the matchmaker service):
 
-- `CLIENT_PROOF_HASH` (required): 64-character hex string (32 bytes), the SHA-256 hash of the bytes that are base64-encoded as `CLIENT_PROOF` in .env.client.
 - `HOST` (optional): Same meaning as in `.env.client`. Omit or set to `local` or `localhost` for local; set to your domain for production. Must match `.env.client` (see `make check-env`).
+
+- `GAME_IMAGE`: The Docker image to use for game servers.
+
+- `CLIENT_PROOF_HASH`: 64-character hex string (32 bytes), the SHA-256 hash of the bytes that are base64-encoded as `CLIENT_PROOF` in .env.client.
 
 **Local vs production:**
 

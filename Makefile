@@ -18,16 +18,14 @@
 #   make deb                   # only .deb package
 #   make rpm                   # only .rpm package
 #   make appimage              # only AppImage
-#   make kill-local-servers    #
-#   make kill-remote-servers   #
-#   make reset-local           # stop stack running on Docker compose locally
-#   make reset-remote          # stop stack running on Docker compose on the VPS
-#   make clean-local           # remove dist/, temp dirs, and Docker images localy
-#   make clean-remote          # remove Docker images on the VPS
-#   make deep-clean-local      # to remove all stopped containers, all unused networks, and all unused images locally
-#   make deep-clean-remote     # to remove all stopped containers, all unused networks, and all unused images on the VPS
+#   make kill-local-servers    # Tier 1: remove local game containers (match instances only)
+#   make kill-remote-servers   # Tier 1: remove remote game containers
+#   make clean-local           # Tier 2: kill local servers, remove dist/temp, cargo clean, project images
+#   make clean-remote          # Tier 2: compose down on VPS, remove project images
+#   make deep-clean-local      # Tier 3: clean-local + system prune (all unused containers/networks/images/volumes)
+#   make deep-clean-remote     # Tier 3: clean-remote + system prune on the VPS
 #
-.PHONY: all no-test test server build-server-image build-matchmaker-image push-server-image push-matchmaker-image build-images push-images deploy windows deb rpm appimage macos-intel macos-silicon check-windows check-deb check-rpm check-appimage check-docker check-docker-compose check-deploy check-env kill-local-servers kill-remote-servers reset-local reset-remote clean-local clean-remote deep-clean-local deep-clean-remote
+.PHONY: all no-test test server build-server-image build-matchmaker-image push-server-image push-matchmaker-image build-images push-images deploy windows deb rpm appimage macos-intel macos-silicon check-windows check-deb check-rpm check-appimage check-docker check-docker-compose check-deploy check-env kill-local-servers kill-remote-servers clean-local clean-remote deep-clean-local deep-clean-remote
 
 DIST := dist
 STAGING_WIN := ByAThread-win64
@@ -124,9 +122,8 @@ push-matchmaker-image: build-matchmaker-image
 push-images: push-server-image push-matchmaker-image
 
 deploy: push-images | check-deploy
-	scp docker-compose.yaml Caddyfile .env.matchmaker hetzner:~/
-	ssh hetzner 'docker pull $(DOCKER_USER)/server-image:latest && \
-	docker compose up -d --pull always'
+    scp docker-compose.yaml Caddyfile .env.matchmaker hetzner:~/
+    ssh hetzner 'docker compose pull && docker compose up -d'
 
 # --- Client Build Targets ---
 
@@ -179,39 +176,45 @@ macos-intel:
 macos-silicon: 
 	@./scripts/bundle-macos.sh $(TARGET_APPLE_SILICON) ByAThread-macos-silicon ByAThread-macos-silicon.zip
 
-# --- Cleanup ---
+# --- Tier 1: Instance cleanup (match instances only) ---
 
 kill-local-servers:
-	-pkill -f 'target/.*/server' 2>/dev/null || true
-	@containers=$$(docker ps -aq --filter 'name=game-' 2>/dev/null); [ -n "$$containers" ] && echo "$$containers" | xargs docker rm -f 2>/dev/null || true
+	@containers=$$(docker ps -aq --filter "name=game-" 2>/dev/null); \
+	if [ -n "$$containers" ]; then \
+		echo "Removing local game containers:"; \
+		docker ps -a --filter "name=game-" --format "table {{.Names}}\t{{.CreatedAt}}\t{{.Status}}"; \
+		echo "$$containers" | xargs docker rm -f >/dev/null; \
+	else \
+		echo "No local game servers to clean up."; \
+	fi
 
 kill-remote-servers: | check-deploy
-	ssh hetzner "containers=\$$(docker ps -aq --filter 'name=game-' 2>/dev/null); [ -n \"\$$containers\" ] && echo \"Stopping and removing remote game servers...\" && echo \"\$$containers\" | xargs docker rm -f 2>/dev/null || echo 'No remote game servers to clean up.'"
+	@ssh hetzner "containers=\$$(docker ps -aq --filter 'name=game-' 2>/dev/null); \
+	if [ -n \"\$$containers\" ]; then \
+		echo \"Removing remote game containers:\"; \
+		docker ps -a --filter \"name=game-\" --format \"table {{.Names}}\t{{.CreatedAt}}\t{{.Status}}\"; \
+		echo \"\$$containers\" | xargs docker rm -f >/dev/null; \
+	else \
+		echo \"No remote game servers to clean up.\"; \
+	fi"
 
-reset-local: | check-deploy
-	"docker compose down && \
-	containers=\$$(docker ps -aq --filter 'name=game-' 2>/dev/null); \
-	[ -n \"\$$containers\" ] && docker rm -f \$$containers || true"
+# --- Tier 2: Project cleanup (binaries and images) ---
 
-reset-remote: | check-deploy
-	ssh hetzner "docker compose down && \
-	containers=\$$(docker ps -aq --filter 'name=game-' 2>/dev/null); \
-	[ -n \"\$$containers\" ] && docker rm -f \$$containers || true"
-
-clean-local:
+clean-local: kill-local-servers
 	rm -rf $(DIST) $(STAGING_WIN) $(STAGING_APPDIR) ByAThread.app target/debian target/generate-rpm
 	cargo clean
-	-docker rmi $(DOCKER_USER)/server-image:latest $$(docker images -q $(DOCKER_USER)/server-image) 2>/dev/null || true
-	-docker rmi $(DOCKER_USER)/matchmaker-image:latest $$(docker images -q $(DOCKER_USER)/matchmaker-image) 2>/dev/null || true
-	-docker image prune -f
-	-docker builder prune -f
+	-docker rmi $$(docker images -q $(DOCKER_USER)/*-image) 2>/dev/null || true
+	docker image prune -f
+	docker builder prune -f
 
 clean-remote: | check-deploy
-	ssh hetzner "docker rmi $(DOCKER_USER)/server-image:latest \$$(docker images -q $(DOCKER_USER)/server-image) 2>/dev/null || true; \
-	docker rmi $(DOCKER_USER)/matchmaker-image:latest \$$(docker images -q $(DOCKER_USER)/matchmaker-image) 2>/dev/null || true; \
+	ssh hetzner "docker compose down; \
+	docker rmi \$$(docker images -q $(DOCKER_USER)/*-image) 2>/dev/null || true; \
 	docker image prune -f"
 
-deep-clean-local: clean
+# --- Tier 3: Nuclear cleanup (system reset) ---
+
+deep-clean-local: clean-local
 	docker system prune -af --volumes
 
 deep-clean-remote: clean-remote

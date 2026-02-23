@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - dev
 
 jobs:
   test:
@@ -22,6 +23,7 @@ jobs:
           echo "CLIENT_PROOF=${{ secrets.CLIENT_PROOF }}" >> .env.client
           echo "HOST=${{ secrets.HOST }}" > .env.matchmaker
           echo "CLIENT_PROOF_HASH=${{ secrets.CLIENT_PROOF_HASH }}" >> .env.matchmaker
+          echo "GAME_IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/server-image:latest" >> .env.matchmaker
       - run: cargo test --workspace
 
   build-and-push-backend:
@@ -35,6 +37,7 @@ jobs:
         run: |
           echo "HOST=${{ secrets.HOST }}" > .env.matchmaker
           echo "CLIENT_PROOF_HASH=${{ secrets.CLIENT_PROOF_HASH }}" >> .env.matchmaker
+          echo "GAME_IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/server-image:latest" >> .env.matchmaker
       - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -67,6 +70,7 @@ jobs:
           echo "CLIENT_PROOF=${{ secrets.CLIENT_PROOF }}" >> .env.client
           echo "HOST=${{ secrets.HOST }}" > .env.matchmaker
           echo "CLIENT_PROOF_HASH=${{ secrets.CLIENT_PROOF_HASH }}" >> .env.matchmaker
+          echo "GAME_IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/server-image:latest" >> .env.matchmaker
       - run: make appimage deb rpm
       - uses: actions/upload-artifact@v4
         with:
@@ -89,6 +93,7 @@ jobs:
           "CLIENT_PROOF=${{ secrets.CLIENT_PROOF }}" | Out-File -FilePath .env.client -Append -Encoding utf8
           "HOST=${{ secrets.HOST }}" | Out-File -FilePath .env.matchmaker -Encoding utf8
           "CLIENT_PROOF_HASH=${{ secrets.CLIENT_PROOF_HASH }}" | Out-File -FilePath .env.matchmaker -Append -Encoding utf8
+          "GAME_IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/server-image:latest" | Out-File -FilePath .env.matchmaker -Append -Encoding utf8
         shell: pwsh
       - run: .\scripts\Build-Windows.ps1
         shell: pwsh
@@ -112,6 +117,7 @@ jobs:
           echo "CLIENT_PROOF=${{ secrets.CLIENT_PROOF }}" >> .env.client
           echo "HOST=${{ secrets.HOST }}" > .env.matchmaker
           echo "CLIENT_PROOF_HASH=${{ secrets.CLIENT_PROOF_HASH }}" >> .env.matchmaker
+          echo "GAME_IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/server-image:latest" >> .env.matchmaker
       - run: cargo build --release -p client --target x86_64-apple-darwin
       - run: cargo build --release -p client --target aarch64-apple-darwin
       - run: make macos-intel macos-silicon
