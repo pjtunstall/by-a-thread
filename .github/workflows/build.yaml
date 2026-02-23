@@ -1,10 +1,9 @@
-name: CI/CD Pipeline
+name: Build, Package, and Push Images
 
 on:
   push:
     branches:
       - main
-      - dev
 
 jobs:
   test:
