@@ -1,4 +1,19 @@
 services:
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=Europe/London
+    command: --schedule "0 30 3 * * *" --cleanup
+    deploy:
+      resources:
+        limits:
+          cpus: "0.05"
+          memory: 64M
+
   socket-proxy:
     image: tecnativa/docker-socket-proxy
     container_name: socket-proxy
@@ -10,6 +25,7 @@ services:
       - POST=1
       - DELETE=1
       - NETWORKS=1
+      - TZ=Europe/London
     networks:
       - backend
     deploy:
@@ -29,6 +45,8 @@ services:
       - ${CADDYFILE:-./Caddyfile}:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
+    environment:
+      - TZ=Europe/London
     networks:
       - backend
     deploy:
@@ -46,6 +64,7 @@ services:
     environment:
       - DOCKER_HOST=tcp://socket-proxy:2375
       - GAME_IMAGE=pjtunstall/server-image:latest
+      - TZ=Europe/London
     depends_on:
       - socket-proxy
     networks:
