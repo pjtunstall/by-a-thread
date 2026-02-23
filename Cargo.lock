@@ -1162,7 +1162,6 @@ dependencies = [
  "base64",
  "bollard",
  "common",
- "dotenvy",
  "hex",
  "rand",
  "renet",
