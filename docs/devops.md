@@ -41,7 +41,7 @@ The stack is driven by the Makefile. Run `make deploy` to:
 
 1. **Build images:** Runs release builds and creates the server and matchmaker Docker images (tags from Cargo.toml).
 2. **Push to Docker Hub:** Pushes both images with "latest" and versioned tags so the VPS can pull them.
-3. **Deploy to VPS:** `make deploy`. Copies `docker-compose.yaml`, `Caddyfile`, and `.env.matchmaker` to the VPS home directory via SSH, then pulls the latest server image, and runs `docker compose pull` to pull the latest matchmaker image, then `docker compose up -d` to refresh the matchmaker and network.
+3. **Deploy to VPS:** `make deploy`. Copies `docker-compose.yaml`, `Caddyfile`, and `.env.matchmaker` to the VPS home directory via SSH, pulls the server image from Docker Hub, runs `docker compose pull` to pull the matchmaker and third-party images (e.g. Watchtower, Caddy, Docker Socket Proxy), and finally `docker compose up -d` to refresh the matchmaker and network.
 
 ### Notes
 

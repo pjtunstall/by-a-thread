@@ -121,9 +121,11 @@ push-matchmaker-image: build-matchmaker-image
 
 push-images: push-server-image push-matchmaker-image
 
-deploy: push-images | check-deploy
-	scp docker-compose.yaml Caddyfile .env.matchmaker hetzner:~/
-	ssh hetzner 'docker compose pull && docker compose up -d'
+deploy: | check-deploy
+	scp docker-compose.yaml Caddyfile .env.matchmaker hetzner:~/ && \
+	ssh hetzner 'docker compose pull && \
+		docker pull $(DOCKER_USER)/server-image:latest && \
+		docker compose up -d'
 
 # --- Client Build Targets ---
 
