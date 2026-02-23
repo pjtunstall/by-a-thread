@@ -37,14 +37,30 @@ According to the 01 spec, the game should include:
 
 ## Extras
 
-I went beyond the spec in a few ways:
+I went beyond the spec in a few ways.
 
-- cloud-hosted backend;
-- matchmaker API that spawns game servers in response to client requests, allowing concurrent sessions;
-- containerization with Docker Compose;
-- automatic updates from Docker Hub via Watchtower;
-- Makefile for build and deployment;
-- GitHub Actions for build (Windows, Linux, macOS) and deployment of backend to Docker Hub;
+**DevOps:**
+
+- Cloud-hosted backend
+- Matchmaker API that spawns game servers in response to client requests, allowing concurrent sessions
+- Containerization with Docker Compose
+- Automatic updates from Docker Hub via Watchtower
+- Makefile and associated scripts for build and deployment
+- GitHub Actions to build client (Windows, Linux, macOS) and deploy backend to Docker Hub
+
+**Security:**
+
+- Request validation and authentication: client proof (baked-in secret), version checks, and constant-time comparison to mitigate timing attacks
+- Least-privilege access: Docker socket proxy so the matchmaker can only perform allowed container operations, limiting impact if compromised
+- Secure session lifecycle: connect tokens with appropriate expiry, rate limiting, and cleanup of orphaned game-server containers on startup
+- TLS termination and certificate management via Caddy reverse proxy
+
+**Netcode:**
+
+- Clock synchronization
+- Reconciliation and prediction for local player
+- Interpolation for remote players
+- Extrapolation for bullets
 
 For more information on specific topics, see the following documents:
 
