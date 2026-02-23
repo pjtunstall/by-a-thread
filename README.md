@@ -44,6 +44,7 @@ I went beyond the spec in a few ways:
 - containerization with Docker Compose;
 - automatic updates from Docker Hub via Watchtower;
 - Makefile for build and deployment;
+- GitHub Actions for build (Windows, Linux, macOS) and deployment of backend to Docker Hub;
 
 For more information on specific topics, see the following documents:
 
@@ -82,7 +83,7 @@ Currently in private beta. Successfully tested on a VPS with the Linux AppImage,
 
 Next steps include:
 
-- CI/CD: GitHub Actions to build, and to deploy on a scheduled or emergency basis (backend to VPS and client to itch.io);
+- GitHub Actions to deploy backend to VPS and client to itch.io on a scheduled or emergency basis;
 - test macOS (Intel and Apple Silicon);
 - test Linux rpm;
 - make public on itch.io;
