@@ -40,8 +40,9 @@ According to the 01 spec, the game should include:
 I went beyond the spec in a few ways:
 
 - cloud-hosted backend;
-- matchmaker API that spawns game servers in response to client requests, allowing for concurrent sessions;
+- matchmaker API that spawns game servers in response to client requests, allowing concurrent sessions;
 - containerization with Docker Compose;
+- automatic updates via Watchtower;
 - Makefile for build and deployment;
 
 For more information on specific topics, see the following documents:
