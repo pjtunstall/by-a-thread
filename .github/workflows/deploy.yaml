@@ -26,4 +26,4 @@ jobs:
           known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
 
       - name: Deploy to Hetzner
-        run: make deploy DOCKER_USER=${{ secrets.DOCKERHUB_USERNAME }}
+        run: make deploy DOCKER_USER=${{ secrets.DOCKERHUB_USERNAME }} HOST=${{ secrets.HOST }}

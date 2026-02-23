@@ -128,8 +128,8 @@ push-images: push-server-image push-matchmaker-image
 # Docker Compose then augments the variables from the file with others that it
 # specifies in the 'environment' directive.
 deploy: | check-deploy
-	scp docker-compose.yaml Caddyfile .env.matchmaker hetzner:~/
-	ssh hetzner 'docker compose --env-file .env.matchmaker pull && \
+	scp docker-compose.yaml Caddyfile .env.matchmaker $(HOST):~/
+	ssh $(HOST) 'docker compose --env-file .env.matchmaker pull && \
 		docker pull $(DOCKER_USER)/server-image:latest && \
 		docker compose --env-file .env.matchmaker up -d'
 
