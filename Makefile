@@ -121,11 +121,17 @@ push-matchmaker-image: build-matchmaker-image
 
 push-images: push-server-image push-matchmaker-image
 
+# --env-file .env.matchmaker tells the Docker Compose CLI to use .env.matchmaker
+# to resolve YAML variables (like ${GAME_IMAGE}) before pulling/starting.
+# Separately, the 'env_file' directive inside docker-compose.yaml tells the
+# container to load its internal environment variables from that same file.
+# Docker Compose then augments the variables from the file with others that it
+# specifies in the 'environment' directive.
 deploy: | check-deploy
 	scp docker-compose.yaml Caddyfile .env.matchmaker hetzner:~/
-	ssh hetzner 'docker compose pull && \
+	ssh hetzner 'docker compose --env-file .env.matchmaker pull && \
 		docker pull $(DOCKER_USER)/server-image:latest && \
-		docker compose up -d'
+		docker compose --env-file .env.matchmaker up -d'
 
 # --- Client Build Targets ---
 
