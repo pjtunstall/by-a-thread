@@ -1,0 +1,29 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["Build"]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  deploy-vps:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env.matchmaker
+        run: |
+          echo "HOST=${{ secrets.HOST }}" > .env.matchmaker
+          echo "GAME_IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/server-image:latest" >> .env.matchmaker
+          echo "CLIENT_PROOF_HASH=${{ secrets.CLIENT_PROOF_HASH }}" >> .env.matchmaker
+
+      - name: Install SSH Key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+
+      - name: Deploy to Hetzner
+        run: make deploy DOCKER_USER=${{ secrets.DOCKERHUB_USERNAME }}

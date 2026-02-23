@@ -4,7 +4,7 @@
 - [Run locally](#run-locally)
 - [Environment](#environment)
 
-This is a guide to running the stack with Docker compose, locally or remotely.
+This is a guide to running the stack with Docker compose, locally or remotely. It was written before I started introducing GitHub Actions, and will need updating when that process is complete.
 
 ## Run locally
 
