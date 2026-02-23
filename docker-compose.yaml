@@ -7,7 +7,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - TZ=Europe/London
-    command: --schedule "0 30 3 * * *" --cleanup
+    command: --schedule "0 10 4 * * *" --cleanup
     deploy:
       resources:
         limits:
