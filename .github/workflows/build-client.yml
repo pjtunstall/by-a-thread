@@ -1,0 +1,89 @@
+name: Build Cross-Platform Client
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deb,cargo-generate-rpm
+
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev zip fuse libfuse2
+
+      - run: |
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O linuxdeploy
+          chmod +x linuxdeploy
+          sudo mv linuxdeploy /usr/local/bin/
+          wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+          sudo mv appimagetool /usr/local/bin/
+
+      - run: touch .env.client .env.matchmaker
+
+      - run: make appimage deb rpm
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            dist/*.deb
+            dist/*.rpm
+            dist/*.AppImage
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: |
+          New-Item -ItemType File -Name .env.client -Force
+          New-Item -ItemType File -Name .env.matchmaker -Force
+        shell: pwsh
+
+      - run: .\scripts\Build-Windows.ps1
+        shell: pwsh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-package
+          path: dist\*.zip
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin, aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: touch .env.client .env.matchmaker
+
+      - run: cargo build --release -p client --target x86_64-apple-darwin
+      - run: cargo build --release -p client --target aarch64-apple-darwin
+
+      - run: make macos-intel macos-silicon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-packages
+          path: dist/*.zip
