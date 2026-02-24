@@ -6,8 +6,8 @@ on:
     types:
       - deploy_itch
 
+jobs:
   deploy-itch:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     steps:
       - uses: dawidd6/action-download-artifact@v3
