@@ -36,7 +36,7 @@ try {
     Write-Host "Copying assets..."
     Copy-Item -Path $ExePath -Destination "$StagingDir\"
     Copy-Item -Path "LICENSE" -Destination "$StagingDir\"
-    Copy-Item -Path "CREDITS.md" -Destination "$StagingDir\"
+    Copy-Item -Path "CREDITS" -Destination "$StagingDir\"
     
     # Ensure parent dir exists for license
     $FontLicenseDest = "$StagingDir\NOTO_FONT_LICENSE.txt"

@@ -118,7 +118,7 @@ Both the .deb and .rpm packages install the following files:
 - `/usr/share/icons/hicolor/256x256/apps/by-a-thread.png` - Application icon
 - `/usr/share/applications/by-a-thread.desktop` - Desktop file for applications menu
 - `/usr/share/doc/by-a-thread/LICENSE` - Game license
-- `/usr/share/doc/by-a-thread/CREDITS.md` - Asset credits and licenses
+- `/usr/share/doc/by-a-thread/CREDITS` - Asset credits and licenses
 
 After installation, the game will be available in your applications menu and can be run from anywhere with `/usr/lib/by-a-thread/ByAThread` or by clicking on the icon in your taskbar.
 

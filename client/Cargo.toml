@@ -65,7 +65,7 @@ assets = [
     ["assets/sfx/gun.wav", "usr/lib/by-a-thread/sfx/gun.wav", "644"],
     ["assets/sfx/shatter.wav", "usr/lib/by-a-thread/sfx/shatter.wav", "644"],
     ["../LICENSE", "usr/share/doc/by-a-thread/LICENSE", "644"],
-    ["../CREDITS.md", "usr/share/doc/by-a-thread/CREDITS.md", "644"]
+    ["../CREDITS", "usr/share/doc/by-a-thread/CREDITS", "644"]
 ]
 
 [package.metadata.generate-rpm]
@@ -100,5 +100,5 @@ assets = [
     { source = "assets/sfx/gun.wav", dest = "/usr/lib/by-a-thread/sfx/gun.wav", mode = "644" },
     { source = "assets/sfx/shatter.wav", dest = "/usr/lib/by-a-thread/sfx/shatter.wav", mode = "644" },
     { source = "../LICENSE", dest = "/usr/share/doc/by-a-thread/LICENSE", mode = "644", doc = true },
-    { source = "../CREDITS.md", dest = "/usr/share/doc/by-a-thread/CREDITS.md", mode = "644", doc = true }
+    { source = "../CREDITS", dest = "/usr/share/doc/by-a-thread/CREDITS", mode = "644", doc = true }
 ]

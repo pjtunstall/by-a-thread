@@ -142,7 +142,7 @@ $(ZIP_WIN): $(EXE_WIN)
 	mkdir -p $(DIST)
 	mkdir -p $(STAGING_WIN)
 	cp $(EXE_WIN) $(STAGING_WIN)/
-	cp LICENSE CREDITS.md $(STAGING_WIN)/
+	cp LICENSE CREDITS $(STAGING_WIN)/
 	cp client/assets/fonts/LICENSE.txt $(STAGING_WIN)/NOTO_FONT_LICENSE.txt
 	zip -r $(ZIP_WIN) $(STAGING_WIN)
 	rm -r $(STAGING_WIN)
