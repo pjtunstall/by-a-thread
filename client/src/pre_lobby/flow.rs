@@ -22,7 +22,10 @@ pub fn update(
     let in_awaiting_matchmaker = matches!(
         &session.state,
         ClientState::PreLobby(PreLobby::ApiRequestMenu {
-            phase: ApiRequestPhase::AwaitingCreate { .. } | ApiRequestPhase::AwaitingJoin { .. },
+            phase:
+                ApiRequestPhase::AwaitingPing { .. }
+                | ApiRequestPhase::AwaitingCreate { .. }
+                | ApiRequestPhase::AwaitingJoin { .. },
             ..
         })
     );

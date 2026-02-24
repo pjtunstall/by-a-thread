@@ -1,7 +1,7 @@
 use std::net::{TcpStream, ToSocketAddrs};
+use std::sync::mpsc;
+use std::thread;
 use std::time::Duration;
-
-use common::player::Color;
 
 use super::api_request_menu::PreLobbyTransition;
 use crate::{
@@ -27,7 +27,11 @@ pub fn handle(
 
     if let Ok(Some(common::input::UiKey::Tab)) = ui.poll_single_key() {
         session.input_queue.clear();
-        return try_connect_to_host(config::LOCAL_MATCHMAKER_HOST.to_string(), pre_lobby_state, ui);
+        return try_connect_to_host(
+            config::LOCAL_MATCHMAKER_HOST.to_string(),
+            pre_lobby_state,
+            ui,
+        );
     }
 
     if let Some(input_string) = session.take_input() {
@@ -119,35 +123,29 @@ fn server_address_host_error() -> String {
 }
 
 fn server_address_prompt() -> String {
-    "Press ENTER for the default server (recommended),\nTAB if running locally,\nor pick another address:".to_string()
+    "Press ENTER for the default server (recommended),\nTAB if running locally,\nEscape to exit,\nor pick another address:".to_string()
 }
 
 fn try_connect_to_host(
     host: String,
     pre_lobby_state: &mut PreLobby,
-    ui: &mut dyn LobbyUi,
+    _ui: &mut dyn LobbyUi,
 ) -> PreLobbyTransition {
-    let PreLobby::ServerAddress { prompt_printed } = pre_lobby_state else {
+    let PreLobby::ServerAddress { .. } = pre_lobby_state else {
         unreachable!();
     };
-    match ping_matchmaker(&host) {
-        Ok(()) => {
-            ui.show_message_with_color(&format!("Connecting to:\t{}.", host), Color::WHITE);
-            PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
-                api_host: host,
-                phase: ApiRequestPhase::ChoosingNewOrJoin {
-                    selected_index: 0,
-                    prompt_printed: false,
-                },
-            }))
-        }
-        Err(e) => {
-            ui.show_error(&e);
-            ui.show_prompt(&server_address_prompt());
-            *prompt_printed = true;
-            PreLobbyTransition::Stay
-        }
-    }
+
+    let (tx, rx) = mpsc::channel();
+    let host_clone = host.clone();
+    thread::spawn(move || {
+        let result = ping_matchmaker(&host_clone);
+        let _ = tx.send(result);
+    });
+
+    PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
+        api_host: host.clone(),
+        phase: ApiRequestPhase::AwaitingPing { host, receiver: rx },
+    }))
 }
 
 fn ping_matchmaker(host: &str) -> Result<(), String> {

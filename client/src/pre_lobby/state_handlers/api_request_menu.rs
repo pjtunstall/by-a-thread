@@ -40,6 +40,11 @@ pub fn handle(
 
     if crate::exit::should_quit() {
         return match phase {
+            ApiRequestPhase::AwaitingPing { .. } => PreLobbyTransition::NextState(
+                ClientState::PreLobby(PreLobby::ServerAddress {
+                    prompt_printed: false,
+                }),
+            ),
             ApiRequestPhase::AwaitingCreate { .. } | ApiRequestPhase::AwaitingJoin { .. } => {
                 PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
                     api_host: api_host.to_string(),
@@ -58,6 +63,9 @@ pub fn handle(
             selected_index,
             prompt_printed,
         } => handle_choosing_new_or_join(api_host, selected_index, prompt_printed, session, ui),
+        ApiRequestPhase::AwaitingPing { host, receiver } => {
+            handle_awaiting_ping(api_host, host.clone(), receiver, session, ui)
+        }
         ApiRequestPhase::ChoosingPlayerCount { prompt_printed } => {
             handle_choosing_player_count(api_host, prompt_printed, session, ui)
         }
@@ -74,6 +82,39 @@ pub fn handle(
             wrong_guesses,
             receiver,
         } => handle_awaiting_join(api_host, passcode.clone(), *wrong_guesses, receiver, session, ui),
+    }
+}
+
+fn handle_awaiting_ping(
+    api_host: &str,
+    host: String,
+    receiver: &mpsc::Receiver<Result<(), String>>,
+    _session: &mut ClientSession,
+    ui: &mut dyn LobbyUi,
+) -> PreLobbyTransition {
+    match receiver.try_recv() {
+        Ok(Ok(())) => {
+            ui.show_message_with_color(&format!("Connecting to:\t{}.", host), Color::WHITE);
+            PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
+                api_host: api_host.to_string(),
+                phase: ApiRequestPhase::ChoosingNewOrJoin {
+                    selected_index: 0,
+                    prompt_printed: false,
+                },
+            }))
+        }
+        Ok(Err(e)) => {
+            ui.show_error(&e);
+            PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ServerAddress {
+                prompt_printed: false,
+            }))
+        }
+        Err(mpsc::TryRecvError::Empty) => PreLobbyTransition::Stay,
+        Err(mpsc::TryRecvError::Disconnected) => PreLobbyTransition::NextState(
+            ClientState::PreLobby(PreLobby::ServerAddress {
+                prompt_printed: false,
+            }),
+        ),
     }
 }
 

@@ -7,7 +7,7 @@ on:
 
 jobs:
   deploy-vps:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,3 +30,52 @@ jobs:
 
       - name: Deploy to Hetzner
         run: make deploy DOCKER_USER=${{ secrets.DOCKERHUB_USERNAME }} HOST=github@${{ secrets.HOST }}
+
+  deploy-itch:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: build.yaml
+          branch: main
+          path: assets
+
+      - name: Download butler
+        run: |
+          curl -L -o butler.zip https://broth.itch.ovh/butler/linux-amd64/LATEST/archive/default
+          unzip butler.zip
+          chmod +x butler
+
+      - name: Push to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+          GAME: ${{ secrets.ITCH_USERNAME }}/${{ secrets.ITCH_GAME }}
+        run: |
+          shopt -s nullglob
+
+          for file in assets/windows-package/*.zip; do
+            ./butler push "$file" $GAME:windows
+          done
+
+          for file in assets/linux-packages/*.AppImage; do
+            ./butler push "$file" $GAME:linux
+          done
+
+          for file in assets/linux-packages/*.deb; do
+            ./butler push "$file" $GAME:linux-deb
+          done
+
+          for file in assets/linux-packages/*.rpm; do
+            ./butler push "$file" $GAME:linux-rpm
+          done
+
+          for file in assets/macos-packages/*.zip; do
+            if [[ "$file" == *"intel"* ]] || [[ "$file" == *"x86_64"* ]]; then
+              ./butler push "$file" $GAME:mac-intel
+            elif [[ "$file" == *"silicon"* ]] || [[ "$file" == *"aarch64"* ]]; then
+              ./butler push "$file" $GAME:mac-apple
+            else
+              ./butler push "$file" $GAME:mac
+            fi
+          done

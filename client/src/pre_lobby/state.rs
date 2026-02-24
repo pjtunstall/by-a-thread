@@ -20,6 +20,10 @@ pub enum ApiRequestPhase {
         selected_index: usize,
         prompt_printed: bool,
     },
+    AwaitingPing {
+        host: String,
+        receiver: mpsc::Receiver<Result<(), String>>,
+    },
     ChoosingPlayerCount { prompt_printed: bool },
     ChoosingPasscode {
         wrong_guesses: u8,

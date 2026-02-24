@@ -1,10 +1,12 @@
 # DevOps
 
-- [Deploy](#deploy)
 - [Run locally](#run-locally)
+- [Deploy to VPS](#deploy-to-vps)
+- [Caddy and Docker](#caddy-and-docker)
 - [Environment](#environment)
+- [GitHub Actions](#github-actions)
 
-This is a guide to running the stack with Docker compose, locally or remotely. It was written before I started introducing GitHub Actions, and will need updating when that process is complete.
+This is a guide to running the stack with Docker compose, locally or remotely. Since writing it, I've introduced GitHub Actions to further automate build and deployment.
 
 ## Run locally
 
@@ -12,7 +14,7 @@ This is a guide to running the stack with Docker compose, locally or remotely. I
 2. **Build game server image:** `make server`.
 3. **Start stack:** `docker compose up -d`. Stop it with `docker compose down`.
 
-## Deploy
+## Deploy to VPS
 
 **Cloud server**
 
@@ -37,13 +39,13 @@ Create files `.env`, `.env.client`, and `.env.matchmaker`, as described [below](
 
 **Deploy**
 
-The stack is driven by the Makefile. Run `make deploy` to:
+The stack is driven by the Makefile. Run `make deploy` perform the following steps:
 
 1. **Build images:** Runs release builds and creates the server and matchmaker Docker images (tags from Cargo.toml).
 2. **Push to Docker Hub:** Pushes both images with "latest" and versioned tags so the VPS can pull them.
 3. **Deploy to VPS:** `make deploy`. Copies `docker-compose.yaml`, `Caddyfile`, and `.env.matchmaker` to the VPS home directory via SSH, pulls the server image from Docker Hub, instructs Docker Compose to pull the matchmaker and third-party images (e.g. Watchtower, Caddy, Docker Socket Proxy), and finally starts the stack.
 
-### Notes
+## Caddy and Docker
 
 To allow the stack to be run locally, I had to take care to satisfy Caddy and Docker:
 
@@ -103,3 +105,14 @@ The Renet protocol id is derived from the Cargo version number at build time. If
 | `.env` | Should contain `CADDYFILE=./Caddyfile.local`. | Omit to use default Caddyfile. |
 
 After changing `HOST` for production, rebuild the client so the new default server is baked in.
+
+## GitHub Actions
+
+Two workflows are used to build and deploy the stack.
+
+- **Build**:
+  - Builds the client (Windows, Linux, macOS)
+  - Build the backend and deploy it to Docker Hub
+- **Deploy**:
+  - Deploys the backend to the VPS on a scheduled basis, or manually if needed
+  - Pushes the client to itch.io

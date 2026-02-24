@@ -180,9 +180,9 @@ impl ClientSession {
                 ApiRequestPhase::ChoosingNewOrJoin { .. } => InputMode::SingleKey,
                 ApiRequestPhase::ChoosingPlayerCount { .. }
                 | ApiRequestPhase::ChoosingPasscode { .. } => InputMode::Enabled,
-                ApiRequestPhase::AwaitingCreate { .. } | ApiRequestPhase::AwaitingJoin { .. } => {
-                    InputMode::DisabledWaiting
-                }
+                ApiRequestPhase::AwaitingPing { .. }
+                | ApiRequestPhase::AwaitingCreate { .. }
+                | ApiRequestPhase::AwaitingJoin { .. } => InputMode::DisabledWaiting,
             },
             ClientState::Lobby(Lobby::Connecting { .. }) => InputMode::Hidden,
             ClientState::Lobby(Lobby::ChoosingUsername { .. }) => InputMode::Enabled,
