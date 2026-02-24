@@ -50,7 +50,7 @@ cat > "$BUNDLE/Contents/Info.plist" << PLIST
     <key>CFBundleIdentifier</key>
     <string>com.byathread.client</string>
     <key>CFBundleName</key>
-    <string>By A Thread</string>
+    <string>By a Thread</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>${ICON_PLIST}
 </dict>
