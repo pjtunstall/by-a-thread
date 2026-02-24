@@ -3,7 +3,8 @@ $ErrorActionPreference = "Stop"
 # --- CONFIGURATION ---
 $DistDir = "dist"
 $StagingDir = "staging_win"
-$ZipName = "$DistDir\ByAThread-win64.zip"
+$Version = ((cargo pkgid -p client) -split '[@#:]')[-1]
+$ZipName = "$DistDir\ByAThread-$Version-win64.zip"
 $ExePath = "target\release\ByAThread.exe" 
 $SourceFile = "client\src\main.rs"
 
