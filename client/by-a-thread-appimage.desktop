@@ -2,7 +2,7 @@
 Name=By A Thread
 Comment=A multiplayer game built in Rust
 Exec=ByAThread
-Icon=ByAThread
+Icon=by-a-thread
 StartupWMClass=ByAThread
 Terminal=false
 Type=Application
