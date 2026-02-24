@@ -23,7 +23,8 @@ jobs:
           chmod +x butler
 
       - name: Fix Permissions
-        run: chmod +x assets/linux-packages/*.AppImage
+        run: |
+          find assets -name '*.AppImage' -exec chmod +x {} \;
 
       - name: Push to itch.io
         env:
