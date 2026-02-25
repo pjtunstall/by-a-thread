@@ -131,7 +131,8 @@ push-images: push-server-image push-matchmaker-image
 # specifies in the 'environment' directive.
 deploy: | check-deploy
 	scp docker-compose.yaml Caddyfile .env.matchmaker $(HOST):~/
-	ssh $(HOST) 'docker compose --env-file .env.matchmaker pull && \
+	ssh $(HOST) 'docker compose --env-file .env.matchmaker down && \
+		docker compose --env-file .env.matchmaker pull && \
 		docker pull $(DOCKER_USER)/server-image:latest && \
 		docker compose --env-file .env.matchmaker up -d'
 

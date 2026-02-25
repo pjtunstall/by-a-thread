@@ -6,6 +6,7 @@
   - [Caddy and Docker networking](#caddy-and-docker-networking)
   - [Environment](#environment)
   - [GitHub Actions](#github-actions)
+  - [VPS scripts and deployment](#vps-scripts-and-deployment)
 
 This document describes how the backend is hosted in production: where it runs, how images are built and pulled, and how configuration and automation fit together.
 
@@ -48,11 +49,15 @@ Create files `.env`, `.env.client`, and `.env.matchmaker` in the project root, a
 
 **Deploy**
 
-The stack is driven by the Makefile. Running `make deploy` performs the following steps:
+The stack is driven by the Makefile or by scripts on the VPS. All VPS deployment files live in `/home/non-root-user`: `.env.matchmaker`, `Caddyfile`, `docker-compose.yaml`, and a `scripts/` directory containing `deploy_backend.sh`, `deploy_frontend.sh`, and `maybe_reboot.sh`. Configure SSH so your host alias logs in as `non-root-user`; then `~` is that directory.
+
+Running `make deploy` from your machine performs the following steps:
 
 1. **Build images:** Runs release builds and creates the server and matchmaker Docker images (tags from `Cargo.toml`).
 2. **Push to Docker Hub:** Pushes both images with `latest` and versioned tags so the VPS can pull them.
-3. **Deploy to VPS:** Copies `docker-compose.yaml`, `Caddyfile`, and `.env.matchmaker` to the VPS home directory via SSH, pulls the server image from Docker Hub, instructs Docker Compose to pull the matchmaker and third-party images (for example, Caddy, Docker Socket Proxy), and starts the stack.
+3. **Deploy to VPS:** Copies `docker-compose.yaml`, `Caddyfile`, and `.env.matchmaker` to `/home/non-root-user` via SSH, pulls the server image from Docker Hub, instructs Docker Compose to pull the matchmaker and third-party images (for example, Caddy, Docker Socket Proxy), and starts the stack.
+
+After initial setup, you can also update the backend from the VPS by running `scripts/deploy_backend.sh` there (see [VPS scripts and deployment](#vps-scripts-and-deployment)).
 
 ### Caddy and Docker networking
 
@@ -161,6 +166,35 @@ The `Deploy` workflow can be started manually from the GitHub UI (`workflow_disp
 
 WARNING: If deploying manually from the GitHub UI, be sure not to let the client get out of sync with the backend!
 
+### VPS scripts and deployment
+
+The repo is not cloned on the VPS. Everything runs from a single directory: `/home/non-root-user`.
+
+**Layout on the VPS:**
+
+- `/home/non-root-user/` – deploy directory. Contains `.env.matchmaker`, `Caddyfile`, and `docker-compose.yaml` (the latest versions of the last two are fetched by `deploy_backend.sh` from the GitHub repo).
+- `/home/non-root-user/scripts/` – contains `deploy_backend.sh`, `deploy_frontend.sh`, and `maybe_reboot.sh`. I've added them manually and inserted a GitHub fine-grained token into `deploy_frontend.sh` so that it can trigger the workflow that pushes client builds to itch.io.
+
+**Initial setup (once):** Create `.env.matchmaker` in `/home/non-root-user` with `HOST`, `GAME_IMAGE`, and `CLIENT_PROOF_HASH` as in [Environment](#environment). You can copy it from your dev machine via `make deploy` once (ensure your SSH host alias logs in as `non-root-user` so files go to `/home/non-root-user`), or create it by hand. Run `docker login` as `non-root-user` on the VPS so the scripts can pull images. After that, deployment is automated via cron or manual runs.
+
+**Scripts:**
+
+Three scripts run nightly on the VPS to deploy the backend and push client builds to itch.io:
+
+- **`deploy_frontend.sh`** – Triggers the GitHub workflow that pushes client builds to itch.io (via `repository_dispatch`). Configure your GitHub token and repo in the script. Run from cron as `non-root-user` at 04:01.
+- **`deploy_backend.sh`** – Fetches `docker-compose.yaml` and `Caddyfile` from GitHub (`main`) into `/home/non-root-user`, pulls the server image from Dokcer Hub, and runs `docker compose up -d` there. Run as from cron as `non-root-user` at 04:30.
+- **`maybe_reboot.sh`** – Reboots if `/var/run/reboot-required` exists. Runs from cron as root at 04:45.
+
+**Manual deploy on the VPS:**
+
+Updates can also be triggered manually thus:
+
+```bash
+cd /home/non-root-user/scripts
+./deploy_frontend.sh   # trigger client → itch.io
+./deploy_backend.sh   # fetch compose/Caddyfile, pull images, start stack
+```
+
 ### Scheduled maintenance
 
 Maintainance is scheduled to run between 04:00 and 05:00 UTC. Twenty minutes before disruptive actions, the matchmaker stops accepting new-game requests. It resumes when maintenance is expected to be complete.
@@ -168,11 +202,11 @@ Maintainance is scheduled to run between 04:00 and 05:00 UTC. Twenty minutes bef
 | **Time (UTC)** | **Action** | **Triggered By** |
 | --- | --- | --- |
 | 04:00 | Matchmaker locks | Matchmaker clock |
-| 04:01 | Webhook Fires to deploy client artifacts to itch.io | trigger_webhook.sh (Cron) |
+| 04:01 | Webhook Fires to deploy client artifacts to itch.io | deploy_frontend.sh (Cron, root user) |
 | 04:01 | OS Package Lists Downloaded | apt-daily.timer (Systemd) |
 | 04:20 | OS Security Patches Installed | apt-daily-upgrade.timer (Systemd) |
-| 04:30 | Docker Images Updated | update_backend.sh (Cron) |
-| 04:45 | VPS Reboots (if patched) | update_backend.sh (Cron) |
+| 04:30 | Docker Images Updated | deploy_backend.sh (Cron, non-root-user) |
+| 04:45 | VPS Reboots (if patched) | maybe_reboot.sh (Cron, root user) |
 | 05:00 | Matchmaker Unlocks | Matchmaker clock |
 
-For the sake of simplicity, I chose to let the matchmaker initiate lock/unlock for now. Ideally there would be a single source of truth to synchronize the whole maintenance sequence. One suggestion is to have a script on the VPS create and remove a sentinel file to indicate that maintenance is in progress. The matchmaker would check for the existence of this file before accepting a new-game request. That would ensure that the matchmaker knows the correct state even when it restarts after the VPS reboots. It would be nice if all this scattered logic and control (repo, GitHub UI, VPS) could be centralized, at least from a human perspective, and any secrets injected from one secure store.
+For the sake of simplicity, I chose to let the matchmaker initiate lock/unlock for now. Ideally there would be a single source of truth to synchronize the whole maintenance sequence. One suggestion is to have a script on the VPS create and remove a sentinel file to indicate that maintenance is in progress. The matchmaker would check for the existence of this file before accepting a new-game request. That would ensure that the matchmaker knows the correct state even when it restarts after the VPS reboots.
