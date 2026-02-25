@@ -1,19 +1,4 @@
 services:
-  watchtower:
-    image: containrrr/watchtower
-    container_name: watchtower
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - TZ=Europe/London
-    command: --schedule "0 10 4 * * *" --cleanup
-    deploy:
-      resources:
-        limits:
-          cpus: "0.05"
-          memory: 128M
-
   socket-proxy:
     image: tecnativa/docker-socket-proxy
     container_name: socket-proxy

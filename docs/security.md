@@ -1,11 +1,10 @@
 # Security
 
-Elements:
+Key elements:
 
-- Matchmaker
 - Client
+- Matchmaker
 - Game servers (launched dynamically by the matchmaker)
-
 - Reverse proxy (Caddy)[^1]
 - Docker socket proxy (tecnativa/docker-socket-proxy).
 
@@ -53,4 +52,4 @@ As a safety measure, in case game server containers are left running if the matc
 
 [^3]: See the [API spec](api.yaml) for details.
 
-[^4]: For now, I'm just allowing ten games of ten players each, but I may fine-tune that in the future to restrict new games if CPU usage is high, or allow more games if they have fewer players.
+[^4]: For now, I'm allowing ten games of ten players each, but I may fine-tune that in the future to restrict new games if CPU usage is high, or allow more games if they have fewer players.

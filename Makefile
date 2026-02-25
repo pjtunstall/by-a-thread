@@ -38,6 +38,7 @@ APPIMAGE_FILE := $(DIST)/ByAThread-$(VERSION).AppImage
 SERVER_BIN := target/release/server
 MATCHMAKER_BIN := target/release/matchmaker
 DOCKER_SENTINEL := $(DIST)/.docker-image-built
+HOST ?= hetzner
 TARGET_APPLE_INTEL := x86_64-apple-darwin
 TARGET_APPLE_SILICON := aarch64-apple-darwin
 EXE_APPLE_INTEL := target/$(TARGET_APPLE_INTEL)/release/ByAThread
@@ -49,7 +50,7 @@ VERSION := $(shell cargo pkgid -p client | awk -F'[@\#:]' '{print $$NF}')
 
 SERVER_SOURCES := Cargo.toml Cargo.lock server/Cargo.toml common/Cargo.toml $(shell find server -name '*.rs') $(shell find common -name '*.rs')
 CLIENT_SOURCES := Cargo.toml Cargo.lock client/Cargo.toml client/build.rs .env.client $(shell find client/src -name '*.rs') common/Cargo.toml $(shell find common -name '*.rs')
-MATCHMAKER_SOURCES := Cargo.toml Cargo.lock matchmaker/Cargo.toml common/Cargo.toml $(shell find matchmaker -name '.rs') $(shell find common -name '.rs')
+MATCHMAKER_SOURCES := Cargo.toml Cargo.lock matchmaker/Cargo.toml common/Cargo.toml $(shell find matchmaker -name '*.rs') $(shell find common -name '*.rs')
 
 all: test server windows deb rpm appimage
 
@@ -92,13 +93,13 @@ check-env:
 $(SERVER_BIN): $(SERVER_SOURCES)
 	cargo build --release -p server
 
-build-server-image: $(SERVER_BIN) server/Dockerfile | check-docker
+$(DOCKER_SENTINEL): $(SERVER_BIN) server/Dockerfile | check-docker
 	mkdir -p $(DIST)
 	VERSION=$$(cargo pkgid -p server | awk -F'[@#:]' '{print $$NF}'); \
 	docker build -f server/Dockerfile -t $(DOCKER_USER)/server-image:$$VERSION -t $(DOCKER_USER)/server-image:latest .
 	touch $(DOCKER_SENTINEL)
 
-server: build-server-image
+server: $(DOCKER_SENTINEL)
 
 $(MATCHMAKER_BIN): $(MATCHMAKER_SOURCES)
 	cargo build --release -p matchmaker
@@ -198,7 +199,7 @@ kill-local-servers:
 	fi
 
 kill-remote-servers: | check-deploy
-	@ssh hetzner "containers=\$$(docker ps -aq --filter 'name=game-' 2>/dev/null); \
+	@ssh $(HOST) "containers=\$$(docker ps -aq --filter 'name=game-' 2>/dev/null); \
 	if [ -n \"\$$containers\" ]; then \
 		echo \"Removing remote game containers:\"; \
 		docker ps -a --filter \"name=game-\" --format \"table {{.Names}}\t{{.CreatedAt}}\t{{.Status}}\"; \
@@ -217,7 +218,7 @@ clean-local: kill-local-servers
 	docker builder prune -f
 
 clean-remote: | check-deploy
-	ssh hetzner "docker compose down; \
+	ssh $(HOST) "docker compose down; \
 	docker rmi \$$(docker images -q $(DOCKER_USER)/*-image) 2>/dev/null || true; \
 	docker image prune -f"
 
@@ -227,4 +228,4 @@ deep-clean-local: clean-local
 	docker system prune -af --volumes
 
 deep-clean-remote: clean-remote
-	ssh hetzner "docker system prune -af --volumes"
+	ssh $(HOST) "docker system prune -af --volumes"

@@ -59,10 +59,9 @@ docker compose up -d
 
 This will start:
 
-- `watchtower` (for automatic updates when pulling images),
 - `socket-proxy` (restricted Docker socket proxy used by the matchmaker),
 - `caddy` (reverse proxy and TLS termination),
-- `matchmaker` (backend API that spawns game servers).
+- `matchmaker` (backend API that spawns and manages game servers).
 
 To stop the stack, run:
 

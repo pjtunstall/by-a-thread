@@ -15,7 +15,6 @@ For a step-by-step guide to running the backend on your own machine, see `docs/l
 
 The production backend runs on a single VPS (for example, a Hetzner cloud server) running Ubuntu and Docker. A Docker Compose stack manages:
 
-- `watchtower` for automatic updates when new images are available on Docker Hub,
 - `socket-proxy` for restricted access to the Docker socket,
 - `caddy` as reverse proxy and TLS termination,
 - `matchmaker` as the API that spawns and manages game server containers.
@@ -53,7 +52,7 @@ The stack is driven by the Makefile. Running `make deploy` performs the followin
 
 1. **Build images:** Runs release builds and creates the server and matchmaker Docker images (tags from `Cargo.toml`).
 2. **Push to Docker Hub:** Pushes both images with `latest` and versioned tags so the VPS can pull them.
-3. **Deploy to VPS:** Copies `docker-compose.yaml`, `Caddyfile`, and `.env.matchmaker` to the VPS home directory via SSH, pulls the server image from Docker Hub, instructs Docker Compose to pull the matchmaker and third-party images (for example, Watchtower, Caddy, Docker Socket Proxy), and starts the stack.
+3. **Deploy to VPS:** Copies `docker-compose.yaml`, `Caddyfile`, and `.env.matchmaker` to the VPS home directory via SSH, pulls the server image from Docker Hub, instructs Docker Compose to pull the matchmaker and third-party images (for example, Caddy, Docker Socket Proxy), and starts the stack.
 
 ### Caddy and Docker networking
 
@@ -120,9 +119,47 @@ After changing `HOST` for production, rebuild the client so the new default serv
 
 Two workflows are used to build and deploy the stack.
 
-- **Build**:
-  - Builds the client (Windows, Linux, macOS).
-  - Builds the backend and deploys it to Docker Hub.
-- **Deploy**:
-  - Deploys the backend to the VPS on a scheduled basis, or manually if needed.
-  - Pushes the client to itch.io.
+- **Build (`build.yaml`)**:
+  - Runs tests.
+  - Builds backend Docker images and pushes them to Docker Hub.
+  - Builds client artifacts for Windows, Linux (`.deb`, `.rpm`, AppImage), and macOS, and uploads them as GitHub Actions artifacts.
+- **Deploy (`deploy.yaml`)**:
+  - Downloads the client artifacts produced by the build workflow.
+  - Uses Butler to push the client builds to itch.io (one channel per platform/package type).
+
+These workflows rely on a set of GitHub secrets to populate `.env` files during builds and to authenticate to external services:
+
+- **`HOST`**
+  - Used in `build.yaml` to populate `HOST` in `.env.client` and `.env.matchmaker`.
+  - Controls the default API and game host baked into the client binaries and used by the matchmaker in CI builds.
+
+- **`CLIENT_PROOF`**
+  - Used in `build.yaml` to populate `CLIENT_PROOF` in `.env.client`.
+  - Baked into the client binaries as the base64-encoded secret that proves requests come from an authentic client.
+
+- **`CLIENT_PROOF_HASH`**
+  - Used in `build.yaml` to populate `CLIENT_PROOF_HASH` in `.env.matchmaker`.
+  - Configures the hash that the matchmaker uses to validate the client proof header.
+
+- **`DOCKERHUB_USERNAME`**
+  - Used in `build.yaml` to:
+    - Log in to Docker Hub via `docker/login-action@v3`.
+    - Populate `GAME_IMAGE` in `.env.matchmaker` as `${DOCKERHUB_USERNAME}/server-image:latest`, so the matchmaker launches game servers from the correct image.
+
+- **`DOCKERHUB_TOKEN`**
+  - Used in `build.yaml` as the password for `docker/login-action@v3`.
+  - Grants the workflow permission to push `server-image` and `matchmaker-image` tags to Docker Hub.
+
+- **`BUTLER_API_KEY`**
+  - Used in `deploy.yaml` as `BUTLER_API_KEY`, the authentication token Butler uses to push builds to itch.io.
+
+- **`ITCH_USERNAME`** and **`ITCH_GAME`**
+  - Combined in `deploy.yaml` into `GAME=${{ secrets.ITCH_USERNAME }}/${{ secrets.ITCH_GAME }}`.
+  - Identify the itch.io game target for Butler channels (`:windows`, `:linux`, `:linux-deb`, `:linux-rpm`, `:mac-*`).
+
+- **`SSH_PRIVATE_KEY`** and **`SSH_KNOWN_HOSTS`**
+  - Reserved for workflows that establish SSH connections from GitHub Actions to the VPS (for example, to run deployment or maintenance commands).
+  - `SSH_PRIVATE_KEY` holds the private key for the deployment user on the VPS.
+  - `SSH_KNOWN_HOSTS` pins the VPS host key, so SSH connections made from Actions can verify the remote host without interactive prompts.
+
+The `Deploy` workflow can be started manually from the GitHub UI (`workflow_dispatch`) or triggered by a `repository_dispatch` event of type `deploy_itch`. A script running on the VPS (or any other trusted system) can call the GitHub REST API with an appropriate personal access token to send that event, which in turn causes `deploy.yaml` to run and push the latest client artifacts to itch.io.

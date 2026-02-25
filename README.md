@@ -67,12 +67,12 @@ I went beyond the spec in a few ways.
 For more information on specific topics, see the following documents:
 
 - [Architecture](docs/architecture.md)
-- [Build](docs/build.md)
-- [DevOps](docs/devops.md)
-- [How to run the backend locally](docs/local-backend.md)
 - [Netcode](docs/netcode.md)
 - [Mazes](docs/mazes.md)
 - [Security](docs/security.md)
+- [Build](docs/build.md)
+- [DevOps](docs/devops.md)
+- [How to run the backend locally](docs/local-backend.md)
 
 ## How to play
 
@@ -102,7 +102,9 @@ Currently in private beta. Successfully tested on a VPS with the Linux AppImage,
 
 Next steps include:
 
-- Make GitHub "Deploy" workflow push client to itch.io;
+- set up coordinated update schedule on VPS;
+- have matchmaker reject new-game requests during scheduled maintenance periods;
+- test Windows download from itch.io;
 - test macOS (Intel and Apple Silicon);
 - test Linux rpm;
 - publish on itch.io;

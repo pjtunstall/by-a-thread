@@ -17,7 +17,7 @@
 
 This document describes how to create executable files or packages for various systems. The full `make` build assumes you're creating the Linux versions on Ubuntu or a similar (Debian-based) distro. For other Linux distros, the commands for importing dependencies may vary according to your package manager. The Windows version can be built on Linux, but is best built on Windows as, currently, that's been the only way I've managed to get the icon image to display. To build on Windows, use the `Build-Windows.ps1` PowerShell script, and, on Ubuntu, `make windows`. The macOS versions should be built on Apple Intel and Apple Silicon by running `make macos-intel` and `make macos-silicon` respectively. (These last two have yet to be tested.)
 
-From the workspace root you can run the full build with `make`. To build only one artifact, use e.g. `make windows`, `make deb`, `make rpm`, or `make appimage`. To push the server image to the Hetzner VPS and run the container, run `make deploy-hetzner` after a full build. After deploying, it will print the ephemeral passcode for the current game.
+From the workspace root you can run the full build with `make`. To build only one artifact, use e.g. `make windows`, `make deb`, `make rpm`, or `make appimage`. To deploy the backend to the VPS, use `make deploy` as described in `docs/devops.md`.
 
 For development, `client/src/main.rs` sets `fullscreen: false,` by default. When you build via the Makefile or the `Build-Windows.ps1` script, the client is compiled with `fullscreen: true` for packaged artifacts (Windows zip, macOS .app zips, Linux .deb/.rpm, and AppImage). The `unfullscreen` step after each compilation and at the end of the full `make` run restores that setting in the source.
 
@@ -94,7 +94,7 @@ Use the `.deb` on Debian, Ubuntu and other apt-based distros; use the `.rpm` on 
 
 The binary's runtime requirements (such as glibc version) are determined by the machine or container you build on. If that environment has a newer glibc than the systems where users will run the game, the binary may fail at runtime. Building on an older Ubuntu (e.g. in CI or a local container) avoids that.
 
-A common solution is to build Linux artifacts (`.deb`, `.rpm`, AppImage) in an automated run (e.g. GitHub Actions) on an older image such as `ubuntu-22.04` or `ubuntu-20.04`, so the binaries link against an older glibc and run on a wide range of distros. You can run `make` locally on any supported Linux for testing; for published releases, running the build inside a container or CI on a fixed older Ubuntu avoids compatibility surprises. A later step is to add a workflow that runs the build in that environment and uploads the artifacts.
+A common solution is to build Linux artifacts (`.deb`, `.rpm`, AppImage) in an automated run (e.g. GitHub Actions) on an older image such as `ubuntu-22.04` or `ubuntu-20.04`, so the binaries link against an older glibc and run on a wide range of distros. You can run `make` locally on any supported Linux for testing; for published releases, the GitHub Actions workflows build these artifacts in a fixed Ubuntu environment and upload them for distribution.
 
 ### Build files
 
@@ -164,7 +164,7 @@ The RPM uses gzip payload compression so it can be installed on any recent rpm (
 
 ### AppImage
 
-An **AppImage** is a single file that runs on most Linux desktops without installation: the user downloads it, makes it executable, and runs it. The build produces `ByAThread.AppImage` in `dist/`.
+An **AppImage** is a single file that runs on most Linux desktops without installation: the user downloads it, makes it executable, and runs it. The build produces `ByAThread-<version>.AppImage` in `dist/` (for example, `ByAThread-0.1.0.AppImage`).
 
 There is only one build file specific to AppImage:
 
@@ -185,3 +185,5 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 ```
 
 (To use linuxdeploy from a different path without putting it in PATH, set the environment variable `LINUXDEPLOY` to the full path of the file when you run `make`; `appimagetool` must still be in PATH.)
+
+When you download the AppImage from itch.io, it should already be marked as executable by the CI workflow. Some desktop environments may still prefer or require an AppImage helper (such as AppImageLauncher or a distro-specific "AppImage installer") to integrate the file into menus and launchers; this is an OS-level convenience layer rather than a project requirement.
