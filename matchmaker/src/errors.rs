@@ -16,6 +16,7 @@ pub enum HttpError {
     RateLimited { retry_after: u64 },
     InvalidPlayerCount,
     LimitsExceeded,
+    ScheduledMaintenance,
     InvalidClientProof,
     VersionMismatch { message: String },
     InvalidPassCode,
@@ -53,6 +54,14 @@ impl IntoResponse for HttpError {
                 ErrorBody {
                     code: "LIMITS_EXCEEDED",
                     message: "No capacity for new games at the moment.".to_string(),
+                },
+                None,
+            ),
+            HttpError::ScheduledMaintenance => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorBody {
+                    code: "SCHEDULED_MAINTENANCE",
+                    message: "Server undergoing scheduled maintenance. Please try again after 5:00 UTC.".to_string(),
                 },
                 None,
             ),

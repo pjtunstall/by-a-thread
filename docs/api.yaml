@@ -90,7 +90,7 @@ paths:
                 code: RATE_LIMITED
                 message: "Too many requests. Try again later."
         "503":
-          description: Service unavailable (limits exceeded or Docker failure)
+          description: Service unavailable (limits exceeded, scheduled maintenance, or Docker failure)
           content:
             application/json:
               schema:
@@ -104,6 +104,10 @@ paths:
                   value:
                     code: SERVER_ERROR
                     message: "Failed to start game server. Please try again."
+                scheduled_maintenance:
+                  value:
+                    code: SCHEDULED_MAINTENANCE
+                    message: "Server undergoing scheduled maintenance. Please try again after 5:00 UTC."
         "502":
           description: Bad gateway (reverse proxy could not reach the matchmaker)
           content:
@@ -328,6 +332,7 @@ components:
             - VERSION_MISMATCH
             - RATE_LIMITED
             - LIMITS_EXCEEDED
+            - SCHEDULED_MAINTENANCE
             - SERVER_ERROR
             - GAME_NOT_FOUND
             - LOBBY_FULL

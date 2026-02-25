@@ -7,7 +7,7 @@ use crate::{
     game::Game,
     state::AppState,
 };
-use common::auth::Passcode;
+use common::{auth::Passcode, time};
 
 #[derive(serde::Deserialize)]
 pub struct CreateGameRequest {
@@ -37,6 +37,7 @@ pub async fn create_game(
     _client_proof: ClientProof,
     Json(request_body): Json<CreateGameRequest>,
 ) -> CreateGameResult {
+    check_scheduled_maintenance()?;
     let player_count = request_body.player_count;
     check_player_count(player_count)?;
 
@@ -80,6 +81,16 @@ pub async fn create_game(
 fn check_player_count(player_count: u8) -> Result<(), HttpError> {
     if player_count < 1 || player_count > 10 {
         return Err(HttpError::InvalidPlayerCount);
+    }
+    Ok(())
+}
+
+fn check_scheduled_maintenance() -> Result<(), HttpError> {
+    let now = time::now();
+    let seconds_since_epoch = now.as_secs();
+    let hour_utc = (seconds_since_epoch / 3600) % 24;
+    if hour_utc == 4 {
+        return Err(HttpError::ScheduledMaintenance);
     }
     Ok(())
 }
