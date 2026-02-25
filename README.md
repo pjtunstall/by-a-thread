@@ -69,6 +69,7 @@ For more information on specific topics, see the following documents:
 - [Architecture](docs/architecture.md)
 - [Build](docs/build.md)
 - [DevOps](docs/devops.md)
+- [How to run the backend locally](docs/local-backend.md)
 - [Netcode](docs/netcode.md)
 - [Mazes](docs/mazes.md)
 - [Security](docs/security.md)
