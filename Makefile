@@ -46,7 +46,7 @@ EXE_APPLE_SILICON := target/$(TARGET_APPLE_SILICON)/release/ByAThread
 ZIP_APPLE_INTEL := $(DIST)/ByAThread-$(VERSION)-macos-intel.zip
 ZIP_APPLE_SILICON := $(DIST)/ByAThread-$(VERSION)-macos-silicon.zip
 DOCKER_USER ?= pjtunstall
-VERSION := $(shell cargo pkgid -p client | awk -F'[@\#:]' '{print $$NF}')
+VERSION := $(shell cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="client").version' | head -n1)
 
 SERVER_SOURCES := Cargo.toml Cargo.lock server/Cargo.toml common/Cargo.toml $(shell find server -name '*.rs') $(shell find common -name '*.rs')
 CLIENT_SOURCES := Cargo.toml Cargo.lock client/Cargo.toml client/build.rs .env.client $(shell find client/src -name '*.rs') common/Cargo.toml $(shell find common -name '*.rs')
@@ -93,32 +93,32 @@ check-env:
 $(SERVER_BIN): $(SERVER_SOURCES)
 	cargo build --release -p server
 
-$(DOCKER_SENTINEL): $(SERVER_BIN) server/Dockerfile | check-docker
+build-server-image: $(SERVER_BIN) server/Dockerfile | check-docker
 	mkdir -p $(DIST)
-	VERSION=$$(cargo pkgid -p server | awk -F'[@#:]' '{print $$NF}'); \
+	VERSION=$$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="server").version' | head -n1); \
 	docker build -f server/Dockerfile -t $(DOCKER_USER)/server-image:$$VERSION -t $(DOCKER_USER)/server-image:latest .
 	touch $(DOCKER_SENTINEL)
 
-server: $(DOCKER_SENTINEL)
+server: build-server-image
 
 $(MATCHMAKER_BIN): $(MATCHMAKER_SOURCES)
 	cargo build --release -p matchmaker
 
 build-matchmaker-image: $(MATCHMAKER_BIN) matchmaker/Dockerfile | check-docker
 	mkdir -p $(DIST)
-	VERSION=$$(cargo pkgid -p matchmaker | awk -F'[@#:]' '{print $$NF}'); \
+	VERSION=$$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="matchmaker").version' | head -n1); \
 	docker build -f matchmaker/Dockerfile -t $(DOCKER_USER)/matchmaker-image:$$VERSION -t $(DOCKER_USER)/matchmaker-image:latest .
 
 build-images: build-server-image build-matchmaker-image
 
 push-server-image: build-server-image
 	docker push $(DOCKER_USER)/server-image:latest
-	VERSION=$$(cargo pkgid -p server | awk -F'[@#:]' '{print $$NF}'); \
+	VERSION=$$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="server").version' | head -n1); \
 	docker push $(DOCKER_USER)/server-image:$$VERSION
 
 push-matchmaker-image: build-matchmaker-image
 	docker push $(DOCKER_USER)/matchmaker-image:latest
-	VERSION=$$(cargo pkgid -p matchmaker | awk -F'[@\#:]' '{print $$NF}'); \
+	VERSION=$$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="matchmaker").version' | head -n1); \
 	docker push $(DOCKER_USER)/matchmaker-image:$$VERSION
 
 push-images: push-server-image push-matchmaker-image
