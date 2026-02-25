@@ -4,12 +4,10 @@ set -euo pipefail
 REPO_OWNER="pjtunstall"
 REPO_NAME="by-a-thread"
 DEPLOY_DIR="/home/non-root-user"
+BASE_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main"
 
-curl -fsSLo "${DEPLOY_DIR}/docker-compose.yaml" \
-  "https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/docker-compose.yaml"
-
-curl -fsSLo "${DEPLOY_DIR}/Caddyfile" \
-  "https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/Caddyfile"
+curl -fsSL -o "${DEPLOY_DIR}/docker-compose.yaml" -H "User-Agent: curl" "${BASE_URL}/docker-compose.yaml"
+curl -fsSL -o "${DEPLOY_DIR}/Caddyfile" -H "User-Agent: curl" "${BASE_URL}/Caddyfile"
 
 docker pull pjtunstall/server-image:latest
 
