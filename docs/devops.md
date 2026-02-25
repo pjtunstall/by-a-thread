@@ -158,3 +158,21 @@ These workflows rely on a set of GitHub secrets to populate `.env` files during 
   - Identify the itch.io game target for Butler channels (`:windows`, `:linux`, `:linux-deb`, `:linux-rpm`, `:mac-*`).
 
 The `Deploy` workflow can be started manually from the GitHub UI (`workflow_dispatch`) or triggered by a `repository_dispatch` event of type `deploy_itch`. A script running on the VPS (or any other trusted system) can call the GitHub REST API with an appropriate personal access token to send that event, which in turn causes `deploy.yaml` to run and push the latest client artifacts to itch.io.
+
+WARNING: If deploying manually from the GitHub UI, be sure not to let the client get out of sync with the backend!
+
+### Scheduled maintenance
+
+Maintainance is scheduled to run between 04:00 and 05:00 UTC. Twenty minutes before disruptive actions, the matchmaker stops accepting new-game requests. It resumes when maintenance is expected to be complete.
+
+| **Time (UTC)** | **Action** | **Triggered By** |
+| --- | --- | --- |
+| 04:00 | Matchmaker locks | Matchmaker clock |
+| 04:01 | Webhook Fires to deploy client artifacts to itch.io | trigger_webhook.sh (Cron) |
+| 04:01 | OS Package Lists Downloaded | apt-daily.timer (Systemd) |
+| 04:20 | OS Security Patches Installed | apt-daily-upgrade.timer (Systemd) |
+| 04:30 | Docker Images Updated | update_backend.sh (Cron) |
+| 04:45 | VPS Reboots (if patched) | update_backend.sh (Cron) |
+| 05:00 | Matchmaker Unlocks | Matchmaker clock |
+
+For the sake of simplicity, I chose to let the matchmaker initiate lock/unlock for now. Ideally there would be a single source of truth to synchronize the whole maintenance sequence. One suggestion is to have a script on the VPS create and remove a sentinel file to indicate that maintenance is in progress. The matchmaker would check for the existence of this file before accepting a new-game request. That would ensure that the matchmaker knows the correct state even when it restarts after the VPS reboots. It would be nice if all this scattered logic and control (repo, GitHub UI, VPS) could be centralized, at least from a human perspective, and any secrets injected from one secure store.
