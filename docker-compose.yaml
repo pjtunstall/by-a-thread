@@ -10,7 +10,7 @@ services:
       - POST=1
       - DELETE=1
       - NETWORKS=1
-      - TZ=Europe/London
+      - TZ=UTC
     networks:
       - backend
     deploy:
@@ -31,7 +31,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     environment:
-      - TZ=Europe/London
+      - TZ=UTC
     networks:
       - backend
     deploy:
@@ -48,7 +48,7 @@ services:
     environment:
       - DOCKER_HOST=tcp://socket-proxy:2375
       - GAME_IMAGE=${GAME_IMAGE}
-      - TZ=Europe/London
+      - TZ=UTC
     depends_on:
       - socket-proxy
     networks:

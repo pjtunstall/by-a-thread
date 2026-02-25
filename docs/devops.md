@@ -157,9 +157,4 @@ These workflows rely on a set of GitHub secrets to populate `.env` files during 
   - Combined in `deploy.yaml` into `GAME=${{ secrets.ITCH_USERNAME }}/${{ secrets.ITCH_GAME }}`.
   - Identify the itch.io game target for Butler channels (`:windows`, `:linux`, `:linux-deb`, `:linux-rpm`, `:mac-*`).
 
-- **`SSH_PRIVATE_KEY`** and **`SSH_KNOWN_HOSTS`**
-  - Reserved for workflows that establish SSH connections from GitHub Actions to the VPS (for example, to run deployment or maintenance commands).
-  - `SSH_PRIVATE_KEY` holds the private key for the deployment user on the VPS.
-  - `SSH_KNOWN_HOSTS` pins the VPS host key, so SSH connections made from Actions can verify the remote host without interactive prompts.
-
 The `Deploy` workflow can be started manually from the GitHub UI (`workflow_dispatch`) or triggered by a `repository_dispatch` event of type `deploy_itch`. A script running on the VPS (or any other trusted system) can call the GitHub REST API with an appropriate personal access token to send that event, which in turn causes `deploy.yaml` to run and push the latest client artifacts to itch.io.
