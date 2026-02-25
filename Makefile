@@ -45,7 +45,7 @@ EXE_APPLE_SILICON := target/$(TARGET_APPLE_SILICON)/release/ByAThread
 ZIP_APPLE_INTEL := $(DIST)/ByAThread-$(VERSION)-macos-intel.zip
 ZIP_APPLE_SILICON := $(DIST)/ByAThread-$(VERSION)-macos-silicon.zip
 DOCKER_USER ?= pjtunstall
-VERSION := $(shell cargo pkgid -p client | awk -F'[@#:]' '{print $$NF}')
+VERSION := $(shell cargo pkgid -p client | awk -F'[@\#:]' '{print $$NF}')
 
 SERVER_SOURCES := Cargo.toml Cargo.lock server/Cargo.toml common/Cargo.toml $(shell find server -name '*.rs') $(shell find common -name '*.rs')
 CLIENT_SOURCES := Cargo.toml Cargo.lock client/Cargo.toml client/build.rs .env.client $(shell find client/src -name '*.rs') common/Cargo.toml $(shell find common -name '*.rs')

@@ -123,7 +123,7 @@ fn server_address_host_error() -> String {
 }
 
 fn server_address_prompt() -> String {
-    "Press ENTER for the default server (recommended),\nTAB if running locally,\nEscape to exit,\nor pick another address:".to_string()
+    "Press ENTER for the default server (recommended),\nTAB if hosting on your own computer (for testing),\nEscape to exit,\nor pick another address:".to_string()
 }
 
 fn try_connect_to_host(
