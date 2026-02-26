@@ -10,6 +10,18 @@ jobs:
   deploy-itch:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Set version for itch.io display
+        id: version
+        run: |
+          V=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="client").version')
+          if [ -n "$V" ] && [ "$V" != "null" ]; then
+            echo "version=$V" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: dawidd6/action-download-artifact@v6
         with:
           workflow: build.yaml
@@ -25,15 +37,6 @@ jobs:
       - name: Fix Permissions
         run: |
           find assets -name '*.AppImage' -exec chmod +x {} \;
-
-      - name: Set version for itch.io display
-        id: version
-        run: |
-          deb="$(echo assets/linux-packages/*.deb 2>/dev/null)"
-          if [ -f "$deb" ]; then
-            v=$(basename "$deb" .deb | sed 's/by-a-thread_//;s/_.*//')
-            echo "version=$v" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Push to itch.io
         env:
