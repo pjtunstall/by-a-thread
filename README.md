@@ -102,11 +102,10 @@ Currently in private beta. Successfully tested on a VPS with the Linux AppImage,
 
 Next steps include:
 
-- set up coordinated update schedule on VPS;
-- have matchmaker reject new-game requests during scheduled maintenance periods;
 - test Windows download from itch.io;
 - test macOS (Intel and Apple Silicon);
 - test Linux rpm;
+- handle feedback;
 - publish on itch.io;
 
 Please contact me if you'd like to play.

@@ -11,7 +11,8 @@
 #   make server       # build server binary and Docker image locally
 #   make build-images # build both server and matchmaker Docker images
 #   make push-images  # push both Docker images to Docker Hub (uses DOCKER_USER)
-#   make deploy       # build, push, update VPS config, and restart
+#   make deploy       # run VPS deploy scripts (frontend + backend)
+#   make init         # copy env and deploy scripts to VPS
 #   make windows      # Windows zip (Ubuntu: cross-compile; Windows: use scripts/Build-Windows.ps1)
 #   make macos-intel  # Intel Mac .app and dist/ByAThread-macos-intel.zip (macOS only)
 #   make macos-silicon # Apple Silicon .app and dist/ByAThread-macos-silicon.zip (macOS only)
@@ -22,10 +23,11 @@
 #   make kill-remote-servers   # Tier 1: remove remote game containers
 #   make clean-local           # Tier 2: kill local servers, remove dist/temp, cargo clean, project images
 #   make clean-remote          # Tier 2: compose down on VPS, remove project images
-#   make deep-clean-local      # Tier 3: clean-local + system prune (all unused containers/networks/images/volumes)
-#   make deep-clean-remote     # Tier 3: clean-remote + system prune on the VPS
+#   make deep-clean-local      # Tier 3: deep Docker cleanup on local (system-wide prune of unused containers/images/volumes)
+#   make deep-clean-remote     # Tier 3: deep Docker cleanup on VPS (system-wide prune of unused containers/images/volumes)
+#   make nuclear-clean         # Tier 4: stop and remove ALL Docker containers (local + VPS), then prune unused data
 #
-.PHONY: all no-test test server build-server-image build-matchmaker-image push-server-image push-matchmaker-image build-images push-images deploy windows deb rpm appimage macos-intel macos-silicon check-windows check-deb check-rpm check-appimage check-docker check-docker-compose check-deploy check-env kill-local-servers kill-remote-servers clean-local clean-remote deep-clean-local deep-clean-remote
+.PHONY: all no-test test server build-server-image build-matchmaker-image push-server-image push-matchmaker-image build-images push-images deploy init windows deb rpm appimage macos-intel macos-silicon check-windows check-deb check-rpm check-appimage check-docker check-deploy check-env kill-local-servers kill-remote-servers clean-local clean-remote deep-clean-local deep-clean-remote nuclear-clean nuclear-clean-local nuclear-clean-remote
 
 DIST := dist
 STAGING_WIN := ByAThread-win64
@@ -78,9 +80,6 @@ check-appimage:
 check-docker:
 	@which docker >/dev/null || (echo "Error: docker not found" && exit 1)
 
-check-docker-compose: check-docker
-	@docker compose version >/dev/null 2>&1 || (echo "Error: docker compose not found" && exit 1)
-
 check-deploy: check-docker
 	@which ssh >/dev/null || (echo "Error: ssh not found" && exit 1)
 
@@ -123,18 +122,13 @@ push-matchmaker-image: build-matchmaker-image
 
 push-images: push-server-image push-matchmaker-image
 
-# --env-file .env.matchmaker tells the Docker Compose CLI to use .env.matchmaker
-# to resolve YAML variables (like ${GAME_IMAGE}) before pulling/starting.
-# Separately, the 'env_file' directive inside docker-compose.yaml tells the
-# container to load its internal environment variables from that same file.
-# Docker Compose then augments the variables from the file with others that it
-# specifies in the 'environment' directive.
 deploy: | check-deploy
-	scp docker-compose.yaml Caddyfile .env.matchmaker $(HOST):~/
-	ssh $(HOST) 'docker compose --env-file .env.matchmaker down && \
-		docker compose --env-file .env.matchmaker pull && \
-		docker pull $(DOCKER_USER)/server-image:latest && \
-		docker compose --env-file .env.matchmaker up -d'
+	ssh $(HOST) 'cd ~/scripts && ./deploy_frontend.sh'
+	ssh $(HOST) 'cd ~/scripts && ./deploy_backend.sh'
+
+init: | check-deploy
+	scp .env.matchmaker scripts/deploy_backend.sh scripts/deploy_frontend.sh scripts/maybe_reboot.sh $(HOST):~/
+	ssh $(HOST) 'mkdir -p ~/scripts && mv ~/deploy_backend.sh ~/deploy_frontend.sh ~/maybe_reboot.sh ~/scripts/ && chmod +x ~/scripts/deploy_backend.sh ~/scripts/deploy_frontend.sh ~/scripts/maybe_reboot.sh'
 
 # --- Client Build Targets ---
 
@@ -223,10 +217,37 @@ clean-remote: | check-deploy
 	docker rmi \$$(docker images -q $(DOCKER_USER)/*-image) 2>/dev/null || true; \
 	docker image prune -f"
 
-# --- Tier 3: Nuclear cleanup (system reset) ---
+# --- Tier 3: Deep cleanup (per-host Docker system prune) ---
 
 deep-clean-local: clean-local
 	docker system prune -af --volumes
 
 deep-clean-remote: clean-remote
 	ssh $(HOST) "docker system prune -af --volumes"
+
+# --- Tier 4: Nuclear cleanup (all Docker containers on both hosts) ---
+
+nuclear-clean: nuclear-clean-local nuclear-clean-remote
+
+nuclear-clean-local:
+	@echo "Nuclear local Docker cleanup: stopping and removing ALL containers, then pruning unused data."
+	@containers=$$(docker ps -aq 2>/dev/null); \
+	if [ -n "$$containers" ]; then \
+		echo "Removing ALL local containers:"; \
+		docker ps -a --format "table {{.Names}}\t{{.CreatedAt}}\t{{.Status}}"; \
+		echo "$$containers" | xargs docker rm -f >/dev/null; \
+	else \
+		echo "No local containers to remove."; \
+	fi
+	docker system prune -af --volumes
+
+nuclear-clean-remote: | check-deploy
+	@ssh $(HOST) "containers=\$$(docker ps -aq 2>/dev/null); \
+	if [ -n \"\$$containers\" ]; then \
+		echo \"Removing ALL remote containers:\"; \
+		docker ps -a --format \"table {{.Names}}\t{{.CreatedAt}}\t{{.Status}}\"; \
+		echo \"\$$containers\" | xargs docker rm -f >/dev/null; \
+	else \
+		echo \"No remote containers to remove.\"; \
+	fi; \
+	docker system prune -af --volumes"

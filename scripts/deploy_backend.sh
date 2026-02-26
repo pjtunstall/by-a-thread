@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO_OWNER="pjtunstall"
 REPO_NAME="by-a-thread"
-DEPLOY_DIR="/home/non-root-user"
+DEPLOY_DIR="${DEPLOY_DIR:-$HOME}"
 BASE_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main"
 
 curl -fsSL -o "${DEPLOY_DIR}/docker-compose.yaml" -H "User-Agent: curl" "${BASE_URL}/docker-compose.yaml"

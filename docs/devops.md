@@ -41,7 +41,7 @@ Allow SSH (22), HTTP (80) (used by Caddy to set up TLS certificates), HTTPS (443
 
 **SSH**
 
-Set up SSH keys for passwordless login. The Makefile deploy target uses the host alias `hetzner`; configure it in `~/.ssh/config`.
+Set up SSH keys for passwordless login. The Makefile targets use the host alias `hetzner`; configure it in `~/.ssh/config` so that `ssh hetzner` logs in as your non-root deploy user.
 
 **Environment**
 
@@ -49,15 +49,18 @@ Create files `.env`, `.env.client`, and `.env.matchmaker` in the project root, a
 
 **Deploy**
 
-The stack is driven by the Makefile or by scripts on the VPS. All VPS deployment files live in `/home/non-root-user`: `.env.matchmaker`, `Caddyfile`, `docker-compose.yaml`, and a `scripts/` directory containing `deploy_backend.sh`, `deploy_frontend.sh`, and `maybe_reboot.sh`. Configure SSH so your host alias logs in as `non-root-user`; then `~` is that directory.
+The stack is driven by the Makefile and by scripts on the VPS. All VPS deployment files live in the home directory of your non-root deploy user (for example, `/home/non-root-user`): `.env.matchmaker`, `Caddyfile`, `docker-compose.yaml`, and a `scripts/` directory containing `deploy_backend.sh`, `deploy_frontend.sh`, and `maybe_reboot.sh`. Configure SSH so your host alias logs in as that non-root user; then `~` is that directory.
 
-Running `make deploy` from your machine performs the following steps:
+For a fresh VPS, the quickest way to get started is:
 
-1. **Build images:** Runs release builds and creates the server and matchmaker Docker images (tags from `Cargo.toml`).
-2. **Push to Docker Hub:** Pushes both images with `latest` and versioned tags so the VPS can pull them.
-3. **Deploy to VPS:** Copies `docker-compose.yaml`, `Caddyfile`, and `.env.matchmaker` to `/home/non-root-user` via SSH, pulls the server image from Docker Hub, instructs Docker Compose to pull the matchmaker and third-party images (for example, Caddy, Docker Socket Proxy), and starts the stack.
+1. Configure SSH so `ssh hetzner` logs in as your non-root deploy user.
+2. On your development machine, create `.env.matchmaker` in the project root.
+3. From the project root, run `make init` to copy `.env.matchmaker` and the three deploy scripts to the VPS and place them under `~/scripts`.
+4. In `deploy_frontend.sh`, replace `YOUR_GITHUB_TOKEN` with a GitHub fine-grained pesronal access token so that it can trigger the workflow that pushes client builds to itch.io.
+5. On the VPS (logged in as the non-root user), run `docker login` so it can pull images from Docker Hub.
+6. Optionally set up cron jobs as described in [VPS scripts and deployment](#vps-scripts-and-deployment).
 
-After initial setup, you can also update the backend from the VPS by running `scripts/deploy_backend.sh` there (see [VPS scripts and deployment](#vps-scripts-and-deployment)).
+After initial setup, you can deploy the latest backend and trigger a client deploy by running `make deploy` from your machine. This SSHes to the VPS and runs `deploy_frontend.sh` and `deploy_backend.sh` under `~/scripts` (see [VPS scripts and deployment](#vps-scripts-and-deployment)).
 
 ### Caddy and Docker networking
 
@@ -168,31 +171,34 @@ WARNING: If deploying manually from the GitHub UI, be sure not to let the client
 
 ### VPS scripts and deployment
 
-The repo is not cloned on the VPS. Everything runs from a single directory: `/home/non-root-user`.
+The repo is not cloned on the VPS. For initial setup and deployment, follow the quick-start steps in the [Deploy](#deploy) section above (`make init`, `docker login`). Significant files and folders are descibed in the following two sections. Optionally set up cron jobs to trigger automatic updates as described below in [Scheduled maintenance](#scheduled-maintenance).
 
-**Layout on the VPS:**
+**Deploy directory**
 
-- `/home/non-root-user/` – deploy directory. Contains `.env.matchmaker`, `Caddyfile`, and `docker-compose.yaml` (the latest versions of the last two are fetched by `deploy_backend.sh` from the GitHub repo).
-- `/home/non-root-user/scripts/` – contains `deploy_backend.sh`, `deploy_frontend.sh`, and `maybe_reboot.sh`. I've added them manually and inserted a GitHub fine-grained token into `deploy_frontend.sh` so that it can trigger the workflow that pushes client builds to itch.io.
-
-**Initial setup (once):** Create `.env.matchmaker` in `/home/non-root-user` with `HOST`, `GAME_IMAGE`, and `CLIENT_PROOF_HASH` as in [Environment](#environment). You can copy it from your dev machine via `make deploy` once (ensure your SSH host alias logs in as `non-root-user` so files go to `/home/non-root-user`), or create it by hand. Run `docker login` as `non-root-user` on the VPS so the scripts can pull images. After that, deployment is automated via cron or manual runs.
+- `~/` (for example, `/home/non-root-user`) is the deploy directory, containing `.env.matchmaker`, `Caddyfile`, and `docker-compose.yaml` (the latest versions of the last two are fetched by `deploy_backend.sh` from the GitHub repo).
 
 **Scripts:**
 
-Three scripts run nightly on the VPS to deploy the backend and push client builds to itch.io:
+Three scripts run nightly on the VPS to deploy the latest back and front ends:
 
-- **`deploy_frontend.sh`** – Triggers the GitHub workflow that pushes client builds to itch.io (via `repository_dispatch`). Configure your GitHub token and repo in the script. Run from cron as `non-root-user` at 04:01.
-- **`deploy_backend.sh`** – Fetches `docker-compose.yaml` and `Caddyfile` from GitHub (`main`) into `/home/non-root-user`, pulls the server image from Dokcer Hub, and runs `docker compose up -d` there. Run as from cron as `non-root-user` at 04:30.
-- **`maybe_reboot.sh`** – Reboots if `/var/run/reboot-required` exists. Runs from cron as root at 04:45.
+- **`deploy_frontend.sh`** triggers the `Deploy` GitHub workflow that pushes client builds to itch.io (via `repository_dispatch`). It runs from cron as `non-root-user` at 04:01.
+- **`deploy_backend.sh`** fetches `docker-compose.yaml` and `Caddyfile` from GitHub (`main`) into `/home/non-root-user`, pulls the server image from Dokcer Hub, and runs `docker compose up -d` there. It runs from cron as `non-root-user` at 04:30.
+- **`maybe_reboot.sh`** reboots if `/var/run/reboot-required` exists. It runs from cron as root at 04:45.
 
 **Manual deploy on the VPS:**
 
-Updates can also be triggered manually thus:
+Updates can also be triggered manually on the VPS thus:
 
 ```bash
-cd /home/non-root-user/scripts
+cd ~/scripts
 ./deploy_frontend.sh   # trigger client → itch.io
-./deploy_backend.sh   # fetch compose/Caddyfile, pull images, start stack
+./deploy_backend.sh    # fetch compose/Caddyfile, pull images, start stack
+```
+
+or from your development machine:
+
+```bash
+make deploy
 ```
 
 ### Scheduled maintenance
@@ -209,4 +215,4 @@ Maintainance is scheduled to run between 04:00 and 05:00 UTC. Twenty minutes bef
 | 04:45 | VPS Reboots (if patched) | maybe_reboot.sh (Cron, root user) |
 | 05:00 | Matchmaker Unlocks | Matchmaker clock |
 
-For the sake of simplicity, I chose to let the matchmaker initiate lock/unlock for now. Ideally there would be a single source of truth to synchronize the whole maintenance sequence. One suggestion is to have a script on the VPS create and remove a sentinel file to indicate that maintenance is in progress. The matchmaker would check for the existence of this file before accepting a new-game request. That would ensure that the matchmaker knows the correct state even when it restarts after the VPS reboots.
+For the sake of simplicity, I chose to let the matchmaker initiate lock/unlock for now. Ideally, though, there would be a single source of truth to synchronize the whole maintenance sequence. One suggestion is to have a script on the VPS create and remove a sentinel file to indicate that maintenance is in progress. The matchmaker would check for the existence of this file before accepting a new-game request. That would ensure that the matchmaker knows the correct state even when it restarts after the VPS reboots.
