@@ -201,7 +201,7 @@ mod file_assets {
         {
             let exe = std::env::current_exe().ok()?;
             if exe.to_string_lossy().contains(".app/Contents/MacOS/") {
-                let path = exe.parent()?.parent()?.parent()?.join("Resources");
+                let path = exe.parent()?.parent()?.join("Resources");
                 (path.exists() && path.is_dir()).then_some(path)
             } else {
                 None
