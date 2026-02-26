@@ -29,6 +29,8 @@
 #
 .PHONY: all no-test test server build-server-image build-matchmaker-image push-server-image push-matchmaker-image build-images push-images deploy init windows deb rpm appimage macos-intel macos-silicon check-windows check-deb check-rpm check-appimage check-docker check-deploy check-env kill-local-servers kill-remote-servers clean-local clean-remote deep-clean-local deep-clean-remote nuclear-clean nuclear-clean-local nuclear-clean-remote
 
+VERSION := $(shell cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="client").version' | head -n1)
+
 DIST := dist
 STAGING_WIN := ByAThread-win64
 STAGING_APPDIR := ByAThread.AppDir
@@ -48,7 +50,6 @@ EXE_APPLE_SILICON := target/$(TARGET_APPLE_SILICON)/release/ByAThread
 ZIP_APPLE_INTEL := $(DIST)/ByAThread-$(VERSION)-macos-intel.zip
 ZIP_APPLE_SILICON := $(DIST)/ByAThread-$(VERSION)-macos-silicon.zip
 DOCKER_USER ?= pjtunstall
-VERSION := $(shell cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="client").version' | head -n1)
 
 SERVER_SOURCES := Cargo.toml Cargo.lock server/Cargo.toml common/Cargo.toml $(shell find server -name '*.rs') $(shell find common -name '*.rs')
 CLIENT_SOURCES := Cargo.toml Cargo.lock client/Cargo.toml client/build.rs .env.client $(shell find client/src -name '*.rs') common/Cargo.toml $(shell find common -name '*.rs')
@@ -175,11 +176,11 @@ $(APPIMAGE_FILE): $(EXE_HOST) | check-appimage
 
 appimage: $(APPIMAGE_FILE)
 
-macos-intel: 
-	@./scripts/bundle-macos.sh $(TARGET_APPLE_INTEL) ByAThread-macos-intel ByAThread-macos-intel.zip
+macos-intel:
+	@./scripts/bundle-macos.sh $(TARGET_APPLE_INTEL) ByAThread-macos-intel $(notdir $(ZIP_APPLE_INTEL))
 
-macos-silicon: 
-	@./scripts/bundle-macos.sh $(TARGET_APPLE_SILICON) ByAThread-macos-silicon ByAThread-macos-silicon.zip
+macos-silicon:
+	@./scripts/bundle-macos.sh $(TARGET_APPLE_SILICON) ByAThread-macos-silicon $(notdir $(ZIP_APPLE_SILICON))
 
 # --- Tier 1: Instance cleanup (match instances only) ---
 
