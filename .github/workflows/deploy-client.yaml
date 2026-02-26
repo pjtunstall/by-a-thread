@@ -45,6 +45,12 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           shopt -s nullglob
+          if [ -z "$VERSION" ]; then
+            echo "::warning::Deploy version is empty (cargo metadata may have failed); itch.io will not show a version for these builds."
+            echo "Pushing with userversion: <none>"
+          else
+            echo "Pushing with userversion: $VERSION"
+          fi
           UV=""
           [ -n "$VERSION" ] && UV="--userversion $VERSION"
 

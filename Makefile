@@ -138,6 +138,8 @@ $(EXE_WIN): $(CLIENT_SOURCES) | check-windows check-env
 
 $(ZIP_WIN): $(EXE_WIN)
 	mkdir -p $(DIST)
+	@echo "Client version (Windows zip): $(VERSION)"
+	@[ -z "$(VERSION)" ] && [ "$$GITHUB_ACTIONS" = "true" ] && echo "::warning::Makefile VERSION is empty; zip will be ByAThread--win64.zip" || true
 	mkdir -p $(STAGING_WIN)
 	cp $(EXE_WIN) $(STAGING_WIN)/
 	cp LICENSE CREDITS $(STAGING_WIN)/
@@ -149,12 +151,16 @@ windows: $(ZIP_WIN)
 
 $(DIST)/.deb-built: $(EXE_HOST) | check-deb check-env
 	mkdir -p $(DIST)
+	@echo "Client version (.deb): $(VERSION)"
+	@[ -z "$(VERSION)" ] && [ "$$GITHUB_ACTIONS" = "true" ] && echo "::warning::Makefile VERSION is empty; .deb filename may lack version" || true
 	./scripts/with-fullscreen.sh bash -c 'cargo deb -p client && cp target/debian/by-a-thread_*.deb $(DIST)/ && touch $(DIST)/.deb-built'
 
 deb: $(DIST)/.deb-built
 
 $(DIST)/.rpm-built: $(EXE_HOST) | check-rpm check-env
 	mkdir -p $(DIST)
+	@echo "Client version (.rpm): $(VERSION)"
+	@[ -z "$(VERSION)" ] && [ "$$GITHUB_ACTIONS" = "true" ] && echo "::warning::Makefile VERSION is empty; .rpm filename may lack version" || true
 	./scripts/with-fullscreen.sh bash -c 'cargo generate-rpm -p client --payload-compress gzip && cp target/generate-rpm/*.rpm $(DIST)/ && touch $(DIST)/.rpm-built'
 
 rpm: $(DIST)/.rpm-built
@@ -164,6 +170,8 @@ $(EXE_HOST): $(CLIENT_SOURCES) | check-env
 
 $(APPIMAGE_FILE): $(EXE_HOST) | check-appimage
 	mkdir -p $(DIST)
+	@echo "Client version (AppImage): $(VERSION)"
+	@[ -z "$(VERSION)" ] && [ "$$GITHUB_ACTIONS" = "true" ] && echo "::warning::Makefile VERSION is empty; AppImage will be ByAThread-.AppImage" || true
 	rm -rf $(STAGING_APPDIR)
 	mkdir -p $(STAGING_APPDIR)/usr/bin $(STAGING_APPDIR)/assets
 	cp $(EXE_HOST) $(STAGING_APPDIR)/usr/bin/
@@ -177,9 +185,13 @@ $(APPIMAGE_FILE): $(EXE_HOST) | check-appimage
 appimage: $(APPIMAGE_FILE)
 
 macos-intel:
+	@echo "Client version (macOS Intel zip): $(VERSION)"
+	@[ -z "$(VERSION)" ] && [ "$$GITHUB_ACTIONS" = "true" ] && echo "::warning::Makefile VERSION is empty; macOS zip filename may lack version" || true
 	@./scripts/bundle-macos.sh $(TARGET_APPLE_INTEL) ByAThread-macos-intel $(notdir $(ZIP_APPLE_INTEL))
 
 macos-silicon:
+	@echo "Client version (macOS Silicon zip): $(VERSION)"
+	@[ -z "$(VERSION)" ] && [ "$$GITHUB_ACTIONS" = "true" ] && echo "::warning::Makefile VERSION is empty; macOS zip filename may lack version" || true
 	@./scripts/bundle-macos.sh $(TARGET_APPLE_SILICON) ByAThread-macos-silicon $(notdir $(ZIP_APPLE_SILICON))
 
 # --- Tier 1: Instance cleanup (match instances only) ---

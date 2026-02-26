@@ -9,6 +9,7 @@ if [ -z "$TARGET" ] || [ -z "$STAGING" ] || [ -z "$ZIP_NAME" ]; then
     exit 1
 fi
 
+echo "Building macOS bundle: $ZIP_NAME"
 BUNDLE=ByAThread.app
 
 rm -rf "$BUNDLE" "dist/$STAGING"

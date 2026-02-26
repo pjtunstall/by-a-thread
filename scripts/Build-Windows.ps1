@@ -3,7 +3,16 @@ $ErrorActionPreference = "Stop"
 # --- CONFIGURATION ---
 $DistDir = "dist"
 $StagingDir = "staging_win"
-$Version = ((cargo pkgid -p client) -split '[@#:]')[-1]
+$Version = (cargo metadata --no-deps --format-version 1 | ConvertFrom-Json).packages | Where-Object { $_.name -eq "client" } | Select-Object -ExpandProperty version
+if (-not $Version) {
+    if ($env:GITHUB_ACTIONS -eq "true") {
+        Write-Host "::warning::Could not determine client package version from cargo metadata; using 'unknown' in zip name."
+    } else {
+        Write-Warning "Could not determine client package version from cargo metadata; using 'unknown' in zip name."
+    }
+    $Version = "unknown"
+}
+Write-Host "Using client version: $Version"
 $ZipName = "$DistDir\ByAThread-$Version-win64.zip"
 $ExePath = "target\release\ByAThread.exe" 
 $SourceFile = "client\src\main.rs"
