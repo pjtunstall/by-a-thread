@@ -26,35 +26,47 @@ jobs:
         run: |
           find assets -name '*.AppImage' -exec chmod +x {} \;
 
+      - name: Set version for itch.io display
+        id: version
+        run: |
+          deb="$(echo assets/linux-packages/*.deb 2>/dev/null)"
+          if [ -f "$deb" ]; then
+            v=$(basename "$deb" .deb | sed 's/by-a-thread_//;s/_.*//')
+            echo "version=$v" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Push to itch.io
         env:
           BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
           GAME: ${{ secrets.ITCH_USERNAME }}/${{ secrets.ITCH_GAME }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           shopt -s nullglob
+          UV=""
+          [ -n "$VERSION" ] && UV="--userversion $VERSION"
 
           for file in assets/windows-package/*.zip; do
-            ./butler push "$file" $GAME:windows
+            ./butler push $UV "$file" $GAME:windows
           done
 
           for file in assets/linux-packages/*.AppImage; do
-            ./butler push "$file" $GAME:linux
+            ./butler push $UV "$file" $GAME:linux
           done
 
           for file in assets/linux-packages/*.deb; do
-            ./butler push "$file" $GAME:linux-deb
+            ./butler push $UV "$file" $GAME:linux-deb
           done
 
           for file in assets/linux-packages/*.rpm; do
-            ./butler push "$file" $GAME:linux-rpm
+            ./butler push $UV "$file" $GAME:linux-rpm
           done
 
           for file in assets/macos-packages/*.zip; do
             if [[ "$file" == *"intel"* ]] || [[ "$file" == *"x86_64"* ]]; then
-              ./butler push "$file" $GAME:mac-intel
+              ./butler push $UV "$file" $GAME:mac-intel
             elif [[ "$file" == *"silicon"* ]] || [[ "$file" == *"aarch64"* ]]; then
-              ./butler push "$file" $GAME:mac-apple
+              ./butler push $UV "$file" $GAME:mac-apple
             else
-              ./butler push "$file" $GAME:mac
+              ./butler push $UV "$file" $GAME:mac
             fi
           done

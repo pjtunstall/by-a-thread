@@ -135,6 +135,8 @@ Two workflows are used to build and deploy the stack.
   - Downloads the client artifacts produced by the build workflow.
   - Uses Butler to push the client builds to itch.io (one channel per platform/package type).
 
+Note that we derive the version number from the `.deb` package name, so this must be deployed or else the others will be built without a version number.
+
 These workflows rely on a set of GitHub secrets to populate `.env` files during builds and to authenticate to external services:
 
 - **`HOST`**
