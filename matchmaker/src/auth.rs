@@ -22,7 +22,7 @@ pub fn create_connect_token(
         .duration_since(UNIX_EPOCH)
         .expect("system time is before unix epoch");
     let protocol_id = common::protocol::protocol_id();
-    let server_addr = SocketAddr::new(server_host, port);
+    let server_address = SocketAddr::new(server_host, port);
 
     ConnectToken::generate(
         current_time,
@@ -30,7 +30,7 @@ pub fn create_connect_token(
         MAX_SESSION_DURATION,
         client_id,
         15, // Timeout after 15 seconds.
-        vec![server_addr],
+        vec![server_address],
         None,
         private_key,
     )

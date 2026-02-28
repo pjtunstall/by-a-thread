@@ -1,4 +1,4 @@
-pub mod api;
+pub mod matchmaker;
 pub mod assets;
 pub mod config;
 pub mod exit;

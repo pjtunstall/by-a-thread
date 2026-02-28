@@ -519,7 +519,7 @@ impl LobbyUi for Gui {
     fn print_client_banner(
         &mut self,
         version: &str,
-        server_addr: SocketAddr,
+        server_address: SocketAddr,
         share_passcode: Option<String>,
         only_player: bool,
     ) {
@@ -528,7 +528,7 @@ impl LobbyUi for Gui {
         self.show_message("@@@@@ BY A THREAD @@@@@");
         self.show_message(" ");
         self.show_message(&format!("  Version:         {}", version));
-        self.show_message(&format!("  Connected to: {}", server_addr));
+        self.show_message(&format!("  Connected to: {}", server_address));
         if let Some(ref passcode) = share_passcode
             && !only_player
         {

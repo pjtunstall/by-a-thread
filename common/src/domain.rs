@@ -25,7 +25,7 @@ fn host_config_from_env() -> String {
     std::env::var("HOST").unwrap_or_default()
 }
 
-pub fn api_host_from_config(config_value: &str) -> String {
+pub fn matchmaker_host_from_config(config_value: &str) -> String {
     host_from_config(config_value, "api")
 }
 
@@ -37,8 +37,8 @@ pub fn game_host_from_config(config_value: &str) -> String {
     }
 }
 
-pub fn api_server_host() -> String {
-    api_host_from_config(&host_config_from_env())
+pub fn matchmaker_host() -> String {
+    matchmaker_host_from_config(&host_config_from_env())
 }
 
 pub fn game_server_host() -> String {

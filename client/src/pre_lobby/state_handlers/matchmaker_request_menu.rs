@@ -3,9 +3,9 @@ use std::sync::mpsc;
 use common::player::Color;
 
 use crate::{
-    api::{self, ApiError},
+    matchmaker::{self, MatchmakerError},
     lobby::ui::LobbyUi,
-    pre_lobby::state::{ApiRequestPhase, MatchmakerResponse, PreLobby},
+    pre_lobby::state::{MatchmakerRequestPhase, MatchmakerResponse, PreLobby},
     session::ClientSession,
     state::ClientState,
 };
@@ -24,7 +24,7 @@ pub enum PreLobbyTransition {
 
 pub struct CompleteInfo {
     pub connect_token: renet_netcode::ConnectToken,
-    pub server_addr: std::net::SocketAddr,
+    pub server_address: std::net::SocketAddr,
     pub share_passcode: Option<String>,
     pub only_player: bool,
 }
@@ -34,21 +34,21 @@ pub fn handle(
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
 ) -> PreLobbyTransition {
-    let PreLobby::ApiRequestMenu { api_host, phase } = pre_lobby_state else {
+    let PreLobby::MatchmakerRequestMenu { matchmaker_host, phase } = pre_lobby_state else {
         unreachable!();
     };
 
     if crate::exit::should_quit() {
         return match phase {
-            ApiRequestPhase::AwaitingPing { .. } => PreLobbyTransition::NextState(
+            MatchmakerRequestPhase::AwaitingPing { .. } => PreLobbyTransition::NextState(
                 ClientState::PreLobby(PreLobby::ServerAddress {
                     prompt_printed: false,
                 }),
             ),
-            ApiRequestPhase::AwaitingCreate { .. } | ApiRequestPhase::AwaitingJoin { .. } => {
-                PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
-                    api_host: api_host.to_string(),
-                    phase: ApiRequestPhase::ChoosingNewOrJoin {
+            MatchmakerRequestPhase::AwaitingCreate { .. } | MatchmakerRequestPhase::AwaitingJoin { .. } => {
+                PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::MatchmakerRequestMenu {
+                    matchmaker_host: matchmaker_host.to_string(),
+                    phase: MatchmakerRequestPhase::ChoosingNewOrJoin {
                         selected_index: 0,
                         prompt_printed: false,
                     },
@@ -59,45 +59,44 @@ pub fn handle(
     }
 
     match phase {
-        ApiRequestPhase::ChoosingNewOrJoin {
+        MatchmakerRequestPhase::ChoosingNewOrJoin {
             selected_index,
             prompt_printed,
-        } => handle_choosing_new_or_join(api_host, selected_index, prompt_printed, session, ui),
-        ApiRequestPhase::AwaitingPing { host, receiver } => {
-            handle_awaiting_ping(api_host, host.clone(), receiver, session, ui)
+        } => handle_choosing_new_or_join(matchmaker_host, selected_index, prompt_printed, session, ui),
+        MatchmakerRequestPhase::AwaitingPing { matchmaker_host, receiver } => {
+            handle_awaiting_ping(matchmaker_host, receiver, session, ui)
         }
-        ApiRequestPhase::ChoosingPlayerCount { prompt_printed } => {
-            handle_choosing_player_count(api_host, prompt_printed, session, ui)
+        MatchmakerRequestPhase::ChoosingPlayerCount { prompt_printed } => {
+            handle_choosing_player_count(matchmaker_host, prompt_printed, session, ui)
         }
-        ApiRequestPhase::ChoosingPasscode {
+        MatchmakerRequestPhase::ChoosingPasscode {
             wrong_guesses,
             prompt_printed,
-        } => handle_choosing_passcode(api_host, *wrong_guesses, prompt_printed, session, ui),
-        ApiRequestPhase::AwaitingCreate {
+        } => handle_choosing_passcode(matchmaker_host, *wrong_guesses, prompt_printed, session, ui),
+        MatchmakerRequestPhase::AwaitingCreate {
             player_count,
             receiver,
-        } => handle_awaiting_create(api_host, *player_count, receiver, session, ui),
-        ApiRequestPhase::AwaitingJoin {
+        } => handle_awaiting_create(matchmaker_host, *player_count, receiver, session, ui),
+        MatchmakerRequestPhase::AwaitingJoin {
             passcode,
             wrong_guesses,
             receiver,
-        } => handle_awaiting_join(api_host, passcode.clone(), *wrong_guesses, receiver, session, ui),
+        } => handle_awaiting_join(matchmaker_host, passcode.clone(), *wrong_guesses, receiver, session, ui),
     }
 }
 
 fn handle_awaiting_ping(
-    api_host: &str,
-    host: String,
+    matchmaker_host: &str,
     receiver: &mpsc::Receiver<Result<(), String>>,
     _session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
 ) -> PreLobbyTransition {
     match receiver.try_recv() {
         Ok(Ok(())) => {
-            ui.show_message_with_color(&format!("Connecting to:\t{}.", host), Color::WHITE);
-            PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
-                api_host: api_host.to_string(),
-                phase: ApiRequestPhase::ChoosingNewOrJoin {
+            ui.show_message_with_color(&format!("Connecting to:\t{}.", matchmaker_host), Color::WHITE);
+            PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::MatchmakerRequestMenu {
+                matchmaker_host: matchmaker_host.to_string(),
+                phase: MatchmakerRequestPhase::ChoosingNewOrJoin {
                     selected_index: 0,
                     prompt_printed: false,
                 },
@@ -119,7 +118,7 @@ fn handle_awaiting_ping(
 }
 
 fn handle_choosing_new_or_join(
-    api_host: &str,
+    matchmaker_host: &str,
     selected_index: &mut usize,
     prompt_printed: &mut bool,
     _session: &mut ClientSession,
@@ -160,14 +159,14 @@ fn handle_choosing_new_or_join(
                 vec![(format!("{}.", new_or_join.menu_label()), Color::WHITE)],
             );
             let phase = match new_or_join {
-                NewOrJoin::NewGame => ApiRequestPhase::ChoosingPlayerCount { prompt_printed: false },
-                NewOrJoin::JoinGame => ApiRequestPhase::ChoosingPasscode {
+                NewOrJoin::NewGame => MatchmakerRequestPhase::ChoosingPlayerCount { prompt_printed: false },
+                NewOrJoin::JoinGame => MatchmakerRequestPhase::ChoosingPasscode {
                     wrong_guesses: 0,
                     prompt_printed: false,
                 },
             };
-            PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
-                api_host: api_host.to_string(),
+            PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::MatchmakerRequestMenu {
+                matchmaker_host: matchmaker_host.to_string(),
                 phase,
             }))
         }
@@ -180,7 +179,7 @@ fn handle_choosing_new_or_join(
 }
 
 fn handle_choosing_player_count(
-    api_host: &str,
+    matchmaker_host: &str,
     prompt_printed: &mut bool,
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
@@ -198,13 +197,13 @@ fn handle_choosing_player_count(
             if let Ok(n) = trimmed.parse::<u8>() {
                 if (1..=10).contains(&n) {
                     let (tx, rx) = mpsc::channel();
-                    let api_host_owned = api_host.to_string();
+                    let matchmaker_host_owned = matchmaker_host.to_string();
                     std::thread::spawn(move || {
-                        let _ = tx.send(api::create_game(n, Some(&api_host_owned)));
+                        let _ = tx.send(matchmaker::create_game(n, Some(&matchmaker_host_owned)));
                     });
-                    return PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
-                        api_host: api_host.to_string(),
-                        phase: ApiRequestPhase::AwaitingCreate {
+                    return PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::MatchmakerRequestMenu {
+                        matchmaker_host: matchmaker_host.to_string(),
+                        phase: MatchmakerRequestPhase::AwaitingCreate {
                             player_count: n,
                             receiver: rx,
                         },
@@ -218,7 +217,7 @@ fn handle_choosing_player_count(
 }
 
 fn handle_choosing_passcode(
-    api_host: &str,
+    matchmaker_host: &str,
     wrong_guesses: u8,
     prompt_printed: &mut bool,
     session: &mut ClientSession,
@@ -237,13 +236,13 @@ fn handle_choosing_passcode(
             if trimmed.len() == 6 && trimmed.chars().all(|c| c.is_ascii_digit()) {
                 let (tx, rx) = mpsc::channel();
                 let passcode_owned = trimmed.to_string();
-                let api_host_owned = api_host.to_string();
+                let matchmaker_host_owned = matchmaker_host.to_string();
                 std::thread::spawn(move || {
-                    let _ = tx.send(api::join_game(&passcode_owned, Some(&api_host_owned)));
+                    let _ = tx.send(matchmaker::join_game(&passcode_owned, Some(&matchmaker_host_owned)));
                 });
-                return PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
-                    api_host: api_host.to_string(),
-                    phase: ApiRequestPhase::AwaitingJoin {
+                return PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::MatchmakerRequestMenu {
+                    matchmaker_host: matchmaker_host.to_string(),
+                    phase: MatchmakerRequestPhase::AwaitingJoin {
                         passcode: trimmed.to_string(),
                         wrong_guesses,
                         receiver: rx,
@@ -257,14 +256,14 @@ fn handle_choosing_passcode(
 }
 
 fn handle_awaiting_create(
-    api_host: &str,
+    matchmaker_host: &str,
     player_count: u8,
-    receiver: &mpsc::Receiver<Result<(api::CreateGameResponse, std::net::SocketAddr), ApiError>>,
+    receiver: &mpsc::Receiver<Result<(matchmaker::CreateGameResponse, std::net::SocketAddr), MatchmakerError>>,
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
 ) -> PreLobbyTransition {
     match receiver.try_recv() {
-        Ok(Ok((response, addr))) => {
+        Ok(Ok((response, server_address))) => {
             let token = match crate::net::connect_token_from_base64(&response.connect_token) {
                 Ok(t) => t,
                 Err(e) => {
@@ -277,7 +276,7 @@ fn handle_awaiting_create(
                 None => return PreLobbyTransition::Exit,
             };
             let response = MatchmakerResponse::Create {
-                server_addr: addr,
+                server_address,
                 connect_token: token,
                 passcode,
                 player_count,
@@ -288,16 +287,16 @@ fn handle_awaiting_create(
             ui.show_sanitized_error(&e.to_string());
             let is_auth_rejection = matches!(
                 &e,
-                ApiError::InvalidClientProof { .. }
-                    | ApiError::VersionMismatch { .. }
-                    | ApiError::Unauthorized { .. }
+                MatchmakerError::InvalidClientProof { .. }
+                    | MatchmakerError::VersionMismatch { .. }
+                    | MatchmakerError::Unauthorized { .. }
             );
             if is_auth_rejection {
                 PreLobbyTransition::ExitPendingUserAck
             } else {
-                PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
-                    api_host: api_host.to_string(),
-                    phase: ApiRequestPhase::ChoosingNewOrJoin {
+                PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::MatchmakerRequestMenu {
+                    matchmaker_host: matchmaker_host.to_string(),
+                    phase: MatchmakerRequestPhase::ChoosingNewOrJoin {
                         selected_index: 0,
                         prompt_printed: false,
                     },
@@ -310,15 +309,15 @@ fn handle_awaiting_create(
 }
 
 fn handle_awaiting_join(
-    api_host: &str,
+    matchmaker_host: &str,
     passcode: String,
     wrong_guesses: u8,
-    receiver: &mpsc::Receiver<Result<(api::JoinGameResponse, std::net::SocketAddr), ApiError>>,
+    receiver: &mpsc::Receiver<Result<(matchmaker::JoinGameResponse, std::net::SocketAddr), MatchmakerError>>,
     session: &mut ClientSession,
     ui: &mut dyn LobbyUi,
 ) -> PreLobbyTransition {
     match receiver.try_recv() {
-        Ok(Ok((response, addr))) => {
+        Ok(Ok((response, server_address))) => {
             let token = match crate::net::connect_token_from_base64(&response.connect_token) {
                 Ok(t) => t,
                 Err(e) => {
@@ -331,7 +330,7 @@ fn handle_awaiting_join(
                 None => return PreLobbyTransition::Exit,
             };
             let response = MatchmakerResponse::Join {
-                server_addr: addr,
+                server_address,
                 connect_token: token,
                 passcode,
             };
@@ -339,14 +338,14 @@ fn handle_awaiting_join(
         }
         Ok(Err(e)) => {
             let is_game_not_found =
-                matches!(&e, ApiError::Api { code, .. } if code == "GAME_NOT_FOUND");
+                matches!(&e, MatchmakerError::Response { code, .. } if code == "GAME_NOT_FOUND");
             if is_game_not_found {
                 let wrong_guesses_after = wrong_guesses + 1;
                 if wrong_guesses_after >= JOIN_GUESS_LIMIT {
                     ui.show_sanitized_error(&e.to_string());
-                    PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
-                        api_host: api_host.to_string(),
-                        phase: ApiRequestPhase::ChoosingNewOrJoin {
+                    PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::MatchmakerRequestMenu {
+                        matchmaker_host: matchmaker_host.to_string(),
+                        phase: MatchmakerRequestPhase::ChoosingNewOrJoin {
                             selected_index: 0,
                             prompt_printed: false,
                         },
@@ -358,9 +357,9 @@ fn handle_awaiting_join(
                         remaining,
                         if remaining == 1 { "guess" } else { "guesses" }
                     ));
-                    PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
-                        api_host: api_host.to_string(),
-                        phase: ApiRequestPhase::ChoosingPasscode {
+                    PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::MatchmakerRequestMenu {
+                        matchmaker_host: matchmaker_host.to_string(),
+                        phase: MatchmakerRequestPhase::ChoosingPasscode {
                             wrong_guesses: wrong_guesses_after,
                             prompt_printed: false,
                         },
@@ -370,16 +369,16 @@ fn handle_awaiting_join(
                 ui.show_sanitized_error(&e.to_string());
                 let is_auth_rejection = matches!(
                     &e,
-                    ApiError::InvalidClientProof { .. }
-                        | ApiError::VersionMismatch { .. }
-                        | ApiError::Unauthorized { .. }
+                    MatchmakerError::InvalidClientProof { .. }
+                        | MatchmakerError::VersionMismatch { .. }
+                        | MatchmakerError::Unauthorized { .. }
                 );
                 if is_auth_rejection {
                     PreLobbyTransition::ExitPendingUserAck
                 } else {
-                    PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
-                        api_host: api_host.to_string(),
-                        phase: ApiRequestPhase::ChoosingPasscode {
+                    PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::MatchmakerRequestMenu {
+                        matchmaker_host: matchmaker_host.to_string(),
+                        phase: MatchmakerRequestPhase::ChoosingPasscode {
                             wrong_guesses,
                             prompt_printed: false,
                         },
@@ -393,20 +392,20 @@ fn handle_awaiting_join(
 }
 
 fn build_complete(session: &mut ClientSession, response: MatchmakerResponse) -> PreLobbyTransition {
-    let server_addr = response.server_addr();
+    let server_address = response.server_address();
     let share_passcode = response.share_passcode();
     let only_player = response.only_player();
     let connect_token = response.connect_token();
 
     session.client_id = connect_token.client_id;
-    session.server_addr = Some(server_addr);
+    session.server_address = Some(server_address);
     session.transition(ClientState::Lobby(crate::lobby::state::Lobby::Connecting {
         pending_passcode: Some(()),
     }));
 
     PreLobbyTransition::Complete(CompleteInfo {
         connect_token,
-        server_addr,
+        server_address,
         share_passcode,
         only_player,
     })

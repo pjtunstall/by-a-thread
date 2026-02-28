@@ -46,7 +46,7 @@ async fn main() {
         };
 
         let run_result = run::run_client_loop(
-            pre_lobby_result.server_addr,
+            pre_lobby_result.server_address,
             pre_lobby_result.connect_token,
             pre_lobby_result.share_passcode,
             pre_lobby_result.session,

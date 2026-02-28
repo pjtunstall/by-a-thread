@@ -47,13 +47,13 @@ mod tests {
     fn client_banner_is_printed_correctly() {
         let mut ui = MockUi::default();
         let version = "0.1.0";
-        let server_addr = server_address::default_server_address()
+        let server_address = server_address::default_server_address()
             .ok()
             .expect("test env");
 
-        let expected_banner = format!("Client Banner: Version={}, Server={}", version, server_addr);
+        let expected_banner = format!("Client Banner: Version={}, Server={}", version, server_address);
 
-        ui.print_client_banner(version, server_addr, None, false);
+        ui.print_client_banner(version, server_address, None, false);
 
         assert_eq!(ui.messages, vec![expected_banner]);
         assert!(ui.errors.is_empty());

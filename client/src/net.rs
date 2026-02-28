@@ -33,7 +33,7 @@ pub fn create_connect_token(
     current_time: Duration,
     protocol_id: u64,
     client_id: u64,
-    server_addr: SocketAddr,
+    server_address: SocketAddr,
     private_key: &[u8; 32],
 ) -> ConnectToken {
     ConnectToken::generate(
@@ -42,7 +42,7 @@ pub fn create_connect_token(
         MAX_SESSION_DURATION,
         client_id,
         15, // Timeout after 15 seconds.
-        vec![server_addr],
+        vec![server_address],
         None,
         private_key,
     )

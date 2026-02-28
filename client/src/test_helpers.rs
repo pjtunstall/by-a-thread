@@ -127,14 +127,14 @@ impl LobbyUi for MockUi {
     fn print_client_banner(
         &mut self,
         version: &str,
-        server_addr: SocketAddr,
+        server_address: SocketAddr,
         _share_passcode: Option<String>,
         _only_player: bool,
     ) {
         self.messages.clear();
         self.messages.push(format!(
             "Client Banner: Version={}, Server={}",
-            version, server_addr
+            version, server_address
         ));
     }
 

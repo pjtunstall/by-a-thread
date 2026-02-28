@@ -4,7 +4,7 @@ use crate::{
     frame::FrameRate,
     lobby::state::Lobby,
     post_game_chat::PostGameChat,
-    pre_lobby::state::{ApiRequestPhase, PreLobby},
+    pre_lobby::state::{MatchmakerRequestPhase, PreLobby},
     state::{ClientState, InputMode},
 };
 use common::player::{MAX_USERNAME_LENGTH, UsernameError, sanitize_username};
@@ -26,14 +26,14 @@ pub struct ClientSession {
     pub local_player_index: Option<usize>,
     pub disconnected_notified: bool,
     pub pending_disconnect: Option<String>,
-    pub server_addr: Option<SocketAddr>,
+    pub server_address: Option<SocketAddr>,
     waiting_since: Option<Instant>,
     waiting_message_shown: bool,
     pub lobby_timer_end: Option<f64>,
 }
 
 impl ClientSession {
-    pub fn new(client_id: u64, server_addr: Option<SocketAddr>) -> Self {
+    pub fn new(client_id: u64, server_address: Option<SocketAddr>) -> Self {
         Self {
             client_id,
             is_host: false,
@@ -45,7 +45,7 @@ impl ClientSession {
             local_player_index: None,
             disconnected_notified: false,
             pending_disconnect: None,
-            server_addr,
+            server_address,
             waiting_since: None,
             waiting_message_shown: false,
             lobby_timer_end: None,
@@ -176,13 +176,13 @@ impl ClientSession {
     pub fn input_mode(&self) -> InputMode {
         match &self.state {
             ClientState::PreLobby(PreLobby::ServerAddress { .. }) => InputMode::Enabled,
-            ClientState::PreLobby(PreLobby::ApiRequestMenu { phase, .. }) => match phase {
-                ApiRequestPhase::ChoosingNewOrJoin { .. } => InputMode::SingleKey,
-                ApiRequestPhase::ChoosingPlayerCount { .. }
-                | ApiRequestPhase::ChoosingPasscode { .. } => InputMode::Enabled,
-                ApiRequestPhase::AwaitingPing { .. }
-                | ApiRequestPhase::AwaitingCreate { .. }
-                | ApiRequestPhase::AwaitingJoin { .. } => InputMode::DisabledWaiting,
+            ClientState::PreLobby(PreLobby::MatchmakerRequestMenu { phase, .. }) => match phase {
+                MatchmakerRequestPhase::ChoosingNewOrJoin { .. } => InputMode::SingleKey,
+                MatchmakerRequestPhase::ChoosingPlayerCount { .. }
+                | MatchmakerRequestPhase::ChoosingPasscode { .. } => InputMode::Enabled,
+                MatchmakerRequestPhase::AwaitingPing { .. }
+                | MatchmakerRequestPhase::AwaitingCreate { .. }
+                | MatchmakerRequestPhase::AwaitingJoin { .. } => InputMode::DisabledWaiting,
             },
             ClientState::Lobby(Lobby::Connecting { .. }) => InputMode::Hidden,
             ClientState::Lobby(Lobby::ChoosingUsername { .. }) => InputMode::Enabled,
@@ -229,9 +229,9 @@ impl ClientSession {
             || matches!(&self.state, ClientState::Lobby(Lobby::Connecting { .. }))
             || matches!(
                 &self.state,
-                ClientState::PreLobby(PreLobby::ApiRequestMenu {
-                    phase: ApiRequestPhase::AwaitingCreate { .. }
-                        | ApiRequestPhase::AwaitingJoin { .. },
+                ClientState::PreLobby(PreLobby::MatchmakerRequestMenu {
+                    phase: MatchmakerRequestPhase::AwaitingCreate { .. }
+                        | MatchmakerRequestPhase::AwaitingJoin { .. },
                     ..
                 })
             );
@@ -248,8 +248,8 @@ impl ClientSession {
 
         let pre_lobby_awaiting = matches!(
             &self.state,
-            ClientState::PreLobby(PreLobby::ApiRequestMenu {
-                phase: ApiRequestPhase::AwaitingCreate { .. } | ApiRequestPhase::AwaitingJoin { .. },
+            ClientState::PreLobby(PreLobby::MatchmakerRequestMenu {
+                phase: MatchmakerRequestPhase::AwaitingCreate { .. } | MatchmakerRequestPhase::AwaitingJoin { .. },
                 ..
             })
         );
@@ -339,7 +339,7 @@ mod tests {
                 prompt_printed: false
             })
         ));
-        assert!(session.server_addr.is_some());
+        assert!(session.server_address.is_some());
     }
 
     #[test]

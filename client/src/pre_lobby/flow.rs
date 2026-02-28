@@ -1,8 +1,8 @@
 use crate::{
     assets::Assets,
     lobby::ui::LobbyUi,
-    pre_lobby::state::{ApiRequestPhase, PreLobby},
-    pre_lobby::state_handlers::{self, api_request_menu::CompleteInfo},
+    pre_lobby::state::{MatchmakerRequestPhase, PreLobby},
+    pre_lobby::state_handlers::{self, matchmaker_request_menu::CompleteInfo},
     session::ClientSession,
     state::{ClientState, InputMode},
 };
@@ -21,11 +21,11 @@ pub fn update(
 ) -> PreLobbyStep {
     let in_awaiting_matchmaker = matches!(
         &session.state,
-        ClientState::PreLobby(PreLobby::ApiRequestMenu {
+        ClientState::PreLobby(PreLobby::MatchmakerRequestMenu {
             phase:
-                ApiRequestPhase::AwaitingPing { .. }
-                | ApiRequestPhase::AwaitingCreate { .. }
-                | ApiRequestPhase::AwaitingJoin { .. },
+                MatchmakerRequestPhase::AwaitingPing { .. }
+                | MatchmakerRequestPhase::AwaitingCreate { .. }
+                | MatchmakerRequestPhase::AwaitingJoin { .. },
             ..
         })
     );
@@ -74,12 +74,12 @@ fn transition(
                 PreLobby::ServerAddress { .. } => {
                     state_handlers::server_address::handle(&mut pre_lobby_state, session, ui)
                 }
-                PreLobby::ApiRequestMenu { .. } => {
-                    state_handlers::api_request_menu::handle(&mut pre_lobby_state, session, ui)
+                PreLobby::MatchmakerRequestMenu { .. } => {
+                    state_handlers::matchmaker_request_menu::handle(&mut pre_lobby_state, session, ui)
                 }
             };
 
-            use state_handlers::api_request_menu::PreLobbyTransition;
+            use state_handlers::matchmaker_request_menu::PreLobbyTransition;
             match transition {
                 PreLobbyTransition::Stay => {
                     session.state = ClientState::PreLobby(pre_lobby_state);

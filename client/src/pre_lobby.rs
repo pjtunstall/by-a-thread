@@ -14,14 +14,14 @@ use crate::{
     session::ClientSession,
 };
 
-pub use state::{ApiRequestPhase, MatchmakerResponse, PreLobby};
+pub use state::{MatchmakerRequestPhase, MatchmakerResponse, PreLobby};
 
 pub struct PreLobbyResult {
     pub session: ClientSession,
     pub ui: Gui,
     pub assets: Assets,
     pub connect_token: ConnectToken,
-    pub server_addr: SocketAddr,
+    pub server_address: SocketAddr,
     pub share_passcode: Option<String>,
     pub only_player: bool,
 }
@@ -43,7 +43,7 @@ pub async fn run_pre_lobby_loop(
                     ui,
                     assets,
                     connect_token: info.connect_token,
-                    server_addr: info.server_addr,
+                    server_address: info.server_address,
                     share_passcode: info.share_passcode,
                     only_player: info.only_player,
                 });

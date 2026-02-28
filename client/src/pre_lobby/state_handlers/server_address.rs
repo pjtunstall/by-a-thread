@@ -3,11 +3,11 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-use super::api_request_menu::PreLobbyTransition;
+use super::matchmaker_request_menu::PreLobbyTransition;
 use crate::{
     config,
     lobby::ui::LobbyUi,
-    pre_lobby::state::{ApiRequestPhase, PreLobby},
+    pre_lobby::state::{MatchmakerRequestPhase, PreLobby},
     session::ClientSession,
     state::ClientState,
 };
@@ -38,17 +38,17 @@ pub fn handle(
         let trimmed = input_string.trim();
         if trimmed.is_empty() {
             session.input_queue.clear();
-            return try_connect_to_host(config::api_server_host(), pre_lobby_state, ui);
+            return try_connect_to_host(config::matchmaker_host(), pre_lobby_state, ui);
         }
-        if let Some(api_host) = validate_matchmaker_host(trimmed) {
+        if let Some(matchmaker_host) = validate_matchmaker_host(trimmed) {
             session.input_queue.clear();
-            let host = if api_host.eq_ignore_ascii_case("localhost")
-                || api_host == "127.0.0.1"
-                || api_host == "::1"
+            let host = if matchmaker_host.eq_ignore_ascii_case("localhost")
+                || matchmaker_host == "127.0.0.1"
+                || matchmaker_host == "::1"
             {
                 config::LOCAL_MATCHMAKER_HOST.to_string()
             } else {
-                api_host
+                matchmaker_host
             };
             return try_connect_to_host(host, pre_lobby_state, ui);
         }
@@ -106,11 +106,11 @@ fn strip_port(host: &str) -> Option<&str> {
     if host.matches(':').count() > 1 {
         return Some(host);
     }
-    if let Some((h, p)) = host.rsplit_once(':')
-        && p.parse::<u16>().is_ok()
-        && !h.is_empty()
+    if let Some((host_part, port)) = host.rsplit_once(':')
+        && port.parse::<u16>().is_ok()
+        && !host_part.is_empty()
     {
-        return Some(h);
+        return Some(host_part);
     }
     Some(host)
 }
@@ -142,9 +142,9 @@ fn try_connect_to_host(
         let _ = tx.send(result);
     });
 
-    PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::ApiRequestMenu {
-        api_host: host.clone(),
-        phase: ApiRequestPhase::AwaitingPing { host, receiver: rx },
+    PreLobbyTransition::NextState(ClientState::PreLobby(PreLobby::MatchmakerRequestMenu {
+        matchmaker_host: host.clone(),
+        phase: MatchmakerRequestPhase::AwaitingPing { matchmaker_host: host, receiver: rx },
     }))
 }
 

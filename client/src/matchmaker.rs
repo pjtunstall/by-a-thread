@@ -33,37 +33,37 @@ pub struct JoinGameResponse {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ApiErrorBody {
+pub struct MatchmakerErrorBody {
     pub code: String,
     pub message: String,
 }
 
 #[derive(Debug)]
-pub enum ApiError {
+pub enum MatchmakerError {
     Http(reqwest::Error),
     Json(serde_json::Error),
     InvalidClientProof { message: String },
     VersionMismatch { message: String },
     Unauthorized { message: String },
-    Api { code: String, message: String },
+    Response { code: String, message: String },
 }
 
-impl std::fmt::Display for ApiError {
+impl std::fmt::Display for MatchmakerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ApiError::Http(e) => write!(f, "{}", e),
-            ApiError::Json(e) => write!(f, "{}", e),
-            ApiError::InvalidClientProof { message } => write!(f, "{}", message),
-            ApiError::VersionMismatch { message } => write!(f, "{}", message),
-            ApiError::Unauthorized { message } => write!(f, "{}", message),
-            ApiError::Api { message, .. } => write!(f, "{}", message),
+            MatchmakerError::Http(e) => write!(f, "{}", e),
+            MatchmakerError::Json(e) => write!(f, "{}", e),
+            MatchmakerError::InvalidClientProof { message } => write!(f, "{}", message),
+            MatchmakerError::VersionMismatch { message } => write!(f, "{}", message),
+            MatchmakerError::Unauthorized { message } => write!(f, "{}", message),
+            MatchmakerError::Response { message, .. } => write!(f, "{}", message),
         }
     }
 }
 
-impl std::error::Error for ApiError {}
+impl std::error::Error for MatchmakerError {}
 
-fn server_addr_from_host_port(host: &str, port: u16) -> SocketAddr {
+fn socket_address_from_host_and_port(host: &str, port: u16) -> SocketAddr {
     let addrs: Vec<SocketAddr> = (host, port)
         .to_socket_addrs()
         .expect("failed to resolve game server host")
@@ -86,18 +86,21 @@ fn auth_error_message(kind: &str, message: &str) -> String {
     }
 }
 
-fn api_error_from_response(status: u16, error_body: ApiErrorBody) -> ApiError {
+fn matchmaker_error_from_response(
+    status: u16,
+    error_body: MatchmakerErrorBody,
+) -> MatchmakerError {
     match error_body.code.as_str() {
-        "INVALID_CLIENT_PROOF" => ApiError::InvalidClientProof {
+        "INVALID_CLIENT_PROOF" => MatchmakerError::InvalidClientProof {
             message: auth_error_message("INVALID_CLIENT_PROOF", &error_body.message),
         },
-        "VERSION_MISMATCH" => ApiError::VersionMismatch {
+        "VERSION_MISMATCH" => MatchmakerError::VersionMismatch {
             message: auth_error_message("VERSION_MISMATCH", &error_body.message),
         },
-        _ if status == 401 => ApiError::Unauthorized {
+        _ if status == 401 => MatchmakerError::Unauthorized {
             message: auth_error_message("_", &error_body.message),
         },
-        _ => ApiError::Api {
+        _ => MatchmakerError::Response {
             code: error_body.code,
             message: if error_body.message.is_empty() {
                 "An error occurred.".to_string()
@@ -111,78 +114,81 @@ fn api_error_from_response(status: u16, error_body: ApiErrorBody) -> ApiError {
 pub fn create_game(
     player_count: u8,
     matchmaker_host: Option<&str>,
-) -> Result<(CreateGameResponse, SocketAddr), ApiError> {
-    let api_host = match matchmaker_host {
-        Some(h) => h.to_string(),
-        None => config::api_server_host(),
+) -> Result<(CreateGameResponse, SocketAddr), MatchmakerError> {
+    let host = match matchmaker_host {
+        Some(host) => host.to_string(),
+        None => config::matchmaker_host(),
     };
-    let insecure = api_host == config::LOCAL_MATCHMAKER_HOST;
-    let url = format!("https://{}/games", api_host);
+    let insecure = host == config::LOCAL_MATCHMAKER_HOST;
+    let url = format!("https://{}/games", host);
     let response = client(insecure)
         .post(&url)
         .header(CLIENT_PROOF_HEADER, config::client_proof())
         .header(VERSION_HEADER, env!("CARGO_PKG_VERSION"))
         .json(&CreateGameRequest { player_count })
         .send()
-        .map_err(ApiError::Http)?;
+        .map_err(MatchmakerError::Http)?;
 
     let status = response.status();
-    let body = response.text().map_err(ApiError::Http)?;
+    let body = response.text().map_err(MatchmakerError::Http)?;
 
     if !status.is_success() {
-        let error_body: ApiErrorBody = serde_json::from_str(&body).unwrap_or(ApiErrorBody {
-            code: "UNKNOWN".to_string(),
-            message: body,
-        });
-        return Err(api_error_from_response(status.as_u16(), error_body));
+        let error_body: MatchmakerErrorBody =
+            serde_json::from_str(&body).unwrap_or(MatchmakerErrorBody {
+                code: "UNKNOWN".to_string(),
+                message: body,
+            });
+        return Err(matchmaker_error_from_response(status.as_u16(), error_body));
     }
 
     let create_response: CreateGameResponse =
-        serde_json::from_str(&body).map_err(ApiError::Json)?;
+        serde_json::from_str(&body).map_err(MatchmakerError::Json)?;
     let game_host = match matchmaker_host {
-        Some(h) if h == config::LOCAL_MATCHMAKER_HOST => config::game_server_host(),
-        Some(h) => h.to_string(),
+        Some(host) if host == config::LOCAL_MATCHMAKER_HOST => config::game_server_host(),
+        Some(host) => host.to_string(),
         None => config::game_server_host(),
     };
-    let addr = server_addr_from_host_port(&game_host, create_response.port);
-    Ok((create_response, addr))
+    let server_address = socket_address_from_host_and_port(&game_host, create_response.port);
+    Ok((create_response, server_address))
 }
 
 pub fn join_game(
     passcode: &str,
     matchmaker_host: Option<&str>,
-) -> Result<(JoinGameResponse, SocketAddr), ApiError> {
-    let api_host = match matchmaker_host {
-        Some(h) => h.to_string(),
-        None => config::api_server_host(),
+) -> Result<(JoinGameResponse, SocketAddr), MatchmakerError> {
+    let host = match matchmaker_host {
+        Some(host) => host.to_string(),
+        None => config::matchmaker_host(),
     };
-    let insecure = api_host == config::LOCAL_MATCHMAKER_HOST;
-    let url = format!("https://{}/games/{}/join", api_host, passcode);
+    let insecure = host == config::LOCAL_MATCHMAKER_HOST;
+    let url = format!("https://{}/games/{}/join", host, passcode);
     let response = client(insecure)
         .post(&url)
         .header(CLIENT_PROOF_HEADER, config::client_proof())
         .header(VERSION_HEADER, env!("CARGO_PKG_VERSION"))
         .json(&serde_json::json!({}))
         .send()
-        .map_err(ApiError::Http)?;
+        .map_err(MatchmakerError::Http)?;
 
     let status = response.status();
-    let body = response.text().map_err(ApiError::Http)?;
+    let body = response.text().map_err(MatchmakerError::Http)?;
 
     if !status.is_success() {
-        let error_body: ApiErrorBody = serde_json::from_str(&body).unwrap_or(ApiErrorBody {
-            code: "UNKNOWN".to_string(),
-            message: body,
-        });
-        return Err(api_error_from_response(status.as_u16(), error_body));
+        let error_body: MatchmakerErrorBody =
+            serde_json::from_str(&body).unwrap_or(MatchmakerErrorBody {
+                code: "UNKNOWN".to_string(),
+                message: body,
+            });
+        return Err(matchmaker_error_from_response(status.as_u16(), error_body));
     }
 
-    let join_response: JoinGameResponse = serde_json::from_str(&body).map_err(ApiError::Json)?;
+    let join_response: JoinGameResponse =
+        serde_json::from_str(&body).map_err(MatchmakerError::Json)?;
     let game_host = match matchmaker_host {
-        Some(h) if h == config::LOCAL_MATCHMAKER_HOST => config::game_server_host(),
-        Some(h) => h.to_string(),
+        Some(host) if host == config::LOCAL_MATCHMAKER_HOST => config::game_server_host(),
+        Some(host) => host.to_string(),
         None => config::game_server_host(),
     };
-    let addr = server_addr_from_host_port(&game_host, join_response.port);
-    Ok((join_response, addr))
+    let server_address = socket_address_from_host_and_port(&game_host, join_response.port);
+    Ok((join_response, server_address))
 }

@@ -354,7 +354,7 @@ impl ClientRunner {
 }
 
 pub async fn run_client_loop(
-    server_addr: SocketAddr,
+    server_address: SocketAddr,
     connect_token: ConnectToken,
     share_passcode: Option<String>,
     session: ClientSession,
@@ -362,11 +362,11 @@ pub async fn run_client_loop(
     assets: Assets,
     only_player: bool,
 ) -> RunClientReturn {
-    println!("Connecting to server: {}", server_addr);
+    println!("Connecting to server: {}", server_address);
 
     #[cfg(target_os = "windows")]
     let socket_addr = {
-        if server_addr.ip().is_loopback() {
+        if server_address.ip().is_loopback() {
             SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0)
         } else {
             let local_ip = get_best_local_binding_ip();
@@ -402,7 +402,7 @@ pub async fn run_client_loop(
 
     runner.ui.print_client_banner(
         env!("CARGO_PKG_VERSION"),
-        server_addr,
+        server_address,
         share_passcode,
         only_player,
     );

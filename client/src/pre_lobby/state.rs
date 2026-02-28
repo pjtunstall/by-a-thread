@@ -2,26 +2,26 @@ use std::{net::SocketAddr, sync::mpsc};
 
 use renet_netcode::ConnectToken;
 
-use crate::api::{ApiError, CreateGameResponse, JoinGameResponse};
+use crate::matchmaker::{MatchmakerError, CreateGameResponse, JoinGameResponse};
 use common::auth::Passcode;
 
 #[derive(Debug)]
 pub enum PreLobby {
     ServerAddress { prompt_printed: bool },
-    ApiRequestMenu {
-        api_host: String,
-        phase: ApiRequestPhase,
+    MatchmakerRequestMenu {
+        matchmaker_host: String,
+        phase: MatchmakerRequestPhase,
     },
 }
 
 #[derive(Debug)]
-pub enum ApiRequestPhase {
+pub enum MatchmakerRequestPhase {
     ChoosingNewOrJoin {
         selected_index: usize,
         prompt_printed: bool,
     },
     AwaitingPing {
-        host: String,
+        matchmaker_host: String,
         receiver: mpsc::Receiver<Result<(), String>>,
     },
     ChoosingPlayerCount { prompt_printed: bool },
@@ -31,24 +31,24 @@ pub enum ApiRequestPhase {
     },
     AwaitingCreate {
         player_count: u8,
-        receiver: mpsc::Receiver<Result<(CreateGameResponse, SocketAddr), ApiError>>,
+        receiver: mpsc::Receiver<Result<(CreateGameResponse, SocketAddr), MatchmakerError>>,
     },
     AwaitingJoin {
         passcode: String,
         wrong_guesses: u8,
-        receiver: mpsc::Receiver<Result<(JoinGameResponse, SocketAddr), ApiError>>,
+        receiver: mpsc::Receiver<Result<(JoinGameResponse, SocketAddr), MatchmakerError>>,
     },
 }
 
 pub enum MatchmakerResponse {
     Create {
-        server_addr: SocketAddr,
+        server_address: SocketAddr,
         connect_token: ConnectToken,
         passcode: Passcode,
         player_count: u8,
     },
     Join {
-        server_addr: SocketAddr,
+        server_address: SocketAddr,
         connect_token: ConnectToken,
         passcode: Passcode,
     },
@@ -59,9 +59,9 @@ impl MatchmakerResponse {
         matches!(self, Self::Create { player_count, .. } if *player_count == 1)
     }
 
-    pub fn server_addr(&self) -> SocketAddr {
+    pub fn server_address(&self) -> SocketAddr {
         match self {
-            Self::Create { server_addr, .. } | Self::Join { server_addr, .. } => *server_addr,
+            Self::Create { server_address, .. } | Self::Join { server_address, .. } => *server_address,
         }
     }
 
