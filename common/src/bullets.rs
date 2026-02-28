@@ -6,7 +6,7 @@ use crate::{
     player,
 };
 
-pub const MAX_BULLETS_PER_PLAYER: usize = 24;
+pub const MAX_BULLETS_PER_PLAYER: usize = 32;
 pub const FIRE_COOLDOWN_SECS: f64 = 0.1;
 pub const SPEED: f32 = 720.0;
 pub const LIFESPAN_SECS: f64 = 2.5;
