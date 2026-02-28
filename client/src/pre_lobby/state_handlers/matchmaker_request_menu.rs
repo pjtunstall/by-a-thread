@@ -265,14 +265,14 @@ fn handle_awaiting_create(
     match receiver.try_recv() {
         Ok(Ok((response, server_address))) => {
             let token = match crate::net::connect_token_from_base64(&response.connect_token) {
-                Ok(t) => t,
+                Ok(token) => token,
                 Err(e) => {
                     ui.show_sanitized_error(&e);
                     return PreLobbyTransition::Exit;
                 }
             };
             let passcode = match Passcode::from_string(&response.passcode) {
-                Some(p) => p,
+                Some(passcode) => passcode,
                 None => return PreLobbyTransition::Exit,
             };
             let response = MatchmakerResponse::Create {
@@ -319,14 +319,14 @@ fn handle_awaiting_join(
     match receiver.try_recv() {
         Ok(Ok((response, server_address))) => {
             let token = match crate::net::connect_token_from_base64(&response.connect_token) {
-                Ok(t) => t,
+                Ok(token) => token,
                 Err(e) => {
                     ui.show_sanitized_error(&e);
                     return PreLobbyTransition::Exit;
                 }
             };
             let passcode = match Passcode::from_string(&passcode) {
-                Some(p) => p,
+                Some(passcode) => passcode,
                 None => return PreLobbyTransition::Exit,
             };
             let response = MatchmakerResponse::Join {

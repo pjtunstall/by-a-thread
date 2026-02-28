@@ -21,8 +21,8 @@ pub fn sanitize(input: &str) -> String {
 
                 // Skip all parameter bytes (0-9, ;, etc).
                 // Range 0x30–0x3F (ASCII 48-63).
-                while let Some(&p) = chars.peek() {
-                    if (0x30..=0x3F).contains(&(p as u8)) {
+                while let Some(&param_byte) = chars.peek() {
+                    if (0x30..=0x3F).contains(&(param_byte as u8)) {
                         chars.next();
                     } else {
                         break;
@@ -31,8 +31,8 @@ pub fn sanitize(input: &str) -> String {
 
                 // Consume the final byte (the command, e.g., 'm' for color).
                 // Range 0x40–0x7E (ASCII 64-126).
-                if let Some(&f) = chars.peek() {
-                    if (0x40..=0x7E).contains(&(f as u8)) {
+                if let Some(&command_byte) = chars.peek() {
+                    if (0x40..=0x7E).contains(&(command_byte as u8)) {
                         chars.next();
                     }
                 }

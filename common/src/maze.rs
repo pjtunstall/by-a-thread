@@ -360,8 +360,8 @@ impl Maze {
             if current == exit_coords {
                 break;
             }
-            if let Some(p) = prev[z][x] {
-                current = p;
+            if let Some(previous) = prev[z][x] {
+                current = previous;
             } else {
                 break;
             }
