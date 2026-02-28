@@ -66,7 +66,7 @@ host: Chat -> ChoosingDifficulty -> Countdown -> Game
 non-host: Chat -> Countdown -> Game
 ```
 
-The host is the first player whose username is confirmed in the lobby (the first to join the chat); in practice this is usually the player who created the game, since they connect first. The client connects using the connect token obtained in PreLobby. If the player is the host: `Chat -> ChoosingDifficulty`, then the host starts the countdown and everyone (including the host) receives `CountdownStarted` and enters `Countdown`. Non-hosts: `Chat -> Countdown` when the server broadcasts that the countdown has started. In either case,
+The host is the first player whose username is confirmed in the lobby (the first to join the chat); in practice this is likely to be the player who created the game, since they connect first. The client connects using the connect token obtained in PreLobby. If the player is the host: `Chat -> ChoosingDifficulty`, then the host starts the countdown and everyone (including the host) receives `CountdownStarted` and enters `Countdown`. Non-hosts: `Chat -> Countdown` when the server broadcasts that the countdown has started. In either case,
 
 ```txt
 Countdown -> Game

@@ -32,7 +32,7 @@ The private key is required by the Renet networking library to allow secure comm
 
 The matchmaker will also rate limit new-game requests. (This can be turned off while testing.)
 
-The host is the first player whose username is confirmed in the lobby (the first to join the chat); in practice this is usually the player who created the game, since they connect first. They share the passcode, out of band, with other players. The host client automatically connects to the game server, using the connect token and port. The game server marks them as the host.
+The host is the first player whose username is confirmed in the lobby (the first to join the chat); in practice this is likely to be the player who created the game, since they connect first. They share the passcode, out of band, with other players. The host client automatically connects to the game server, using the connect token and port. The game server marks them as the host.
 
 If a player receives the passcode, they can choose "join game", which sends a HTTPS request, `POST /games/{passcode}/join` to `api.by-a-thread.de`, with the same two headers (client proof and version string) as for new-game. The matchmaker applies the same validation; if it passes and the passcode is valid and no more than five minutes has passed since the game server started, the matchmaker responds with a connect token and the port number. Players send their usernames to the game server after connecting; the server checks uniqueness. The client uses these to connect automatically to the game server.
 
