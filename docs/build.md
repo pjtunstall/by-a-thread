@@ -19,9 +19,7 @@ This document describes how to create executable files or packages for various s
 
 From the workspace root you can run the full build with `make`. To build only one artifact, use e.g. `make windows`, `make deb`, `make rpm`, or `make appimage`. To deploy the backend to the VPS, use `make deploy` as described in `docs/devops.md`.
 
-For development, `client/src/main.rs` sets `fullscreen: false,` by default. When you build via the Makefile or the `Build-Windows.ps1` script, the client is compiled with `fullscreen: true` for packaged artifacts (Windows zip, macOS .app zips, Linux .deb/.rpm, and AppImage). The `unfullscreen` step after each compilation and at the end of the full `make` run restores that setting in the source.
-
-The Makefile uses `scripts/with-fullscreen.sh` as a wrapper rather than inline commands because the script must restore main.rs on both success and failure. A bash trap on EXIT handles that; in Make, each recipe line runs in a separate subshell, so a trap can't span the build. The script also keeps the logic in one place for all client build targets (windows, deb, rpm, appimage, macos).
+Debug builds (e.g. `cargo run`) default to windowed mode; release builds default to fullscreen. Users who encounter graphics driver issues (e.g. WGL_ARB_pixel_format on Windows) can force windowed mode with `--windowed` or `BY_A_THREAD_WINDOWED=1`.
 
 ## Windows
 

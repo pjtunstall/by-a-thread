@@ -10,14 +10,22 @@ use client::{
 };
 
 fn window_conf() -> Conf {
+    let force_windowed = std::env::args().any(|a| a == "--windowed")
+        || std::env::var("BY_A_THREAD_WINDOWED")
+            .map(|v| {
+                let v = v.to_lowercase();
+                v == "1" || v == "true" || v == "yes"
+            })
+            .unwrap_or(false);
+    let default_fullscreen = !cfg!(debug_assertions);
+    let fullscreen = !force_windowed && default_fullscreen;
     Conf {
         window_title: "By a Thread".to_owned(),
         window_width: 1280,
         window_height: 720,
-        // Although this is the default, the Makefile relies on it being explicitly set to
-        // false. It toggles it to true when building the executable for
-        // distribution and back to false afterwards.
-        fullscreen: false,
+        // Users can override with --windowed or BY_A_THREAD_WINDOWED=1 to work
+        // around graphics driver issues (e.g. WGL_ARB_pixel_format on Windows).
+        fullscreen,
         ..Default::default()
     }
 }

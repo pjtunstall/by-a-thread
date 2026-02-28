@@ -134,7 +134,7 @@ init: | check-deploy
 # --- Client Build Targets ---
 
 $(EXE_WIN): $(CLIENT_SOURCES) | check-windows check-env
-	./scripts/with-fullscreen.sh cargo build --release --target x86_64-pc-windows-gnu -p client
+	cargo build --release --target x86_64-pc-windows-gnu -p client
 
 $(ZIP_WIN): $(EXE_WIN)
 	mkdir -p $(DIST)
@@ -153,7 +153,7 @@ $(DIST)/.deb-built: $(EXE_HOST) | check-deb check-env
 	mkdir -p $(DIST)
 	@echo "Client version (.deb): $(VERSION)"
 	@[ -z "$(VERSION)" ] && [ "$$GITHUB_ACTIONS" = "true" ] && echo "::warning::Makefile VERSION is empty; .deb filename may lack version" || true
-	./scripts/with-fullscreen.sh bash -c 'cargo deb -p client && cp target/debian/by-a-thread_*.deb $(DIST)/ && touch $(DIST)/.deb-built'
+	bash -c 'cargo deb -p client && cp target/debian/by-a-thread_*.deb $(DIST)/ && touch $(DIST)/.deb-built'
 
 deb: $(DIST)/.deb-built
 
@@ -161,12 +161,12 @@ $(DIST)/.rpm-built: $(EXE_HOST) | check-rpm check-env
 	mkdir -p $(DIST)
 	@echo "Client version (.rpm): $(VERSION)"
 	@[ -z "$(VERSION)" ] && [ "$$GITHUB_ACTIONS" = "true" ] && echo "::warning::Makefile VERSION is empty; .rpm filename may lack version" || true
-	./scripts/with-fullscreen.sh bash -c 'cargo generate-rpm -p client --payload-compress gzip && cp target/generate-rpm/*.rpm $(DIST)/ && touch $(DIST)/.rpm-built'
+	bash -c 'cargo generate-rpm -p client --payload-compress gzip && cp target/generate-rpm/*.rpm $(DIST)/ && touch $(DIST)/.rpm-built'
 
 rpm: $(DIST)/.rpm-built
 
 $(EXE_HOST): $(CLIENT_SOURCES) | check-env
-	./scripts/with-fullscreen.sh cargo build --release -p client
+	cargo build --release -p client
 
 $(APPIMAGE_FILE): $(EXE_HOST) | check-appimage
 	mkdir -p $(DIST)
