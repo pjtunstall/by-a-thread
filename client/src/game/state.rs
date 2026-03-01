@@ -74,7 +74,7 @@ pub struct Game {
     fade_to_black_finished: bool,
     fire_nonce_counter: u32,
     last_fire_tick: Option<u64>,
-    last_sim_tick: u64,
+    prev_sim_tick: u64,
     pending_bullet_events: Vec<BulletEvent>,
     post_game_chat_sent: bool,
     victory_in_progress: bool,
@@ -131,7 +131,7 @@ impl Game {
             fade_to_black_finished: false,
             fire_nonce_counter: 0,
             last_fire_tick: None,
-            last_sim_tick: sim_tick,
+            prev_sim_tick: sim_tick,
             pending_bullet_events: Vec::new(),
             post_game_chat_sent: false,
             victory_in_progress: false,
@@ -229,7 +229,7 @@ impl Game {
                 self.apply_input(sim_tick);
             }
 
-            self.last_sim_tick = sim_tick;
+            self.prev_sim_tick = sim_tick;
             self.update_bullets(sim_tick);
             clock.accumulated_time -= TICK_SECS;
             clock.sim_tick += 1;
@@ -677,7 +677,7 @@ impl Game {
                         }
                     }
                     BulletColorMode::FadeToRed => {
-                        let fade = bullet.fade_amount(self.last_sim_tick);
+                        let fade = bullet.fade_amount(self.prev_sim_tick);
                         Color::new(1.0, fade, fade, fade)
                     }
                 }
@@ -817,7 +817,7 @@ impl Game {
         assets: &Assets,
     ) {
         let adjusted_position =
-            bullet::extrapolate_position(position, velocity, tick, self.last_sim_tick);
+            bullet::extrapolate_position(position, velocity, tick, self.prev_sim_tick);
 
         if shooter_index == self.local_player_index {
             self.handle_local_bullet_spawn(bullet_id, adjusted_position, velocity, fire_nonce);
@@ -854,7 +854,7 @@ impl Game {
             .iter_mut()
             .find(|bullet| bullet.is_provisional_for(fire_nonce))
         {
-            provisional.confirm(bullet_id, velocity, self.last_sim_tick);
+            provisional.confirm(bullet_id, velocity, self.prev_sim_tick);
             provisional.start_blend(adjusted_position, PROMOTION_BLEND_TICKS);
         } else {
             self.spawn_confirmed_local_bullet(bullet_id, adjusted_position, velocity);
@@ -866,7 +866,7 @@ impl Game {
             bullet_id,
             position,
             velocity,
-            self.last_sim_tick,
+            self.prev_sim_tick,
         ));
     }
 
@@ -886,7 +886,7 @@ impl Game {
             bullet_id,
             shooter_position,
             velocity,
-            self.last_sim_tick,
+            self.prev_sim_tick,
         ));
 
         if self.line_of_sight(shooter_index) {

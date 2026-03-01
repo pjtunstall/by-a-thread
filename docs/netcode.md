@@ -85,7 +85,7 @@ As the server performs its game-state update (processes a tick), it checks each 
 
 ### Local player: reconciliation and prediction
 
-First we reconcile to the last snapshot. Then we run client‑side prediction. This consists of replaying inputs from `input_history` up to the last simulated tick. Finally, we run the simulation further for as many ticks as needed to account for the duration of the last frame. The simulation includes checking for new inputs and applying them to the local player's state. It also inlcudes bullet updates; see [Bullets](#bullets-extrapolation).
+First we reconcile to the last snapshot. Then we run client‑side prediction. This consists of replaying inputs from `input_history` up to the last simulated tick. Finally, we run the simulation further for as many ticks as needed to cover the duration of the last frame. The simulation includes checking for new inputs and applying them to the local player's state. It also inlcudes bullet updates; see [Bullets](#bullets-extrapolation).
 
 Snapshots inlcude everyone's position. Also included is the recipient's velocity. This allows them to fully simulate their own state during prediction.
 
@@ -109,7 +109,7 @@ Conversely, in games with projectiles that are slow enough that you can see them
 
 ### Tick fraction
 
-Finally, the game uses a tick fraction to smooth out movement for players whose refresh rate is greater than 60Hz. The tick fraction is calculated as the ratio of the accumulated time to the tick interval. The local player (i.e. the camera position and the player's own shadow) and the bullets are rendered at this fraction between their previous and current positions. No further smoothing is necessary for remote players since they're already interpolated.
+Finally, the game uses a tick fraction to smooth out movement for players whose refresh rate is greater than 60Hz. The tick fraction is calculated as the ratio of the accumulated time to the tick interval. The local player (i.e. the camera position and the player's own shadow) and the bullets are rendered at this fraction between the penultimate simulated tick (i.e. the latest simulated state that we consider to be in the client's past) and last simulated tick (i.e. the earliest one that we consider to be in its future). No further smoothing is necessary for remote players since they're already interpolated.
 
 ### Links
 
