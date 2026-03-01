@@ -78,16 +78,28 @@ For more information on specific topics, see the following documents:
 
 ![demo_octopus](https://github.com/user-attachments/assets/efa90aaa-28e7-4757-8478-fbea9d58f869)
 
-### Objective
+Launch the client and choose default server.
 
-- Single player: Escape in time
-- Multiplayer: Be the last one standing
+### Multiplayer
+
+- One player chooses "New game".
+- They'll see an access code to share.
+- Other players choose "Join game" and enter this code.
+- The first player to enter their name and join the the chat gets to decide the difficulty level and when to start the game.
+
+Objective: Be the last one standing.
+
+### Single player
+
+- As above, but always choose "New game".
+
+Objective: Escape before the timer runs out.
 
 ### Controls
 
 In-game:
 
-- WASD to move
+- WASD keys to move
 - Arrow keys to turn
 - SPACE to fire
 - LEFT SHIFT for sniper mode
