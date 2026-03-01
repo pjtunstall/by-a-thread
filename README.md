@@ -117,5 +117,5 @@ Possible further developments:
 - Observability with Prometheus, Loki, and Grafana
 - Load testing
 - Tests for matchmaker package
-- Unit tests for client::matchmaker module
+- Unit tests for client::matchmaker module with a mock HTTP server
 - AI opponents
