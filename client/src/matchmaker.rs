@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 use crate::config;
 use common::constants::{CLIENT_PROOF_HEADER, VERSION_HEADER};
 
-fn client(insecure: bool) -> Client {
+fn client(is_localhost: bool) -> Client {
     let mut builder = Client::builder().timeout(std::time::Duration::from_secs(30));
-    if insecure {
+    if is_localhost {
         builder = builder.danger_accept_invalid_certs(true);
     }
     builder.build().expect("failed to build HTTP client")
@@ -119,9 +119,9 @@ pub fn create_game(
         Some(host) => host.to_string(),
         None => config::matchmaker_host(),
     };
-    let insecure = host == config::LOCAL_MATCHMAKER_HOST;
+    let is_localhost = host == config::LOCAL_MATCHMAKER_HOST;
     let url = format!("https://{}/games", host);
-    let response = client(insecure)
+    let response = client(is_localhost)
         .post(&url)
         .header(CLIENT_PROOF_HEADER, config::client_proof())
         .header(VERSION_HEADER, env!("CARGO_PKG_VERSION"))
@@ -160,9 +160,9 @@ pub fn join_game(
         Some(host) => host.to_string(),
         None => config::matchmaker_host(),
     };
-    let insecure = host == config::LOCAL_MATCHMAKER_HOST;
+    let is_localhost = host == config::LOCAL_MATCHMAKER_HOST;
     let url = format!("https://{}/games/{}/join", host, passcode);
-    let response = client(insecure)
+    let response = client(is_localhost)
         .post(&url)
         .header(CLIENT_PROOF_HEADER, config::client_proof())
         .header(VERSION_HEADER, env!("CARGO_PKG_VERSION"))
