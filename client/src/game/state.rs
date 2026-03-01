@@ -230,7 +230,7 @@ impl Game {
             }
 
             self.prev_sim_tick = sim_tick;
-            self.update_bullets(sim_tick);
+            self.update_bullets(sim_tick + 1);
             clock.accumulated_time -= TICK_SECS;
             clock.sim_tick += 1;
             ticks_processed += 1;
@@ -677,7 +677,7 @@ impl Game {
                         }
                     }
                     BulletColorMode::FadeToRed => {
-                        let fade = bullet.fade_amount(self.prev_sim_tick);
+                        let fade = bullet.fade_amount(self.prev_sim_tick + 1);
                         Color::new(1.0, fade, fade, fade)
                     }
                 }
@@ -817,7 +817,7 @@ impl Game {
         assets: &Assets,
     ) {
         let adjusted_position =
-            bullet::extrapolate_position(position, velocity, tick, self.prev_sim_tick);
+            bullet::extrapolate_position(position, velocity, tick, self.prev_sim_tick + 1);
 
         if shooter_index == self.local_player_index {
             self.handle_local_bullet_spawn(bullet_id, adjusted_position, velocity, fire_nonce);
@@ -854,7 +854,7 @@ impl Game {
             .iter_mut()
             .find(|bullet| bullet.is_provisional_for(fire_nonce))
         {
-            provisional.confirm(bullet_id, velocity, self.prev_sim_tick);
+            provisional.confirm(bullet_id, velocity, self.prev_sim_tick + 1);
             provisional.start_blend(adjusted_position, PROMOTION_BLEND_TICKS);
         } else {
             self.spawn_confirmed_local_bullet(bullet_id, adjusted_position, velocity);
@@ -866,7 +866,7 @@ impl Game {
             bullet_id,
             position,
             velocity,
-            self.prev_sim_tick,
+            self.prev_sim_tick + 1,
         ));
     }
 
@@ -886,7 +886,7 @@ impl Game {
             bullet_id,
             shooter_position,
             velocity,
-            self.prev_sim_tick,
+            self.prev_sim_tick + 1,
         ));
 
         if self.line_of_sight(shooter_index) {
