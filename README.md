@@ -106,7 +106,7 @@ Next steps:
 - Test Linux rpm
 - Troubleshoot one user's report of a graphics driver issue on Windows
 - Continue incremental refactoring
-- Review remaining TODO in comments
+- Review remaining TODOs in comments
 - Handle feedback
 - Publish on itch.io
 
