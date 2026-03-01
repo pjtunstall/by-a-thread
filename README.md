@@ -98,14 +98,22 @@ In-game or in the lobby:
 
 ## Status
 
-Currently in private beta. Successfully tested on a VPS with the Linux AppImage, Linux deb, and Windows versions of the client.
+Currently in private beta. Successfully tested on Hetzner VPS with the Linux AppImage, Linux deb, and Windows versions of the client.
 
-Next steps include:
+Next steps:
 
-- test Windows download from itch.io;
-- test macOS (Intel and Apple Silicon);
-- test Linux rpm;
-- handle feedback;
-- publish on itch.io;
+- Test macOS (Intel and Apple Silicon)
+- Test Linux rpm
+- Troubleshoot one user's report of a graphics driver issue on Windows
+- Handle feedback
+- Publish on itch.io
 
-Please contact me if you'd like to play.
+Till then, please contact me if you'd like to play, and I'll send you a private link.
+
+Possible further developments:
+
+- Observability with Prometheus, Loki, and Grafana
+- Load testing
+- Tests for matchmaker package
+- Unit tests for client::matchmaker module
+- AI opponents
