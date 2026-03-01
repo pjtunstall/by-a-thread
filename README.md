@@ -105,6 +105,7 @@ Next steps:
 - Test macOS (Intel and Apple Silicon)
 - Test Linux rpm
 - Troubleshoot one user's report of a graphics driver issue on Windows
+- Continue incremental refactoring
 - Handle feedback
 - Publish on itch.io
 
