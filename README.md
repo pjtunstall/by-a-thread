@@ -44,18 +44,20 @@ I went beyond the spec in a few ways.
 - Cloud-hosted backend
 - Matchmaker API that spawns game servers in response to client requests, allowing concurrent sessions
 - Containerization with Docker Compose
-- Automatic updates from Docker Hub via Watchtower
 - Makefile and associated scripts for build and deployment
 - GitHub Actions:
-  - to build client (Windows, Linux, macOS) and deploy backend to Docker Hub
-  - to deploy backend to VPS on a scheduled basis, or manually if needed
+  - to build whole project and push backend to Docker Hub
+  - to deploy frontend to itch.io
+- Cron job for scheduled deployment and updates
 
 **Security:**
 
-- Request validation and authentication: client proof (baked-in secret), version checks, and constant-time comparison to mitigate timing attacks
-- Least-privilege access: Docker socket proxy so the matchmaker can only perform allowed container operations, limiting impact if compromised
-- Secure session lifecycle: connect tokens with appropriate expiry, rate limiting, and cleanup of orphaned game-server containers on startup
-- TLS termination and certificate management via Caddy reverse proxy
+- Authentication and rate limiting
+- Docker socket proxy to restrict powers of matchmaker, limiting impact if compromised
+- Secure session lifecycle:
+  - Ephemeral tokens
+  - Cleanup of game server containers
+- Caddy reverse proxy, handling TLS termination and certificates
 
 **Netcode:**
 
@@ -129,5 +131,5 @@ Possible further developments:
 - Observability with Prometheus, Loki, and Grafana
 - Load testing
 - Tests for matchmaker package
-- Unit tests for client::matchmaker module with a mock HTTP server
+- Tests for client::matchmaker module with a mock HTTP server
 - AI opponents
