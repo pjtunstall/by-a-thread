@@ -6,6 +6,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+      - /run
+      - /var/lib/haproxy
     security_opt:
       - no-new-privileges:true
     cap_drop:
