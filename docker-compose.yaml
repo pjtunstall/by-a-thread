@@ -4,6 +4,8 @@ services:
     container_name: socket-proxy
     restart: unless-stopped
     read_only: true
+    tmpfs:
+      - /tmp
     security_opt:
       - no-new-privileges:true
     cap_drop:
