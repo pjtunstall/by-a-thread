@@ -535,7 +535,7 @@ impl LobbyUi for Gui {
             self.show_message(&format!("  Session code:   {} <-- Share this!", passcode));
         }
         self.show_message(" ");
-        self.show_banner_message("WASD keys to move");
+        self.show_banner_message("W, A, S, D keys to move");
         self.show_banner_message("Arrow keys to turn");
         self.show_banner_message("SPACE to fire");
         self.show_banner_message("LEFT SHIFT for sniper mode");

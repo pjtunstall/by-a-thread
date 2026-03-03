@@ -101,6 +101,7 @@ impl Game {
                 pids_limit: Some(256),
                 nano_cpus: Some(200_000_000), // 0.2 CPU.
                 memory: Some(314_572_800),
+                auto_remove: Some(true),
                 ..Default::default()
             }),
             ..Default::default()

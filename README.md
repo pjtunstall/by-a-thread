@@ -53,7 +53,7 @@ I went beyond the spec in a few ways.
 **Security:**
 
 - Authentication and rate limiting
-- Docker socket proxy to restrict powers of matchmaker, limiting impact if compromised
+- Principle of least privilege: Docker socket proxy, restricting commands available to the matchmaker
 - Secure session lifecycle:
   - Ephemeral tokens
   - Cleanup of game server containers
@@ -101,7 +101,7 @@ Objective: Escape before the timer runs out.
 
 In-game:
 
-- WASD keys to move
+- W, A, S, D keys to move
 - Arrow keys to turn
 - SPACE to fire
 - LEFT SHIFT for sniper mode
