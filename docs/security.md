@@ -1,6 +1,12 @@
 # Security
 
-Key elements:
+- [Key elements](#key-elements)
+- [Codes](#codes)
+- [Procedure](#procedure)
+- [Docker security](#docker-security)
+- [Footnotes](#footnotes)
+
+## Key elements
 
 - Client
 - Matchmaker
@@ -10,12 +16,14 @@ Key elements:
 
 By matchmaker, here, I just mean a program for launching games to be played among groups of friends, rather than a matchmaker in the strict sense of matching strangers.
 
-Codes:
+## Codes
 
 - Client proof (baked-in secret proving the request is from a real game client)
 - Passcode
 - Private key
 - Connect token (must remain valid for the entire session: lobby, countdown, and game)
+
+## Procedure
 
 Matchmaker and game server run in Docker containers on my VPS, likewise Caddy and the Docker socket proxy.[^2]
 
@@ -42,7 +50,76 @@ The game itself has a timer of ten minutes for multiplayer games, and two for si
 
 When players die, they return to the chat room. Likewise when the in-game timer expires or the game is over. When the game is over, the server sends a leaderboard to all clients as a `Reliable` Renet message. The server then exits. Players are shown a final message after the leaderboard, and are offered the choice to exit or play again.
 
-As a safety measure, in case game server containers are left running if the matchmaker crashes, it cleans up any existing ("zombie") game server containers when it starts.
+As a safety measure, in case any ("zombie") game server containers are left running if the matchmaker crashes, it cleans up any game servers when it starts.
+
+## Docker security
+
+As a safety measure, the Docker socket is mounted into the Docker socket proxy, which can accept desired commands (like `start container`) and block dangerous ones (like `mount volume` or `delete system`). However, the need to allow `POST` and `DELETE` commands means that a compromised matchmaker could still launch a privileged container and thereby gain root access to the host. To prevent this, I use the Open Policy Agent (OPA). The rest of this section is a guide to setting that up.
+
+Create a policy file, thus:
+
+```sh
+sudo mkdir -p /etc/docker/policies
+sudo tee /etc/docker/policies/authz.rego > /dev/null << 'EOF'
+package docker.authz
+
+default allow = false
+
+allow {
+    not deny
+}
+
+deny {
+    bind := input.Body.HostConfig.Binds[_]
+    startswith(bind, "/:")
+}
+
+deny {
+    input.Body.HostConfig.Mounts[_].Source == "/"
+}
+
+deny {
+    input.Body.HostConfig.Privileged == true
+}
+EOF
+```
+
+Install the official OPA Docker plugin:
+
+```sh
+docker plugin install openpolicyagent/opa-docker-authz-v2:0.9 opa-args="-policy-file /opa/policies/authz.rego"
+```
+
+Note that the -policy-file argument must point to the plugin's internal mapped path (`/opa/policies/authz.rego`), not the host's path. Type y when prompted to grant the necessary network and mount permissions.
+
+Now we'll tell the Docker engine to route all API requests through the newly installed plugin before executing them. Create or open the daemon configuration file, `sudo nano /etc/docker/daemon.json`, and add the following key-value pair:
+
+```json
+{
+  "authorization-plugins": ["openpolicyagent/opa-docker-authz-v2:0.9"]
+}
+```
+
+Restart Docker so the daemon loads the configuration and locks the plugin into place:
+
+```sh
+sudo systemctl restart docker
+```
+
+Now test if the policy successfully blocks a root directory mount, whether attempted with the older or newer syntax:
+
+```sh
+docker run --rm -v /:/host alpine ls /host
+docker run --rm --mount type=bind,source=/,target=/host alpine ls /host
+```
+
+Both commands should fail.
+
+Finally, test that the privileged flag is blocked too:
+
+```sh
+docker run --rm --privileged alpine echo "Bypassed"
+```
 
 ## Footnotes
 

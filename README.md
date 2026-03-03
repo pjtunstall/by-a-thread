@@ -53,7 +53,9 @@ I went beyond the spec in a few ways.
 **Security:**
 
 - Authentication and rate limiting
-- Principle of least privilege: Docker socket proxy, restricting commands available to the matchmaker
+- Containerized components run with minimum privileges
+- Docker socket proxy, restricting commands available to the matchmaker
+- Open Policy Agent to prevent privilege escalation
 - Secure session lifecycle:
   - Ephemeral tokens
   - Cleanup of game server containers
