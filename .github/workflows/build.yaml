@@ -50,7 +50,7 @@ jobs:
 
   build-linux-client:
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -112,6 +112,8 @@ jobs:
   build-macos-client:
     needs: test
     runs-on: macos-latest
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "10.15"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
