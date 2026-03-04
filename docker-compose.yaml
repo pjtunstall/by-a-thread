@@ -17,11 +17,9 @@ services:
     environment:
       - CONTAINERS=1
       - POST=1
-      - DELETE=1
-      - NETWORKS=1
       - TZ=UTC
     networks:
-      - backend
+      - back
     deploy:
       resources:
         limits:
@@ -52,7 +50,7 @@ services:
     environment:
       - TZ=UTC
     networks:
-      - backend
+      - front
     deploy:
       resources:
         limits:
@@ -77,7 +75,8 @@ services:
     depends_on:
       - socket-proxy
     networks:
-      - backend
+      - back
+      - front
     deploy:
       resources:
         limits:
@@ -86,7 +85,9 @@ services:
           pids: 256
 
 networks:
-  backend:
+  back:
+    driver: bridge
+  front:
     driver: bridge
 
 volumes:
