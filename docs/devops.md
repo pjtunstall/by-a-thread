@@ -84,14 +84,20 @@ If the client tries to connect on `127.0.0.1`, the server cannot reply. When it 
 - Inside the container, `127.0.0.1` is the container's own loopback. The reply goes to the container's loopback, not the host.
 - The host client never gets the reply, so the connection times out.
 
-The solution is to make the client connect to the default Docker bridge network, `172.17.0.1`. This is the host OS's address as understood both inside and outside the server container.
+The solution is to make the client connect to the host's address on the user-defined bridge network that game servers attach to (the `back` network in `docker-compose.yaml`), rather than to `127.0.0.1` or the Docker default bridge. This address is the network gateway as seen from the containers (for example, something like `172.18.0.1`), and is reachable from both host and containers.
 
-- Client sends to `172.17.0.1:7785` from something like `172.17.0.1:45678` (same interface).
-- Docker forwards to the container; the server sees source `172.17.0.1:45678`.
-- The server sends the reply to `172.17.0.1:45678`.
-- From the container, `172.17.0.1` is the gateway to the host. The reply goes out to the host.
-- The host receives it on `172.17.0.1` and delivers it to the client.
+- Client sends to `<back-gateway>:7785` from something like `<back-gateway>:45678` (same interface).
+- Docker forwards to the container; the server sees source `<back-gateway>:45678`.
+- The server sends the reply to `<back-gateway>:45678`.
+- From the container, `<back-gateway>` is the gateway to the host. The reply goes out to the host.
+- The host receives it on `<back-gateway>` and delivers it to the client.
 - The client gets the reply and the connection succeeds.
+
+To find the exact gateway address on your machine, inspect the `back` network:
+
+```sh
+docker network inspect back | jq '.[0].IPAM.Config[0].Gateway'
+```
 
 ### Environment
 

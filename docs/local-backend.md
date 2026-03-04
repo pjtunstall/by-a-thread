@@ -76,4 +76,4 @@ Build the client following `docs/build.md`, ensuring it uses the local configura
 When you launch the client on the same machine, it will, by default:
 
 - connect to the local Caddy instance for API requests, and
-- connect to game servers via the Docker bridge address, as described in `docs/devops.md` (Caddy and Docker section).
+- connect to game servers using the UDP address encoded in the connect token, which is the gateway IP of the `back` Docker bridge network (for example, `172.18.0.1`) together with the published game port, as described in `docs/devops.md` (Caddy and Docker section).
