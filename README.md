@@ -132,7 +132,6 @@ Possible further developments:
 
 - Observability with Prometheus, Loki, and Grafana
 - Load testing
-- Also use umber of players to decide whether to allow new game
 - Tests for matchmaker package
 - Tests for client::matchmaker module with a mock HTTP server
 - AI opponents
