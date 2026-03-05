@@ -31,7 +31,7 @@ fn pale_for_difficulty(color: Color) -> Color {
 }
 
 const MENU_ITEMS: &[(&str, Color)] = &[
-    ("Four-Quadrants Binary Tree (trivial)", Color::GREEN),
+    ("Four-Quadrants Binary Tree (easy-peasy)", Color::GREEN),
     ("Standard Recursive Division (easy)", Color::GREEN),
     ("Meander (fair)", Color::CHARTREUSE),
     (

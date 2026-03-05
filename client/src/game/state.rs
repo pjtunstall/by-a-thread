@@ -890,7 +890,7 @@ impl Game {
         ));
 
         if self.line_of_sight(shooter_index) {
-            self.play_remote_gunshot_sound(shooter_index, assets);
+            self.play_remote_gun_sound(shooter_index, assets);
         }
 
         if let Some(bullet) = self.bullets.last_mut() {
@@ -898,12 +898,14 @@ impl Game {
         }
     }
 
-    fn play_remote_gunshot_sound(&self, shooter_index: usize, assets: &Assets) {
-        let distance = self.players[self.local_player_index]
+    fn play_remote_gun_sound(&self, shooter_index: usize, assets: &Assets) {
+        let distance_squared = self.players[self.local_player_index]
             .state
             .position
-            .distance(self.players[shooter_index].state.position);
-        let volume = distance / maze::RADIUS as f32 * CELL_SIZE * 2.0;
+            .distance_squared(self.players[shooter_index].state.position);
+        let max_distance_squared = (maze::RADIUS as f32 * CELL_SIZE * 2.0).powf(2.0);
+        let mut volume = 1.0 - distance_squared / max_distance_squared;
+        volume = volume.clamp(0.0, 1.0);
         play_sound(
             &assets.gun_sound,
             PlaySoundParams {
