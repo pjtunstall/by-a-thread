@@ -87,6 +87,18 @@ pub struct Game {
     pub needle_textures: info::circles::NeedleTextures,
 }
 
+impl fmt::Debug for Game {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Game")
+            .field("local_player_index", &self.local_player_index)
+            .field("maze", &self.maze)
+            .field("maze_meshes", &self.maze_meshes)
+            .field("players", &self.players)
+            .field("input_history", &self.input_history)
+            .finish()
+    }
+}
+
 impl Game {
     pub fn new(
         local_player_index: usize,
@@ -1042,18 +1054,6 @@ impl Game {
 
     fn handle_bullet_expire_event(&mut self, bullet_id: u32) {
         self.bullets.retain(|b| b.id != Some(bullet_id));
-    }
-}
-
-impl fmt::Debug for Game {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Game")
-            .field("local_player_index", &self.local_player_index)
-            .field("maze", &self.maze)
-            .field("maze_meshes", &self.maze_meshes)
-            .field("players", &self.players)
-            .field("input_history", &self.input_history)
-            .finish()
     }
 }
 
