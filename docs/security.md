@@ -54,7 +54,7 @@ As a safety measure, in case any ("zombie") game server containers are left runn
 
 ## Docker security
 
-As a safety measure, the Docker socket is mounted into the Docker socket proxy, which can accept desired commands (like `start container`) and block dangerous ones (like `mount volume` or `delete system`). However, the need to allow `POST` and `DELETE` commands means that a compromised matchmaker could still launch a privileged container and thereby gain root access to the host. To prevent this, I use the Open Policy Agent (OPA). The rest of this section is a guide to setting that up.
+As a safety measure, the Docker socket is mounted into the Docker socket proxy, which can accept desired commands (like `start container`) and block dangerous ones (like `mount volume` or `delete system`). However, the need to allow `POST` and `DELETE` commands means that a compromised matchmaker could still launch a privileged container and thereby gain root access to the host. To prevent this, I use Open Policy Agent (OPA). The rest of this section is a guide to setting that up.
 
 Create a policy file, thus:
 
