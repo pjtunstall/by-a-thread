@@ -176,6 +176,7 @@ $(APPIMAGE_FILE): $(EXE_HOST) | check-appimage
 	mkdir -p $(STAGING_APPDIR)/usr/bin $(STAGING_APPDIR)/assets
 	cp $(EXE_HOST) $(STAGING_APPDIR)/usr/bin/
 	cp -r client/assets/fonts client/assets/images client/assets/sfx $(STAGING_APPDIR)/assets/
+	cp LICENSE.txt CREDITS.txt $(STAGING_APPDIR)/assets/
 	cp client/icon.png $(STAGING_APPDIR)/by-a-thread.png
 	cp client/by-a-thread-appimage.desktop $(STAGING_APPDIR)/by-a-thread-appimage.desktop
 	bash -c '$(LINUXDEPLOY) --appdir $(STAGING_APPDIR) --executable $(STAGING_APPDIR)/usr/bin/ByAThread --desktop-file $(STAGING_APPDIR)/by-a-thread-appimage.desktop --icon-file $(STAGING_APPDIR)/by-a-thread.png 2>&1 | grep -v -e "WARNING: Could not find copyright" -e "AppStream upstream metadata is missing" || true; exit $${PIPESTATUS[0]}'

@@ -64,8 +64,8 @@ assets = [
     ["assets/sfx/deep_clang.wav", "usr/lib/by-a-thread/sfx/deep_clang.wav", "644"],
     ["assets/sfx/gun.wav", "usr/lib/by-a-thread/sfx/gun.wav", "644"],
     ["assets/sfx/shatter.wav", "usr/lib/by-a-thread/sfx/shatter.wav", "644"],
-    ["../LICENSE", "usr/share/doc/by-a-thread/LICENSE", "644"],
-    ["../CREDITS", "usr/share/doc/by-a-thread/CREDITS", "644"]
+    ["../LICENSE.txt", "usr/share/doc/by-a-thread/LICENSE.txt", "644"],
+    ["../CREDITS.txt", "usr/share/doc/by-a-thread/CREDITS.txt", "644"]
 ]
 
 [package.metadata.generate-rpm]
@@ -99,6 +99,6 @@ assets = [
     { source = "assets/sfx/deep_clang.wav", dest = "/usr/lib/by-a-thread/sfx/deep_clang.wav", mode = "644" },
     { source = "assets/sfx/gun.wav", dest = "/usr/lib/by-a-thread/sfx/gun.wav", mode = "644" },
     { source = "assets/sfx/shatter.wav", dest = "/usr/lib/by-a-thread/sfx/shatter.wav", mode = "644" },
-    { source = "../LICENSE", dest = "/usr/share/doc/by-a-thread/LICENSE", mode = "644", doc = true },
-    { source = "../CREDITS", dest = "/usr/share/doc/by-a-thread/CREDITS", mode = "644", doc = true }
+    { source = "../LICENSE.txt", dest = "/usr/share/doc/by-a-thread/LICENSE.txt", mode = "644", doc = true },
+    { source = "../CREDITS.txt", dest = "/usr/share/doc/by-a-thread/CREDITS.txt", mode = "644", doc = true }
 ]
