@@ -62,7 +62,7 @@ codesign -s - -f --deep "$BUNDLE"
 
 mkdir -p dist
 cp -R "$BUNDLE" "dist/$STAGING/"
-cp LICENSE CREDITS "dist/$STAGING/"
+cp LICENSE.txt CREDITS.txt "dist/$STAGING/"
 cp client/assets/fonts/LICENSE.txt "dist/$STAGING/NOTO_FONT_LICENSE.txt"
 (cd dist && zip -r "$ZIP_NAME" "$STAGING")
 rm -rf "dist/$STAGING"

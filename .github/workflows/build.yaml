@@ -8,7 +8,7 @@ on:
       - "**/*.md"
       - "**/*.mdc"
       - "docs/**"
-      - "LICENSE"
+      - "LICENSE.txt"
 
 jobs:
   test:

@@ -34,8 +34,8 @@ New-Item -ItemType Directory -Path $StagingDir | Out-Null
 # --- COPY FILES ---
 Write-Host "Copying assets..."
 Copy-Item -Path $ExePath -Destination "$StagingDir\"
-Copy-Item -Path "LICENSE" -Destination "$StagingDir\"
-Copy-Item -Path "CREDITS" -Destination "$StagingDir\"
+Copy-Item -Path "LICENSE.txt" -Destination "$StagingDir\"
+Copy-Item -Path "CREDITS.txt" -Destination "$StagingDir\"
 
 $FontLicenseDest = "$StagingDir\NOTO_FONT_LICENSE.txt"
 Copy-Item -Path "client\assets\fonts\LICENSE.txt" -Destination $FontLicenseDest
