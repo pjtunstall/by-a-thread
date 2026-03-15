@@ -1,5 +1,8 @@
 FROM rust:1.90.0 AS builder
 
+RUN rustup target add x86_64-unknown-linux-musl
+RUN apt-get update && apt-get install -y --no-install-recommends musl-tools && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /usr/src/app
 
 COPY Cargo.toml Cargo.lock ./
@@ -19,18 +22,16 @@ RUN mkdir -p matchmaker/src && \
     echo '[package]\nname = "matchmaker"\nversion = "0.0.0"\n[dependencies]' > matchmaker/Cargo.toml && \
     echo 'fn main() {}' > matchmaker/src/main.rs
 
-RUN cargo install --path ./server
+RUN cargo install --path ./server --target x86_64-unknown-linux-musl
 
-FROM debian:bookworm-slim
+RUN groupadd -r serveruser && useradd -r -g serveruser -s /bin/false serveruser
 
-RUN rm -rf /var/lib/apt/lists/* \
-    && rm -rf /usr/bin/apt* /usr/bin/dpkg /usr/bin/dash /usr/bin/bash \
-    && useradd -r -s /bin/false serveruser
+FROM scratch
 
-COPY --from=builder /usr/local/cargo/bin/server /usr/local/bin/server
-
+COPY --from=builder /etc/passwd /etc/passwd
+COPY --from=builder /etc/group /etc/group
 USER serveruser
 
-WORKDIR /usr/local/bin
+COPY --from=builder /usr/local/cargo/bin/server /server
 
-CMD ["server"]
+CMD ["/server"]
