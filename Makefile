@@ -9,6 +9,7 @@
 #   make no-test      # full build without running tests
 #   make test         # run tests
 #   make server       # build server binary and Docker image locally
+#   make matchmaker   # build matchmaker binary and Docker image locally
 #   make build-images # build both server and matchmaker Docker images
 #   make push-images  # push both Docker images to Docker Hub (uses DOCKER_USER)
 #   make deploy       # run VPS deploy scripts (frontend + backend)
@@ -27,7 +28,7 @@
 #   make deep-clean-remote     # Tier 3: deep Docker cleanup on VPS (system-wide prune of unused containers/images/volumes)
 #   make nuclear-clean         # Tier 4: stop and remove ALL Docker containers (local + VPS), then prune unused data
 #
-.PHONY: all no-test test server build-server-image build-matchmaker-image push-server-image push-matchmaker-image build-images push-images deploy init windows deb rpm appimage macos-intel macos-silicon check-windows check-deb check-rpm check-appimage check-docker check-deploy check-env kill-local-servers kill-remote-servers clean-local clean-remote deep-clean-local deep-clean-remote nuclear-clean nuclear-clean-local nuclear-clean-remote
+.PHONY: all no-test test server matchmaker build-server-image build-matchmaker-image push-server-image push-matchmaker-image build-images push-images deploy init windows deb rpm appimage macos-intel macos-silicon check-windows check-deb check-rpm check-appimage check-docker check-deploy check-env kill-local-servers kill-remote-servers clean-local clean-remote deep-clean-local deep-clean-remote nuclear-clean nuclear-clean-local nuclear-clean-remote
 
 VERSION := $(shell cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="client").version' | head -n1)
 
@@ -108,6 +109,8 @@ build-matchmaker-image: $(MATCHMAKER_BIN) matchmaker/Dockerfile | check-docker
 	mkdir -p $(DIST)
 	VERSION=$$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="matchmaker").version' | head -n1); \
 	docker build -f matchmaker/Dockerfile -t $(DOCKER_USER)/matchmaker-image:$$VERSION -t $(DOCKER_USER)/matchmaker-image:latest .
+
+matchmaker: build-matchmaker-image
 
 build-images: build-server-image build-matchmaker-image
 

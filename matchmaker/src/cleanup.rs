@@ -9,6 +9,27 @@ use bollard::{
 use crate::state::AppState;
 
 const CLEANUP_INTERVAL_SECS: u64 = 60;
+const DOCKER_WAIT_MAX_ATTEMPTS: u32 = 30;
+const DOCKER_WAIT_RETRY_DELAY: Duration = Duration::from_secs(1);
+
+pub async fn wait_for_docker_and_cleanup_zombies() -> Result<(), Box<dyn std::error::Error>> {
+    for attempt in 1..=DOCKER_WAIT_MAX_ATTEMPTS {
+        match cleanup_zombies().await {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                if attempt == DOCKER_WAIT_MAX_ATTEMPTS {
+                    return Err(e);
+                }
+                eprintln!(
+                    "docker not ready for zombie container cleanup (attempt {}/{}), retrying in {:?}",
+                    attempt, DOCKER_WAIT_MAX_ATTEMPTS, DOCKER_WAIT_RETRY_DELAY
+                );
+                tokio::time::sleep(DOCKER_WAIT_RETRY_DELAY).await;
+            }
+        }
+    }
+    unreachable!()
+}
 
 pub async fn cleanup_zombies() -> Result<(), Box<dyn std::error::Error>> {
     let docker = Docker::connect_with_http_defaults().map_err(|e| e.to_string())?;
@@ -22,6 +43,13 @@ pub async fn cleanup_zombies() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let containers = docker.list_containers(options).await?;
+
+    println!("Connected to Docker.");
+
+    if containers.is_empty() {
+        println!("No zombie game containers found.");
+        return Ok(());
+    }
 
     for container in containers {
         if let Some(id) = container.id {

@@ -30,24 +30,17 @@ make server
 
 This creates (or updates) the Docker image that will be used for game servers. The name is controlled by `GAME_IMAGE` in `.env.matchmaker`.
 
-### 3. Build the matchmaker image locally
+### 3. (Optional) Build the matchmaker image locally
 
-The `docker-compose.yaml` file refers to the matchmaker container by image name:
+By default, `docker compose up` will use the matchmaker image from Docker Hub (`pjtunstall/matchmaker-image:latest`) if it's not present locally. So you can skip this step unless you want to run matchmaker from local source (for example, to test matchmaker changes before they are pushed).
 
-```yaml
-matchmaker:
-  image: pjtunstall/matchmaker-image:latest
-```
-
-To run the matchmaker from local source instead of pulling from Docker Hub, build a local image with the same tag.
-
-From the matchmaker backend source directory (the directory containing the `Dockerfile` for the matchmaker), run:
+To build and use a local image, from the project root run:
 
 ```bash
-docker build -t pjtunstall/matchmaker-image:latest .
+make matchmaker
 ```
 
-Docker Compose will now use this locally built image when starting the `matchmaker` service.
+This builds the matchmaker binary (if needed), then runs `docker build -f matchmaker/Dockerfile -t pjtunstall/matchmaker-image:latest .` so the image is built with the project root as context (the Dockerfile needs `Cargo.toml`, `common/`, and `matchmaker/`). Compose will then use that image when starting the `matchmaker` service.
 
 ### 4. Start the stack
 
@@ -71,9 +64,6 @@ docker compose down
 
 ### 5. Connect the client
 
-Build the client following `docs/build.md`, ensuring it uses the local configuration (no `HOST` in `.env.client`).
+From the project root:
 
-When you launch the client on the same machine, it will, by default:
-
-- connect to the local Caddy instance for API requests, and
-- connect to game servers using the UDP address encoded in the connect token, which is the gateway IP of the `back` Docker bridge network (for example, `172.18.0.1`) together with the published game port, as described in `docs/devops.md` (Caddy and Docker section).
+`cargo run -p client`

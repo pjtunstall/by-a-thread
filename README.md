@@ -128,9 +128,12 @@ Next steps:
 
 Till then, please contact me if you'd like to play, and I'll send you a private link.
 
+## Further developments
+
 Possible further developments:
 
 - Observability with Prometheus, Loki, and Grafana
+- Blue-green deployment: Avoid the maintenance outage (for updates) by instead switching to a new VPS on a regular schedule. Provision this backup with the latest versions as the change-over time approaches. Then, when it's ready, start routing new-game requests to it. Wait till existing games have finished on the old VPS, then abandoning that one.
 - Load testing
 - Tests for matchmaker package
 - Tests for client::matchmaker module with a mock HTTP server

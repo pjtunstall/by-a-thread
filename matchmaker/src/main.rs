@@ -20,7 +20,7 @@ const BINDING_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECI
 
 #[tokio::main]
 async fn main() {
-    if let Err(e) = cleanup::cleanup_zombies().await {
+    if let Err(e) = cleanup::wait_for_docker_and_cleanup_zombies().await {
         eprintln!("zombie container cleanup error: {}", e);
     }
 
