@@ -54,6 +54,7 @@ I went beyond the spec in a few ways.
 
 - Authentication and rate limiting
 - Containerized components run with minimum privileges
+- Statically linked binaries; images built in empty containers
 - Docker socket proxy, restricting commands available to the matchmaker
 - Open Policy Agent to prevent privilege escalation
 - Secure session lifecycle:
