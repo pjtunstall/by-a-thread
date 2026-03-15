@@ -18,10 +18,14 @@ pub async fn wait_for_docker_and_cleanup_zombies() -> Result<(), Box<dyn std::er
             Ok(()) => return Ok(()),
             Err(e) => {
                 if attempt == DOCKER_WAIT_MAX_ATTEMPTS {
+                    eprintln!(
+                        "failed to connect to Docker socket proxy after {} attempts",
+                        DOCKER_WAIT_MAX_ATTEMPTS
+                    );
                     return Err(e);
                 }
                 eprintln!(
-                    "docker not ready for zombie container cleanup (attempt {}/{}), retrying in {:?}",
+                    "connecting to Docker socket proxy (attempt {}/{}), retrying in {:?}",
                     attempt, DOCKER_WAIT_MAX_ATTEMPTS, DOCKER_WAIT_RETRY_DELAY
                 );
                 tokio::time::sleep(DOCKER_WAIT_RETRY_DELAY).await;
