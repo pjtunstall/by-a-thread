@@ -342,7 +342,7 @@ fn test_face(
 
 // The face-based ray trace in `bounce_off_wall` can miss sphere-vs-edge and
 // sphere-vs-corner contacts, which lets bullets slip into walls at concave and
-// convex corners. This function detects sphere-AABB overlap after the trace and
+// convex corners. This function detects sphere-vs-wall-cell overlap after the trace and
 // pushes the bullet back out, iterating to handle corners where two walls meet.
 fn depenetrate_from_walls(
     position: &mut Vec3,
@@ -352,6 +352,8 @@ fn depenetrate_from_walls(
 ) -> bool {
     let mut depenetrated = false;
 
+    // Push out from the most deeply penetrated wall cell. Repeat enough times
+    // to be sure the bullet is no longer penetrating any wall cells.
     for _ in 0..3 {
         let mut deepest = 0.0_f32;
         let mut push_normal = Vec3::ZERO;
