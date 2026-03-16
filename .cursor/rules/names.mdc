@@ -1,0 +1,8 @@
+---
+description: Variable names
+alwaysApply: true
+---
+
+# Names
+
+- Favor full words over abbreviations, thus `let s = numerator // denominator` rather than `let s = numer // denom`, unless it's a common coding convention, e.g. `config`.

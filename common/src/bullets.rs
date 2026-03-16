@@ -23,6 +23,14 @@ pub const BULLET_SPAWN_OFFSET: f32 = player::RADIUS + BULLET_CORE_RADIUS + 0.1;
 pub const BULLET_SHELL_RADIUS: f32 = 4.0;
 const BULLET_CORE_RADIUS: f32 = 0.1;
 
+struct TestFaceParams {
+    direction: Vec3,
+    previous_position: Vec3,
+    trace_distance: f32,
+    box_min: Vec3,
+    box_max: Vec3,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Bullet {
     pub id: u32,
@@ -102,8 +110,8 @@ pub fn bounce_off_ground(position: &mut Vec3, velocity: &mut Vec3, bounces: &mut
 
 // See Shirley et al.: Ray Tracing: The Next Weekend, Section 3.3 (axis aligned
 // bounding boxes).
-fn find_intersection_with_box(
-    ray_origin: Vec3,
+fn _find_intersection_with_box(
+    previous_position: Vec3,
     ray_direction: Vec3,
     box_min: Vec3,
     box_max: Vec3,
@@ -121,15 +129,15 @@ fn find_intersection_with_box(
         // If the ray is parallel to an axis but outside its range, it doesn't
         // intersect the box.
         if ray_direction[i].abs() < 1e-6 {
-            if ray_origin[i] < box_min[i] || ray_origin[i] > box_max[i] {
+            if previous_position[i] < box_min[i] || previous_position[i] > box_max[i] {
                 return None;
             }
             // The ray is parallel and inside this axis range, so we continue.
         } else {
             // The distances along the ray to the two planes bounding the box
             // along this axis.
-            let t1 = (box_min[i] - ray_origin[i]) / ray_direction[i];
-            let t2 = (box_max[i] - ray_origin[i]) / ray_direction[i];
+            let t1 = (box_min[i] - previous_position[i]) / ray_direction[i];
+            let t2 = (box_max[i] - previous_position[i]) / ray_direction[i];
 
             // Where the ray intersects with the closest and furthest planes for the
             // current axis respectively.
@@ -167,17 +175,15 @@ pub fn bounce_off_wall(
     }
 
     let trace_distance = velocity.length() * TICK_SECS_F32;
-    let ray_origin = *position - direction * trace_distance;
-
+    let previous_position = *position - direction * trace_distance;
     let mut closest_hit: Option<(f32, Vec3)> = None;
-
     let end_pos = *position;
 
-    // Get the min and max grid coordinates that the ray spans.
-    let min_x = ray_origin.x.min(end_pos.x) / CELL_SIZE;
-    let max_x = ray_origin.x.max(end_pos.x) / CELL_SIZE;
-    let min_z = ray_origin.z.min(end_pos.z) / CELL_SIZE;
-    let max_z = ray_origin.z.max(end_pos.z) / CELL_SIZE;
+    // Get the min and max grid coordinates of the bullet's path this tick.
+    let min_x = previous_position.x.min(end_pos.x) / CELL_SIZE;
+    let max_x = previous_position.x.max(end_pos.x) / CELL_SIZE;
+    let min_z = previous_position.z.min(end_pos.z) / CELL_SIZE;
+    let max_z = previous_position.z.max(end_pos.z) / CELL_SIZE;
 
     // Check all grid cells along the path.
     for check_z in (min_z.floor() as isize - 1)..=(max_z.ceil() as isize + 1) {
@@ -194,45 +200,139 @@ pub fn bounce_off_wall(
                 continue; // Empty cell.
             }
 
-            // Diagonal corners of this wall cell with minimum and maximum world coordinates.
+            // Opposite corners of this wall cell in world coordinates.
             let box_min = vec3(check_x as f32 * CELL_SIZE, 0.0, check_z as f32 * CELL_SIZE);
             let box_max = box_min + vec3(CELL_SIZE, CELL_SIZE, CELL_SIZE);
 
-            if let Some(t) = find_intersection_with_box(ray_origin, direction, box_min, box_max) {
-                if t > 0.0 && t < trace_distance {
-                    let hit_point = ray_origin + direction * t;
-
-                    // Calculate normal based on which face was hit.
-                    let normal = if (hit_point.x - box_min.x).abs() < 0.1 {
-                        Vec3::new(-1.0, 0.0, 0.0)
-                    } else if (hit_point.x - box_max.x).abs() < 0.1 {
-                        Vec3::new(1.0, 0.0, 0.0)
-                    } else if (hit_point.z - box_min.z).abs() < 0.1 {
-                        Vec3::new(0.0, 0.0, -1.0)
-                    } else if (hit_point.z - box_max.z).abs() < 0.1 {
-                        Vec3::new(0.0, 0.0, 1.0)
-                    } else {
-                        -direction // Fallback.
-                    };
-
-                    // Update if we have a new closest hit.
-                    if closest_hit.is_none() || t < closest_hit.unwrap().0 {
-                        closest_hit = Some((t, normal));
-                    }
-                }
-            }
+            // Check each face of the current wall cell. Update `closest_hit` if
+            // we find a closer one.
+            // West face.
+            let test_face_params = TestFaceParams {
+                direction,
+                previous_position,
+                trace_distance,
+                box_min,
+                box_max,
+            };
+            test_face(
+                Vec3::new(-1.0, 0.0, 0.0),
+                -box_min.x,
+                &mut closest_hit,
+                &test_face_params,
+            );
+            // East face.
+            test_face(
+                Vec3::new(1.0, 0.0, 0.0),
+                box_max.x,
+                &mut closest_hit,
+                &test_face_params,
+            );
+            // North face.
+            test_face(
+                Vec3::new(0.0, 0.0, -1.0),
+                -box_min.z,
+                &mut closest_hit,
+                &test_face_params,
+            );
+            // South face.
+            test_face(
+                Vec3::new(0.0, 0.0, 1.0),
+                box_max.z,
+                &mut closest_hit,
+                &test_face_params,
+            );
         }
     }
 
-    if let Some((t, normal)) = closest_hit {
-        // Move bullet to hit point and bounce.
-        let hit_point = ray_origin + direction * t;
-        *position = hit_point - direction * BULLET_SHELL_RADIUS;
+    if let Some((s, normal)) = closest_hit {
+        // Move center back along its original path to exact sphere–plane contact.
+        let hit_center = previous_position + direction * s;
+        *position = hit_center;
         redirect(velocity, bounces, normal);
+
+        // Let the bullet bounce off the wall by the distance that it would
+        // otherwise have penetrated.
+        let remaining = trace_distance - s;
+        if remaining > 0.0 && velocity.length_squared() > 0.0 {
+            let new_dir = velocity.normalize();
+            *position += new_dir * remaining;
+        }
+
         return WallBounce::Bounce;
     }
 
     WallBounce::None
+}
+
+// `test_face` checks one face of a wall cell (given its normal and plane constant) and, if it
+// yields a closer valid hit along the bullet's path, updates `closest_hit`.
+fn test_face(
+    normal: Vec3,
+    plane_const: f32,
+    closest_hit: &mut Option<(f32, Vec3)>,
+    test_face_params: &TestFaceParams,
+) {
+    let TestFaceParams {
+        direction,
+        previous_position,
+        trace_distance,
+        box_min,
+        box_max,
+    } = test_face_params;
+
+    let denominator = direction.dot(normal);
+    if denominator >= 0.0 {
+        return; // Moving away or parallel, no hit.
+    }
+
+    // Ensure we start outside this face in the direction of travel.
+
+    // `start_dist` is the signed distance from the bullet center to the face's infinite plane, measured along the face normal, at the start of the tick.
+    let start_dist = previous_position.dot(normal) - plane_const;
+    if start_dist <= BULLET_SHELL_RADIUS {
+        // The bullet was already penetrating the wall or on the far side of it.
+        return;
+    }
+
+    // Solve `previous_position + s * direction` * normal = plane_const +
+    // `BULLET_SHELL_RADIUS` for `s`.
+    let numerator = plane_const + BULLET_SHELL_RADIUS - previous_position.dot(normal);
+    let s = numerator / denominator;
+    if s < 0.0 || s > *trace_distance {
+        // Hit would be before or after this tick.
+        return;
+    }
+
+    // Compute center of the bullet at the moment of contact with the wall face.
+    let hit_center = *previous_position + *direction * s;
+
+    // Discard this face if the sphere center, at its first contact time with this
+    // plane, would be outside the finite rectangle of this box face.
+    if normal.x.abs() > 0.5 {
+        // X face: constrain y and z within box.
+        if hit_center.y < box_min.y || hit_center.y > box_max.y {
+            return;
+        }
+        if hit_center.z < box_min.z || hit_center.z > box_max.z {
+            return;
+        }
+    } else {
+        // Z face: constrain y and x within box.
+        if hit_center.y < box_min.y || hit_center.y > box_max.y {
+            return;
+        }
+        if hit_center.x < box_min.x || hit_center.x > box_max.x {
+            return;
+        }
+    }
+
+    if let Some((best_s, _)) = closest_hit {
+        if s >= *best_s {
+            return;
+        }
+    }
+
+    *closest_hit = Some((s, normal));
 }
 
 pub fn is_bullet_colliding_with_player(bullet_position: Vec3, player_position: Vec3) -> bool {

@@ -8,7 +8,7 @@ alwaysApply: true
 - Don't introduce any new comments unless asked to.
 - Only use `//` comments, not `///`.
 - Comments should adhere to the conventions of standard English punctuation, including a trailing period.
-- Comments should be addressed to readers who are not privy to our conversations or previous steps in development.
+- Comments should be addressed to readers who are not privy to our conversations or previous steps in development, thus avoid comments like `// Infer normal based on which face was hit (original logic).` (We can't expect the reader to be aware of our "original logic".)
 
 ## Punctuation in comments and documentation
 
