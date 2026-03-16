@@ -285,17 +285,11 @@ fn test_face(
         return; // Moving away or parallel, no hit.
     }
 
-    // Ensure we start outside this face in the direction of travel.
-
-    // `start_dist` is the signed distance from the bullet center to the face's infinite plane, measured along the face normal, at the start of the tick.
-    let start_dist = previous_position.dot(normal) - plane_const;
-    if start_dist <= BULLET_SHELL_RADIUS {
-        // The bullet was already penetrating the wall or on the far side of it.
-        return;
-    }
-
     // Solve `previous_position + s * direction` * normal = plane_const +
-    // `BULLET_SHELL_RADIUS` for `s`.
+    // `BULLET_SHELL_RADIUS` for `s`, where `s` is the distance along the
+    // bullet's path (i.e. the trajectory of its center) from its position at
+    // the start of the tick to its position when its surface first touches the plane
+    // containing the face of the wall.
     let numerator = plane_const + BULLET_SHELL_RADIUS - previous_position.dot(normal);
     let s = numerator / denominator;
     if s < 0.0 || s > *trace_distance {
@@ -303,25 +297,28 @@ fn test_face(
         return;
     }
 
-    // Compute center of the bullet at the moment of contact with the wall face.
+    // Bullet center at the moment of first contact with the wall face.
     let hit_center = *previous_position + *direction * s;
 
-    // Discard this face if the sphere center, at its first contact time with this
-    // plane, would be outside the finite rectangle of this box face.
+    // Actual point where the surface of the bullet's sphere touches the plane
+    // containing the face of the wall.
+    let contact_point = hit_center - normal * BULLET_SHELL_RADIUS;
+
+    // Discard this point on the plane if it lies outside of the face.
     if normal.x.abs() > 0.5 {
         // X face: constrain y and z within box.
-        if hit_center.y < box_min.y || hit_center.y > box_max.y {
+        if contact_point.y < box_min.y || contact_point.y > box_max.y {
             return;
         }
-        if hit_center.z < box_min.z || hit_center.z > box_max.z {
+        if contact_point.z < box_min.z || contact_point.z > box_max.z {
             return;
         }
     } else {
         // Z face: constrain y and x within box.
-        if hit_center.y < box_min.y || hit_center.y > box_max.y {
+        if contact_point.y < box_min.y || contact_point.y > box_max.y {
             return;
         }
-        if hit_center.x < box_min.x || hit_center.x > box_max.x {
+        if contact_point.x < box_min.x || contact_point.x > box_max.x {
             return;
         }
     }
