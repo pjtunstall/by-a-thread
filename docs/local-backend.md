@@ -66,4 +66,4 @@ docker compose down
 
 From the project root:
 
-`cargo run -p client`
+`cargo run --release -p client`
