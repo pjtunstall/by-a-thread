@@ -12,7 +12,7 @@ A copy is included in this distribution as NOTO_FONT_LICENSE.
 
 Sound effects
 
-Sound effects from Yodguard and freesound_community via Pixabay under the Pixabay Licence (https://pixabay.com/service/license-summary/).
+Sound effects from Yodguard, Jurij (SoundReality), and freesound_community via Pixabay under the Pixabay Licence (https://pixabay.com/service/license-summary/).
 
 Images
 
@@ -28,4 +28,10 @@ The player avatar image is derived from a computer model of the cosmos display o
 
 AI
 
-I used a variety of AI tools over the course of the project. The netcode was written under the tutilege of Gemini Pro, which was a great help for talking through the theory and correcting my misunderstandings till the ideas stuck, then troubleshooting my implementation. I made occasional use of Claude Sonnet. In the initial stages, before I had access to these (currently) better tools, I used ChatGPT. Towards the end, I tried a range of agentic tools: Codex and Windsurf/Cascade, but especially Cursor.
+I used a variety of AI tools over the course of the project. Initially, I used
+ChatGPT, Copilot, and Claude Sonnet as far as free credits allowed. The bulk of
+the project, especially the netcode, was
+written under the tutilege of Gemini Pro. It was a great help with discussing
+the theory, debating my options, and troubleshooting my implementation.
+Towards the end, I tried a range of agentic tools: Codex and Windsurf/Cascade,
+before settling on Cursor for now.
