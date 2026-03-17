@@ -7,8 +7,12 @@
 - [Spec](#spec)
 - [Extras](#extras)
 - [How to play](#how-to-play)
-  - [Objective](#objective)
+  - [Setup](#setup)
+  - [Multiplayer](#multiplayer)
+  - [Single player](#single-player)
   - [Controls](#controls)
+- [Next steps](#next-steps)
+- [Further developments](#further-developments)
 
 ## Overview
 
@@ -16,9 +20,11 @@
 
 This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://github.com/01-edu/public/tree/master/subjects/multiplayer-fps) (commit bb1e883). The aim is to remake [Maze](<https://en.wikipedia.org/wiki/Maze_(1973_video_game)>), a multiplayer first-person shooter from 1973.
 
-I wrote my own collision and movement physics (drawing on what I learnt in an [earlier project on ray tracing](https://github.com/pjtunstall/a-ray-tracer-darkly)) and went to town with the networking.
+My game features custom physics and latency compensation. I delagated input, rendering, and audio to [Macroquad](https://macroquad.rs/). [Renet](https://docs.rs/crate/renet/latest) provides the UDP-based networking layer.
 
-I delegated window management, reading input, loading textures, rendering, and audio to Macroquad, a simple game framework. I used the Renet library for some networking abstractions over UDP.
+## Status
+
+Currently in private beta. Successfully tested on Hetzner VPS with the Linux AppImage, Linux deb, and Windows versions of the client. Waiting for feedback on macOS and RMP before making public. Till then, please contact me if you'd like to play, and I'll send you a personal link.
 
 ## Spec
 
@@ -54,9 +60,9 @@ I went beyond the spec in a few ways.
 
 - Authentication and rate limiting
 - Containerized components run with minimum privileges
-- Statically linked binaries; images built in empty containers
+- Statically linked binaries; images run in empty containers
 - Docker socket proxy, restricting commands available to the matchmaker
-- Open Policy Agent to prevent privilege escalation
+- Open Policy Agent to guard against privilege escalation
 - Secure session lifecycle:
   - Ephemeral tokens
   - Cleanup of game server containers
@@ -83,24 +89,11 @@ More information on specific topics can be found in the docs:
 
 ![demo_octopus](https://github.com/user-attachments/assets/efa90aaa-28e7-4757-8478-fbea9d58f869)
 
-First set up the client. Please let me know if you'd like a personal itch.io download link. (The game is currently in private beta.)
+### Setup
 
-Alternatively, to build from source, clone this repo and run the appropriate Make command for your system:
+First set up the client. Let me know if you'd like a personal download link. Alternatively, to build from source, clone this repo and run the appropriate Make command for your system (`make windows`, `make macos-intel`, `make macos-silicon`, `make deb`, `make rpm`, `make appimage` from the project root). In either case, see the [installation guide](docs/installation.md) for OS-specific instructions.
 
-- Windows: `make windows`
-
-- macOS
-  - Intel: `make macos-intel`
-  - Apple Silicon: `make macos-silicon`
-
-- Linux
-  - Debian: `make deb`
-  - RPM: `make rpm`
-  - AppImage: `make appimage` (Prefer deb or rpm if your distro allows.)
-
-See the [installation guide](docs/installation.md) for more further details.
-
-Then launch the client and choose default server.
+Once installed, launch the client and choose "default server".
 
 ### Multiplayer
 
@@ -130,25 +123,21 @@ In-game or in the lobby:
 
 - ESCAPE to quit/exit
 
-## Status
+## Next steps
 
-Currently in private beta. Successfully tested on Hetzner VPS with the Linux AppImage, Linux deb, and Windows versions of the client. Waiting for feedback on macOS.
-
-Next steps:
-
-- Test macOS (Intel and Apple Silicon)
-- Test Linux rpm
+- Await confirmation that the yet-to-be-tested binaries work:
+  - macOS (Intel and Apple Silicon)
+  - Linux RPM
 - Continue incremental refactoring
 - Review remaining TODOs in comments
 - Handle feedback
 - Publish on itch.io
 
-Till then, please contact me if you'd like to play, and I'll send you a private link.
-
 ## Further developments
 
 Possible further developments:
 
+- A landing page
 - Observability with Prometheus, Loki, and Grafana
 - Blue-green deployment: Avoid the maintenance outage (for updates) by instead switching to a new VPS on a regular schedule. Provision this backup with the latest versions as the change-over time approaches. Then, when it's ready, start routing new-game requests to it. Wait till existing games have finished on the old VPS, then abandoning that one.
 - Load testing
