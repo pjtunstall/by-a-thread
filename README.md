@@ -121,9 +121,6 @@ Next steps:
 
 - Test macOS (Intel and Apple Silicon)
 - Test Linux rpm
-- Troubleshoot one user's report of a graphics driver issue on Windows
-- Prevent bullets from partly penetrating wall surfaces before bouncing
-- Prevent outer sphere of bullets from clipping through top edges and convex corners of walls
 - Continue incremental refactoring
 - Review remaining TODOs in comments
 - Handle feedback
