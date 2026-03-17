@@ -69,7 +69,7 @@ I went beyond the spec in a few ways.
 - Interpolation for remote players
 - Extrapolation for bullets
 
-For more information on specific topics, see the following documents:
+More information on specific topics can be found in the docs:
 
 - [Architecture](docs/architecture.md)
 - [Netcode](docs/netcode.md)
@@ -83,7 +83,24 @@ For more information on specific topics, see the following documents:
 
 ![demo_octopus](https://github.com/user-attachments/assets/efa90aaa-28e7-4757-8478-fbea9d58f869)
 
-Launch the client and choose default server.
+First set up the client. Please let me know if you'd like a personal itch.io download link. (The game is currently in private beta.)
+
+Alternatively, to build from source, clone this repo and run the appropriate Make command for your system:
+
+- Windows: `make windows`
+
+- macOS
+  - Intel: `make macos-intel`
+  - Apple Silicon: `make macos-silicon`
+
+- Linux
+  - Debian: `make deb`
+  - RPM: `make rpm`
+  - AppImage: `make appimage` (Prefer deb or rpm if your distro allows.)
+
+See the [installation guide](docs/installation.md) for more further details.
+
+Then launch the client and choose default server.
 
 ### Multiplayer
 
@@ -115,7 +132,7 @@ In-game or in the lobby:
 
 ## Status
 
-Currently in private beta. Successfully tested on Hetzner VPS with the Linux AppImage, Linux deb, and Windows versions of the client.
+Currently in private beta. Successfully tested on Hetzner VPS with the Linux AppImage, Linux deb, and Windows versions of the client. Waiting for feedback on macOS.
 
 Next steps:
 
@@ -137,4 +154,5 @@ Possible further developments:
 - Load testing
 - Tests for matchmaker package
 - Tests for client::matchmaker module with a mock HTTP server
+- Fuzz tests for in-game logic.
 - AI opponents

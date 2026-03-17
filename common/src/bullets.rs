@@ -108,56 +108,6 @@ pub fn bounce_off_ground(position: &mut Vec3, velocity: &mut Vec3, bounces: &mut
     return true;
 }
 
-// See Shirley et al.: Ray Tracing: The Next Weekend, Section 3.3 (axis aligned
-// bounding boxes).
-fn _find_intersection_with_box(
-    start_position: Vec3,
-    ray_direction: Vec3,
-    box_min: Vec3,
-    box_max: Vec3,
-) -> Option<f32> {
-    // The master "start time". This rises as we find slabs that push the entry
-    // point further back.
-    let mut t_min: f32 = 0.0;
-
-    // t_max: The master "end time." This shrinks as we find slabs that cut the
-    // exit point shorter.
-    let mut t_max: f32 = f32::MAX;
-
-    // Check each axis.
-    for i in 0..3 {
-        // If the ray is parallel to an axis but outside its range, it doesn't
-        // intersect the box.
-        if ray_direction[i].abs() < 1e-6 {
-            if start_position[i] < box_min[i] || start_position[i] > box_max[i] {
-                return None;
-            }
-            // The ray is parallel and inside this axis range, so we continue.
-        } else {
-            // The distances along the ray to the two planes bounding the box
-            // along this axis.
-            let t1 = (box_min[i] - start_position[i]) / ray_direction[i];
-            let t2 = (box_max[i] - start_position[i]) / ray_direction[i];
-
-            // Where the ray intersects with the closest and furthest planes for the
-            // current axis respectively.
-            let t_enter = t1.min(t2);
-            let t_exit = t1.max(t2);
-
-            t_min = t_min.max(t_enter); // Latest entry time so far.
-            t_max = t_max.min(t_exit); // Earliest exit time so far.
-
-            // The intersection interval is empty; the ray leaves one axis slab
-            // before entering another.
-            if t_min > t_max {
-                return None;
-            }
-        }
-    }
-
-    Some(t_min)
-}
-
 pub fn bounce_off_wall(
     position: &mut Vec3,
     velocity: &mut Vec3,
