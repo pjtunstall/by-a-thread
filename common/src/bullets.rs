@@ -241,6 +241,40 @@ pub fn bounce_off_wall(
                 &mut closest_hit,
                 &test_face_params,
             );
+
+            let west_is_open = !is_solid_wall_cell(maze, check_x - 1, check_z);
+            let east_is_open = !is_solid_wall_cell(maze, check_x + 1, check_z);
+            let north_is_open = !is_solid_wall_cell(maze, check_x, check_z - 1);
+            let south_is_open = !is_solid_wall_cell(maze, check_x, check_z + 1);
+
+            if west_is_open && north_is_open {
+                test_convex_corner(
+                    vec3(box_min.x, 0.0, box_min.z),
+                    &mut closest_hit,
+                    &test_face_params,
+                );
+            }
+            if east_is_open && north_is_open {
+                test_convex_corner(
+                    vec3(box_max.x, 0.0, box_min.z),
+                    &mut closest_hit,
+                    &test_face_params,
+                );
+            }
+            if west_is_open && south_is_open {
+                test_convex_corner(
+                    vec3(box_min.x, 0.0, box_max.z),
+                    &mut closest_hit,
+                    &test_face_params,
+                );
+            }
+            if east_is_open && south_is_open {
+                test_convex_corner(
+                    vec3(box_max.x, 0.0, box_max.z),
+                    &mut closest_hit,
+                    &test_face_params,
+                );
+            }
         }
     }
 
@@ -330,18 +364,107 @@ fn test_face(
         }
     }
 
-    if let Some((best_s, _)) = closest_hit {
-        if s >= *best_s {
-            return;
-        }
+    update_closest_hit(closest_hit, s, normal);
+}
+
+fn test_convex_corner(
+    corner_position: Vec3,
+    closest_hit: &mut Option<(f32, Vec3)>,
+    test_face_params: &TestFaceParams,
+) {
+    let TestFaceParams {
+        direction,
+        start_position,
+        trace_distance,
+        box_min,
+        box_max,
+    } = test_face_params;
+
+    let a = direction.x * direction.x + direction.z * direction.z;
+    if a < 1e-6 {
+        return;
     }
 
-    *closest_hit = Some((s, normal));
+    let delta_x = start_position.x - corner_position.x;
+    let delta_z = start_position.z - corner_position.z;
+    let radius_sq = BULLET_SHELL_RADIUS * BULLET_SHELL_RADIUS;
+    let c = delta_x * delta_x + delta_z * delta_z - radius_sq;
+    if c <= 0.0 {
+        return;
+    }
+
+    let b = 2.0 * (delta_x * direction.x + delta_z * direction.z);
+    let discriminant = b * b - 4.0 * a * c;
+    if discriminant < 0.0 {
+        return;
+    }
+
+    let sqrt_discriminant = discriminant.sqrt();
+    let mut s = f32::MAX;
+    let s1 = (-b - sqrt_discriminant) / (2.0 * a);
+    let s2 = (-b + sqrt_discriminant) / (2.0 * a);
+
+    if s1 >= 0.0 && s1 <= *trace_distance {
+        s = s1;
+    }
+    if s2 >= 0.0 && s2 <= *trace_distance && s2 < s {
+        s = s2;
+    }
+    if !s.is_finite() {
+        return;
+    }
+
+    let hit_center = *start_position + *direction * s;
+    if hit_center.y < box_min.y || hit_center.y > box_max.y {
+        return;
+    }
+
+    let normal_x = hit_center.x - corner_position.x;
+    let normal_z = hit_center.z - corner_position.z;
+    let normal_length_sq = normal_x * normal_x + normal_z * normal_z;
+    if normal_length_sq < 1e-6 {
+        return;
+    }
+
+    let normal_length = normal_length_sq.sqrt();
+    let normal = vec3(normal_x / normal_length, 0.0, normal_z / normal_length);
+    update_closest_hit(closest_hit, s, normal);
+}
+
+fn update_closest_hit(closest_hit: &mut Option<(f32, Vec3)>, s: f32, normal: Vec3) {
+    let should_replace = if let Some((best_s, best_normal)) = closest_hit {
+        if s < *best_s - 0.001 {
+            true
+        } else if (s - *best_s).abs() <= 0.001 {
+            let candidate_is_corner = normal.x.abs() > 0.1 && normal.z.abs() > 0.1;
+            let best_is_corner = best_normal.x.abs() > 0.1 && best_normal.z.abs() > 0.1;
+            candidate_is_corner && !best_is_corner
+        } else {
+            false
+        }
+    } else {
+        true
+    };
+
+    if should_replace {
+        *closest_hit = Some((s, normal));
+    }
+}
+
+fn is_solid_wall_cell(maze: &Maze, check_x: isize, check_z: isize) -> bool {
+    if check_x < 0
+        || check_z < 0
+        || check_x >= maze.grid[0].len() as isize
+        || check_z >= maze.grid.len() as isize
+    {
+        return false;
+    }
+
+    maze.grid[check_z as usize][check_x as usize] != 0
 }
 
 // The face-based ray trace in `bounce_off_wall` can miss sphere-vs-edge and
-// sphere-vs-corner contacts, which lets bullets slip into walls at concave and
-// convex corners. This function detects sphere-vs-wall-cell overlap after the trace and
+// sphere-vs-corner contacts, which lets bullets slip into walls especially at concave corners. This function detects sphere-vs-wall-cell overlap after the trace and
 // pushes the bullet back out, iterating to handle corners where two walls meet.
 fn depenetrate_from_walls(
     position: &mut Vec3,
