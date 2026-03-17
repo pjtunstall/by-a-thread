@@ -293,15 +293,14 @@ fn test_face(
         return; // Moving away or parallel, no hit.
     }
 
-    // Solve `start_position + s * direction` * normal = plane_const +
-    // `BULLET_SHELL_RADIUS` for `s`, where `s` is the distance along the
-    // bullet's path (i.e. the trajectory of its center) from its position at
-    // the start of the tick to its position when its surface first touches the plane
-    // containing the face of the wall.
     let numerator = plane_const + BULLET_SHELL_RADIUS - start_position.dot(normal);
+
+    // `s` is the distance along the bullet's path (i.e. the trajectory of its
+    // center) from its position at the start of the tick to its position when
+    // its surface first touches the plane containing the face of the wall.
     let s = numerator / denominator;
     if s < 0.0 || s > *trace_distance {
-        // Hit would be before or after this tick.
+        // Discount hits before or after this tick.
         return;
     }
 
