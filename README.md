@@ -12,7 +12,7 @@
   - [Single player](#single-player)
   - [Controls](#controls)
 - [Next steps](#next-steps)
-- [Further developments](#further-developments)
+- [Possible further developments](#possible-further-developments)
 
 ## Overview
 
@@ -20,7 +20,7 @@
 
 This is my response to the 01Edu/01Founders challenge [multiplayer-fps](https://github.com/01-edu/public/tree/master/subjects/multiplayer-fps) (commit bb1e883). The aim is to remake [Maze](<https://en.wikipedia.org/wiki/Maze_(1973_video_game)>), a multiplayer first-person shooter from 1973.
 
-My game features custom physics and latency compensation. I delagated input, rendering, and audio to [Macroquad](https://macroquad.rs/). [Renet](https://docs.rs/crate/renet/latest) provides the UDP-based networking layer.
+My game features custom physics and latency compensation. I used [Macroquad](https://macroquad.rs/) for input, rendering, and audio, and [Renet](https://docs.rs/crate/renet/latest) for the UDP-based networking layer.
 
 ## Status
 
@@ -133,15 +133,13 @@ In-game or in the lobby:
 - Handle feedback
 - Publish on itch.io
 
-## Further developments
-
-Possible further developments:
+## Possible further developments
 
 - A landing page
 - Observability with Prometheus, Loki, and Grafana
 - Blue-green deployment: Avoid the maintenance outage (for updates) by instead switching to a new VPS on a regular schedule. Provision this backup with the latest versions as the change-over time approaches. Then, when it's ready, start routing new-game requests to it. Wait till existing games have finished on the old VPS, then abandoning that one.
 - Load testing
-- Tests for matchmaker package
-- Tests for client::matchmaker module with a mock HTTP server
-- Fuzz tests for in-game logic.
-- AI opponents
+- Tests for `matchmaker` package
+- Tests for `client::matchmaker` module with a mock HTTP server
+- Fuzz tests for in-game logic
+- AI opponents; offline mode
