@@ -17,8 +17,9 @@ docker compose --env-file .env.matchmaker up -d --remove-orphans
 
 docker system prune -af
 
-# Before this script runs, run `sudo visudo` and add `non-root-user ALL=(ALL)
-# NOPASSWD: /sbin/reboot` to the end of the sudoers file.
+# Before this script runs, run `sudo visudo`
+# and add `non-root-user ALL=(ALL) NOPASSWD: /usr/sbin/reboot`
+# to the end of the sudoers file.
 if [ -f /var/run/reboot-required ]; then
-    sudo /sbin/reboot
+    sudo /usr/sbin/reboot
 fi
