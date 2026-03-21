@@ -15,6 +15,10 @@ cd "${DEPLOY_DIR}"
 docker compose --env-file .env.matchmaker pull
 docker compose --env-file .env.matchmaker up -d --remove-orphans
 
+docker system prune -af
+
+# Before this script runs, run `sudo visudo` and add `non-root-user ALL=(ALL)
+# NOPASSWD: /sbin/reboot` to the end of the sudoers file.
 if [ -f /var/run/reboot-required ]; then
-    /sbin/reboot
+    sudo /sbin/reboot
 fi

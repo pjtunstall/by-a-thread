@@ -131,8 +131,8 @@ deploy: | check-deploy
 	ssh $(HOST) 'cd ~/scripts && ./deploy_backend.sh'
 
 init: | check-deploy
-	scp .env.matchmaker scripts/deploy_backend.sh scripts/deploy_frontend.sh scripts/maybe_reboot.sh $(HOST):~/
-	ssh $(HOST) 'mkdir -p ~/scripts && mv ~/deploy_backend.sh ~/deploy_frontend.sh ~/maybe_reboot.sh ~/scripts/ && chmod +x ~/scripts/deploy_backend.sh ~/scripts/deploy_frontend.sh ~/scripts/maybe_reboot.sh'
+	scp .env.matchmaker scripts/deploy_backend.sh scripts/deploy_frontend.sh $(HOST):~/
+	ssh $(HOST) 'mkdir -p ~/scripts && mv ~/deploy_backend.sh ~/deploy_frontend.sh ~/scripts/ && chmod +x ~/scripts/deploy_backend.sh ~/scripts/deploy_frontend.sh'
 
 # --- Client Build Targets ---
 

@@ -49,7 +49,7 @@ Create files `.env`, `.env.client`, and `.env.matchmaker` in the project root, a
 
 **Deploy**
 
-The stack is driven by the Makefile and by scripts on the VPS. All VPS deployment files live in the home directory of your non-root deploy user (for example, `/home/non-root-user`): `.env.matchmaker`, `Caddyfile`, `docker-compose.yaml`, and a `scripts/` directory containing `deploy_backend.sh`, `deploy_frontend.sh`, and `maybe_reboot.sh`. Configure SSH so your host alias logs in as that non-root user; then `~` is that directory.
+The stack is driven by the Makefile and by scripts on the VPS. All VPS deployment files live in the home directory of your non-root deploy user (for example, `/home/non-root-user`): `.env.matchmaker`, `Caddyfile`, `docker-compose.yaml`, and a `scripts/` directory containing `deploy_backend.sh` and `deploy_frontend.sh`. Configure SSH so your host alias logs in as that non-root user; then `~` is that directory.
 
 For a fresh VPS, the quickest way to get started is:
 
@@ -188,8 +188,7 @@ The repo is not cloned on the VPS. For initial setup and deployment, follow the 
 Three scripts run nightly on the VPS to deploy the latest back and front ends:
 
 - **`deploy_frontend.sh`** triggers the `Deploy` GitHub workflow that pushes client builds to itch.io (via `repository_dispatch`). It runs from cron as `non-root-user` at 04:01.
-- **`deploy_backend.sh`** fetches `docker-compose.yaml` and `Caddyfile` from GitHub (`main`) into `/home/non-root-user`, pulls the server image from Dokcer Hub, and runs `docker compose up -d` there. It runs from cron as `non-root-user` at 04:30.
-- **`maybe_reboot.sh`** reboots if `/var/run/reboot-required` exists. It runs from cron as root at 04:45.
+- **`deploy_backend.sh`** fetches `docker-compose.yaml` and `Caddyfile` from GitHub (`main`) into `/home/non-root-user`, pulls the server image from Dokcer Hub, and runs `docker compose up -d` there. It runs from cron as `non-root-user` at 04:30, then reboots if `/var/run/reboot-required` exists.
 
 **Manual deploy on the VPS:**
 
@@ -217,8 +216,7 @@ Maintainance is scheduled to run between 04:00 and 05:00 UTC. Twenty minutes bef
 | 04:01 | Webhook Fires to deploy client artifacts to itch.io | deploy_frontend.sh (Cron, root user) |
 | 04:01 | OS Package Lists Downloaded | apt-daily.timer (Systemd) |
 | 04:20 | OS Security Patches Installed | apt-daily-upgrade.timer (Systemd) |
-| 04:30 | Docker Images Updated | deploy_backend.sh (Cron, non-root-user) |
-| 04:45 | VPS Reboots (if patched) | maybe_reboot.sh (Cron, root user) |
+| 04:30 | Docker Images Updated; reboot if needed | deploy_backend.sh (Cron, non-root-user) |
 | 05:00 | Matchmaker Unlocks | Matchmaker clock |
 
 For the sake of simplicity, I chose to let the matchmaker initiate lock/unlock for now. Ideally, though, there would be a single source of truth to synchronize the whole maintenance sequence. One suggestion is to have a script on the VPS create and remove a sentinel file to indicate that maintenance is in progress. The matchmaker would check for the existence of this file before accepting a new-game request. That would ensure that the matchmaker knows the correct state even when it restarts after the VPS reboots.
