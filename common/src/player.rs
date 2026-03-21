@@ -93,7 +93,7 @@ impl PlayerState {
         let forward = self.apply_rotation(input);
         self.apply_translation(input, forward);
         self.resolve_collision_with_walls(maze);
-        self.resolve_collision_with_other_players(own_index, player_positions, repulsion_strength);
+        self.resolve_collision_with_other_players(own_index, player_positions, repulsion_strength, maze);
         self.is_zoomed = input.is_zoomed;
     }
 
@@ -201,6 +201,7 @@ impl PlayerState {
         own_index: usize,
         player_positions: &[(usize, Vec3)],
         repulsion_strength: f32,
+        maze: &Maze,
     ) {
         const MIN_DIST: f32 = RADIUS * 2.0;
         const MIN_DIST_SQ: f32 = MIN_DIST * MIN_DIST;
@@ -218,7 +219,25 @@ impl PlayerState {
                 let overlap = MIN_DIST - dist;
                 let normal = diff / dist;
 
-                self.position += normal * (overlap * repulsion_strength);
+                let push = normal * (overlap * repulsion_strength);
+                let new_pos = self.position + push;
+                self.position = if maze.is_sphere_clear(&new_pos, RADIUS) {
+                    new_pos
+                } else {
+                    // Binary search for the furthest position along the push
+                    // direction that keeps the sphere out of the wall.
+                    let mut lo = 0.0f32;
+                    let mut hi = 1.0f32;
+                    for _ in 0..8 {
+                        let mid = (lo + hi) * 0.5;
+                        if maze.is_sphere_clear(&(self.position + push * mid), RADIUS) {
+                            lo = mid;
+                        } else {
+                            hi = mid;
+                        }
+                    }
+                    self.position + push * lo
+                };
 
                 let vel_along_normal = self.velocity.dot(normal);
                 if vel_along_normal < 0.0 {

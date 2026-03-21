@@ -62,6 +62,7 @@ pub struct Game {
     pub maze: Maze,
     pub start_time: f64,
     pub timer_duration: f32,
+    pub needle_textures: info::circles::NeedleTextures,
     maze_meshes: MazeMeshes,
     sky: Sky,
     input_history: Ring<PlayerInput, INPUT_HISTORY_LENGTH>, // 256: ~4.3s at 60Hz.
@@ -84,7 +85,7 @@ pub struct Game {
     player_shadow_mesh: DiskMesh,
     previous_local_state: StaticState,
     fov: f32,
-    pub needle_textures: info::circles::NeedleTextures,
+    wasd_opposing_resolver: input::WasdOpposingResolver,
 }
 
 impl fmt::Debug for Game {
@@ -155,6 +156,7 @@ impl Game {
             fov: NORMAL_FOV,
             start_time,
             needle_textures,
+            wasd_opposing_resolver: input::WasdOpposingResolver::default(),
         }
     }
 
@@ -234,7 +236,8 @@ impl Game {
             let sim_tick = clock.sim_tick;
 
             if self.players[self.local_player_index].health > 0 && !self.victory_in_progress {
-                let mut input = input::player_input_from_keys(sim_tick);
+                let mut input =
+                    input::player_input_from_keys(sim_tick, &mut self.wasd_opposing_resolver);
                 self.prepare_fire_input(sim_tick, &mut input, assets);
                 self.send_input(network, input, sim_tick);
                 self.input_history.insert(sim_tick, input);
