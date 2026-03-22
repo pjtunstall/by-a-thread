@@ -18,6 +18,24 @@ impl PortPool {
     }
 
     pub async fn release(&self, port: u16) {
-        self.ports.lock().await.push(port);
+        if port < 7777 || port > 7777 + MAX_GAMES - 1 {
+            eprintln!(
+                "attempted to release an invalid port: {} (expected 7777-{})",
+                port,
+                7777 + MAX_GAMES - 1
+            );
+            return;
+        }
+
+        let mut ports = self.ports.lock().await;
+        if ports.contains(&port) {
+            eprintln!(
+                "attempted to release a port that is already in the pool: {}",
+                port
+            );
+            return;
+        }
+
+        ports.push(port);
     }
 }
