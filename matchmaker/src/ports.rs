@@ -1,6 +1,13 @@
+use std::ops::RangeInclusive;
+
 use tokio::sync::Mutex;
 
-const MAX_GAMES: u16 = 10;
+// If these change, be sure to update `docs/devops.md`, `docs/api.yaml`, and the
+// firewall rules.
+const PORT_POOL_START: u16 = 7777;
+const PORT_POOL_SIZE: u16 = 10;
+const PORT_POOL_END: u16 = PORT_POOL_START + PORT_POOL_SIZE - 1;
+const PORT_POOL_RANGE: RangeInclusive<u16> = PORT_POOL_START..=PORT_POOL_END;
 
 pub struct PortPool {
     ports: Mutex<Vec<u16>>,
@@ -9,7 +16,7 @@ pub struct PortPool {
 impl PortPool {
     pub fn new() -> Self {
         Self {
-            ports: Mutex::new((7777..=(7777 + MAX_GAMES - 1)).collect()),
+            ports: Mutex::new(PORT_POOL_RANGE.collect()),
         }
     }
 
@@ -18,11 +25,10 @@ impl PortPool {
     }
 
     pub async fn release(&self, port: u16) {
-        if port < 7777 || port > 7777 + MAX_GAMES - 1 {
+        if !PORT_POOL_RANGE.contains(&port) {
             eprintln!(
-                "attempted to release an invalid port: {} (expected 7777-{})",
-                port,
-                7777 + MAX_GAMES - 1
+                "attempted to release an invalid port: {} (expected {}-{})",
+                port, PORT_POOL_START, PORT_POOL_END
             );
             return;
         }
