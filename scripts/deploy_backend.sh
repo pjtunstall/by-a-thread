@@ -32,7 +32,7 @@ cd "${DEPLOY_DIR}"
 docker compose --env-file .env.matchmaker pull
 docker compose --env-file .env.matchmaker up -d --remove-orphans
 
-docker system prune -af
+docker system prune -f
 
 if [ -f /var/run/reboot-required ]; then
     sudo /usr/sbin/reboot
