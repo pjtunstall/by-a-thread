@@ -52,6 +52,7 @@ const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
 const REPULSION_STRENGTH: f32 = 0.5; // For collisions.
 const NORMAL_FOV: f32 = 45.0_f32.to_radians();
 const ZOOMED_FOV: f32 = 10.0_f32.to_radians();
+const REMOTE_SPAWN_BLEND_TICKS: u8 = 4;
 
 pub struct Game {
     pub local_player_index: usize,
@@ -698,12 +699,32 @@ impl Game {
                 }
             };
 
-            let smoothed_position = bullet
+            let mut smoothed_position = bullet
                 .previous_position
                 .lerp(bullet.position, tick_fraction);
+            smoothed_position = if !bullet.is_local && bullet.blend_ticks_left > 0 {
+                self.smooth_bullet_from_remote_player(bullet, smoothed_position, tick_fraction)
+            } else {
+                smoothed_position
+            };
 
             draw_sphere(smoothed_position, BULLET_SHELL_RADIUS, None, color);
         }
+    }
+
+    fn smooth_bullet_from_remote_player(
+        &self,
+        bullet: &ClientBullet,
+        smoothed_position: Vec3,
+        tick_fraction: f32,
+    ) -> Vec3 {
+        let elapsed_ticks =
+            self.prev_sim_tick.saturating_sub(bullet.spawn_tick) as f32 + 1.0 + tick_fraction;
+        let t = (elapsed_ticks / (REMOTE_SPAWN_BLEND_TICKS as f32)).clamp(0.0, 1.0);
+        let acceleration_factor = t * t;
+
+        bullet.spawn_visual_origin
+            + (smoothed_position - bullet.spawn_visual_origin) * acceleration_factor
     }
 
     fn update_bullets(&mut self, sim_tick: u64) {
@@ -893,14 +914,17 @@ impl Game {
         shooter_index: usize,
         assets: &Assets,
     ) {
-        const REMOTE_SPAWN_BLEND_TICKS: u8 = 4;
-
-        let shooter_position = self.players[shooter_index].state.position;
+        let shooter_state = self.players[shooter_index].state;
+        let shooter_position = shooter_state.position;
+        let shooter_direction =
+            bullets::direction_from_yaw_pitch(shooter_state.yaw, shooter_state.pitch);
+        let spawn_visual_origin = bullets::spawn_position(shooter_position, shooter_direction);
 
         self.bullets.push(ClientBullet::new_confirmed(
             bullet_id,
             shooter_position,
             velocity,
+            spawn_visual_origin,
             self.prev_sim_tick + 1,
         ));
 

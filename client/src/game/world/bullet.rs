@@ -27,6 +27,7 @@ pub struct ClientBullet {
     pub position: Vec3,
     pub previous_position: Vec3,
     pub velocity: Vec3,
+    pub spawn_visual_origin: Vec3,
     pub last_update_tick: u64,
     pub spawn_tick: u64,
     pub confirmed: bool,
@@ -37,13 +38,20 @@ pub struct ClientBullet {
 }
 
 impl ClientBullet {
-    pub fn new_confirmed(id: u32, position: Vec3, velocity: Vec3, last_update_tick: u64) -> Self {
+    pub fn new_confirmed(
+        id: u32,
+        position: Vec3,
+        velocity: Vec3,
+        spawn_visual_origin: Vec3,
+        last_update_tick: u64,
+    ) -> Self {
         Self {
             id: Some(id),
             fire_nonce: None,
             position,
             previous_position: position,
             velocity,
+            spawn_visual_origin,
             last_update_tick,
             spawn_tick: last_update_tick,
             confirmed: true,
@@ -66,6 +74,7 @@ impl ClientBullet {
             position,
             previous_position: position,
             velocity,
+            spawn_visual_origin: position,
             last_update_tick,
             spawn_tick: last_update_tick,
             confirmed: true,
@@ -88,6 +97,7 @@ impl ClientBullet {
             position,
             previous_position: position,
             velocity,
+            spawn_visual_origin: position,
             last_update_tick,
             spawn_tick: last_update_tick,
             confirmed: false,
@@ -141,7 +151,6 @@ impl ClientBullet {
         self.blend_ticks_left = ticks;
     }
 
-    // TODO: Push `if` up?
     pub fn apply_blend(&mut self, ticks: u64) {
         if self.blend_ticks_left == 0 {
             return;

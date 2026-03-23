@@ -4,7 +4,7 @@
 # 1.Make sure that Docker is installed and configured to
 # restart after a reboot:
 # sudo systemctl enable docker.service
-#sudo systemctl enable containerd.service
+# sudo systemctl enable containerd.service
 
 # 2. Run `sudo visudo` and add
 # `non-root-user ALL=(ALL) NOPASSWD: /usr/sbin/reboot`
