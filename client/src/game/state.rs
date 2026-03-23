@@ -52,7 +52,16 @@ const NETWORK_TIME_BUDGET: Duration = Duration::from_millis(2);
 const REPULSION_STRENGTH: f32 = 0.5; // For collisions.
 const NORMAL_FOV: f32 = 45.0_f32.to_radians();
 const ZOOMED_FOV: f32 = 10.0_f32.to_radians();
+
+// How many ticks it takes for a remote player's bullet to blend from its spawn visual
+// origin to its 'true', i.e. extrapolated position.
 const REMOTE_SPAWN_BLEND_TICKS: u8 = 4;
+
+// How many 'puffs' to draw in the chain of faint spheres in the wake of a remote player's bullet as it
+// leaves the muzzle.
+const PUFF_COUNT: usize = 3;
+// Minimum gap between the muzzle and the first puff in the chain.
+const MIN_GAP_FOR_PUFF_CHAIN: f32 = BULLET_SHELL_RADIUS * 1.5;
 
 pub struct Game {
     pub local_player_index: usize,
@@ -699,32 +708,45 @@ impl Game {
                 }
             };
 
-            let mut smoothed_position = bullet
+            let smoothed_position = bullet
                 .previous_position
                 .lerp(bullet.position, tick_fraction);
-            smoothed_position = if !bullet.is_local && bullet.blend_ticks_left > 0 {
-                self.smooth_bullet_from_remote_player(bullet, smoothed_position, tick_fraction)
-            } else {
-                smoothed_position
-            };
+
+            if !bullet.is_local && bullet.blend_ticks_left > 0 {
+                self.draw_remote_spawn_puff_chain(bullet, smoothed_position, color, tick_fraction);
+            }
 
             draw_sphere(smoothed_position, BULLET_SHELL_RADIUS, None, color);
         }
     }
 
-    fn smooth_bullet_from_remote_player(
+    fn draw_remote_spawn_puff_chain(
         &self,
         bullet: &ClientBullet,
-        smoothed_position: Vec3,
+        bullet_position: Vec3,
+        bullet_color: Color,
         tick_fraction: f32,
-    ) -> Vec3 {
-        let elapsed_ticks =
-            self.prev_sim_tick.saturating_sub(bullet.spawn_tick) as f32 + 1.0 + tick_fraction;
-        let t = (elapsed_ticks / (REMOTE_SPAWN_BLEND_TICKS as f32)).clamp(0.0, 1.0);
-        let acceleration_factor = t * t;
+    ) {
+        let muzzle_to_bullet = bullet_position.distance(bullet.spawn_visual_origin);
+        if muzzle_to_bullet < MIN_GAP_FOR_PUFF_CHAIN {
+            return;
+        }
 
-        bullet.spawn_visual_origin
-            + (smoothed_position - bullet.spawn_visual_origin) * acceleration_factor
+        let total_ticks = REMOTE_SPAWN_BLEND_TICKS as f32;
+        let completed_ticks =
+            (REMOTE_SPAWN_BLEND_TICKS - bullet.blend_ticks_left) as f32 + tick_fraction;
+        let progress = (completed_ticks / total_ticks).clamp(0.0, 1.0);
+        let alpha = 0.45 * (1.0 - progress);
+
+        for puff_index in 0..PUFF_COUNT {
+            let chain_t = (puff_index as f32 + 1.0) / (PUFF_COUNT as f32 + 1.0);
+            let biased_t = chain_t * 0.6;
+            let puff_position = bullet.spawn_visual_origin.lerp(bullet_position, biased_t);
+            let puff_radius = BULLET_SHELL_RADIUS * (0.25 + puff_index as f32 * 0.20);
+            let puff_color = Color::new(bullet_color.r, bullet_color.g, bullet_color.b, alpha);
+
+            draw_sphere(puff_position, puff_radius, None, puff_color);
+        }
     }
 
     fn update_bullets(&mut self, sim_tick: u64) {
