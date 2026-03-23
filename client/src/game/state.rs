@@ -58,7 +58,8 @@ const ZOOMED_FOV: f32 = 10.0_f32.to_radians();
 const REMOTE_SPAWN_BLEND_TICKS: u8 = 4;
 
 // How many 'puffs' to draw in the chain of faint spheres in the wake of a remote player's bullet as it
-// leaves the muzzle.
+// leaves the muzzle. The purpose of this is to mitigate the impression that the
+// bullet often spawns at a distance from the player.
 const PUFF_COUNT: usize = 3;
 // Minimum gap between the muzzle and the first puff in the chain.
 const MIN_GAP_FOR_PUFF_CHAIN: f32 = BULLET_SHELL_RADIUS * 1.5;
@@ -720,6 +721,7 @@ impl Game {
         }
     }
 
+    // See comment on `PUFF_COUNT` for the purpose of this function.
     fn draw_remote_spawn_puff_chain(
         &self,
         bullet: &ClientBullet,
