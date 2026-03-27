@@ -93,7 +93,12 @@ impl PlayerState {
         let forward = self.apply_rotation(input);
         self.apply_translation(input, forward);
         self.resolve_collision_with_walls(maze);
-        self.resolve_collision_with_other_players(own_index, player_positions, repulsion_strength, maze);
+        self.resolve_collision_with_other_players(
+            own_index,
+            player_positions,
+            repulsion_strength,
+            maze,
+        );
         self.is_zoomed = input.is_zoomed;
     }
 
@@ -226,22 +231,22 @@ impl PlayerState {
                 } else {
                     // Binary search for the furthest position along the push
                     // direction that keeps the sphere out of the wall.
-                    let mut lo = 0.0f32;
-                    let mut hi = 1.0f32;
+                    let mut low: f32 = 0.0;
+                    let mut high: f32 = 1.0;
                     for _ in 0..8 {
-                        let mid = (lo + hi) * 0.5;
+                        let mid = (low + high) * 0.5;
                         if maze.is_sphere_clear(&(self.position + push * mid), RADIUS) {
-                            lo = mid;
+                            low = mid;
                         } else {
-                            hi = mid;
+                            high = mid;
                         }
                     }
-                    self.position + push * lo
+                    self.position + push * low
                 };
 
-                let vel_along_normal = self.velocity.dot(normal);
-                if vel_along_normal < 0.0 {
-                    self.velocity -= normal * vel_along_normal;
+                let velocity_along_normal = self.velocity.dot(normal);
+                if velocity_along_normal < 0.0 {
+                    self.velocity -= normal * velocity_along_normal;
                 }
             }
         }
@@ -430,8 +435,7 @@ pub fn sanitize_username(input: &str) -> Result<String, UsernameError> {
         return Err(UsernameError::TooLong);
     }
 
-    if let Some(invalid) = trimmed.chars().find(|ch| !ch.is_ascii_alphanumeric())
-    {
+    if let Some(invalid) = trimmed.chars().find(|ch| !ch.is_ascii_alphanumeric()) {
         return Err(UsernameError::InvalidCharacter(invalid));
     }
 
