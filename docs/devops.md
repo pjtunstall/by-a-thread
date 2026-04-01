@@ -101,13 +101,43 @@ docker network inspect back | jq '.[0].IPAM.Config[0].Gateway'
 
 ### Environment
 
-Create files `.env.client` and `.env.matchmaker` in the project root. The client is built with values from `.env.client`; the matchmaker container reads `.env.matchmaker`. After entering the following items, run `make check-env` to ensure the two files are consistent.
+Create files `.env.client` and `.env.matchmaker` in the project root. The client is built with values from `.env.client`; the matchmaker container reads `.env.matchmaker`. After entering the following items, run `make check-env` to ensure the two files are consistent. To run locally, also create a file `.env`.
+
+**.env**
+
+To run locally, this should contain:
+
+```sh
+CADDYFILE=./Caddyfile.local
+```
+
+If using the VPN, this can be omitted or commented out.
 
 **.env.client** (used at client build time; values will be baked into the binary on build):
 
 - `HOST`: Default server for API and game. Omit or leave empty for local. For production, set to your domain (for example, `HOST=by-a-thread.de`). Must match `HOST` in `.env.matchmaker`.
 
-- `CLIENT_PROOF`: Base64-encoded secret intended to prove that requests are from a real game client. The matchmaker validates the client by checking that the SHA-256 hash of the decoded bytes equals `CLIENT_PROOF_HASH` in `.env.matchmaker`. The secret can be any length; 32 bytes is a typical choice (44 base64 characters). Generate a pair once (for example, `openssl rand -base64 32` for `CLIENT_PROOF`, then take the SHA-256 hash of the decoded bytes as 64 hex characters for `CLIENT_PROOF_HASH`) and use the same values in both env files.
+- `CLIENT_PROOF`: Base64-encoded secret intended to prove that requests are from a real game client. The matchmaker validates the client by checking that the SHA-256 hash of the decoded bytes equals `CLIENT_PROOF_HASH` in `.env.matchmaker`. The secret can be any length; 32 bytes is a typical choice (44 base64 characters). Generate a pair once (for example, `openssl rand -base64 32` for `CLIENT_PROOF`, then take the SHA-256 hash of the decoded bytes as 64 hex characters for `CLIENT_PROOF_HASH`) and use the same values in both env files. Or, in Rust:
+
+```rust
+use rand::RngExt;
+use base64::{Engine as _, engine::general_purpose};
+use sha2::{Sha256, Digest};
+
+fn main() {
+    let mut rng = rand::rng();
+    let random_bytes: [u8; 32] = rng.random();
+
+    let b64_encoded = general_purpose::STANDARD.encode(random_bytes);
+    println!("Base64: {}", b64_encoded);
+
+    let mut hasher = Sha256::new();
+    hasher.update(random_bytes);
+    let hash_result = hasher.finalize();
+
+    println!("SHA-256: {:x}", hash_result);
+}
+```
 
 The Renet protocol id is derived from the Cargo version number at build time. If client and server are built from different versions, the server refuses the connection. Rebuild both from the same source to fix protocol mismatches.
 
@@ -115,7 +145,7 @@ The Renet protocol id is derived from the Cargo version number at build time. If
 
 - `HOST` (optional): Same meaning as in `.env.client`. Omit or set to `local` or `localhost` for local; set to your domain for production. Must match `.env.client` (see `make check-env`).
 
-- `GAME_IMAGE`: The Docker image to use for game servers.
+- `GAME_IMAGE`: The Docker image to use for game servers: `pjtunstall/server-image:latest`.
 
 - `CLIENT_PROOF_HASH`: 64-character hex string (32 bytes), the SHA-256 hash of the bytes that are base64-encoded as `CLIENT_PROOF` in `.env.client`. This is used by the matchmaker to validate the client proof.
 
@@ -123,9 +153,9 @@ The Renet protocol id is derived from the Cargo version number at build time. If
 
 |  | Local | Production |
 | --- | --- | --- |
+| `.env` | Should contain `CADDYFILE=./Caddyfile.local`. | Omit to use default `./Caddyfile`. |
 | `.env.client` | Leave `HOST` commented out or unset. | Set `HOST=your-domain.de`. |
 | `.env.matchmaker` | Leave `HOST` commented out or set to `local`. | Set `HOST=your-domain.de`. |
-| `.env` | Should contain `CADDYFILE=./Caddyfile.local`. | Omit to use default `Caddyfile`. |
 
 After changing `HOST` for production, rebuild the client so the new default server is baked in.
 

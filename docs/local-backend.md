@@ -16,9 +16,9 @@ See `docs/devops.md` (Environment section) for details of the required variables
 
 For local testing, the key points are:
 
+- In `.env`, set `CADDYFILE=./Caddyfile.local` so that Caddy uses the local configuration with self-signed certificates.
 - In `.env.client`, leave `HOST` commented out or unset.
 - In `.env.matchmaker`, leave `HOST` commented out or set it to `local`.
-- In `.env`, set `CADDYFILE=./Caddyfile.local` so that Caddy uses the local configuration with self-signed certificates.
 
 ### 2. Build the game server image
 
