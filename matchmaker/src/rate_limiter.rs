@@ -92,14 +92,13 @@ mod tests {
         let ip = IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0));
 
         for _ in 0..max_requests_per_minute {
-            let legit_try_allowed = check_function(&rate_limiter, ip).await.is_ok();
-            assert!(
-                legit_try_allowed,
-                "should not restrict till limit is reached"
-            );
+            check_function(&rate_limiter, ip)
+                .await
+                .expect("should not restrict till limit is reached");
         }
 
-        let excess_try_blocked = check_function(&rate_limiter, ip).await.is_err();
-        assert!(excess_try_blocked, "should restrict when limit is reached");
+        check_function(&rate_limiter, ip)
+            .await
+            .expect_err("should restrict when limit is reached");
     }
 }

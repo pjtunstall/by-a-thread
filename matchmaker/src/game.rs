@@ -70,7 +70,10 @@ impl Game {
             eprintln!("docker connect failed: {}", e);
             HttpError::ServerError
         })?;
+
         let container_name = format!("game-{}", uuid::Uuid::new_v4());
+        self.container_name = Some(container_name.clone());
+
         let private_key_b64 = base64::engine::general_purpose::STANDARD.encode(&private_key);
 
         let mut port_bindings = HashMap::new();
@@ -86,7 +89,43 @@ impl Game {
             "`GAME_IMAGE` environment variable must be set (check your .env.matchmaker file)",
         );
 
-        let config = ContainerCreateBody {
+        let config = self.config(server_host, image_name, private_key_b64, port_bindings);
+        let options = CreateContainerOptions {
+            name: Some(container_name.clone()),
+            ..Default::default()
+        };
+
+        docker
+            .create_container(Some(options), config)
+            .await
+            .map_err(|e| {
+                eprintln!("docker create_container failed: {}", e);
+                HttpError::ServerError
+            })?;
+
+        docker
+            .start_container(&container_name, None)
+            .await
+            .map_err(|e| {
+                eprintln!("`docker.start_container` failed: {}", e);
+                HttpError::ServerError
+            })?;
+
+        // Wait a moment before checking that the container didn't exit.
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        self.inspect_container(&container_name, docker).await?;
+
+        Ok(())
+    }
+
+    fn config(
+        &self,
+        server_host: std::net::IpAddr,
+        image_name: String,
+        private_key_b64: String,
+        port_bindings: HashMap<String, Option<Vec<PortBinding>>>,
+    ) -> ContainerCreateBody {
+        ContainerCreateBody {
             image: Some(image_name),
             env: Some(vec![
                 format!("PRIVATE_KEY={}", private_key_b64),
@@ -105,31 +144,14 @@ impl Game {
                 ..Default::default()
             }),
             ..Default::default()
-        };
+        }
+    }
 
-        let options = CreateContainerOptions {
-            name: Some(container_name.clone()),
-            ..Default::default()
-        };
-        docker
-            .create_container(Some(options), config)
-            .await
-            .map_err(|e| {
-                eprintln!("docker create_container failed: {}", e);
-                HttpError::ServerError
-            })?;
-
-        docker
-            .start_container(&container_name, None)
-            .await
-            .map_err(|e| {
-                eprintln!("docker start_container failed: {}", e);
-                HttpError::ServerError
-            })?;
-
-        self.container_name = Some(container_name.clone());
-
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    async fn inspect_container(
+        &self,
+        container_name: &str,
+        docker: Docker,
+    ) -> Result<(), HttpError> {
         let inspect = docker
             .inspect_container(&container_name, None)
             .await
@@ -137,6 +159,7 @@ impl Game {
                 eprintln!("docker inspect_container failed: {}", e);
                 HttpError::ServerError
             })?;
+
         if inspect
             .state
             .as_ref()

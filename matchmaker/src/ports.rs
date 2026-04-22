@@ -70,7 +70,7 @@ mod tests {
             .expect("failed to get a port from a new pool");
         let result = port_pool.release(port).await;
         result.expect(&format!(
-            "failed to release a newly acquired port ({port}) back to the pool"
+            "should be able to free a newly acquired port ({port}) back to the pool"
         ));
     }
 
@@ -78,13 +78,9 @@ mod tests {
     async fn invalid_port_should_not_be_released() {
         let port_pool = PortPool::new();
         let port = PORT_POOL_END + 1;
-        let result = port_pool.release(port).await;
-        assert!(
-            result.is_err(),
-            "should not be able to release a port ({}) outside of the valid range ({}-{})",
-            port,
-            PORT_POOL_START,
-            PORT_POOL_END
-        );
+        port_pool.release(port).await.expect_err(&format!(
+            "should not be able to free a port ({}) outside of the valid range ({}-{})",
+            port, PORT_POOL_START, PORT_POOL_END
+        ));
     }
 }
