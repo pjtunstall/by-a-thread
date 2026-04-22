@@ -58,7 +58,7 @@ pub async fn create_game(
         .start_server_container(private_key, state.server_host)
         .await
     {
-        state.port_pool.release(port).await;
+        let _ = state.port_pool.release(port).await;
         return Err(e);
     }
 

@@ -137,7 +137,7 @@ async fn run_cleanup(state: AppState) -> Result<(), String> {
                 .await;
 
             state.games.remove(passcode).await;
-            state.port_pool.release(port).await;
+            let _ = state.port_pool.release(port).await;
             println!("Cleaned up {} and released port {}", container_name, port);
         }
     }
