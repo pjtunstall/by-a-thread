@@ -171,7 +171,7 @@ Two workflows are used to build and deploy the stack.
 - **Deploy Client (`deploy-client.yaml`)**:
   - Downloads the client artifacts produced by the build workflow.
   - Uses Butler to push the client builds to itch.io (one channel per platform/package type).
-  - Publishes the same artifacts to GitHub Releases under stable, version-less filenames.
+  - Publishes the same artifacts to GitHub Releases under stable, version-less filenames (for stable download URLs), and duplicates each asset with the semver in the filename (for example, `ByAThread-0.2.0-linux.AppImage`) so releases stay identifiable. The latest version can then be downloaded from the stable URL (for example, `http:://github.com/pjtunstall/by-a-thread/releases/latest/download/ByAThread-linux.AppImage`).
 
 These workflows rely on a set of GitHub secrets to populate `.env` files during builds and to authenticate to external services:
 
@@ -203,7 +203,7 @@ These workflows rely on a set of GitHub secrets to populate `.env` files during 
   - Combined in `deploy-client.yaml` into `GAME=${{ secrets.ITCH_USERNAME }}/${{ secrets.ITCH_GAME }}`.
   - Identify the itch.io game target for Butler channels (`:windows`, `:linux`, `:linux-deb`, `:linux-rpm`, `:mac-*`).
 
-The `Deploy Client` workflow can be started manually from the GitHub UI (`workflow_dispatch`) or triggered by a `repository_dispatch` event of type `deploy_client`. A script running on the VPS (or any other trusted system) can call the GitHub REST API with an appropriate personal access token to send that event, which in turn causes `deploy-client.yaml` to run, push the latest client artifacts to itch.io, and publish them to GitHub Releases under stable, version-less filenames.
+The `Deploy Client` workflow can be started manually from the GitHub UI (`workflow_dispatch`) or triggered by a `repository_dispatch` event of type `deploy_client`. A script running on the VPS (or any other trusted system) can call the GitHub REST API with an appropriate personal access token to send that event, which in turn causes `deploy-client.yaml` to run, push the latest client artifacts to itch.io, and publish them to GitHub Releases (stable names plus semver-named copies as described above).
 
 WARNING: If deploying manually from the GitHub UI, be sure not to let the client get out of sync with the backend!
 

@@ -83,6 +83,8 @@ jobs:
           done
 
       - name: Stage release assets with stable names
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           shopt -s nullglob
           mkdir -p release-assets
@@ -112,6 +114,16 @@ jobs:
               cp "$file" release-assets/ByAThread-macos.zip
             fi
           done
+
+          if [ -n "$VERSION" ]; then
+            cp release-assets/ByAThread-windows.zip "release-assets/ByAThread-${VERSION}-windows.zip"
+            cp release-assets/ByAThread-linux.AppImage "release-assets/ByAThread-${VERSION}-linux.AppImage"
+            cp release-assets/ByAThread-linux.deb "release-assets/ByAThread-${VERSION}-linux.deb"
+            cp release-assets/ByAThread-linux.rpm "release-assets/ByAThread-${VERSION}-linux.rpm"
+            [ -f release-assets/ByAThread-macos-intel.zip ] && cp release-assets/ByAThread-macos-intel.zip "release-assets/ByAThread-${VERSION}-macos-intel.zip"
+            [ -f release-assets/ByAThread-macos-silicon.zip ] && cp release-assets/ByAThread-macos-silicon.zip "release-assets/ByAThread-${VERSION}-macos-silicon.zip"
+            [ -f release-assets/ByAThread-macos.zip ] && cp release-assets/ByAThread-macos.zip "release-assets/ByAThread-${VERSION}-macos.zip"
+          fi
 
           ls -la release-assets
 
