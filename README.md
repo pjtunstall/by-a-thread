@@ -131,7 +131,7 @@ In-game or in the lobby:
 - Get confirmation that the yet-to-be-tested binaries work:
   - macOS (Intel and Apple Silicon)
   - Linux RPM
-- Handle any essential issues raised by feedback
+- Handle any urgent issues raised by feedback
 - Publish on itch.io
 
 ## Possible further developments
