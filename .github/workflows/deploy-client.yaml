@@ -144,7 +144,7 @@ jobs:
 
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Deleting existing release $TAG so this run can create a new one."
-            gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes
+            gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
           fi
 
           echo "Creating release $TAG."
