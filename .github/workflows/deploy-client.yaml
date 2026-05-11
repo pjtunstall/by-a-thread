@@ -143,15 +143,14 @@ jobs:
           fi
 
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $TAG already exists; uploading assets with --clobber."
-            gh release upload "$TAG" release-assets/* \
-              --repo "$GITHUB_REPOSITORY" \
-              --clobber
-          else
-            echo "Creating release $TAG."
-            gh release create "$TAG" release-assets/* \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "$TITLE" \
-              --notes "Automated release from commit ${COMMIT_SHA}." \
-              --latest
+            echo "Deleting existing release $TAG so this run can create a new one."
+            gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes
           fi
+
+          echo "Creating release $TAG."
+          gh release create "$TAG" release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$TITLE" \
+            --notes "Automated release from commit ${COMMIT_SHA}." \
+            --target "$COMMIT_SHA" \
+            --latest
