@@ -45,7 +45,7 @@ Then launch the game from your app menu.
 
 ### AppImage
 
-You have two options here. I recommend first installing **AppImageLauncher**. It's is not required for AppImages to run, but many desktops treat a bare file as a one-off download; registering it gives you a normal app-menu entry and a clearer path when you drop in a newer build.
+You have two options here. I recommend first installing **AppImageLauncher**. It's not required for AppImages to run, but many desktops treat a bare file as a one-off download; registering it gives you a normal app-menu entry and a clearer path when you drop in a newer build.
 
 **With AppImageLauncher (recommended):** Install **AppImageLauncher**, double-click `ByAThread-linux.AppImage`, choose **Integrate** when prompted, then launch the game from your app menu.
 

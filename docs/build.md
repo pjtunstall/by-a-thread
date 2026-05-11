@@ -125,45 +125,73 @@ Note that game client instances will appear as a plain (cogwheel) icons in the t
 
 ### .deb
 
-The `.deb` package is built as one step of the full build (`make`). Prerequisite: `cargo install cargo-deb`.
+Built by the full `make` target (or `make deb` alone). Prerequisite: `cargo install cargo-deb`.
 
-The `-1` in the filename is the Debian package revision number. It indicates this is the first revision of version 0.1.0. If you make changes to the package without changing the version number, you would increment this to `-2`, `-3`, etc.
+The build runs `cargo deb -p client` and copies the resulting `.deb` into `dist/`. Names follow the usual Debian binary package form:
 
-To install: if you're still in `client` folder, move back to the workspace root, then:
+`by-a-thread_<upstream_version>-<debian_revision>_<architecture>.deb`
+
+- **Package name** `by-a-thread` comes from `[package.metadata.deb]` in `client/Cargo.toml`.
+- **`<upstream_version>`** is the workspace version (same across crates).
+- **`<debian_revision>`** is the `revision` field in that metadata. This repo sets `1`; bump if you repackage without changing the upstream version. Note: Debian calls the **Debian revision**; it matches the role of **`release`** in an RPM (below).
+- **`<architecture>`** is typically `amd64` for these builds.
+
+Example: `by-a-thread_0.1.0-1_amd64.deb`.
+
+From the workspace root:
 
 ```sh
 sudo dpkg -i dist/by-a-thread_*.deb
 ```
 
-If you encounter dependency issues, run:
+If dependency resolution fails:
 
 ```sh
 sudo apt-get install -f
 ```
 
-Desktop environments such as GNOME and KDE will typically show the launcher icon and sidebar entry created by the installed `.deb` (or `.rpm`), not by the AppImage. After rebuilding the `.deb` locally, reinstall it from `dist/` so the sidebar entry runs the newly built fullscreen client.
-
 ### .rpm
 
-The `.rpm` package is built as one step of the full build (`make`). Prerequisite: `cargo install cargo-generate-rpm`. The build produces a file such as `by-a-thread-0.1.0-1.x86_64.rpm` in `dist/`, for use on Fedora, RHEL, openSUSE and other RPM-based distributions.
+Built by the full `make` target (or `make rpm` alone). Prerequisite: `cargo install cargo-generate-rpm` (the binary is invoked as `cargo generate-rpm`).
 
-To install from the workspace root:
+The build runs `cargo generate-rpm -p client` (with gzip payload compression, per the `Makefile`) and copies the `.rpm` into `dist/`. Names follow the usual RPM form:
+
+`by-a-thread-<version>-<release>.x86_64.rpm`
+
+- **`<version>`** is the workspace package version.
+- **`<release>`** is the `release` field under `[package.metadata.generate-rpm]` in `client/Cargo.toml`. This repo sets `1`; bump when repackaging the same upstream version. Note: RPM `.spec` files call those fields **Version** and **Release**; **Release** here is the same idea as Debian **revision** (above).
+
+Example: `by-a-thread-0.1.0-1.x86_64.rpm`.
+
+From the workspace root:
 
 ```sh
 sudo rpm -i dist/by-a-thread-*.rpm
 ```
 
-Or, on Fedora and similar:
+On Fedora and similar:
 
 ```sh
 sudo dnf install dist/by-a-thread-*.rpm
 ```
 
-The RPM uses gzip payload compression so it can be installed on any recent rpm (Fedora, openSUSE, RHEL 8+, etc.). CentOS 7 and other RPMv3-based systems are not supported by cargo-generate-rpm.
+That compression and metadata layout target current Fedora, openSUSE, RHEL 8+, and similar. CentOS 7 and other RPMv3-only environments are not supported by cargo-generate-rpm.
+
+GNOME, KDE, and other desktops typically show the launcher from an installed `.deb` or `.rpm`. After you rebuild locally, reinstall from `dist/` so the menu entry runs the new binary. AppImages (below) do not register in the menu until integrated; [installation.md](installation.md#appimage) recommends **AppImageLauncher** for that.
 
 ### AppImage
 
-An **AppImage** is a single file that runs on most Linux desktops without installation: the user downloads it, makes it executable, and runs it. The build produces `ByAThread-<version>.AppImage` in `dist/` (for example, `ByAThread-0.1.0.AppImage`).
+Built by the full `make` target (or `make appimage` alone). You also need **linuxdeploy** and **appimagetool** on your `PATH`; installation steps appear later in this section.
+
+The `Makefile` writes a single file to `dist/`:
+
+`ByAThread-<version>.AppImage`
+
+**`<version>`** is the `client` crate version from `cargo metadata` (the workspace version in the root `Cargo.toml`).
+
+Example: `ByAThread-0.1.0.AppImage`.
+
+The binary runs without a full install: users can just mark it executable and launch it, or install with **AppImageLauncher** (recommended in [installation.md](installation.md)) so the desktop lists it like a normal app. Both approaches are valid; AppImageLauncher mainly improves menu integration and updates when you drop in a newer file.
 
 There is only one build file specific to AppImage:
 
@@ -185,4 +213,4 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 
 (To use linuxdeploy from a different path without putting it in PATH, set the environment variable `LINUXDEPLOY` to the full path of the file when you run `make`; `appimagetool` must still be in PATH.)
 
-When you download the AppImage from itch.io, it should already be marked as executable by the CI workflow. Some desktop environments may still prefer or require an AppImage helper (such as AppImageLauncher or a distro-specific "AppImage installer") to integrate the file into menus and launchers; this is an OS-level convenience layer rather than a project requirement.
+When you download the AppImage from itch.io, it should already be marked as executable by the CI workflow. For an app-menu entry, follow [installation.md](installation.md): install **AppImageLauncher** and integrate when prompted, or use another distro-specific helper if you prefer.

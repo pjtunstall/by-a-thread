@@ -46,7 +46,7 @@ mod tests {
     #[test]
     fn client_banner_is_printed_correctly() {
         let mut ui = MockUi::default();
-        let version = "0.1.0";
+        let version = env!("CARGO_PKG_VERSION");
         let server_address = server_address::default_server_address()
             .ok()
             .expect("test env");

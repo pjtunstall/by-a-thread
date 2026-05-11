@@ -8,7 +8,7 @@ info:
     encounter 502 or 504 from the reverse proxy if the matchmaker is
     unreachable or slow to respond; create-game in particular involves Docker
     startup and may take several seconds.
-  version: 0.1.0
+  version: 0.2.0
 
 servers:
   - url: https://api.by-a-thread.de
