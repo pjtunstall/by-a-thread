@@ -1,0 +1,13 @@
+target/
+**/*.rs.bk
+**/*.rs.bak
+
+.vs/
+.vscode/
+
+dist/
+AppDir
+
+.env
+.env.*
+docker-compose.override.yaml

@@ -1,0 +1,370 @@
+openapi: 3.2.0
+info:
+  title: By a Thread Matchmaker API
+  description: |
+    API for creating and joining game sessions. All requests must include the
+    client proof header to prove the client is legitimate. The matchmaker
+    enforces rate limiting on both create-game and join requests. Clients may
+    encounter 502 or 504 from the reverse proxy if the matchmaker is
+    unreachable or slow to respond; create-game in particular involves Docker
+    startup and may take several seconds.
+  version: 0.1.0
+
+servers:
+  - url: https://api.by-a-thread.de
+    description: Production
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      desription: |
+        Returns the current health status of the API. Intended for uptime monitoring.
+      operationId: getHealth
+      responses:
+      "200":
+        description: API is healthy and reachable
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - ok
+                  example: ok
+
+  /games:
+    post:
+      summary: Create a new game
+      description: |
+        Request a new game session. The matchmaker checks limits (games, players,
+        CPU), allocates a port, generates a passcode and private key, launches a
+        game server in Docker, and returns the connection details. Rate limited
+        to 4 requests per minute per client.
+      operationId: createGame
+      parameters:
+        - $ref: "#/components/parameters/ClientProof"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGameRequest"
+      responses:
+        "200":
+          description: Game created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateGameResponse"
+        "400":
+          description: Bad request (missing or invalid fields)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                invalid_player_count:
+                  value:
+                    code: INVALID_PLAYER_COUNT
+                    message: "player_count must be between 1 and 10."
+        "422":
+          description: |
+            Unprocessable entity. Returned when the request body is missing, not
+            valid JSON, or fails schema validation (e.g. unknown fields). Axum's
+            Json extractor handles this before the handler runs; response body
+            format is Axum's default.
+        "401":
+          description: |
+            Unauthorized. Either the client proof is missing or invalid
+            (INVALID_CLIENT_PROOF), or the version string does not match the
+            matchmaker (VERSION_MISMATCH).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                invalid_client_proof:
+                  value:
+                    code: INVALID_CLIENT_PROOF
+                    message: "Client proof is missing or invalid."
+                version_mismatch:
+                  value:
+                    code: VERSION_MISMATCH
+                    message: |
+                      "Client version 0.1.0 is not supported. Please download the current version: 0.2.0."
+        "429":
+          description: Rate limit exceeded
+          headers:
+            Retry-After:
+              description: Seconds until the client may retry
+              schema:
+                type: integer
+                examples: [12]
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: RATE_LIMITED
+                message: "Too many requests. Try again later."
+        "503":
+          description: |
+            Service unavailable (limits exceeded, scheduled maintenance, or Docker failure)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                limits_exceeded:
+                  value:
+                    code: LIMITS_EXCEEDED
+                    message: "No capacity for new games at the moment."
+                server_error:
+                  value:
+                    code: SERVER_ERROR
+                    message: "Failed to start game server. Please try again."
+                scheduled_maintenance:
+                  value:
+                    code: SCHEDULED_MAINTENANCE
+                    message: |
+                      "Server undergoing scheduled maintenance. Please try again after 5:00 UTC."
+        "502":
+          description: Bad gateway (reverse proxy could not reach the matchmaker)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "504":
+          description: Gateway timeout (matchmaker did not respond in time)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /games/{passcode}/join:
+    post:
+      summary: Join an existing game
+      description: |
+        Request a connect token to join a game by passcode. Valid only if the
+        passcode is correct, the lobby timer has not elapsed, and connect
+        tokens remain available. Rate limited to 10 requests per minute per
+        client to prevent passcode enumeration.
+      operationId: joinGame
+      parameters:
+        - $ref: "#/components/parameters/ClientProof"
+        - name: passcode
+          in: path
+          required: true
+          description: Six-digit passcode shared by the host
+          schema:
+            type: string
+            pattern: '^\d{6}$'
+            examples: ["123456"]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinGameRequest"
+      responses:
+        "200":
+          description: Join successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinGameResponse"
+        "400":
+          description: Bad request (invalid passcode format)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                invalid_passcode_format:
+                  value:
+                    code: INVALID_PASSCODE_FORMAT
+                    message: "passcode must be a six-digit number."
+        "422":
+          description: |
+            Unprocessable entity. Returned when the request body is missing, not
+            valid JSON, or fails schema validation (e.g. unknown fields). Axum's
+            Json extractor handles this before the handler runs; response body
+            format is Axum's default.
+        "401":
+          description: |
+            Unauthorized. Either the client proof is missing or invalid
+            (INVALID_CLIENT_PROOF), or the version string does not match the
+            matchmaker (VERSION_MISMATCH).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                invalid_client_proof:
+                  value:
+                    code: INVALID_CLIENT_PROOF
+                    message: "Client proof is missing or invalid."
+                version_mismatch:
+                  value:
+                    code: VERSION_MISMATCH
+                    message: "Client version 0.1.0 is not supported. Please download the current version: 0.2.0."
+        "404":
+          description: Game not found (invalid passcode)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: GAME_NOT_FOUND
+                message: "No game with that passcode."
+        "409":
+          description: |
+            Game exists but cannot accept joins (no tokens left or game already
+            started). Game already started covers both the host starting early
+            and the lobby timer expiring (the server auto-starts when the
+            timer runs out).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                lobby_full:
+                  value:
+                    code: LOBBY_FULL
+                    message: |
+                      "No slots left. All connect tokens have been claimed."
+                game_already_started:
+                  value:
+                    code: GAME_ALREADY_STARTED
+                    message: "The game has already started."
+        "429":
+          description: Rate limit exceeded
+          headers:
+            Retry-After:
+              description: Seconds until the client may retry
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: RATE_LIMITED
+                message: "Too many requests. Try again later."
+        "502":
+          description: Bad gateway (reverse proxy could not reach the matchmaker)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "504":
+          description: Gateway timeout (matchmaker did not respond in time)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  parameters:
+    ClientProof:
+      name: X-Version-Code
+      in: header
+      required: true
+      description: |
+        Baked-in client proof (base64) proving the request is from a real game client.
+      schema:
+        type: string
+
+  schemas:
+    CreateGameRequest:
+      type: object
+      required:
+        - player_count
+      properties:
+        player_count:
+          type: integer
+          description: Number of players who will join (including host)
+          minimum: 1
+          maximum: 10
+
+    CreateGameResponse:
+      type: object
+      required:
+        - port
+        - connect_token
+        - passcode
+      properties:
+        port:
+          type: integer
+          description: UDP port for this game's container on the host
+          minimum: 7777
+          maximum: 7786
+          example: 7777
+        connect_token:
+          type: string
+          description: |
+            Base64-encoded Renet connect token (returned as a string in the JSON response). The client decodes from base64 and deserializes the binary to connect. The token must remain valid for the entire session (lobby,
+            countdown, and game), not just during the initial handshake; the netcode
+            layer validates it continuously. Tokens are issued with an expiry that
+            exceeds the maximum session length.
+        passcode:
+          type: string
+          description: Six-digit passcode to share with other players
+          pattern: '^\d{6}$'
+          example: "123456"
+
+    JoinGameRequest:
+      type: object
+      description: Empty body. Username is sent to the game server after connecting.
+      additionalProperties: false
+
+    JoinGameResponse:
+      type: object
+      required:
+        - port
+        - connect_token
+      properties:
+        port:
+          type: integer
+          description: UDP port for this game's container on the host
+          minimum: 7777
+          maximum: 7786
+          examples: [7777]
+        connect_token:
+          type: string
+          description: |
+            Serialized Renet connect token (JSON). The client deserializes and uses
+            it to connect. The token must remain valid for the entire session (lobby,
+            countdown, and game), not just during the initial handshake; the netcode
+            layer validates it continuously. Tokens are issued with an expiry that
+            exceeds the maximum session length.
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code
+          enum:
+            - INVALID_CLIENT_PROOF
+            - INVALID_PASSCODE_FORMAT
+            - INVALID_PLAYER_COUNT
+            - VERSION_MISMATCH
+            - RATE_LIMITED
+            - LIMITS_EXCEEDED
+            - SCHEDULED_MAINTENANCE
+            - SERVER_ERROR
+            - GAME_NOT_FOUND
+            - LOBBY_FULL
+            - GAME_ALREADY_STARTED
+        message:
+          type: string
+          description: Human-readable error message

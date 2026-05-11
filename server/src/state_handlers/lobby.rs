@@ -1,0 +1,534 @@
+use std::time::{Duration, Instant};
+
+use bincode::{
+    config::standard,
+    serde::{decode_from_slice, encode_to_vec},
+};
+
+use crate::{
+    net::ServerNetworkHandle,
+    state::{ChoosingDifficulty, Countdown, Lobby, ServerState},
+};
+use rand::Rng as _;
+
+use common::{
+    self,
+    chat::MAX_CHAT_MESSAGE_BYTES,
+    constants::NUM_DIFFICULTY_LEVELS,
+    net::AppChannel,
+    player::{UsernameError, sanitize_username},
+    protocol::{ClientMessage, MAX_CLIENT_MESSAGE_BYTES, ServerMessage},
+    snapshot::InitialData,
+};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LobbyErrorKind {
+    UsernameValidation(UsernameError),
+}
+
+pub fn handle(
+    network: &mut dyn ServerNetworkHandle,
+    state: &mut Lobby,
+) -> Option<ServerState> {
+    if let Some(end_time) = state.lobby_timer_end {
+        let now = common::time::now_as_secs_f64();
+        if now >= end_time {
+            if state.usernames.is_empty() {
+                println!("Lobby timer expired with no players. Server exiting.");
+                std::process::exit(0);
+            }
+            println!("Lobby timer expired. Starting game with default difficulty.");
+            return Some(transition_to_countdown_with_random_difficulty(state));
+        }
+        if !state.one_minute_warning_sent && now >= end_time - 60.0 {
+            state.one_minute_warning_sent = true;
+            let message = ServerMessage::ServerInfo {
+                message: "Game starting automatically in one minute...".to_string(),
+            };
+            let payload =
+                encode_to_vec(&message, standard()).expect("failed to serialize ServerInfo");
+            network.broadcast_message(AppChannel::ReliableOrdered, payload);
+        }
+    }
+
+    for client_id in network.clients_id() {
+        while let Some(data) = network.receive_message(client_id, AppChannel::ReliableOrdered) {
+            if data.len() > MAX_CLIENT_MESSAGE_BYTES {
+                eprintln!(
+                    "client {} sent oversized message; disconnecting them",
+                    client_id
+                );
+                network.disconnect(client_id);
+                continue;
+            }
+            let Ok((message, _)) = decode_from_slice::<ClientMessage, _>(&data, standard()) else {
+                eprintln!(
+                    "client {} sent malformed data; disconnecting them",
+                    client_id
+                );
+                network.disconnect(client_id);
+                continue;
+            };
+
+            match message {
+                ClientMessage::SetUsername(username_text) => {
+                    if !state.needs_username(client_id) {
+                        eprintln!("client {} sent username in wrong state", client_id);
+                        continue;
+                    }
+
+                    match sanitize_username(&username_text) {
+                        Ok(username) => {
+                            if state.is_username_taken(&username) {
+                                send_username_error(
+                                    network,
+                                    client_id,
+                                    "username is already taken",
+                                    LobbyErrorKind::UsernameValidation(UsernameError::Reserved),
+                                );
+                                continue;
+                            }
+
+                            state.register_username(client_id, &username);
+                            println!("Client {} set username to '{}'.", client_id, username);
+
+                            let color = state
+                                .color(client_id)
+                                .expect("missing player color for welcome");
+                            let message = ServerMessage::Welcome {
+                                username: username.to_string(),
+                                color,
+                            };
+                            let payload = encode_to_vec(&message, standard())
+                                .expect("failed to serialize Welcome");
+                            network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+
+                            let others = state.roster_except(client_id);
+                            let message = ServerMessage::Roster { online: others };
+                            let payload = encode_to_vec(&message, standard())
+                                .expect("failed to serialize Roster");
+                            network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+
+                            if state.usernames_except(client_id).is_empty() {
+                                state.set_host(client_id, network);
+                                if let Some(end_time) = state.lobby_timer_end {
+                                    let timer_msg = ServerMessage::LobbyTimer { end_time };
+                                    let timer_payload = encode_to_vec(&timer_msg, standard())
+                                        .expect("failed to serialize LobbyTimer");
+                                    network.broadcast_message(
+                                        AppChannel::ReliableOrdered,
+                                        timer_payload,
+                                    );
+                                }
+                            } else if let Some(end_time) = state.lobby_timer_end {
+                                let timer_msg = ServerMessage::LobbyTimer { end_time };
+                                let timer_payload = encode_to_vec(&timer_msg, standard())
+                                    .expect("failed to serialize LobbyTimer");
+                                network.send_message(
+                                    client_id,
+                                    AppChannel::ReliableOrdered,
+                                    timer_payload,
+                                );
+                            }
+
+                            let message = ServerMessage::UserJoined {
+                                username: username.to_string(),
+                            };
+                            let payload = encode_to_vec(&message, standard())
+                                .expect("failed to serialize UserJoined");
+                            network.broadcast_message_except(
+                                client_id,
+                                AppChannel::ReliableOrdered,
+                                payload,
+                            );
+                        }
+                        Err(err) => {
+                            let error_text = match err {
+                                UsernameError::Empty => "username must not be empty",
+                                UsernameError::TooLong => "username is too long",
+                                UsernameError::InvalidCharacter(_) => {
+                                    "username contains an invalid character"
+                                }
+                                UsernameError::Reserved => "that username is reserved",
+                            };
+                            send_username_error(
+                                network,
+                                client_id,
+                                error_text,
+                                LobbyErrorKind::UsernameValidation(err),
+                            );
+                        }
+                    }
+                }
+                ClientMessage::SendChat(content) => {
+                    if let Some(username) = state.username(client_id) {
+                        let clean_content = common::input::sanitize(&content);
+                        let trimmed_content = clean_content.trim();
+
+                        if trimmed_content.is_empty() {
+                            continue;
+                        }
+                        if trimmed_content.len() > MAX_CHAT_MESSAGE_BYTES {
+                            println!(
+                                "Client {} sent an overly long chat message; ignoring.",
+                                client_id
+                            );
+                            continue;
+                        }
+
+                        println!("{}: {}", username, trimmed_content);
+                        let color = state
+                            .color(client_id)
+                            .expect("missing player color for chat");
+                        let message = ServerMessage::ChatMessage {
+                            username: username.to_string(),
+                            color,
+                            content: trimmed_content.to_string(),
+                        };
+                        let payload = encode_to_vec(&message, standard())
+                            .expect("failed to serialize ChatMessage");
+                        network.broadcast_message(AppChannel::ReliableOrdered, payload);
+                    } else {
+                        eprintln!("client {} sent chat message in wrong state", client_id);
+                    }
+                }
+                ClientMessage::RequestStartGame => {
+                    if state.is_host(client_id) {
+                        return Some(ServerState::ChoosingDifficulty(ChoosingDifficulty::new(
+                            state,
+                        )));
+                    } else {
+                        // Send refusal message to client so they can exit "Waiting for server..."
+                        // 'state' and restore their input prompt. The client code should
+                        // prevent a non-host client from asking to move to the difficulty
+                        // choice state. This guarantees it.
+                        eprintln!("client {} (not host) tried to start game", client_id);
+                        let message = ServerMessage::DenyDifficultySelection;
+                        let payload = encode_to_vec(&message, standard())
+                            .expect("failed to serialize NoHost message");
+                        network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+                    }
+                }
+                ClientMessage::SetDifficulty(_) => {
+                    eprintln!(
+                        "client {} sent SetDifficulty in lobby state; ignoring",
+                        client_id
+                    );
+                }
+                ClientMessage::EnterPostGameChat => {
+                    eprintln!(
+                        "client {} sent EnterPostGameChat in lobby state; ignoring",
+                        client_id
+                    );
+                }
+                ClientMessage::Input(_) => {
+                    eprintln!("client {} sent game input; ignoring", client_id)
+                }
+            }
+        }
+    }
+
+    None
+}
+
+fn transition_to_countdown_with_random_difficulty(lobby: &Lobby) -> ServerState {
+    let difficulty = rand::rng().random_range(0..=NUM_DIFFICULTY_LEVELS - 1);
+    let mut choosing = ChoosingDifficulty::new(lobby);
+    choosing.set_difficulty(difficulty);
+    let game_data = InitialData::new(
+        &choosing.lobby.usernames,
+        choosing.lobby.colors(),
+        difficulty,
+    );
+    let countdown_duration = Duration::from_secs(11);
+    let end_time_instant = Instant::now() + countdown_duration;
+    ServerState::Countdown(Countdown::new(&choosing, end_time_instant, game_data))
+}
+
+fn send_username_error(
+    network: &mut dyn ServerNetworkHandle,
+    client_id: u64,
+    message: &str,
+    _kind: LobbyErrorKind,
+) {
+    let message = ServerMessage::UsernameError {
+        message: message.to_string(),
+    };
+    let payload = encode_to_vec(&message, standard()).expect("failed to serialize UsernameError");
+    network.send_message(client_id, AppChannel::ReliableOrdered, payload);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::Lobby;
+    use crate::test_helpers::MockServerNetwork;
+    use bincode::config::standard;
+    use bincode::serde::decode_from_slice;
+    use bincode::serde::encode_to_vec;
+    use common::protocol::{ClientMessage, MAX_CLIENT_MESSAGE_BYTES, ServerMessage};
+
+    #[test]
+    fn oversized_message_disconnects_client() {
+        let mut network = MockServerNetwork::new();
+        let mut lobby_state = Lobby::new();
+
+        network.add_client(1);
+        lobby_state.register_connection(1, &mut network);
+        lobby_state.register_username(1, "alice");
+
+        let oversized_payload = vec![0u8; MAX_CLIENT_MESSAGE_BYTES + 1];
+        network.queue_raw_message(1, oversized_payload);
+
+        handle(&mut network, &mut lobby_state);
+
+        assert!(
+            network.disconnected_clients.contains(&1),
+            "client should be disconnected for oversized message"
+        );
+    }
+
+    #[test]
+    fn username_success_and_broadcast() {
+        let mut network = MockServerNetwork::new();
+        let mut lobby_state = Lobby::new();
+
+        network.add_client(1);
+        lobby_state.register_connection(1, &mut network);
+        lobby_state.register_username(1, "alice");
+
+        network.add_client(2);
+        lobby_state.register_connection(2, &mut network);
+
+        let msg = ClientMessage::SetUsername("Bob".to_string());
+        let payload = encode_to_vec(&msg, standard()).unwrap();
+        network.queue_raw_message(2, payload);
+
+        let next_state = handle(&mut network, &mut lobby_state);
+
+        assert_eq!(lobby_state.username(2), Some("Bob"));
+        assert!(next_state.is_none());
+
+        let bob_msgs = network.get_sent_messages_data(2);
+        assert_eq!(bob_msgs.len(), 3);
+
+        let msg1 = decode_from_slice::<ServerMessage, _>(&bob_msgs[0], standard())
+            .unwrap()
+            .0;
+        let bob_color = lobby_state.color(2).expect("missing color for Bob");
+        if let ServerMessage::Welcome { username, color } = msg1 {
+            assert_eq!(username, "Bob");
+            assert_eq!(color, bob_color);
+        } else {
+            panic!("expected Welcome message, got {:?}", msg1);
+        }
+
+        let msg2 = decode_from_slice::<ServerMessage, _>(&bob_msgs[1], standard())
+            .unwrap()
+            .0;
+        let alice_color = lobby_state.color(1).expect("missing color for Alice");
+        if let ServerMessage::Roster { online } = msg2 {
+            assert_eq!(online.len(), 1);
+            assert_eq!(online[0].username, "alice");
+            assert_eq!(online[0].color, alice_color);
+        } else {
+            panic!("expected Roster message, got {:?}", msg2);
+        }
+
+        let alice_msgs = network.get_sent_messages_data(1);
+        assert_eq!(alice_msgs.len(), 1);
+        let msg_alice = decode_from_slice::<ServerMessage, _>(&alice_msgs[0], standard())
+            .unwrap()
+            .0;
+        if let ServerMessage::UserJoined { username } = msg_alice {
+            assert_eq!(username, "Bob");
+        } else {
+            panic!("expected UserJoined message, got {:?}", msg_alice);
+        }
+    }
+
+    #[test]
+    fn duplicate_username_rejected_when_only_case_differs() {
+        let mut network = MockServerNetwork::new();
+        let mut lobby_state = Lobby::new();
+
+        network.add_client(1);
+        lobby_state.register_connection(1, &mut network);
+        lobby_state.register_username(1, "alice");
+
+        network.add_client(2);
+        lobby_state.register_connection(2, &mut network);
+
+        let msg = ClientMessage::SetUsername("ALICE".to_string());
+        let payload = encode_to_vec(&msg, standard()).unwrap();
+        network.queue_raw_message(2, payload);
+
+        let next_state = handle(&mut network, &mut lobby_state);
+
+        assert!(next_state.is_none());
+        assert!(lobby_state.needs_username(2));
+        assert_eq!(lobby_state.username(2), None);
+
+        let client_msgs = network.get_sent_messages_data(2);
+        let has_taken_error = client_msgs.iter().any(|data| {
+            let (m, _) = decode_from_slice::<ServerMessage, _>(data, standard()).unwrap();
+            matches!(
+                m,
+                ServerMessage::UsernameError { message }
+                    if message == "username is already taken"
+            )
+        });
+        assert!(
+            has_taken_error,
+            "expected UsernameError for case-only duplicate, got {} messages",
+            client_msgs.len()
+        );
+    }
+
+    #[test]
+    fn chat_message() {
+        let mut network = MockServerNetwork::new();
+        let mut lobby_state = Lobby::new();
+
+        network.add_client(1);
+        lobby_state.register_connection(1, &mut network);
+        lobby_state.register_username(1, "alice");
+
+        network.add_client(2);
+        lobby_state.register_connection(2, &mut network);
+        lobby_state.register_username(2, "bob");
+
+        let msg = ClientMessage::SendChat("Hello Bob!".to_string());
+        let payload = encode_to_vec(&msg, standard()).unwrap();
+        network.queue_raw_message(1, payload);
+
+        let next_state = handle(&mut network, &mut lobby_state);
+
+        assert!(next_state.is_none());
+
+        let broadcasts = network.get_broadcast_messages_data();
+        assert_eq!(broadcasts.len(), 1);
+        let msg = decode_from_slice::<ServerMessage, _>(&broadcasts[0], standard())
+            .unwrap()
+            .0;
+        let alice_color = lobby_state.color(1).expect("missing color for Alice");
+        if let ServerMessage::ChatMessage {
+            username,
+            color,
+            content,
+        } = msg
+        {
+            assert_eq!(username, "alice");
+            assert_eq!(color, alice_color);
+            assert_eq!(content, "Hello Bob!");
+        } else {
+            panic!("expected ChatMessage, got {:?}", msg);
+        }
+    }
+
+    #[test]
+    fn chat_length_limit() {
+        let mut network = MockServerNetwork::new();
+        let mut lobby_state = Lobby::new();
+
+        network.add_client(1);
+        lobby_state.register_connection(1, &mut network);
+        lobby_state.register_username(1, "Alice");
+
+        let long_message = "a".repeat(MAX_CHAT_MESSAGE_BYTES + 1);
+        let msg = ClientMessage::SendChat(long_message);
+        let payload = encode_to_vec(&msg, standard()).unwrap();
+        network.queue_raw_message(1, payload);
+
+        let next_state = handle(&mut network, &mut lobby_state);
+
+        assert!(next_state.is_none());
+
+        let broadcasts = network.get_broadcast_messages_data();
+        assert_eq!(
+            broadcasts.len(),
+            0,
+            "server broadcasted a message that exceeded the length limit"
+        );
+    }
+
+    #[test]
+    fn chat_sanitization() {
+        let mut network = MockServerNetwork::new();
+        let mut lobby_state = Lobby::new();
+
+        network.add_client(1);
+        lobby_state.register_connection(1, &mut network);
+        lobby_state.register_username(1, "alice");
+
+        network.add_client(2);
+        lobby_state.register_connection(2, &mut network);
+        lobby_state.register_username(2, "bob");
+
+        let malicious_content = "  Hello\x07Bob!\x1B[2J  ";
+        let expected_content = "HelloBob!";
+
+        let msg = ClientMessage::SendChat(malicious_content.to_string());
+        let payload = encode_to_vec(&msg, standard()).unwrap();
+        network.queue_raw_message(1, payload);
+
+        let next_state = handle(&mut network, &mut lobby_state);
+
+        assert!(next_state.is_none());
+
+        let broadcasts = network.get_broadcast_messages_data();
+        assert_eq!(broadcasts.len(), 1);
+        let msg = decode_from_slice::<ServerMessage, _>(&broadcasts[0], standard())
+            .unwrap()
+            .0;
+
+        let alice_color = lobby_state.color(1).expect("missing color for Alice");
+        if let ServerMessage::ChatMessage {
+            username,
+            color,
+            content,
+        } = msg
+        {
+            assert_eq!(username, "alice");
+            assert_eq!(color, alice_color);
+            assert_eq!(
+                content, expected_content,
+                "chat content was not properly sanitized"
+            );
+        } else {
+            panic!("expected ChatMessage, got {:?}", msg);
+        }
+    }
+
+    #[test]
+    fn reserved_username_is_rejected() {
+        let mut network = MockServerNetwork::new();
+        let mut lobby_state = Lobby::new();
+
+        network.add_client(1);
+        lobby_state.register_connection(1, &mut network);
+
+        let msg = ClientMessage::SetUsername("sErVeR".to_string());
+        let payload = encode_to_vec(&msg, standard()).unwrap();
+        network.queue_raw_message(1, payload);
+
+        let next_state = handle(&mut network, &mut lobby_state);
+
+        assert!(next_state.is_none());
+        assert_eq!(lobby_state.username(1), None);
+
+        let client_msgs = network.get_sent_messages_data(1);
+        assert_eq!(client_msgs.len(), 1);
+
+        let msg = decode_from_slice::<ServerMessage, _>(client_msgs.last().unwrap(), standard())
+            .unwrap()
+            .0;
+
+        if let ServerMessage::UsernameError { message } = msg {
+            assert!(!message.chars().any(|c| c.is_control()));
+            assert_eq!(message, "that username is reserved");
+        } else {
+            panic!("expected UsernameError, got {:?}", msg);
+        }
+    }
+}

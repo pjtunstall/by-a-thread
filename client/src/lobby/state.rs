@@ -1,0 +1,80 @@
+use macroquad::prelude::*;
+
+use crate::{game::world::maze::MazeMeshes, info::map::MapOverlay};
+use common::snapshot::InitialData;
+
+pub enum Lobby {
+    Connecting {
+        pending_passcode: Option<()>,
+    },
+    ChoosingUsername {
+        prompt_printed: bool,
+    },
+    AwaitingUsernameConfirmation,
+    Chat {
+        awaiting_initial_roster: bool,
+        waiting_for_server: bool,
+    },
+    Countdown {
+        end_time: f64,
+        game_data: InitialData,
+        maze_meshes: Option<MazeMeshes>,
+        map_overlay: Option<MapOverlay>,
+        sky_mesh: Mesh,
+    },
+    ChoosingDifficulty {
+        prompt_printed: bool,
+        choice_sent: bool,
+        selected_index: u8,
+    },
+}
+
+impl std::fmt::Debug for Lobby {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Lobby::Connecting { pending_passcode } => f
+                .debug_struct("Connecting")
+                .field("pending_passcode", pending_passcode)
+                .finish(),
+            Lobby::ChoosingUsername { prompt_printed } => f
+                .debug_struct("ChoosingUsername")
+                .field("prompt_printed", prompt_printed)
+                .finish(),
+            Lobby::AwaitingUsernameConfirmation => {
+                write!(f, "AwaitingUsernameConfirmation")
+            }
+            Lobby::Chat {
+                awaiting_initial_roster,
+                waiting_for_server,
+            } => f
+                .debug_struct("Chat")
+                .field("awaiting_initial_roster", awaiting_initial_roster)
+                .field("waiting_for_server", waiting_for_server)
+                .finish(),
+            Lobby::Countdown {
+                end_time,
+                game_data,
+                maze_meshes,
+                map_overlay: _,
+                sky_mesh: _,
+            } => f
+                .debug_struct("Countdown")
+                .field("end_time", end_time)
+                .field("game_data", game_data)
+                .field("maze_meshes", maze_meshes)
+                .field("map_overlay", &"<MapOverlay>")
+                .field("sky_mesh", &"<Mesh>")
+                .finish(),
+            Lobby::ChoosingDifficulty {
+                prompt_printed,
+                choice_sent,
+                selected_index,
+            } => f
+                .debug_struct("ChoosingDifficulty")
+                .field("prompt_printed", prompt_printed)
+                .field("choice_sent", choice_sent)
+                .field("selected_index", selected_index)
+                .finish(),
+        }
+    }
+}

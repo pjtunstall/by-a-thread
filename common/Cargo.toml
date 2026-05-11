@@ -1,0 +1,13 @@
+[package]
+name = "common"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+glam = { workspace = true }
+rand = { workspace = true }
+renet = { workspace = true }
+strum = { version = "0.27.2", features = ["derive"] }
+serde = { workspace = true }
+socket2 = "0.6.1"
+disjoint = "0.8.0"

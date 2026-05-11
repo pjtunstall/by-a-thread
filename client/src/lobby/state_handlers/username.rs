@@ -1,0 +1,282 @@
+use bincode::{
+    config::standard,
+    serde::{decode_from_slice, encode_to_vec},
+};
+
+use crate::{
+    lobby::ui::{LobbyUi, UiErrorKind},
+    net::NetworkHandle,
+    session::{username_prompt, ClientSession, validate_username_input},
+    state::{ClientState, Lobby},
+};
+use common::{
+    net::AppChannel,
+    protocol::{ClientMessage, GAME_ALREADY_STARTED_MESSAGE, ServerMessage},
+};
+
+pub fn handle(
+    lobby_state: &mut Lobby,
+    session: &mut ClientSession,
+    ui: &mut dyn LobbyUi,
+    network: &mut dyn NetworkHandle,
+) -> Option<ClientState> {
+    let Lobby::ChoosingUsername { prompt_printed } = lobby_state else {
+        unreachable!();
+    };
+
+    if !*prompt_printed {
+        ui.show_prompt(&username_prompt());
+        *prompt_printed = true;
+        return None;
+    }
+
+    while let Some(data) = network.receive_message(AppChannel::ReliableOrdered) {
+        match decode_from_slice::<ServerMessage, _>(&data, standard()) {
+            Ok((msg, _)) => {
+                if let Some(next) = handle_server_message(session, ui, &msg) {
+                    return Some(next);
+                }
+            }
+            Err(e) => {
+                ui.show_typed_error(
+                    UiErrorKind::Deserialization,
+                    &format!("[DESERIALIZATION ERROR: {}]", e),
+                );
+            }
+        }
+    }
+
+    if let Some(input) = session.take_input() {
+        let trimmed_input = input.trim();
+
+        if trimmed_input.is_empty() {
+            ui.show_typed_error(
+                UiErrorKind::UsernameValidation(common::player::UsernameError::Empty),
+                "username must not be empty",
+            );
+            return Some(ClientState::Lobby(Lobby::ChoosingUsername {
+                prompt_printed: false,
+            }));
+        }
+
+        let validation = validate_username_input(&input);
+        match validation {
+            Ok(username) => {
+                let message = ClientMessage::SetUsername(username);
+                let payload =
+                    encode_to_vec(&message, standard()).expect("failed to serialize SetUsername");
+
+                network.send_message(AppChannel::ReliableOrdered, payload);
+
+                return Some(ClientState::Lobby(Lobby::AwaitingUsernameConfirmation));
+            }
+            Err(err) => {
+                let message = err.to_string();
+                ui.show_typed_error(UiErrorKind::UsernameValidation(err), &message);
+                return Some(ClientState::Lobby(Lobby::ChoosingUsername {
+                    prompt_printed: false,
+                }));
+            }
+        }
+    }
+
+    if network.is_disconnected() {
+        return Some(ClientState::Disconnected {
+            message: format!(
+                "disconnected while choosing username: {}",
+                network.get_disconnect_reason()
+            ),
+        });
+    }
+
+    None
+}
+
+pub fn handle_server_message(
+    session: &mut ClientSession,
+    ui: &mut dyn LobbyUi,
+    message: &ServerMessage,
+) -> Option<ClientState> {
+    if let ServerMessage::LobbyTimer { end_time } = message {
+        session.lobby_timer_end = Some(*end_time);
+        return None;
+    }
+    if let ServerMessage::UsernameError { message } = message {
+        let sanitized: String = message.chars().filter(|c| !c.is_control()).collect();
+        ui.show_typed_error(
+            UiErrorKind::UsernameServerError,
+            &format!("Username error: {}", sanitized),
+        );
+        return Some(ClientState::Lobby(Lobby::ChoosingUsername {
+            prompt_printed: false,
+        }));
+    }
+    if let ServerMessage::ServerInfo { message } = message {
+        if message == GAME_ALREADY_STARTED_MESSAGE {
+            return Some(ClientState::Disconnected {
+                message: message.clone(),
+            });
+        }
+        ui.show_sanitized_message(&format!("Server: {}", message));
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers::{MockNetwork, MockUi};
+    use common::player::{MAX_USERNAME_LENGTH, UsernameError};
+
+    fn set_choosing_username(session: &mut ClientSession) {
+        session.transition(ClientState::Lobby(Lobby::ChoosingUsername {
+            prompt_printed: false,
+        }));
+    }
+
+    mod guards {
+        use super::*;
+
+        #[test]
+        fn choosing_username_does_not_panic_in_choosing_username_state() {
+            let mut session = ClientSession::new(0, crate::server_address::default_server_address().ok());
+            set_choosing_username(&mut session);
+            let mut ui = MockUi::default();
+            let mut network = MockNetwork::new();
+            assert!(
+                {
+                    let mut temp_state = std::mem::take(&mut session.state);
+                    let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                        handle(lobby_state, &mut session, &mut ui, &mut network)
+                    } else {
+                        panic!("expected Lobby state");
+                    };
+                    session.state = temp_state;
+                    result
+                }
+                .is_none(),
+                "should return None when successfully handling state and no input is provided"
+            );
+        }
+    }
+
+    #[test]
+    fn enforces_max_username_length() {
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address().ok());
+        session.transition(ClientState::Lobby(Lobby::ChoosingUsername {
+            prompt_printed: true,
+        }));
+
+        let long_name = "A".repeat(MAX_USERNAME_LENGTH as usize + 1);
+        session.add_input(long_name.clone());
+
+        let mut ui = MockUi::default();
+        let mut network = MockNetwork::new();
+
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
+
+        assert_eq!(
+            network.sent_messages.len(),
+            0,
+            "no message should be sent to the network for invalid input"
+        );
+        assert_eq!(
+            ui.errors.len(),
+            1,
+            "exactly one error message should be displayed for invalid input"
+        );
+        assert_eq!(
+            ui.error_kinds,
+            vec![UiErrorKind::UsernameValidation(UsernameError::TooLong)]
+        );
+    }
+
+    #[test]
+    fn handles_local_validation_error() {
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address().ok());
+        session.transition(ClientState::Lobby(Lobby::ChoosingUsername {
+            prompt_printed: true,
+        }));
+
+        session.add_input("   ".to_string());
+
+        let mut ui = MockUi::default();
+        let mut network = MockNetwork::new();
+
+        let _next_state = {
+            let mut temp_state = std::mem::take(&mut session.state);
+            let result = if let ClientState::Lobby(lobby_state) = &mut temp_state {
+                handle(lobby_state, &mut session, &mut ui, &mut network)
+            } else {
+                panic!("expected Lobby state");
+            };
+            session.state = temp_state;
+            result
+        };
+
+        assert_eq!(
+            network.sent_messages.len(),
+            0,
+            "no message should be sent to the network for empty input"
+        );
+        assert_eq!(
+            ui.errors.len(),
+            1,
+            "exactly one error message should be displayed for empty input"
+        );
+        assert_eq!(
+            ui.error_kinds,
+            vec![UiErrorKind::UsernameValidation(UsernameError::Empty)]
+        );
+
+        match _next_state {
+            Some(ClientState::Lobby(Lobby::ChoosingUsername { prompt_printed })) => {
+                assert!(
+                    !prompt_printed,
+                    "prompt_printed must be reset to false after an error"
+                );
+            }
+            _ => panic!("expected ChoosingUsername state transition"),
+        }
+    }
+
+    #[test]
+    fn sanitizes_server_username_error() {
+        let mut session = ClientSession::new(0, crate::server_address::default_server_address().ok());
+        session.transition(ClientState::Lobby(Lobby::AwaitingUsernameConfirmation));
+        let mut ui = MockUi::new();
+        let bell = '\x07';
+
+        let malicious_error = ServerMessage::UsernameError {
+            message: format!("Name{}Taken", bell),
+        };
+
+        let next_state = handle_server_message(&mut session, &mut ui, &malicious_error);
+
+        assert_eq!(
+            ui.errors.len(),
+            1,
+            "expected exactly one sanitized error from server message"
+        );
+        assert_eq!(ui.error_kinds, vec![UiErrorKind::UsernameServerError]);
+
+        match next_state {
+            Some(ClientState::Lobby(Lobby::ChoosingUsername { prompt_printed })) => {
+                assert_eq!(
+                    prompt_printed, false,
+                    "state should transition to ChoosingUsername with prompt_printed false"
+                );
+            }
+            _ => panic!("expected transition to ChoosingUsername state"),
+        }
+    }
+}

@@ -1,0 +1,5 @@
+localhost, 127.0.0.1 {
+    log
+    tls internal
+    reverse_proxy matchmaker:8080
+}

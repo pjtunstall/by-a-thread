@@ -1,0 +1,162 @@
+use std::collections::{HashMap, HashSet, VecDeque};
+
+use rand::Rng;
+
+use super::{super::MazeMaker, GrowthStrategy, Mode};
+
+const MIN_REGION_SIZE: usize = 1;
+
+#[derive(Clone, Copy, PartialEq)]
+enum Team {
+    A,
+    B,
+}
+
+pub trait Blobby {
+    fn blobby(&mut self, mode: Mode, strategy: GrowthStrategy);
+}
+
+impl Blobby for MazeMaker {
+    fn blobby(&mut self, mode: Mode, strategy: GrowthStrategy) {
+        match mode {
+            Mode::Divider => {
+                for row in self.grid.iter_mut() {
+                    for cell in row.iter_mut() {
+                        *cell = 0;
+                    }
+                }
+            }
+            Mode::Carver => {
+                for row in self.grid.iter_mut() {
+                    for cell in row.iter_mut() {
+                        *cell = 1;
+                    }
+                }
+            }
+        }
+
+        for z in 0..self.height {
+            for x in 0..self.width {
+                let is_border = z == 0 || z == self.height - 1 || x == 0 || x == self.width - 1;
+                let is_pillar = z % 2 == 0 && x % 2 == 0;
+
+                if is_border || is_pillar {
+                    self.grid[z][x] = 1;
+                }
+            }
+        }
+
+        let mut region = Vec::new();
+        for z in (1..(self.height - 1)).step_by(2) {
+            for x in (1..(self.width - 1)).step_by(2) {
+                region.push((z, x));
+            }
+        }
+
+        self.blobby_divide(region, mode, strategy);
+    }
+}
+
+impl MazeMaker {
+    fn blobby_divide(&mut self, region: Vec<(usize, usize)>, mode: Mode, strategy: GrowthStrategy) {
+        if region.len() <= MIN_REGION_SIZE {
+            if mode == Mode::Carver {
+                for (z, x) in region {
+                    self.grid[z][x] = 0;
+                }
+            }
+            return;
+        }
+
+        let region_set: HashSet<(usize, usize)> = region.iter().copied().collect();
+        let rng = &mut self.rng;
+
+        let seed_index_a = rng.random_range(0..region.len());
+        let mut seed_index_b = rng.random_range(0..region.len());
+        while seed_index_a == seed_index_b {
+            seed_index_b = rng.random_range(0..region.len());
+        }
+
+        let seed_a = region[seed_index_a];
+        let seed_b = region[seed_index_b];
+
+        let mut labels = HashMap::<(usize, usize), Team>::new();
+        let mut unlabeled = region_set.clone();
+        let mut frontier = VecDeque::new();
+
+        labels.insert(seed_a, Team::A);
+        labels.insert(seed_b, Team::B);
+        unlabeled.remove(&seed_a);
+        unlabeled.remove(&seed_b);
+        frontier.push_back((seed_a, Team::A));
+        frontier.push_back((seed_b, Team::B));
+
+        while !unlabeled.is_empty() && !frontier.is_empty() {
+            let index = match strategy {
+                GrowthStrategy::Random => rng.random_range(0..frontier.len()),
+                GrowthStrategy::Queue => 0,
+                GrowthStrategy::Stack => frontier.len() - 1,
+            };
+            let ((cz, cx), team_label) = frontier.remove(index).unwrap();
+
+            for (dz, dx) in [(0, 2), (0, -2), (2, 0), (-2, 0)] {
+                let nz = (cz as isize + dz) as usize;
+                let nx = (cx as isize + dx) as usize;
+
+                if !unlabeled.remove(&(nz, nx)) {
+                    continue;
+                }
+
+                labels.insert((nz, nx), team_label);
+                frontier.push_back(((nz, nx), team_label));
+            }
+        }
+
+        let mut border_walls = Vec::new();
+
+        for (z, x) in &region {
+            let label = labels.get(&(*z, *x)).copied().unwrap_or(Team::A);
+
+            for (dz, dx) in [(0, 2), (2, 0)] {
+                let nz = (*z as isize + dz) as usize;
+                let nx = (*x as isize + dx) as usize;
+
+                if !region_set.contains(&(nz, nx)) {
+                    continue;
+                }
+
+                let neighbor_label = labels.get(&(nz, nx)).copied().unwrap_or(Team::A);
+
+                if label != neighbor_label {
+                    let wz = (*z + nz) / 2;
+                    let wx = (*x + nx) / 2;
+
+                    if mode == Mode::Divider {
+                        self.grid[wz][wx] = 1;
+                    }
+                    border_walls.push((wz, wx));
+                }
+            }
+        }
+
+        if !border_walls.is_empty() {
+            let gap_index = rng.random_range(0..border_walls.len());
+            let (wz, wx) = border_walls[gap_index];
+            self.grid[wz][wx] = 0;
+        }
+
+        let mut region_a = Vec::new();
+        let mut region_b = Vec::new();
+
+        for (z, x) in region {
+            let label = labels.get(&(z, x)).copied().unwrap_or(Team::A);
+            match label {
+                Team::A => region_a.push((z, x)),
+                Team::B => region_b.push((z, x)),
+            }
+        }
+
+        self.blobby_divide(region_a, mode, strategy);
+        self.blobby_divide(region_b, mode, strategy);
+    }
+}

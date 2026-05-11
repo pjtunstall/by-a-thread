@@ -1,0 +1,19 @@
+[package]
+name = "matchmaker"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+axum = "0.8.8"
+base64 = { workspace = true }
+bollard = "0.20.1"
+common = { workspace = true }
+hex = "0.4.3"
+rand = { workspace = true }
+renet = { workspace = true }
+renet_netcode = { workspace = true }
+serde = { workspace = true }
+sha2 = "0.10.9"
+subtle = "2.6.1"
+tokio = { version = "1.49.0", features = ["full"] }
+uuid = { version = "1.21.0", features = ["v4"] }

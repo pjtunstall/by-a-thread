@@ -1,0 +1,94 @@
+use std::time::Duration;
+
+pub const MAX_PLAYERS: usize = 10;
+
+pub const SERVER_PORT: u16 = 5000;
+pub const CLIENT_PROOF_HEADER: &str = "X-Version-Code";
+pub const VERSION_HEADER: &str = "X-Version";
+
+// Timer durations based on game mode.
+pub const SOLO_TIMER_DURATION: f32 = 120.0; // Single player has 2 minutes to escape.
+pub const BATTLE_TIMER_DURATION: f32 = 600.0; // Multiplayer gets 10 minutes.
+
+// Lobby timer.
+pub const LOBBY_TIMER_SECS: u64 = 300; // 5 minutes.
+pub const LOBBY_TIMER_DURATION: Duration = Duration::from_secs(LOBBY_TIMER_SECS);
+
+pub const IDLE_TIMEOUT_SECS: u64 = 60;
+
+pub const OBE_FADE_TO_BLACK_SECS: f64 = 5.5;
+// The following timeout is a safety measure in case one of the last two players
+// gets stuck in the OBE state and never sends the message that they've reached
+// the post-game chat. Normally the server waits for that message before sending
+// the leaderboard and exiting.
+pub const POST_GAME_TIMEOUT_SECS: u64 = (OBE_FADE_TO_BLACK_SECS as u64) + 1;
+
+// Connect token expiry and matchmaker cleanup: lobby + countdown + full game +
+// idle timeout + post-game timeout + buffer (300 + 10 + 600 + 60 + 6 + 60 =
+// 1036s = 17 minutes & 20 seconds).
+pub const MAX_SESSION_DURATION: u64 = LOBBY_TIMER_SECS
+    + 10
+    + BATTLE_TIMER_DURATION as u64
+    + IDLE_TIMEOUT_SECS
+    + POST_GAME_TIMEOUT_SECS
+    + 60;
+
+// Difficulty selection: 0 through NUM_DIFFICULTY_LEVELS - 1.
+pub const NUM_DIFFICULTY_LEVELS: u8 = 10;
+
+// Client:
+pub const JITTER_SAFETY_MARGIN: f64 = 50.0; // Milliseconds.
+pub const INPUT_HISTORY_LENGTH: usize = 256; // 256 ticks, ~4.3s at 60Hz.
+pub const SNAPSHOT_BUFFER_LENGTH: usize = 16; // 16 broadcasts, 0.8s at 20Hz.
+
+// Tick-related:
+pub const TICK_RATE: f64 = 60.0;
+pub const TICK_SECS: f64 = 1.0 / TICK_RATE;
+pub const TICK_SECS_F32: f32 = TICK_SECS as f32; // Used in `common::player` for `update`.
+// The following `Duration`s are used by server to manage its loop.
+pub const TICK_MICROS: u64 = (TICK_SECS * 1_000_000.0 + 0.5) as u64;
+pub const IDEAL_TICK_DURATION: Duration = Duration::from_micros(TICK_MICROS);
+pub const TICKS_PER_BROADCAST: u64 = 3;
+pub const BROADCAST_MICROS: u64 = TICKS_PER_BROADCAST * TICK_MICROS;
+pub const BROADCAST_INTERVAL: Duration = Duration::from_micros(BROADCAST_MICROS); // 50ms.
+
+// Server:
+pub const INPUT_BUFFER_LENGTH: usize = 128; // 128 ticks, ~2.1s at 60Hz.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn assert_array_lengths_are_powers_of_two() {
+        // INPUT_BUFFER (server).
+        assert!(
+            INPUT_BUFFER_LENGTH != 0,
+            "INPUT_BUFFER_LENGTH should not be 0"
+        );
+        assert!(
+            INPUT_BUFFER_LENGTH & (INPUT_BUFFER_LENGTH - 1) == 0,
+            "INPUT_BUFFER_LENGTH should be a power of 2"
+        );
+
+        // INPUT_HISTORY (client).
+        assert!(
+            INPUT_HISTORY_LENGTH != 0,
+            "INPUT_HISTORY_LENGTH should not be 0"
+        );
+        assert!(
+            INPUT_HISTORY_LENGTH & (INPUT_HISTORY_LENGTH - 1) == 0,
+            "INPUT_HISTORY_LENGTH should be a power of 2"
+        );
+
+        // SNAPSHOT_BUFFER (client).
+        assert!(
+            SNAPSHOT_BUFFER_LENGTH != 0,
+            "SNAPSHOT_BUFFER_LENGTH should not be 0"
+        );
+        assert!(
+            SNAPSHOT_BUFFER_LENGTH & (SNAPSHOT_BUFFER_LENGTH - 1) == 0,
+            "SNAPSHOT_BUFFER_LENGTH should be a power of 2"
+        );
+    }
+}

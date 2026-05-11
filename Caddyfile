@@ -1,0 +1,3 @@
+api.by-a-thread.de {
+    reverse_proxy matchmaker:8080
+}

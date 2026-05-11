@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=By a Thread
+Comment=A multiplayer game built in Rust
+Exec=ByAThread
+Icon=by-a-thread
+StartupWMClass=ByAThread
+Terminal=false
+Type=Application
+Categories=Game;

@@ -1,0 +1,135 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**/*.md"
+      - "**/*.mdc"
+      - "docs/**"
+      - "LICENSE.txt"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev
+      - name: Create .env files
+        run: |
+          echo "HOST=${{ secrets.HOST }}" > .env.client
+          echo "CLIENT_PROOF=${{ secrets.CLIENT_PROOF }}" >> .env.client
+          echo "HOST=${{ secrets.HOST }}" > .env.matchmaker
+          echo "CLIENT_PROOF_HASH=${{ secrets.CLIENT_PROOF_HASH }}" >> .env.matchmaker
+          echo "GAME_IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/server-image:latest" >> .env.matchmaker
+      - run: cargo test --workspace
+
+  build-and-push-backend:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Create .env.matchmaker
+        run: |
+          echo "HOST=${{ secrets.HOST }}" > .env.matchmaker
+          echo "CLIENT_PROOF_HASH=${{ secrets.CLIENT_PROOF_HASH }}" >> .env.matchmaker
+          echo "GAME_IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/server-image:latest" >> .env.matchmaker
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - run: make push-images
+
+  build-linux-client:
+    needs: test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install packaging tools
+        run: cargo install --locked cargo-deb cargo-generate-rpm
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev zip fuse libfuse2
+      - run: |
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O linuxdeploy
+          chmod +x linuxdeploy
+          sudo mv linuxdeploy /usr/local/bin/
+          wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+          sudo mv appimagetool /usr/local/bin/
+      - name: Create .env files
+        run: |
+          echo "HOST=${{ secrets.HOST }}" > .env.client
+          echo "CLIENT_PROOF=${{ secrets.CLIENT_PROOF }}" >> .env.client
+          echo "HOST=${{ secrets.HOST }}" > .env.matchmaker
+          echo "CLIENT_PROOF_HASH=${{ secrets.CLIENT_PROOF_HASH }}" >> .env.matchmaker
+          echo "GAME_IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/server-image:latest" >> .env.matchmaker
+      - name: Normalize desktop file line endings
+        run: |
+          sed -i 's/\r$//' client/by-a-thread-appimage.desktop
+      - run: make appimage deb rpm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            dist/*.deb
+            dist/*.rpm
+            dist/*.AppImage
+
+  build-windows-client:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Create .env files
+        run: |
+          "HOST=${{ secrets.HOST }}" | Out-File -FilePath .env.client -Encoding utf8
+          "CLIENT_PROOF=${{ secrets.CLIENT_PROOF }}" | Out-File -FilePath .env.client -Append -Encoding utf8
+          "HOST=${{ secrets.HOST }}" | Out-File -FilePath .env.matchmaker -Encoding utf8
+          "CLIENT_PROOF_HASH=${{ secrets.CLIENT_PROOF_HASH }}" | Out-File -FilePath .env.matchmaker -Append -Encoding utf8
+          "GAME_IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/server-image:latest" | Out-File -FilePath .env.matchmaker -Append -Encoding utf8
+        shell: pwsh
+      - run: .\scripts\Build-Windows.ps1
+        shell: pwsh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-package
+          path: dist\*.zip
+
+  build-macos-client:
+    needs: test
+    runs-on: macos-latest
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "10.15"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin, aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+      - name: Create .env files
+        run: |
+          echo "HOST=${{ secrets.HOST }}" > .env.client
+          echo "CLIENT_PROOF=${{ secrets.CLIENT_PROOF }}" >> .env.client
+          echo "HOST=${{ secrets.HOST }}" > .env.matchmaker
+          echo "CLIENT_PROOF_HASH=${{ secrets.CLIENT_PROOF_HASH }}" >> .env.matchmaker
+          echo "GAME_IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/server-image:latest" >> .env.matchmaker
+      - run: cargo build --release -p client --target x86_64-apple-darwin
+      - run: cargo build --release -p client --target aarch64-apple-darwin
+      - run: make macos-intel macos-silicon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-packages
+          path: dist/*.zip

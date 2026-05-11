@@ -1,0 +1,44 @@
+use std::env;
+
+fn main() {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR set by cargo");
+    let env_path = std::path::Path::new(&manifest_dir).join("../.env.client");
+    let vars: std::collections::HashMap<String, String> = dotenvy::from_path_iter(&env_path)
+        .unwrap_or_else(|e| {
+            panic!(
+                "failed to load .env.client from {}: {}. Required for client build.",
+                env_path.display(),
+                e
+            )
+        })
+        .filter_map(Result::ok)
+        .collect();
+    let client_proof = vars
+        .get("CLIENT_PROOF")
+        .cloned()
+        .expect("CLIENT_PROOF must be set in .env.client");
+    let host = vars.get("HOST").cloned().unwrap_or_default();
+
+    println!("cargo:rustc-env=BUILD_HOST={}", host);
+    println!("cargo:rustc-env=BUILD_CLIENT_PROOF={}", client_proof);
+    println!("cargo:rerun-if-changed={}", env_path.display());
+
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+
+    if target_os != "windows" {
+        return;
+    }
+
+    let mut res = winres::WindowsResource::new();
+
+    // ONLY set these paths if we are compiling FROM a non-Windows machine (e.g., Linux)
+    // The build script itself runs on the host, so cfg!(windows) checks the host OS.
+    if !cfg!(windows) {
+        res.set_toolkit_path("/usr/bin");
+        res.set_ar_path("x86_64-w64-mingw32-ar");
+        res.set_windres_path("x86_64-w64-mingw32-windres");
+    }
+
+    res.set_icon("icon.ico");
+    res.compile().expect("failed to compile Windows resources");
+}

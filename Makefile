@@ -1,0 +1,273 @@
+# Run from the workspace root.
+#
+# Do not run with `make -j` (parallel builds).
+#
+# Prerequisites: see docs/build.md.
+#
+# Usage:
+#   make              # full build (test, server, client bundles: windows, deb, rpm, appimage)
+#   make no-test      # full build without running tests
+#   make test         # run tests
+#   make server       # build server binary and Docker image locally
+#   make matchmaker   # build matchmaker binary and Docker image locally
+#   make build-images # build both server and matchmaker Docker images
+#   make push-images  # push both Docker images to Docker Hub (uses DOCKER_USER)
+#   make deploy       # run VPS deploy scripts (frontend + backend)
+#   make init         # copy env and deploy scripts to VPS
+#   make windows      # Windows zip (Ubuntu: cross-compile; Windows: use scripts/Build-Windows.ps1)
+#   make macos-intel  # Intel Mac .app and dist/ByAThread-macos-intel.zip (macOS only)
+#   make macos-silicon # Apple Silicon .app and dist/ByAThread-macos-silicon.zip (macOS only)
+#   make deb                   # only .deb package
+#   make rpm                   # only .rpm package
+#   make appimage              # only AppImage
+#   make kill-local-servers    # Tier 1: remove local game containers (match instances only)
+#   make kill-remote-servers   # Tier 1: remove remote game containers
+#   make clean-local           # Tier 2: kill local servers, remove dist/temp, cargo clean, project images
+#   make clean-remote          # Tier 2: compose down on VPS, remove project images
+#   make deep-clean-local      # Tier 3: deep Docker cleanup on local (system-wide prune of unused containers/images/volumes)
+#   make deep-clean-remote     # Tier 3: deep Docker cleanup on VPS (system-wide prune of unused containers/images/volumes)
+#   make nuclear-clean         # Tier 4: stop and remove ALL Docker containers (local + VPS), then prune unused data
+#
+.PHONY: all no-test test server matchmaker build-server-image build-matchmaker-image push-server-image push-matchmaker-image build-images push-images deploy init windows deb rpm appimage macos-intel macos-silicon check-windows check-deb check-rpm check-appimage check-docker check-deploy check-env kill-local-servers kill-remote-servers clean-local clean-remote deep-clean-local deep-clean-remote nuclear-clean nuclear-clean-local nuclear-clean-remote
+
+VERSION := $(shell cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="client").version' | head -n1)
+
+DIST := dist
+STAGING_WIN := ByAThread
+STAGING_APPDIR := ByAThread.AppDir
+EXE_WIN := target/x86_64-pc-windows-gnu/release/ByAThread.exe
+ZIP_WIN := $(DIST)/ByAThread-$(VERSION)-win64.zip
+LINUXDEPLOY ?= linuxdeploy
+EXE_HOST := target/release/ByAThread
+APPIMAGE_FILE := $(DIST)/ByAThread-$(VERSION).AppImage
+SERVER_BIN := target/release/server
+MATCHMAKER_BIN := target/release/matchmaker
+DOCKER_SENTINEL := $(DIST)/.docker-image-built
+HOST ?= hetzner
+TARGET_APPLE_INTEL := x86_64-apple-darwin
+TARGET_APPLE_SILICON := aarch64-apple-darwin
+EXE_APPLE_INTEL := target/$(TARGET_APPLE_INTEL)/release/ByAThread
+EXE_APPLE_SILICON := target/$(TARGET_APPLE_SILICON)/release/ByAThread
+ZIP_APPLE_INTEL := $(DIST)/ByAThread-$(VERSION)-macos-intel.zip
+ZIP_APPLE_SILICON := $(DIST)/ByAThread-$(VERSION)-macos-silicon.zip
+DOCKER_USER ?= pjtunstall
+
+SERVER_SOURCES := Cargo.toml Cargo.lock server/Cargo.toml common/Cargo.toml $(shell find server -name '*.rs') $(shell find common -name '*.rs')
+CLIENT_SOURCES := Cargo.toml Cargo.lock client/Cargo.toml client/build.rs .env.client $(shell find client/src -name '*.rs') common/Cargo.toml $(shell find common -name '*.rs')
+MATCHMAKER_SOURCES := Cargo.toml Cargo.lock matchmaker/Cargo.toml common/Cargo.toml $(shell find matchmaker -name '*.rs') $(shell find common -name '*.rs')
+
+all: test server windows deb rpm appimage
+
+no-test: server windows deb rpm appimage
+
+test:
+	cargo test --workspace
+
+# --- Tool checks ---
+
+check-windows:
+	@which x86_64-w64-mingw32-windres >/dev/null || (echo "Error: mingw-w64 not found" && exit 1)
+	@which zip >/dev/null || (echo "Error: zip not found" && exit 1)
+
+check-deb:
+	@cargo deb --version >/dev/null 2>&1 || (echo "Error: cargo-deb not found" && exit 1)
+
+check-rpm:
+	@cargo generate-rpm --version >/dev/null 2>&1 || (echo "Error: cargo generate-rpm not found" && exit 1)
+
+check-appimage:
+	@test -n "$$(command -v appimagetool)" || (echo "Error: appimagetool not found" && exit 1)
+	@(test -x $(LINUXDEPLOY) 2>/dev/null || command -v $(LINUXDEPLOY) >/dev/null) || (echo "Error: linuxdeploy not found" && exit 1)
+
+check-docker:
+	@which docker >/dev/null || (echo "Error: docker not found" && exit 1)
+
+check-deploy: check-docker
+	@which ssh >/dev/null || (echo "Error: ssh not found" && exit 1)
+
+check-env:
+	@test -f .env.client || (echo "Error: .env.client required" && exit 1)
+	@test -f .env.matchmaker || (echo "Error: .env.matchmaker required" && exit 1)
+
+# --- Docker & Server Targets ---
+
+$(SERVER_BIN): $(SERVER_SOURCES)
+	cargo build --release -p server
+
+build-server-image: $(SERVER_BIN) server/Dockerfile | check-docker
+	mkdir -p $(DIST)
+	VERSION=$$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="server").version' | head -n1); \
+	docker build -f server/Dockerfile -t $(DOCKER_USER)/server-image:$$VERSION -t $(DOCKER_USER)/server-image:latest .
+	touch $(DOCKER_SENTINEL)
+
+server: build-server-image
+
+$(MATCHMAKER_BIN): $(MATCHMAKER_SOURCES)
+	cargo build --release -p matchmaker
+
+build-matchmaker-image: $(MATCHMAKER_BIN) matchmaker/Dockerfile | check-docker
+	mkdir -p $(DIST)
+	VERSION=$$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="matchmaker").version' | head -n1); \
+	docker build -f matchmaker/Dockerfile -t $(DOCKER_USER)/matchmaker-image:$$VERSION -t $(DOCKER_USER)/matchmaker-image:latest .
+
+matchmaker: build-matchmaker-image
+
+build-images: build-server-image build-matchmaker-image
+
+push-server-image: build-server-image
+	docker push $(DOCKER_USER)/server-image:latest
+	VERSION=$$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="server").version' | head -n1); \
+	docker push $(DOCKER_USER)/server-image:$$VERSION
+
+push-matchmaker-image: build-matchmaker-image
+	docker push $(DOCKER_USER)/matchmaker-image:latest
+	VERSION=$$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="matchmaker").version' | head -n1); \
+	docker push $(DOCKER_USER)/matchmaker-image:$$VERSION
+
+push-images: push-server-image push-matchmaker-image
+
+deploy: | check-deploy
+	ssh $(HOST) 'cd ~/scripts && ./deploy_frontend.sh'
+	ssh $(HOST) 'cd ~/scripts && ./deploy_backend.sh'
+
+# Be sure to replace the placeholder with the actual GitHub PAT in
+# deploy_frontend before running this command!
+init: | check-deploy
+	scp .env.matchmaker scripts/deploy_backend.sh scripts/deploy_frontend.sh $(HOST):~/
+	ssh $(HOST) 'mkdir -p ~/scripts && mv ~/deploy_backend.sh ~/deploy_frontend.sh ~/scripts/ && chmod +x ~/scripts/deploy_backend.sh ~/scripts/deploy_frontend.sh'
+
+# --- Client Build Targets ---
+
+$(EXE_WIN): $(CLIENT_SOURCES) | check-windows check-env
+	cargo build --release --target x86_64-pc-windows-gnu -p client
+
+$(ZIP_WIN): $(EXE_WIN)
+	mkdir -p $(DIST)
+	@echo "Client version (Windows zip): $(VERSION)"
+	@[ -z "$(VERSION)" ] && [ "$$GITHUB_ACTIONS" = "true" ] && echo "::warning::Makefile VERSION is empty; zip will be ByAThread--win64.zip" || true
+	mkdir -p $(STAGING_WIN)
+	cp $(EXE_WIN) $(STAGING_WIN)/
+	cp LICENSE.txt CREDITS.txt $(STAGING_WIN)/
+	mkdir -p $(STAGING_WIN)/fonts
+	cp -R client/assets/fonts/macondo client/assets/fonts/noto $(STAGING_WIN)/fonts/
+	zip -r $(ZIP_WIN) $(STAGING_WIN)
+	rm -r $(STAGING_WIN)
+
+windows: $(ZIP_WIN)
+
+$(DIST)/.deb-built: $(EXE_HOST) | check-deb check-env
+	mkdir -p $(DIST)
+	@echo "Client version (.deb): $(VERSION)"
+	@[ -z "$(VERSION)" ] && [ "$$GITHUB_ACTIONS" = "true" ] && echo "::warning::Makefile VERSION is empty; .deb filename may lack version" || true
+	bash -c 'cargo deb -p client && cp target/debian/by-a-thread_*.deb $(DIST)/ && touch $(DIST)/.deb-built'
+
+deb: $(DIST)/.deb-built
+
+$(DIST)/.rpm-built: $(EXE_HOST) | check-rpm check-env
+	mkdir -p $(DIST)
+	@echo "Client version (.rpm): $(VERSION)"
+	@[ -z "$(VERSION)" ] && [ "$$GITHUB_ACTIONS" = "true" ] && echo "::warning::Makefile VERSION is empty; .rpm filename may lack version" || true
+	bash -c 'cargo generate-rpm -p client --payload-compress gzip && cp target/generate-rpm/*.rpm $(DIST)/ && touch $(DIST)/.rpm-built'
+
+rpm: $(DIST)/.rpm-built
+
+$(EXE_HOST): $(CLIENT_SOURCES) | check-env
+	cargo build --release -p client
+
+$(APPIMAGE_FILE): $(EXE_HOST) | check-appimage
+	mkdir -p $(DIST)
+	@echo "Client version (AppImage): $(VERSION)"
+	@[ -z "$(VERSION)" ] && [ "$$GITHUB_ACTIONS" = "true" ] && echo "::warning::Makefile VERSION is empty; AppImage will be ByAThread-.AppImage" || true
+	rm -rf $(STAGING_APPDIR)
+	mkdir -p $(STAGING_APPDIR)/usr/bin $(STAGING_APPDIR)/assets
+	cp $(EXE_HOST) $(STAGING_APPDIR)/usr/bin/
+	cp -r client/assets/fonts client/assets/images client/assets/sfx $(STAGING_APPDIR)/assets/
+	cp LICENSE.txt CREDITS.txt $(STAGING_APPDIR)/assets/
+	cp client/icon.png $(STAGING_APPDIR)/by-a-thread.png
+	cp client/by-a-thread-appimage.desktop $(STAGING_APPDIR)/by-a-thread-appimage.desktop
+	bash -c '$(LINUXDEPLOY) --appdir $(STAGING_APPDIR) --executable $(STAGING_APPDIR)/usr/bin/ByAThread --desktop-file $(STAGING_APPDIR)/by-a-thread-appimage.desktop --icon-file $(STAGING_APPDIR)/by-a-thread.png 2>&1 | grep -v -e "WARNING: Could not find copyright" -e "AppStream upstream metadata is missing" || true; exit $${PIPESTATUS[0]}'
+	bash -c 'appimagetool $(STAGING_APPDIR) $(APPIMAGE_FILE) 2>&1 | grep -v -e "WARNING: Could not find copyright" -e "AppStream upstream metadata is missing" || true; exit $${PIPESTATUS[0]}'
+	rm -rf $(STAGING_APPDIR)
+
+appimage: $(APPIMAGE_FILE)
+
+macos-intel:
+	@echo "Client version (macOS Intel zip): $(VERSION)"
+	@[ -z "$(VERSION)" ] && [ "$$GITHUB_ACTIONS" = "true" ] && echo "::warning::Makefile VERSION is empty; macOS zip filename may lack version" || true
+	@./scripts/bundle-macos.sh $(TARGET_APPLE_INTEL) ByAThread-macos-intel $(notdir $(ZIP_APPLE_INTEL))
+
+macos-silicon:
+	@echo "Client version (macOS Silicon zip): $(VERSION)"
+	@[ -z "$(VERSION)" ] && [ "$$GITHUB_ACTIONS" = "true" ] && echo "::warning::Makefile VERSION is empty; macOS zip filename may lack version" || true
+	@./scripts/bundle-macos.sh $(TARGET_APPLE_SILICON) ByAThread-macos-silicon $(notdir $(ZIP_APPLE_SILICON))
+
+# --- Tier 1: Instance cleanup (match instances only) ---
+
+kill-local-servers:
+	@containers=$$(docker ps -aq --filter "name=game-" 2>/dev/null); \
+	if [ -n "$$containers" ]; then \
+		echo "Removing local game containers:"; \
+		docker ps -a --filter "name=game-" --format "table {{.Names}}\t{{.CreatedAt}}\t{{.Status}}"; \
+		echo "$$containers" | xargs docker rm -f >/dev/null; \
+	else \
+		echo "No local game servers to clean up."; \
+	fi
+
+kill-remote-servers: | check-deploy
+	@ssh $(HOST) "containers=\$$(docker ps -aq --filter 'name=game-' 2>/dev/null); \
+	if [ -n \"\$$containers\" ]; then \
+		echo \"Removing remote game containers:\"; \
+		docker ps -a --filter \"name=game-\" --format \"table {{.Names}}\t{{.CreatedAt}}\t{{.Status}}\"; \
+		echo \"\$$containers\" | xargs docker rm -f >/dev/null; \
+	else \
+		echo \"No remote game servers to clean up.\"; \
+	fi"
+
+# --- Tier 2: Project cleanup (binaries and images) ---
+
+clean-local: kill-local-servers
+	rm -rf $(DIST) $(STAGING_WIN) $(STAGING_APPDIR) ByAThread.app target/debian target/generate-rpm
+	cargo clean
+	-docker rmi $$(docker images -q $(DOCKER_USER)/*-image) 2>/dev/null || true
+	docker image prune -f
+	docker builder prune -f
+
+clean-remote: | check-deploy
+	ssh $(HOST) "docker compose down; \
+	docker rmi \$$(docker images -q $(DOCKER_USER)/*-image) 2>/dev/null || true; \
+	docker image prune -f"
+
+# --- Tier 3: Deep cleanup (per-host Docker system prune) ---
+
+deep-clean-local: clean-local
+	docker system prune -af --volumes
+
+deep-clean-remote: clean-remote
+	ssh $(HOST) "docker system prune -af --volumes"
+
+# --- Tier 4: Nuclear cleanup (all Docker containers on both hosts) ---
+
+nuclear-clean: nuclear-clean-local nuclear-clean-remote
+
+nuclear-clean-local:
+	@echo "Nuclear local Docker cleanup: stopping and removing ALL containers, then pruning unused data."
+	@containers=$$(docker ps -aq 2>/dev/null); \
+	if [ -n "$$containers" ]; then \
+		echo "Removing ALL local containers:"; \
+		docker ps -a --format "table {{.Names}}\t{{.CreatedAt}}\t{{.Status}}"; \
+		echo "$$containers" | xargs docker rm -f >/dev/null; \
+	else \
+		echo "No local containers to remove."; \
+	fi
+	docker system prune -af --volumes
+
+nuclear-clean-remote: | check-deploy
+	@ssh $(HOST) "containers=\$$(docker ps -aq 2>/dev/null); \
+	if [ -n \"\$$containers\" ]; then \
+		echo \"Removing ALL remote containers:\"; \
+		docker ps -a --format \"table {{.Names}}\t{{.CreatedAt}}\t{{.Status}}\"; \
+		echo \"\$$containers\" | xargs docker rm -f >/dev/null; \
+	else \
+		echo \"No remote containers to remove.\"; \
+	fi; \
+	docker system prune -af --volumes"

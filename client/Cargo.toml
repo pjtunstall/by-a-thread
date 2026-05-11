@@ -1,0 +1,106 @@
+[package]
+name = "client"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+description.workspace = true
+build = "build.rs"
+
+[[bin]]
+name = "ByAThread"
+path = "src/main.rs"
+
+[dependencies]
+base64 = { workspace = true }
+common = { workspace = true }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+serde = { workspace = true }
+serde_json = "1.0.149"
+glam = { workspace = true }
+crossterm = { workspace = true }
+rand = { workspace = true }
+renet = { workspace = true }
+renet_netcode = { workspace = true }
+bincode = { workspace = true }
+macroquad = { version = "0.4.14", features = ["audio"] }
+
+# To embed the icon for the Windows executable.
+[build-dependencies]
+dotenvy = { workspace = true }
+winres = "0.1.12"
+
+[package.metadata.deb]
+name = "by-a-thread"
+revision = "1"
+maintainer = "Peter Tunstall <pjtunstall@proton.me>"
+copyright = "2026, Peter Tunstall"
+depends = "$auto"
+section = "games"
+priority = "optional"
+assets = [
+    ["target/release/ByAThread", "usr/lib/by-a-thread/ByAThread", "755"],
+    ["icon.png", "usr/share/icons/hicolor/256x256/apps/by-a-thread.png", "644"],
+    ["by-a-thread.desktop", "usr/share/applications/by-a-thread.desktop", "644"],
+    ["assets/fonts/macondo/Macondo-Regular.ttf", "usr/lib/by-a-thread/fonts/macondo/Macondo-Regular.ttf", "644"],
+    ["assets/fonts/macondo/OFL.txt", "usr/lib/by-a-thread/fonts/macondo/OFL.txt", "644"],
+    ["assets/fonts/noto/NotoSubset.ttf", "usr/lib/by-a-thread/fonts/noto/NotoSubset.ttf", "644"],
+    ["assets/fonts/noto/LICENSE.txt", "usr/lib/by-a-thread/fonts/noto/LICENSE.txt", "644"],
+        ["assets/images/ants.png", "usr/lib/by-a-thread/images/ants.png", "644"],
+        ["assets/images/ants-in-maze.png", "usr/lib/by-a-thread/images/ants-in-maze.png", "644"],
+        ["assets/images/bull.png", "usr/lib/by-a-thread/images/bull.png", "644"],
+    ["assets/images/ball.png", "usr/lib/by-a-thread/images/ball.png", "644"],
+    ["assets/images/griffin.png", "usr/lib/by-a-thread/images/griffin.png", "644"],
+    ["assets/images/happy-monkeys.png", "usr/lib/by-a-thread/images/happy-monkeys.png", "644"],
+    ["assets/images/sad-monkeys.png", "usr/lib/by-a-thread/images/sad-monkeys.png", "644"],
+    ["assets/images/circuits.png", "usr/lib/by-a-thread/images/circuits.png", "644"],
+    ["assets/images/rust-blue.png", "usr/lib/by-a-thread/images/rust-blue.png", "644"],
+    ["assets/images/dolphins.png", "usr/lib/by-a-thread/images/dolphins.png", "644"],
+    ["assets/images/squids.png", "usr/lib/by-a-thread/images/squids.png", "644"],
+    ["assets/images/marble-green.png", "usr/lib/by-a-thread/images/marble-green.png", "644"],
+    ["assets/images/marble-white.png", "usr/lib/by-a-thread/images/marble-white.png", "644"],
+    ["assets/images/marble-black.png", "usr/lib/by-a-thread/images/marble-black.png", "644"],
+    ["assets/images/purple.png", "usr/lib/by-a-thread/images/purple.png", "644"],
+    ["assets/sfx/bell.wav", "usr/lib/by-a-thread/sfx/bell.wav", "644"],
+    ["assets/sfx/clang.wav", "usr/lib/by-a-thread/sfx/clang.wav", "644"],
+    ["assets/sfx/deep_clang.wav", "usr/lib/by-a-thread/sfx/deep_clang.wav", "644"],
+    ["assets/sfx/gun.wav", "usr/lib/by-a-thread/sfx/gun.wav", "644"],
+    ["assets/sfx/shatter.wav", "usr/lib/by-a-thread/sfx/shatter.wav", "644"],
+    ["../LICENSE.txt", "usr/share/doc/by-a-thread/LICENSE.txt", "644"],
+    ["../CREDITS.txt", "usr/share/doc/by-a-thread/CREDITS.txt", "644"]
+]
+
+[package.metadata.generate-rpm]
+name = "by-a-thread"
+release = "1"
+license = "LicenseRef-Preview"
+assets = [
+    { source = "target/release/ByAThread", dest = "/usr/lib/by-a-thread/ByAThread", mode = "755" },
+    { source = "icon.png", dest = "/usr/share/icons/hicolor/256x256/apps/by-a-thread.png", mode = "644" },
+    { source = "by-a-thread.desktop", dest = "/usr/share/applications/by-a-thread.desktop", mode = "644" },
+    { source = "assets/fonts/macondo/Macondo-Regular.ttf", dest = "/usr/lib/by-a-thread/fonts/macondo/Macondo-Regular.ttf", mode = "644" },
+    { source = "assets/fonts/macondo/OFL.txt", dest = "/usr/lib/by-a-thread/fonts/macondo/OFL.txt", mode = "644" },
+    { source = "assets/fonts/noto/NotoSubset.ttf", dest = "/usr/lib/by-a-thread/fonts/noto/NotoSubset.ttf", mode = "644" },
+    { source = "assets/fonts/noto/LICENSE.txt", dest = "/usr/lib/by-a-thread/fonts/noto/LICENSE.txt", mode = "644" },
+    { source = "assets/images/ants.png", dest = "/usr/lib/by-a-thread/images/ants.png", mode = "644" },
+    { source = "assets/images/ants-in-maze.png", dest = "/usr/lib/by-a-thread/images/ants-in-maze.png", mode = "644" },
+    { source = "assets/images/bull.png", dest = "/usr/lib/by-a-thread/images/bull.png", mode = "644" },
+    { source = "assets/images/ball.png", dest = "/usr/lib/by-a-thread/images/ball.png", mode = "644" },
+    { source = "assets/images/griffin.png", dest = "/usr/lib/by-a-thread/images/griffin.png", mode = "644" },
+    { source = "assets/images/happy-monkeys.png", dest = "/usr/lib/by-a-thread/images/happy-monkeys.png", mode = "644" },
+    { source = "assets/images/sad-monkeys.png", dest = "/usr/lib/by-a-thread/images/sad-monkeys.png", mode = "644" },
+    { source = "assets/images/circuits.png", dest = "/usr/lib/by-a-thread/images/circuits.png", mode = "644" },
+    { source = "assets/images/rust-blue.png", dest = "/usr/lib/by-a-thread/images/rust-blue.png", mode = "644" },
+    { source = "assets/images/dolphins.png", dest = "/usr/lib/by-a-thread/images/dolphins.png", mode = "644" },
+    { source = "assets/images/squids.png", dest = "/usr/lib/by-a-thread/images/squids.png", mode = "644" },
+    { source = "assets/images/marble-green.png", dest = "/usr/lib/by-a-thread/images/marble-green.png", mode = "644" },
+    { source = "assets/images/marble-white.png", dest = "/usr/lib/by-a-thread/images/marble-white.png", mode = "644" },
+    { source = "assets/images/marble-black.png", dest = "/usr/lib/by-a-thread/images/marble-black.png", mode = "644" },
+    { source = "assets/images/purple.png", dest = "/usr/lib/by-a-thread/images/purple.png", mode = "644" },
+    { source = "assets/sfx/bell.wav", dest = "/usr/lib/by-a-thread/sfx/bell.wav", mode = "644" },
+    { source = "assets/sfx/clang.wav", dest = "/usr/lib/by-a-thread/sfx/clang.wav", mode = "644" },
+    { source = "assets/sfx/deep_clang.wav", dest = "/usr/lib/by-a-thread/sfx/deep_clang.wav", mode = "644" },
+    { source = "assets/sfx/gun.wav", dest = "/usr/lib/by-a-thread/sfx/gun.wav", mode = "644" },
+    { source = "assets/sfx/shatter.wav", dest = "/usr/lib/by-a-thread/sfx/shatter.wav", mode = "644" },
+    { source = "../LICENSE.txt", dest = "/usr/share/doc/by-a-thread/LICENSE.txt", mode = "644", doc = true },
+    { source = "../CREDITS.txt", dest = "/usr/share/doc/by-a-thread/CREDITS.txt", mode = "644", doc = true }
+]

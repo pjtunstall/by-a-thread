@@ -1,0 +1,54 @@
+use std::{io::stdout, time::Instant};
+
+use crossterm::{
+    cursor::{MoveToColumn, Show},
+    execute,
+    style::Print,
+    terminal::{Clear, ClearType},
+};
+
+use crate::{
+    net::ServerNetworkHandle,
+    state::{Countdown, Game, ServerState},
+};
+
+pub fn handle(
+    _network: &mut dyn ServerNetworkHandle,
+    state: &mut Countdown,
+) -> Option<ServerState> {
+    let server_time = Instant::now();
+
+    if server_time < state.end_time {
+        let remaining_secs = (state.end_time - server_time).as_secs();
+        let output = format!("Game starting in {}s...", remaining_secs);
+
+        execute!(
+            stdout(),
+            MoveToColumn(0),
+            Clear(ClearType::CurrentLine),
+            Print(output)
+        )
+        .expect("failed to print countdown line");
+
+        None
+    } else {
+        execute!(
+            stdout(),
+            MoveToColumn(0),
+            Clear(ClearType::CurrentLine),
+            Show
+        )
+        .expect("failed to show cursor and clear line");
+
+        println!();
+
+        let game_data = std::mem::take(&mut state.game_data);
+        let has_connected_players = game_data.players.iter().any(|p| !p.disconnected);
+        if !has_connected_players {
+            println!("No players connected when countdown finished. Server exiting.");
+            std::process::exit(0);
+        }
+
+        Some(ServerState::Game(Game::new(game_data)))
+    }
+}

@@ -1,0 +1,145 @@
+name: Deploy Client
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types:
+      - deploy_client
+
+jobs:
+  deploy-client:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Read client version
+        id: version
+        run: |
+          V=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="client").version')
+          if [ -n "$V" ] && [ "$V" != "null" ]; then
+            echo "version=$V" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: build.yaml
+          branch: main
+          path: assets
+
+      - name: Download butler
+        run: |
+          curl -L -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip butler.zip
+          chmod +x butler
+
+      - name: Fix permissions
+        run: |
+          find assets -name '*.AppImage' -exec chmod +x {} \;
+
+      - name: Push to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+          GAME: ${{ secrets.ITCH_USERNAME }}/${{ secrets.ITCH_GAME }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          shopt -s nullglob
+          if [ -z "$VERSION" ]; then
+            echo "::warning::Deploy version is empty (cargo metadata may have failed); itch.io will not show a version for these builds."
+            echo "Pushing with userversion: <none>"
+          else
+            echo "Pushing with userversion: $VERSION"
+          fi
+          UV=""
+          [ -n "$VERSION" ] && UV="--userversion $VERSION"
+
+          for file in assets/windows-package/*.zip; do
+            ./butler push $UV "$file" $GAME:windows
+          done
+
+          for file in assets/linux-packages/*.AppImage; do
+            ./butler push $UV "$file" $GAME:linux
+          done
+
+          for file in assets/linux-packages/*.deb; do
+            ./butler push $UV "$file" $GAME:linux-deb
+          done
+
+          for file in assets/linux-packages/*.rpm; do
+            ./butler push $UV "$file" $GAME:linux-rpm
+          done
+
+          for file in assets/macos-packages/*.zip; do
+            if [[ "$file" == *"intel"* ]] || [[ "$file" == *"x86_64"* ]]; then
+              ./butler push $UV "$file" $GAME:mac-intel
+            elif [[ "$file" == *"silicon"* ]] || [[ "$file" == *"aarch64"* ]]; then
+              ./butler push $UV "$file" $GAME:mac-apple
+            else
+              ./butler push $UV "$file" $GAME:mac
+            fi
+          done
+
+      - name: Stage release assets with stable names
+        run: |
+          shopt -s nullglob
+          mkdir -p release-assets
+
+          for file in assets/windows-package/*.zip; do
+            cp "$file" release-assets/ByAThread-windows.zip
+          done
+
+          for file in assets/linux-packages/*.AppImage; do
+            cp "$file" release-assets/ByAThread-linux.AppImage
+          done
+
+          for file in assets/linux-packages/*.deb; do
+            cp "$file" release-assets/ByAThread-linux.deb
+          done
+
+          for file in assets/linux-packages/*.rpm; do
+            cp "$file" release-assets/ByAThread-linux.rpm
+          done
+
+          for file in assets/macos-packages/*.zip; do
+            if [[ "$file" == *"intel"* ]] || [[ "$file" == *"x86_64"* ]]; then
+              cp "$file" release-assets/ByAThread-macos-intel.zip
+            elif [[ "$file" == *"silicon"* ]] || [[ "$file" == *"aarch64"* ]]; then
+              cp "$file" release-assets/ByAThread-macos-silicon.zip
+            else
+              cp "$file" release-assets/ByAThread-macos.zip
+            fi
+          done
+
+          ls -la release-assets
+
+      - name: Publish to GitHub Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          RUN_NUMBER: ${{ github.run_number }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          if [ -n "$VERSION" ]; then
+            TAG="v${VERSION}"
+            TITLE="v${VERSION}"
+          else
+            TAG="build-${RUN_NUMBER}"
+            TITLE="Build ${RUN_NUMBER}"
+          fi
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; uploading assets with --clobber."
+            gh release upload "$TAG" release-assets/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+          else
+            echo "Creating release $TAG."
+            gh release create "$TAG" release-assets/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$TITLE" \
+              --notes "Automated release from commit ${COMMIT_SHA}." \
+              --latest
+          fi
