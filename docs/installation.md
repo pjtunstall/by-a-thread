@@ -23,9 +23,9 @@ Double-click the archive to extract it if needed. Drag `ByAThread.app` into **Ap
 
 Downloads from the browser get a **quarantine** flag, so **Gatekeeper** may stop a plain double-click until you confirm you trust the app.
 
-**First launch (recommended):** Right-click `ByAThread.app`, choose **Open**, then click **Open** in the dialog. After that, a normal double-click should work.
+First launch, right-click `ByAThread.app`, choose **Open**, then click **Open** in the dialog. After that, a normal double-click should work.
 
-**If it's still blocked:** Open **System Settings** > **Privacy & Security** and allow **ByAThread**. On macOS 12 and earlier, use **System Preferences** > **Security & Privacy** instead.
+If it's still blocked, open **System Settings** > **Privacy & Security** and allow **ByAThread**. On macOS 12 and earlier, use **System Preferences** > **Security & Privacy** instead.
 
 ## Linux
 
