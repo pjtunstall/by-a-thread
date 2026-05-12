@@ -8,6 +8,8 @@
   - [GitHub Actions](#github-actions)
   - [VPS scripts and deployment](#vps-scripts-and-deployment)
 - [Monitoring](#monitoring)
+- [Versioning](#versioning)
+  - [Trade-offs](#trade-offs)
 
 This document describes how the backend is hosted in production: where it runs, how images are built and pulled, and how configuration and automation fit together.
 
@@ -61,7 +63,7 @@ For a fresh VPS, the quickest way to get started is:
 5. On the VPS (logged in as the non-root user), run `docker login` so it can pull images from Docker Hub.
 6. Optionally set up cron jobs as described in [VPS scripts and deployment](#vps-scripts-and-deployment).
 
-After initial setup, you can deploy the latest backend and trigger a client deploy by running `make deploy` from your machine. This SSHes to the VPS and runs `deploy_frontend.sh` and `deploy_backend.sh` under `~/scripts` (see [VPS scripts and deployment](#vps-scripts-and-deployment)).
+After initial setup, you can deploy the latest backend and trigger a client deploy by running `make deploy` from your machine. This SSHes to the VPS and runs `deploy_frontend.sh` and `deploy_backend.sh` under `~/scripts` (see [VPS scripts and deployment](#vps-scripts-and-deployment)). If running this command after pushing changes to GitHub, make sure that GitHub has finished running the build workflow first.
 
 ### Caddy and Docker networking
 
@@ -162,7 +164,7 @@ After changing `HOST` for production, rebuild the client so the new default serv
 
 ### GitHub Actions
 
-Two workflows are used to build and deploy the stack.
+Two workflows are used to build and deploy the stack. `Build` runs every time a commit that changes more than just documentation is pushed to GitHub. `Deploy Client` is triggered by the VPS during scheduled maintenance, and can also be initiated manually as described below.
 
 - **Build (`build.yaml`)**:
   - Runs tests.
@@ -209,7 +211,7 @@ WARNING: If deploying manually from the GitHub UI, be sure not to let the client
 
 ### VPS scripts and deployment
 
-The repo is not cloned on the VPS. For initial setup and deployment, follow the quick-start steps in the [Deploy](#deploy) section above (`make init`, `docker login`). Significant files and folders are descibed in the following two sections. Optionally set up cron jobs to trigger automatic updates as described below in [Scheduled maintenance](#scheduled-maintenance).
+The repo is not cloned on the VPS. For initial setup and deployment, see the quick-start steps in the [Deploy](#deploy) section above (`make init`, `docker login`). Significant files and folders are descibed in the following two sections. Cron jobs trigger automatic updates as described below in [Scheduled maintenance](#scheduled-maintenance).
 
 **Deploy directory**
 
@@ -256,3 +258,23 @@ For the sake of simplicity, I chose to let the matchmaker initiate lock/unlock f
 ### Monitoring
 
 The matchmaker API exposes a `/health` endpoint for uptime monitoring. I'm using the UptimeRobot service to ping it every five minutes. A GET request confirms that the matchmaker is reachable. UptimeRobot alerts me if the matchmakers goes down or comes back online.
+
+### Versioning
+
+GitHub Releases are named after a git tag (here, `v` plus the client semver from `Cargo.toml`). I wanted it to be possible to ship more than once under the same semver (i.e. without bumping `Cargo.toml`) so as not to burden users with having to upgrade their copy more often than necessary. (Currently, the matchmaker and game server require a strict match with the client version.) For the sake of clarity, I also wanted the tag to point to the most recently deployed commit.
+
+However, this goes against GitHub's default expectation, which prioritizes stable tags. Out of the box, publishing again under the same release name reused the existing tag at whatever commit it already pointed to; new assets were attached, but the tag was not moved to match the new deployment.
+
+To get around this, I added a step to the `Deploy Client` workflow. It now looks up the client version from the Rust workspace. It names the GitHub release after the version, then uploads the client packages it just pulled from the build. If a release with that name already exists, the workflow removes it and the matching git tag on the repository, then creates a new release with the same name, attaches the new files, and places the tag on the commit this run is for.
+
+If no release with that name exists yet, it simply creates the release and tag on that commit.
+
+After a successful run, that tag points at the commit that workflow run used, the release is marked **Latest**, and download links under that semver match the binaries pushed to itch.io and GitHub Releases in that deploy.
+
+#### Trade-offs
+
+Semver tags are not treated as immutable. Repository tag protection rules, if enabled, can block `--cleanup-tag`.
+
+Currenly I'm tracking the first commit of a new Cargo version with a local tag and letting the workflow ensure that remote tags track the latest deployed commit of that version. This divergence isn't ideal. I could add a distinguishing feature to each sort of tag. I then could include tag reconciliation in CI/CD, so that local and remote repos each have both tag-sequence types. This can always be done later if it seems worthwhile.
+
+An alternative might be to relax serverside version validation, at the cost of greater complexity there, thus allowing every deployment to have a distinct tag.
