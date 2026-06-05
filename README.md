@@ -24,22 +24,22 @@ My game features custom physics and latency compensation. I used [Macroquad](htt
 
 ## Status
 
-Successfully tested on Hetzner VPS with the Linux AppImage, Linux deb, and Windows versions of the client. Have you tried the macOS and RMP versions? Let me know if they worked, e.g. through the contact form [here](https://by-a-thread.de/).
+Successfully tested on Hetzner VPS with the Linux AppImage, Linux deb, and Windows versions of the client. Have you tried the macOS or Linux RMP versions? Let me know if they worked, e.g. through the contact form [here](https://by-a-thread.de/).
 
 ## Spec
 
 According to the 01 spec, the game should include:
 
 - all elements of the original game:
-  - multiplayer,
-  - 3D, 1st person perspective,
-  - shooting,
-  - set in a maze;
-- client-server architecture;
-- communication via the UDP networking protocol;
-- frames-per-second meter to monitor in-game performance;
-- three levels with mazes of increasing difficulty, defined as more dead ends;
-- option to connect to an arbitrary server.
+  - multiplayer
+  - 3D, 1st person perspective
+  - shooting
+  - set in a maze
+- client-server architecture
+- communication via the UDP networking protocol
+- frames-per-second meter to monitor in-game performance
+- three levels with mazes of increasing difficulty, defined as more dead ends
+- option to connect to an arbitrary server
 
 ## Extras
 
@@ -128,10 +128,9 @@ In-game or in the lobby:
 
 ## Next steps
 
-- Get confirmation that the yet-to-be-tested binaries work:
+- Get feedback on whether the yet-to-be-tested binaries work:
   - macOS (Intel and Apple Silicon)
   - Linux RPM
-- Handle any urgent issues raised by feedback
 - Publish on itch.io
 
 ## Possible further developments

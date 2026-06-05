@@ -35,7 +35,7 @@ Renet is a networking library for Rust, built on top of UDP. It defines three ch
 
 A frame is an iteration of the client's game loop. The frame rate is how often the program calls its function(s) to draw the latest game state on the screen.
 
-The refresh rate of a monitor is how fast it updates the display. On many computers this is 60 times a second; on some it's be faster.
+The refresh rate of a monitor is how fast it updates the display. On many computers this is 60 times a second; on some it's faster.
 
 In the case of this game, the ideal frame rate the same as the refresh rate. Calling `next_frame().await`, tells the Macroquad to suspend the game loop till the rest of the ideal frame duration has elapsed. Then we move on to the next iteration.
 
@@ -47,13 +47,13 @@ A tick is an iteration of the server's game loop. We also use the word to mean a
 
 Although the server runs its input processing and physics updates at 60Hz, it only broadcasts player positions at 20Hz. I've called this the broadcast rate. The client has various ways of filling in the gaps, as detailed below.
 
-Depending on varying latency and frame duration, the client may have a varying number of ticks (in the sense of game-logic updates) to process each frame. Even if it hasn't heard from the server on a given tick, it must still check its own inputs and update its "simulation" of the server' sauthoritative reality. When data does arrive, it will correct the simulation, although it may do so in subtle ways, smoothing out abrupt changes.
+Depending on varying latency and frame duration, the client may have a varying number of ticks (in the sense of game-logic updates) to process each frame. Even if it hasn't heard from the server on a given tick, it must still check its own inputs and update its "simulation" of the server's authoritative reality. When data does arrive, it will correct the simulation, although it may do so in subtle ways, smoothing out abrupt changes.
 
 ## Clock synchronization
 
 To overcome discrepancies between local clocks, the sever clock is taken as the authoritative source of time.
 
-The client needs a good estimate of server time to drive interpolation, input scheduling, and countdowns, but it can't trust wall clocks: packets arrive late, late packets can arrive out of order, and RTT (return travel time) jitters with network conditions. So the client builds a moving estimate, `estimated_server_time`, from periodic server pings and smooths it to avoid visible stutter.
+The client needs a good estimate of server time to drive interpolation, input scheduling, and countdowns, but it can't trust wall clocks: packets can arrive late or out of order, and RTT (return travel time) jitters with network conditions. So the client builds a moving estimate, `estimated_server_time`, from periodic server pings and smooths it to avoid visible stutter.
 
 The server broadcasts `ServerTime` messages at a fixed interval. The client records each message as a `ClockSample` with the server time, the local receive time (a monotonic clock), and the RTT from Renet. Each frame, the estimate is advanced by the duration of the last frame. When samples are available, the client chooses the best one by minimizing `rtt + age * AGE_PENALTY_FACTOR`, so it prefers a slightly higher RTT from a fresh packet over a perfect RTT from an old packet. It then computes a target time as `server_time + rtt / 2 + age_of_sample`.
 
