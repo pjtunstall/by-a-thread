@@ -249,7 +249,8 @@ impl ClientSession {
         let pre_lobby_awaiting = matches!(
             &self.state,
             ClientState::PreLobby(PreLobby::MatchmakerRequestMenu {
-                phase: MatchmakerRequestPhase::AwaitingCreate { .. } | MatchmakerRequestPhase::AwaitingJoin { .. },
+                phase: MatchmakerRequestPhase::AwaitingCreate { .. }
+                    | MatchmakerRequestPhase::AwaitingJoin { .. },
                 ..
             })
         );
@@ -381,11 +382,17 @@ mod tests {
 
     #[test]
     fn username_validation_respects_length_limit() {
-        let too_long = "abcdefghijklmnopq";
+        let too_long = "x".repeat(MAX_USERNAME_LENGTH + 1);
         assert_eq!(
-            validate_username_input(too_long),
+            validate_username_input(&too_long),
             Err(UsernameError::TooLong)
         );
+    }
+
+    #[test]
+    fn username_validation_allows_acceptable_length() {
+        let right_length = "x".repeat(MAX_USERNAME_LENGTH);
+        assert_eq!(validate_username_input(&right_length), Ok(right_length));
     }
 
     #[test]

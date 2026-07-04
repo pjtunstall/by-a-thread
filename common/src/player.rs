@@ -463,8 +463,8 @@ mod tests {
 
     #[test]
     fn sanitize_rejects_usernames_that_are_too_long() {
-        let long_name = "abcdefghijklmnopq"; // 17 characters, one more than permitted.
-        assert_eq!(sanitize_username(long_name), Err(UsernameError::TooLong));
+        let long_name = "x".repeat(MAX_USERNAME_LENGTH + 1);
+        assert_eq!(sanitize_username(&long_name), Err(UsernameError::TooLong));
     }
 
     #[test]
