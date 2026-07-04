@@ -51,6 +51,31 @@ fn player_color_to_text_color(color: PlayerColor) -> Color {
 
 const LOBBY_TIMER_DIAL_FRACTION_OF_SCREEN_HEIGHT: f32 = 54.0 / 720.0;
 
+const KEY_REPEAT_INITIAL_DELAY: Duration = Duration::from_millis(500);
+const KEY_REPEAT_RATE: Duration = Duration::from_millis(32);
+
+fn key_repeat_triggered(last_pressed: &mut Option<Instant>, key: KeyCode) -> bool {
+    if is_key_down(key) {
+        match *last_pressed {
+            Some(last) => {
+                if last.elapsed() >= KEY_REPEAT_RATE {
+                    *last_pressed = Some(Instant::now());
+                    true
+                } else {
+                    false
+                }
+            }
+            None => {
+                *last_pressed = Some(Instant::now() + KEY_REPEAT_INITIAL_DELAY);
+                true
+            }
+        }
+    } else {
+        *last_pressed = None;
+        false
+    }
+}
+
 #[derive(Debug)]
 pub struct Gui {
     pub message_history: Vec<(String, Color)>,
@@ -582,80 +607,29 @@ impl LobbyUi for Gui {
 
         let char_count = self.input_buffer.chars().count();
 
-        let initial_delay = Duration::from_millis(500);
-        let repeat_rate = Duration::from_millis(32);
-
-        if is_key_down(KeyCode::Up) {
-            match self.up_arrow_last_pressed {
-                Some(last) => {
-                    if last.elapsed() >= repeat_rate {
-                        if self.scroll_offset < self.message_history.len().saturating_sub(1) {
-                            self.scroll_offset += 1;
-                        }
-                        self.up_arrow_last_pressed = Some(Instant::now());
-                    }
-                }
-                None => {
-                    if self.scroll_offset < self.message_history.len().saturating_sub(1) {
-                        self.scroll_offset += 1;
-                    }
-                    self.up_arrow_last_pressed = Some(Instant::now() + initial_delay);
-                }
-            }
-        } else {
-            self.up_arrow_last_pressed = None;
+        if key_repeat_triggered(&mut self.up_arrow_last_pressed, KeyCode::Up)
+            && self.scroll_offset < self.message_history.len().saturating_sub(1)
+        {
+            self.scroll_offset += 1;
         }
 
-        if is_key_down(KeyCode::Down) {
-            match self.down_arrow_last_pressed {
-                Some(last) => {
-                    if last.elapsed() >= repeat_rate {
-                        if self.scroll_offset > 0 {
-                            self.scroll_offset -= 1;
-                        }
-                        self.down_arrow_last_pressed = Some(Instant::now());
-                    }
-                }
-                None => {
-                    if self.scroll_offset > 0 {
-                        self.scroll_offset -= 1;
-                    }
-                    self.down_arrow_last_pressed = Some(Instant::now() + initial_delay);
-                }
-            }
-        } else {
-            self.down_arrow_last_pressed = None;
+        if key_repeat_triggered(&mut self.down_arrow_last_pressed, KeyCode::Down)
+            && self.scroll_offset > 0
+        {
+            self.scroll_offset -= 1;
         }
 
-        if is_key_down(KeyCode::Left) && self.cursor_pos > 0 {
-            match self.left_arrow_last_pressed {
-                Some(last) => {
-                    if last.elapsed() >= repeat_rate {
-                        self.cursor_pos -= 1;
-                        self.left_arrow_last_pressed = Some(Instant::now());
-                    }
-                }
-                None => {
-                    self.cursor_pos -= 1;
-                    self.left_arrow_last_pressed = Some(Instant::now() + initial_delay);
-                }
+        if self.cursor_pos > 0 {
+            if key_repeat_triggered(&mut self.left_arrow_last_pressed, KeyCode::Left) {
+                self.cursor_pos -= 1;
             }
         } else {
             self.left_arrow_last_pressed = None;
         }
 
-        if is_key_down(KeyCode::Right) && self.cursor_pos < char_count {
-            match self.right_arrow_last_pressed {
-                Some(last) => {
-                    if last.elapsed() >= repeat_rate {
-                        self.cursor_pos += 1;
-                        self.right_arrow_last_pressed = Some(Instant::now());
-                    }
-                }
-                None => {
-                    self.cursor_pos += 1;
-                    self.right_arrow_last_pressed = Some(Instant::now() + initial_delay);
-                }
+        if self.cursor_pos < char_count {
+            if key_repeat_triggered(&mut self.right_arrow_last_pressed, KeyCode::Right) {
+                self.cursor_pos += 1;
             }
         } else {
             self.right_arrow_last_pressed = None;
@@ -678,20 +652,10 @@ impl LobbyUi for Gui {
             }
         }
 
-        if is_key_down(KeyCode::Backspace) && self.cursor_pos > 0 {
-            match self.backspace_last_pressed {
-                Some(last) => {
-                    if last.elapsed() >= repeat_rate {
-                        self.cursor_pos -= 1;
-                        self.delete_previous_char();
-                        self.backspace_last_pressed = Some(Instant::now());
-                    }
-                }
-                None => {
-                    self.cursor_pos -= 1;
-                    self.delete_previous_char();
-                    self.backspace_last_pressed = Some(Instant::now() + initial_delay);
-                }
+        if self.cursor_pos > 0 {
+            if key_repeat_triggered(&mut self.backspace_last_pressed, KeyCode::Backspace) {
+                self.cursor_pos -= 1;
+                self.delete_previous_char();
             }
         } else {
             self.backspace_last_pressed = None;
@@ -713,14 +677,21 @@ impl LobbyUi for Gui {
     }
 
     fn poll_single_key(&mut self) -> Result<Option<UiKey>, UiInputError> {
+        if key_repeat_triggered(&mut self.up_arrow_last_pressed, KeyCode::Up) {
+            return Ok(Some(UiKey::Up));
+        }
+
+        if key_repeat_triggered(&mut self.down_arrow_last_pressed, KeyCode::Down) {
+            return Ok(Some(UiKey::Down));
+        }
+
         if let Some(key_code) = get_last_key_pressed() {
             let ui_key = match key_code {
                 KeyCode::Enter => Some(UiKey::Enter),
                 KeyCode::Backspace => Some(UiKey::Backspace),
                 KeyCode::Escape => Some(UiKey::Esc),
                 KeyCode::Tab => Some(UiKey::Tab),
-                KeyCode::Up => Some(UiKey::Up),
-                KeyCode::Down => Some(UiKey::Down),
+                KeyCode::Up | KeyCode::Down => None,
                 _ => {
                     if let Some(char_code) = get_char_pressed() {
                         Some(UiKey::Char(char_code as char))

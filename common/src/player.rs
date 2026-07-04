@@ -9,7 +9,7 @@ use strum::{Display, IntoStaticStr};
 
 use crate::{constants::TICK_SECS_F32, maze::Maze};
 
-pub const MAX_USERNAME_LENGTH: usize = 16;
+pub const MAX_USERNAME_LENGTH: usize = 32;
 
 // TODO: Consider changing to `f64` for simulation, and converting to `f32` to
 // send and to render.

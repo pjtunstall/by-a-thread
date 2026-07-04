@@ -275,6 +275,6 @@ After a successful run, that tag points at the commit that workflow run used, th
 
 Semver tags are not treated as immutable. Repository tag protection rules, if enabled, can block `--cleanup-tag`.
 
-Currenly I'm tracking the first commit of a new Cargo version with a local tag and letting the workflow ensure that remote tags track the latest deployed commit of that version. This divergence isn't ideal. I could add a distinguishing feature to each sort of tag. I then could include tag reconciliation in CI/CD, so that local and remote repos each have both tag-sequence types. This can always be done later if it seems worthwhile.
+Currenly I'm tracking the first commit of a new Cargo version with a local tag and letting the workflow ensure that remote tags track the latest deployed commit of that version. This divergence isn't ideal. I could add a distinguishing feature to each sort of tag. I could then include tag reconciliation in CI/CD, so that local and remote repos each have both tag-sequence types. This can always be done later if it seems worthwhile.
 
 An alternative might be to relax serverside version validation, at the cost of greater complexity there, thus allowing every deployment to have a distinct tag.
