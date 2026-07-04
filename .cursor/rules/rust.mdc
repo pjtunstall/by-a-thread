@@ -1,10 +1,10 @@
 ---
-description: Modern Rust conventions
+description: Rust current edition and modern module conventions
 globs: "**/*.rs"
 alwaysApply: false
 ---
 
 # Rust
 
-- Use the 2024 edition.
-- Use modern module structure, i.e. no `mod.rs` files.
+- Use the 2024 edition of Rust.
+- Use modern Rust module structure, i.e. no `mod.rs` files.

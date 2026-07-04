@@ -1,6 +1,7 @@
 ---
 description: Variable names
-alwaysApply: true
+globs: "**/*.rs"
+alwaysApply: false
 ---
 
 # Names

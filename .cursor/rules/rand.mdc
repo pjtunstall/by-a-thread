@@ -1,0 +1,14 @@
+---
+description: rand crate 0.9+ revised API
+globs: "**/*.rs"
+alwaysApply: false
+---
+
+# rand
+
+- Use the correct API for rand 0.9+. Thus:
+  - `rng()`, not `thread_rng()`
+  - `rng.random_range`, not `rng.gen_range`
+  - `rng.random::<T>()`, not `rng.gen::<T>()`
+  - `rng.random_bool()`, not `rng.gen_bool()`
+  - `rng.random_ratio(n, d)`, not `rng.gen_ratio(n, d)`

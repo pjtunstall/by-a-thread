@@ -1,10 +1,10 @@
 ---
 description: Version numbers
-globs: "**/*.rs"
+globs: "**/Cargo.toml"
 alwaysApply: false
 ---
 
 # Dependencies
 
-- Use full, 3-part version numbers
-- Check that they're the latest version
+- Use full, 3-part version numbers.
+- Be sure to use the latest version.

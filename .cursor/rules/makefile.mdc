@@ -1,19 +1,24 @@
+---
+description: Makefile conventions
+globs: "**/Makefile"
+alwaysApply: false
+---
+
 # Makefile conventions
 
-- **Use named targets for build steps**  
-  - Prefer descriptive phony (or file) targets like `build-server-image`, `build-matchmaker-image`, `windows`, `deb`, etc.  
+- **Use named targets for build steps**
+  - Prefer descriptive phony (or file) targets like `build-server-image`, `build-matchmaker-image`, `windows`, `deb`, etc.
   - Other targets should depend on these named steps, not on internal implementation details.
 
-- **Use sentinel (stamp) files only as internal details**  
-  - A sentinel (e.g. `dist/.docker-image-built`) is just a timestamp marker to record that an expensive step completed successfully.  
-  - Always `touch` the sentinel at the end of the recipe that performs the work.  
+- **Use sentinel (stamp) files only as internal details**
+  - A sentinel (e.g. `dist/.docker-image-built`) is just a timestamp marker to record that an expensive step completed successfully.
+  - Always `touch` the sentinel at the end of the recipe that performs the work.
   - Do not make other targets depend directly on the sentinel; depend on the named build target instead (e.g. `server: build-server-image`, `push-server-image: build-server-image`).
 
-- **Be consistent for Docker images**  
-  - All Docker image builds should go through named targets like `build-server-image` and `build-matchmaker-image`.  
+- **Be consistent for Docker images**
+  - All Docker image builds should go through named targets like `build-server-image` and `build-matchmaker-image`.
   - Those targets are responsible for running `docker build`, tagging both `:latest` and `:<version>`, and touching any sentinel file if used.
 
-- **Get versions via `cargo metadata`**  
-  - When you need a Cargo package version in `Makefile` recipes, use `cargo metadata --no-deps --format-version 1 | jq -r` and select by package name.  
+- **Get versions via `cargo metadata`**
+  - When you need a Cargo package version in `Makefile` recipes, use `cargo metadata --no-deps --format-version 1 | jq -r` and select by package name.
   - Do not parse `cargo pkgid` or `Cargo.toml` manually for versions in new code.
-
