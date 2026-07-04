@@ -3,7 +3,8 @@ use std::ops::RangeInclusive;
 use tokio::sync::Mutex;
 
 // If these change, be sure to update `docs/devops.md`, `docs/api.yaml`, and the
-// firewall rules.
+// firewall rules; also the note in `README.md` to players about which ports to
+// allow, and the corresponding note on the `by-a-thread.de` website.
 const PORT_POOL_START: u16 = 7777;
 const PORT_POOL_SIZE: u16 = 10;
 const PORT_POOL_END: u16 = PORT_POOL_START + PORT_POOL_SIZE - 1;
