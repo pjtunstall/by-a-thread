@@ -94,7 +94,9 @@ More information on specific topics can be found in the docs:
 
 - Step 1: [Download](https://by-a-thread.de/) the client.
 - Step 2: Install: See the [installation guide](docs/installation.md) for OS-specific instructions.
-- Step 3: Play: Launch the game and choose "default server".
+- Step 4: Play: Launch the game and choose "default server".
+
+If you're on a restrictive network or a VPN with strict policies, you might need to adjust your firewall allow outbound UDP to `game.by-a-thread.de` on ports 7777-7786 inclusive. For school or corporate wifi, ask your network administrator.
 
 As an alternative to Step 1, if you prefer to build from source, clone this repo and run the appropriate Make command for your system from the project root (`make windows`, `make macos-intel`, `make macos-silicon`, `make deb`, `make rpm`, `make appimage`).
 
