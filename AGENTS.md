@@ -11,5 +11,6 @@ Follow the project rules in `.cursor/rules/` where their descriptions suggest th
 | `makefile.mdc`     | Makefile conventions                               |
 | `markdown.mdc`     | Markdown style                                     |
 | `names.mdc`        | Variable names                                     |
+| `punctuation.mdc`  | Punctuation in markdown and comments               |
 | `rand.mdc`         | rand crate 0.9+ revised API                        |
 | `rust.mdc`         | Rust current edition and modern module conventions |
