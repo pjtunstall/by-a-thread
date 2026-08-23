@@ -71,7 +71,11 @@ The client maintains ring buffers called `input_history` (for their own inputs, 
 
 The `input_history` is implemented as a `Ring` struct, and the others with the `NetworkBuffer` struct. A `Ring` stores items in an array, labeled with a 64-bit tick number. The index at which an item is inserted is its tick modulo the length of the array. This allows items to be inserted in a circular fashion. Since they're labeled with the tick number, the item corresponding to a given tick can be extracted; if the item at the corresponding index doesn't match the tick, the item for that tick is considered not found.
 
-A `NetworkBuffer` includes a `Ring` together with a `head` and `tail`. The `head` is a "write" cursor. It's the tick of most recent item inserted. The `tail` is a "read" cursor. It's the tick of the last input processed, and is kept a a safety margin of ticks (a minute's worth) behind the last snapshot used. (The reason for this generous safety margin is that the client's estimate of current server time is not monotonic: it can slip backwards slightly due to network conditions.)
+A `NetworkBuffer` includes a `Ring` together with a `head` and `tail`. The `head` is a "write" cursor. It's the tick of most recent item inserted. The `tail` is a cutoff point. No items this old (or older) will be inserted.
+
+The tail of the client's `snapshot_buffer` is kept a safe margin of ticks (a second's worth) behind the oldest snapshot used (i.e. the older of the two bracketing snapshots in [interpolation for remote players](#remote-players-interpolation)). The reason for this generous margin is that the client's estimate of current server time is not monotonic: it can slip backwards slightly due to network conditions. Since somewhat old snapshots are used for interpolation, we don't want to reject them if we can reasonably avoid it.
+
+On the server, `input_buffer.tail` is advanced to `current_tick` each tick with no extra margin. Once a tick's inputs have been applied, the resulting world state is definitive. The server has no use for older inputs then.
 
 To save on bandwidth, ticks are sent as 16-bit unsigned integers and expanded into 64-bit tick numbers, based on the assumption that they're close to `head`.
 
