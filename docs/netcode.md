@@ -75,7 +75,7 @@ A `NetworkBuffer` includes a `Ring` together with a `head` and `tail`. The `head
 
 The tail of the client's `snapshot_buffer` is kept a safe margin of ticks (a second's worth) behind the oldest snapshot used (i.e. the older of the two bracketing snapshots in [interpolation for remote players](#remote-players-interpolation)). The reason for this generous margin is that the client's estimate of current server time is not monotonic: it can slip backwards slightly due to network conditions. Since somewhat old snapshots are used for interpolation, we don't want to reject them if we can reasonably avoid it.
 
-On the server, `input_buffer.tail` is advanced to `current_tick` each tick with no extra margin. Once a tick's inputs have been applied, the resulting world state is definitive. The server has no use for older inputs then.
+On the server, `input_buffer.tail` is advanced to `current_tick` each tick with no extra margin. Once a tick's inputs have been applied, the resulting world state is definitive. The server has no use for older inputs then. (In principle, we could keep a margin to allow use of a fresher old input if none is available for the current tick. But, in practice, I felt there was little to be gained from this, given the other measures described in [Input](#input).)
 
 To save on bandwidth, ticks are sent as 16-bit unsigned integers and expanded into 64-bit tick numbers, based on the assumption that they're close to `head`.
 
